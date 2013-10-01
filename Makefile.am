@@ -1,0 +1,11 @@
+
+ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
+AM_CFLAGS = ${WARN_CFLAGS}
+
+SUBDIRS = src
+
+EXTRA_DIST = \
+    autogen.sh \
+    COPYING \
+    AUTHORS \
+    NEWS
