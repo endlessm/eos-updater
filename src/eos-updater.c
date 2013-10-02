@@ -22,9 +22,13 @@ typedef enum _UpdateStep {
   UPDATE_STEP_APPLY
 } UpdateStep;
 
-gboolean polled_already = FALSE;
-GMainLoop *main_loop;
-UpdateStep last_automatic_step;
+static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
+static const char *AUTOMATIC_GROUP = "Automatic Updates";
+static const char *LAST_STEP_KEY = "LastAutomaticStep";
+
+static gboolean polled_already = FALSE;
+static GMainLoop *main_loop;
+static UpdateStep last_automatic_step;
 
 static void handle_call_error (OTD *proxy, GError *error) {
   g_critical ("Error calling OSTree daemon: %s", error->message);
@@ -32,7 +36,8 @@ static void handle_call_error (OTD *proxy, GError *error) {
 }
 
 static void
-update_step_callback (GObject *source_object, GAsyncResult *res, gpointer currentStep)
+update_step_callback (GObject *source_object, GAsyncResult *res,
+                      gpointer currentStep)
 {
   OTD *proxy = (OTD *) source_object;
   UpdateStep step = *(UpdateStep *) currentStep;
@@ -109,7 +114,8 @@ report_error_status (OTD *proxy)
 
   error_code = otd__get_error_code (proxy);
   error_message = otd__get_error_message (proxy);
-  g_critical ("OSTree daemon returned error code %u: %s", error_code, error_message);
+  g_critical ("OSTree daemon returned error code %u: %s",
+              error_code, error_message);
 }
 
 static void
@@ -164,22 +170,20 @@ on_state_changed (OTD *proxy, guint state)
   }
 }
 
-static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
-static const char *AUTOMATIC_GROUP = "Automatic Updates";
-static const char *LAST_STEP_KEY = "LastAutomaticStep";
-
 static gboolean
 read_config_file (void)
 {
   GKeyFile *config = g_key_file_new ();
   GError *error = NULL;
 
-  if (!g_key_file_load_from_file (config, CONFIG_FILE_PATH, G_KEY_FILE_NONE, &error)) {
+  if (!g_key_file_load_from_file (config, CONFIG_FILE_PATH,
+                                  G_KEY_FILE_NONE, &error)) {
     g_critical ("Can't open config file: %s", CONFIG_FILE_PATH);
     return FALSE;
   }
 
-  last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP, LAST_STEP_KEY, &error);
+  last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
+                                                LAST_STEP_KEY, &error);
   if (error) {
     g_critical ("Can't find key in config file");
     return FALSE;
@@ -223,7 +227,8 @@ main (int argc, char **argv)
     return 1;
   }
 
-  g_signal_connect (proxy, "state-changed", G_CALLBACK (on_state_changed), NULL);
+  g_signal_connect (proxy, "state-changed",
+                    G_CALLBACK (on_state_changed), NULL);
 
   g_idle_add (initial_poll_idle_func, proxy);
   g_main_loop_run (main_loop);
