@@ -34,11 +34,13 @@ step_is_automatic (UpdateStep step) {
 static void handle_state_error (OTD *proxy) {
   const gchar *message = otd__get_error_message (proxy);
 
-  g_warning ("OSTree daemon entered error state: %s", message);
+  g_critical ("OSTree daemon entered error state: %s", message);
+  g_main_loop_quit (main_loop);
 }
 
 static void handle_call_error (OTD *proxy, GError *error) {
   g_critical ("Error calling OSTree daemon: %s", error->message);
+  g_main_loop_quit (main_loop);
 }
 
 static void
@@ -206,7 +208,7 @@ main (int argc, char **argv)
   main_loop = g_main_loop_new (NULL, FALSE);
 
   proxy = otd__proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
-                     G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
+                     G_DBUS_PROXY_FLAGS_NONE,
                      "org.gnome.OSTree",
                      "/org/gnome/OSTree",
                      NULL,
