@@ -1,0 +1,7 @@
+[Unit]
+Description=EndlessOS Updater
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=@sbindir@/eos-updater
