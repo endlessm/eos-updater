@@ -68,8 +68,6 @@ do_update_step (UpdateStep step, OTD *proxy)
 {
   UpdateStep *currentStep;
 
-  *currentStep = step;
-
   if (step > last_automatic_step) {
     return FALSE;
   }
@@ -81,6 +79,7 @@ do_update_step (UpdateStep step, OTD *proxy)
   polled_already = TRUE;
 
   currentStep = g_malloc (sizeof (UpdateStep));
+  *currentStep = step;
 
   switch (step) {
     case UPDATE_STEP_POLL:
