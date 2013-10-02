@@ -49,7 +49,7 @@ update_step_callback (GObject *source_object, GAsyncResult *res, gpointer curren
       break;
 
     case UPDATE_STEP_APPLY:
-      success = otd__call_poll_finish (proxy, res, &error);
+      success = otd__call_apply_finish (proxy, res, &error);
       break;
 
     default:
