@@ -22,21 +22,9 @@ typedef enum _UpdateStep {
   UPDATE_STEP_APPLY
 } UpdateStep;
 
-gboolean polled_yet = FALSE;
+gboolean polled_already = FALSE;
 GMainLoop *main_loop;
 UpdateStep last_automatic_step;
-
-static gboolean
-step_is_automatic (UpdateStep step) {
-  return step <= last_automatic_step;
-}
-
-static void handle_state_error (OTD *proxy) {
-  const gchar *message = otd__get_error_message (proxy);
-
-  g_critical ("OSTree daemon entered error state: %s", message);
-  g_main_loop_quit (main_loop);
-}
 
 static void handle_call_error (OTD *proxy, GError *error) {
   g_critical ("Error calling OSTree daemon: %s", error->message);
@@ -44,125 +32,137 @@ static void handle_call_error (OTD *proxy, GError *error) {
 }
 
 static void
-poll_result_callback (GObject *source_object, GAsyncResult *res, gpointer ign)
+update_step_callback (GObject *source_object, GAsyncResult *res, gpointer currentStep)
 {
   OTD *proxy = (OTD *) source_object;
+  UpdateStep step = *(UpdateStep *) currentStep;
   gboolean success;
   GError *error = NULL;
 
-  success = otd__call_poll_finish (proxy, res, &error);
+  switch (step) {
+    case UPDATE_STEP_POLL:
+      success = otd__call_poll_finish (proxy, res, &error);
+      break;
+
+    case UPDATE_STEP_FETCH:
+      success = otd__call_fetch_finish (proxy, res, &error);
+      break;
+
+    case UPDATE_STEP_APPLY:
+      success = otd__call_poll_finish (proxy, res, &error);
+      break;
+
+    default:
+      g_assert_not_reached ();
+  }
 
   if (!success) {
     handle_call_error (proxy, error);
-    return;
   }
+
+  g_free (currentStep);
+}
+
+static gboolean
+do_update_step (UpdateStep step, OTD *proxy)
+{
+  UpdateStep *currentStep;
+
+  *currentStep = step;
+
+  if (step > last_automatic_step) {
+    return FALSE;
+  }
+
+  if (step == UPDATE_STEP_POLL && polled_already) {
+    return FALSE;
+  }
+
+  polled_already = TRUE;
+
+  currentStep = g_malloc (sizeof (UpdateStep));
+
+  switch (step) {
+    case UPDATE_STEP_POLL:
+      otd__call_poll (proxy, NULL, update_step_callback, currentStep);
+      break;
+
+    case UPDATE_STEP_FETCH:
+      otd__call_fetch (proxy, NULL, update_step_callback, currentStep);
+      break;
+
+    case UPDATE_STEP_APPLY:
+      otd__call_apply (proxy, NULL, update_step_callback, currentStep);
+      break;
+
+    default:
+      g_assert_not_reached ();
+  }
+
+  return TRUE;
 }
 
 static void
-check_update_poll (OTD *proxy)
+report_error_status (OTD *proxy)
 {
-  if (!step_is_automatic (UPDATE_STEP_POLL)) {
-    g_main_loop_quit (main_loop);
-    return;
-  }
+  const gchar *error_message;
+  guint error_code;
 
-  // TODO: check timer?
-  if (polled_yet) {
-    g_main_loop_quit (main_loop);
-    return;
-  }
-
-  polled_yet = TRUE;
-  otd__call_poll (proxy, NULL, poll_result_callback, NULL);
-}
-
-static void
-fetch_result_callback (GObject *source_object, GAsyncResult *res, gpointer ign)
-{
-  OTD *proxy = (OTD *) source_object;
-  gboolean success;
-  GError *error = NULL;
-
-  success = otd__call_fetch_finish (proxy, res, &error);
-
-  if (!success) {
-    handle_call_error (proxy, error);
-    return;
-  }
-}
-
-static void
-check_update_fetch (OTD *proxy)
-{
-  if (!step_is_automatic (UPDATE_STEP_POLL)) {
-    g_main_loop_quit (main_loop);
-    return;
-  }
-
-  otd__call_fetch (proxy, NULL, fetch_result_callback, NULL);
-}
-
-static void
-apply_result_callback (GObject *source_object, GAsyncResult *res, gpointer ign)
-{
-  OTD *proxy = (OTD *) source_object;
-  gboolean success;
-  GError *error = NULL;
-
-  success = otd__call_apply_finish (proxy, res, &error);
-
-  if (!success) {
-    handle_call_error (proxy, error);
-    return;
-  }
-}
-
-static void
-check_update_apply (OTD *proxy)
-{
-  if (!step_is_automatic (UPDATE_STEP_POLL)) {
-    g_main_loop_quit (main_loop);
-    return;
-  }
-
-  // Don't apply at the moment!
-  g_print ("WOULD APPLY HERE!\n");
-  // otd__call_apply (proxy, NULL, apply_result_callback, NULL);
+  error_code = otd__get_error_code (proxy);
+  error_message = otd__get_error_message (proxy);
+  g_critical ("OSTree daemon returned error code %u: %s", error_code, error_message);
 }
 
 static void
 on_state_changed (OTD *proxy, guint state)
 {
+  gboolean continue_running = TRUE;
+
   g_print ("State changed to: %u\n", state);
 
   switch (state) {
-    case OTD_STATE_NONE:
+    case OTD_STATE_NONE: // State should change soon
       break;
-    case OTD_STATE_READY:
-      check_update_poll (proxy);
+
+    case OTD_STATE_READY: // Must poll
+      continue_running = do_update_step (UPDATE_STEP_POLL, proxy);
       break;
-    case OTD_STATE_ERROR:
-      handle_state_error (proxy);
+
+    case OTD_STATE_ERROR: // Log error and quit
+      report_error_status (proxy);
+      continue_running = FALSE;
       break;
-    case OTD_STATE_POLLING:
+
+    case OTD_STATE_POLLING: // Wait for completion
       break;
-    case OTD_STATE_UPDATE_AVAILABLE:
-      check_update_fetch (proxy);
+
+    case OTD_STATE_UPDATE_AVAILABLE: // Possibly fetch
+      continue_running = do_update_step (UPDATE_STEP_FETCH, proxy);
       break;
-    case OTD_STATE_FETCHING:
+
+    case OTD_STATE_FETCHING: // Wait for completion
       break;
-    case OTD_STATE_UPDATE_READY:
-      check_update_apply (proxy);
+
+    case OTD_STATE_UPDATE_READY: // Possibly apply
+      continue_running = do_update_step (UPDATE_STEP_APPLY, proxy);
       break;
-    case OTD_STATE_APPLYING_UPDATE:
+
+    case OTD_STATE_APPLYING_UPDATE: // Wait for completion
       break;
-    case OTD_STATE_UPDATE_APPLIED:
-      g_main_loop_quit (main_loop);
+
+    case OTD_STATE_UPDATE_APPLIED: // Done; exit
+      continue_running = FALSE;
+      break;
+
+    default:
+      g_critical ("OSTree daemon entered invalid state: %u", state);
+      continue_running = FALSE;
       break;
   }
 
-  // if (previous_state != state)
-  //   previous_state = state;
+  if (!continue_running) {
+    g_main_loop_quit (main_loop);
+  }
 }
 
 static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
@@ -191,8 +191,13 @@ read_config_file (void)
 static gboolean
 initial_poll_idle_func (gpointer pointer) {
   OTD *proxy = (OTD *) pointer;
+  gboolean continue_running;
 
-  check_update_poll (proxy);
+  continue_running = do_update_step (UPDATE_STEP_POLL, proxy);
+  if (!continue_running) {
+    g_main_loop_quit (main_loop);
+  }
+
   return FALSE;
 }
 
