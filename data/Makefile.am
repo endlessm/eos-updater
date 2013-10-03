@@ -1,10 +1,11 @@
-eos_updater_in = 	eos-updater.service.in \
-					eos-updater.timer.in
+eos_updater_in = eos-updater.service.in eos-updater.timer.in
 
 systemdsystemunit_DATA = $(eos_updater_in:%.in=%)
 
-$(systemdsystemunit_DATA): $(eos_updater_in) Makefile
-	echo $(systemdsystemunit_DATA)
+eos-updater.service: eos-updater.service.in
+	$(edit) $< >$@
+
+eos-updater.timer: eos-updater.timer.in
 	$(edit) $< >$@
 
 edit = sed \

@@ -4,4 +4,4 @@ Wants=network.target
 
 [Service]
 Type=simple
-ExecStart=@sbindir@/eos-updater
+ExecStart=@libexecdir@/eos-updater
