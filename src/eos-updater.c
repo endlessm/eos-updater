@@ -24,7 +24,7 @@ typedef enum _UpdateStep {
 
 #define SEC_PER_DAY (3600ll * 24)
 
-static const char *UPDATE_STAMP_FILE = "/var/lib/update-stamp";
+static const char *UPDATE_STAMP_FILE = "/var/lib/eos-updater-stamp";
 
 static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
