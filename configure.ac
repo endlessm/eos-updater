@@ -4,27 +4,31 @@ AC_USE_SYSTEM_EXTENSIONS
 AM_INIT_AUTOMAKE([dist-xz no-dist-gzip])
 AC_PROG_CC
 
-# GLIB_REQUIRED_VERSION=2.36.0
-# POLKIT_REQUIRED_VERSION=0.103
-# 
-# GLIB_VERSION_DEFINES="-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_36 '-DGLIB_VERSION_MAX_ALLOWED=G_ENCODE_VERSION(2,36)'"
-# 
-# INITIAL_SETUP_CFLAGS="$INITIAL_SETUP_CFLAGS $GLIB_VERSION_DEFINES"
-# 
-# AC_SUBST(INITIAL_SETUP_CFLAGS)
-# AC_SUBST(INITIAL_SETUP_LIBS)
-# 
-# AC_SUBST(CFLAGS)
-# AC_PATH_PROG(GLIB_COMPILE_RESOURCES, glib-compile-resources)
+# systemd unit support
+AC_ARG_WITH([systemdsystemunitdir], AS_HELP_STRING([--with-systemdsystemunitdir=DIR],
+	[Directory for systemd service files]))
+# default location
+AS_IF([test -z "$with_systemdsystemunitdir"],
+	with_systemdsystemunitdir="\$(prefix)/lib/systemd/system")
+AS_IF([test -z "$with_systemdsystemunitdir"], with_systemdsystemunitdir=no)
+# add conditional and subst
+AM_CONDITIONAL(HAVE_SYSTEMD, [test "$with_systemdsystemunitdir" != no])
+if test "$with_systemdsystemunitdir" != no; then
+	AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
+fi
 
 GLIB_REQUIRED_VERSION=2.36.0
 
 PKG_CHECK_MODULES(EOS_UPDATER,
                   gio-unix-2.0 >= $GLIB_REQUIRED_VERSION)
 
+PKG_CHECK_MODULES(EOS_UPDATER,
+                  systemd >= 200)
+
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
+data/Makefile
 ])
 AC_OUTPUT

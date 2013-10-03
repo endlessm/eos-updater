@@ -1,0 +1,10 @@
+[Unit]
+Description=EndlessOS Automatic Update Timer
+Wants=network.target
+
+[Timer]
+OnBootSec=60
+OnUnitInactiveSec=24h
+
+[Install]
+WantedBy=multi-user.target
