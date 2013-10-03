@@ -22,9 +22,14 @@ typedef enum _UpdateStep {
   UPDATE_STEP_APPLY
 } UpdateStep;
 
+#define SEC_PER_DAY (3600ll * 24)
+
+static const char *UPDATE_STAMP_FILE = "/var/lib/update-stamp";
+
 static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
+static const char *INTERVAL_KEY = "IntervalDays";
 
 static gboolean polled_already = FALSE;
 static GMainLoop *main_loop;
@@ -32,6 +37,7 @@ static UpdateStep last_automatic_step;
 
 static void handle_call_error (OTD *proxy, GError *error) {
   g_critical ("Error calling OSTree daemon: %s", error->message);
+
   g_main_loop_quit (main_loop);
 }
 
@@ -41,28 +47,28 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
 {
   OTD *proxy = (OTD *) source_object;
   UpdateStep step = *(UpdateStep *) currentStep;
-  gboolean success;
   GError *error = NULL;
 
   switch (step) {
     case UPDATE_STEP_POLL:
-      success = otd__call_poll_finish (proxy, res, &error);
+      otd__call_poll_finish (proxy, res, &error);
       break;
 
     case UPDATE_STEP_FETCH:
-      success = otd__call_fetch_finish (proxy, res, &error);
+      otd__call_fetch_finish (proxy, res, &error);
       break;
 
     case UPDATE_STEP_APPLY:
-      success = otd__call_apply_finish (proxy, res, &error);
+      otd__call_apply_finish (proxy, res, &error);
       break;
 
     default:
       g_assert_not_reached ();
   }
 
-  if (!success) {
+  if (error) {
     handle_call_error (proxy, error);
+    g_error_free (error);
   }
 
   g_free (currentStep);
@@ -171,7 +177,7 @@ on_state_changed (OTD *proxy, guint state)
 }
 
 static gboolean
-read_config_file (void)
+read_config_file (gint *update_interval)
 {
   GKeyFile *config = g_key_file_new ();
   GError *error = NULL;
@@ -186,13 +192,25 @@ read_config_file (void)
                                                 LAST_STEP_KEY, &error);
   if (error) {
     g_critical ("Can't find key in config file");
+    g_error_free (error);
     return FALSE;
   }
+
+  *update_interval = g_key_file_get_integer (config, AUTOMATIC_GROUP,
+                                             INTERVAL_KEY, &error);
+
+  if (error) {
+    g_critical ("Can't find key in config file");
+    g_error_free (error);
+    return FALSE;    
+  }
+
   return TRUE;
 }
 
 static gboolean
-initial_poll_idle_func (gpointer pointer) {
+initial_poll_idle_func (gpointer pointer)
+{
   OTD *proxy = (OTD *) pointer;
   gboolean continue_running;
 
@@ -204,14 +222,67 @@ initial_poll_idle_func (gpointer pointer) {
   return FALSE;
 }
 
+static gboolean
+is_time_to_update (gint update_interval)
+{
+  GFile *stamp_file;
+  GFileInfo *stamp_file_info;
+  guint64 last_update_time;
+  gint64 current_time_usec;
+  GError *error = NULL;
+  gboolean time_to_update = FALSE;
+
+  if (update_interval < 0)
+    return FALSE;
+
+  stamp_file = g_file_new_for_path (UPDATE_STAMP_FILE);
+
+  stamp_file_info = g_file_query_info (stamp_file,
+                                       G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                                       G_FILE_QUERY_INFO_NONE, NULL, &error);
+
+  if (error) {
+    if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
+      // Failed for some reason other than the file not being present
+      g_warning ("Failed to read attributes of updater timestamp file %s",
+                 UPDATE_STAMP_FILE);
+    }
+
+    time_to_update = TRUE;
+    g_error_free (error);
+  } else {
+    // Determine whether sufficient time has elapsed
+    current_time_usec = g_get_real_time ();
+    last_update_time =
+      g_file_info_get_attribute_uint64 (stamp_file_info,
+                                       G_FILE_ATTRIBUTE_TIME_MODIFIED);
+
+    time_to_update = (last_update_time + update_interval * SEC_PER_DAY) *
+                      G_USEC_PER_SEC < current_time_usec;
+
+    g_object_unref (stamp_file_info);
+  }
+
+  if (!g_file_replace_contents (stamp_file, "", 0, NULL, FALSE, 
+                                G_FILE_CREATE_NONE, NULL, NULL, NULL)) {
+    g_warning ("Failed to write updater stamp file %s", UPDATE_STAMP_FILE);
+  }
+
+  return time_to_update;
+}
+
 int
 main (int argc, char **argv)
 {
   OTD *proxy;
   GError *error = NULL;
+  gint update_interval;
 
-  if (!read_config_file())
+  if (!read_config_file (&update_interval))
     return 1;
+
+  if (!is_time_to_update (update_interval))
+    return 0;
 
   main_loop = g_main_loop_new (NULL, FALSE);
 
@@ -222,8 +293,9 @@ main (int argc, char **argv)
                      NULL,
                      &error);
 
-  if (!proxy) {
+  if (error) {
     g_printerr ("Error getting proxy: %s", error->message);
+    g_error_free (error);
     return 1;
   }
 
