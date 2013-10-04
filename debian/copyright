@@ -1,0 +1,6 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: eos-updater
+Upstream-Contact: John Hiesey <john@endlessm.com>
+Disclaimer: Not part of the Debian distribution. (Proprietary software.)
+Copyright: Copyright 2013 Endless Mobile, Inc. All rights reserved.
+License: Proprietary

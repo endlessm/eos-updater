@@ -1,0 +1,19 @@
+Source: eos-updater
+Section: misc
+Priority: optional
+Maintainer: John Hiesey <john@endlessm.com>
+Build-Depends: debhelper (>= 8.0.0),
+	autotools-dev,
+	libglib2.0-dev,
+	dh-autoreconf,
+	dh-systemd
+
+Package: eos-updater
+Section: misc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends},
+	systemd (>= 200),
+	ostree
+Description: Automatic updater for EndlessOS
+ This package contains the automatic update
+ component to keep Endless OS up to date.
