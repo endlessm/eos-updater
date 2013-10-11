@@ -1,0 +1,7 @@
+
+ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
+AM_CFLAGS = ${WARN_CFLAGS}
+
+SUBDIRS = src data
+
+EXTRA_DIST = autogen.sh

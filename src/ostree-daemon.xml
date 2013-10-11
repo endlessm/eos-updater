@@ -1,0 +1,32 @@
+<node>
+  <interface name="org.gnome.OSTree">
+    <method name="Poll" ></method>
+    <method name="Fetch"></method>
+    <method name="Apply"></method>
+    
+    <property name="State"            type="u" access="read"/>
+    <property name="UpdateID"         type="s" access="read"/>
+    <property name="CurrentID"        type="s" access="read"/>
+    <property name="UpdateLabel"      type="s" access="read"/>
+    <property name="UpdateMessage"    type="s" access="read"/>
+    <property name="DownloadSize"     type="x" access="read"/>
+    <property name="DownloadedBytes"  type="x" access="read"/>
+    <property name="UnpackedSize"     type="x" access="read"/>
+    <property name="FullDownloadSize" type="x" access="read"/>
+    <property name="FullUnpackedSize" type="x" access="read"/>
+    <property name="ErrorCode"        type="u" access="read"/>
+    <property name="ErrorMessage"     type="s" access="read"/>
+    
+    <signal name="StateChanged">
+      <arg type="u" name="state"/>
+    </signal>
+
+    <signal name="Progress">
+      <arg type="x" name="fetched"/>
+      <arg type="x" name="expected"/>
+    </signal>
+
+  </interface>
+</node>
+
+
