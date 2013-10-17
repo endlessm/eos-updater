@@ -142,14 +142,12 @@ report_error_status (OTD *proxy)
  * Whenever the state changes, we check if we need to do something
  * as a result of that state change. */
 static void
-on_state_changed (OTD *proxy, guint state)
+on_state_changed (OTD *proxy, OTDState state)
 {
   gboolean continue_running = TRUE;
 
-  if (state == previous_state) {
-    g_warning ("State changed to state %u it was already in", state);
+  if (state == previous_state)
     return;
-  }
 
   previous_state = state;
 
@@ -200,6 +198,15 @@ on_state_changed (OTD *proxy, guint state)
   if (!continue_running) {
     g_main_loop_quit (main_loop);
   }
+}
+
+static void
+on_state_changed_notify (OTD *proxy,
+                         GParamSpec *pspec,
+                         gpointer data)
+{
+  OTDState state = otd__get_state (proxy);
+  on_state_changed (proxy, state);
 }
 
 static gboolean
@@ -352,8 +359,8 @@ main (int argc, char **argv)
     goto out;
   }
 
-  g_signal_connect (proxy, "state-changed",
-                    G_CALLBACK (on_state_changed), NULL);
+  g_signal_connect (proxy, "notify::state",
+                    G_CALLBACK (on_state_changed_notify), NULL);
 
   g_idle_add (initial_poll_idle_func, proxy);
   g_main_loop_run (main_loop);
