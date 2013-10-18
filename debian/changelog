@@ -1,4 +1,4 @@
-eos-updater (1.0-1) UNRELEASED; urgency=low
+eos-updater (0-1) UNRELEASED; urgency=low
 
   * Initial release (Closes: #1144)
 
