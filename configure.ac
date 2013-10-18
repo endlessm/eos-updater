@@ -17,8 +17,7 @@ AS_IF([test "x$with_systemdsystemunitdir" != "xno"], [
 GLIB_REQUIRED_VERSION=2.36.0
 
 PKG_CHECK_MODULES(EOS_UPDATER,
-                  gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
-                  systemd >= 200)
+                  gio-unix-2.0 >= $GLIB_REQUIRED_VERSION)
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
