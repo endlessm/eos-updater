@@ -1,5 +1,4 @@
 AC_INIT([eos-updater],[1.0])
-AC_CONFIG_MACRO_DIR([m4])
 AC_USE_SYSTEM_EXTENSIONS
 AM_INIT_AUTOMAKE([dist-xz no-dist-gzip tar-ustar foreign])
 AC_PROG_CC
