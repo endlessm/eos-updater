@@ -4,4 +4,4 @@ AM_CFLAGS = ${WARN_CFLAGS}
 
 SUBDIRS = src data
 
-EXTRA_DIST = autogen.sh
+EXTRA_DIST = autogen.sh README.md
