@@ -1,3 +1,9 @@
+eos-updater (1.2.1~rc1) unstable; urgency=low
+
+  * Updating version to 1.2.1~rc1
+
+ -- Roddy Shuler <roddy@endlessm.com>  Sun, 27 Oct 2013 22:30:28 -0700
+
 eos-updater (0-1) UNRELEASED; urgency=low
 
   * Initial release (Closes: #1144)
