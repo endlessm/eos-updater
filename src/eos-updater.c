@@ -147,7 +147,7 @@ report_error_status (OTD *proxy)
   error_message = otd__get_error_message (proxy);
 
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
-                   "PRIORITY=%d", 3,
+                   "PRIORITY=%d", LOG_ERR,
                    "MESSAGE=OSTree daemon error (code:%u): %s", error_code, error_message,
                    NULL);
 }
@@ -233,7 +233,7 @@ read_config_file (gint *update_interval)
   g_key_file_load_from_file (config, CONFIG_FILE_PATH, G_KEY_FILE_NONE, &error);
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", 3,
+                     "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to open the configuration file: %s", error->message,
                      NULL);
     success = FALSE;
@@ -244,7 +244,7 @@ read_config_file (gint *update_interval)
                                                 LAST_STEP_KEY, &error);
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", 3,
+                     "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to read key '%s' in config file", LAST_STEP_KEY,
                      NULL);
     success = FALSE;
@@ -256,7 +256,7 @@ read_config_file (gint *update_interval)
 
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", 3,
+                     "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to read key '%s' in config file", INTERVAL_KEY,
                      NULL);
     success = FALSE;
@@ -265,7 +265,7 @@ read_config_file (gint *update_interval)
 
   if (*update_interval < 0) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", 3,
+                     "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Specified update interval is less than zero",
                      NULL);
     success = FALSE;
@@ -315,7 +315,7 @@ is_time_to_update (gint update_interval)
     const char *err_str = g_strerror (saved_errno);
 
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", 2,
+                     "PRIORITY=%d", LOG_CRIT,
                      "MESSAGE=Failed to create updater timestamp directory: %s", err_str,
                      NULL);
   }
@@ -330,7 +330,7 @@ is_time_to_update (gint update_interval)
     if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
       /* Failed for some reason other than the file not being present */
       sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                       "PRIORITY=%d", 2,
+                       "PRIORITY=%d", LOG_CRIT,
                        "MESSAGE=Failed to read attributes of updater timestamp file",
                        NULL);
     }
@@ -355,7 +355,7 @@ is_time_to_update (gint update_interval)
                            &error);
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                     "PRIORITY=%d", 2,
+                     "PRIORITY=%d", LOG_CRIT,
                      "MESSAGE=Failed to write updater stamp file: %s", error->message,
                      NULL);
     g_error_free (error);
@@ -390,7 +390,7 @@ main (int argc, char **argv)
 
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
-                     "PRIORITY=%d", 3,
+                     "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Error getting OSTree proxy object: %s", error->message,
                      NULL);
     g_error_free (error);
@@ -412,7 +412,7 @@ out:
     return EXIT_FAILURE;
 
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_SUCCESS_MSGID,
-                   "PRIORITY=%d", 3,
+                   "PRIORITY=%d", LOG_INFO,
                    "MESSAGE=Updater finished successfully",
                    NULL);
 
