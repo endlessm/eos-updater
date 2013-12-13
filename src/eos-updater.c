@@ -315,7 +315,7 @@ is_time_to_update (gint update_interval)
     const char *err_str = g_strerror (saved_errno);
 
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", 3,
+                     "PRIORITY=%d", 2,
                      "MESSAGE=Failed to create updater timestamp directory: %s", err_str,
                      NULL);
   }
@@ -330,7 +330,7 @@ is_time_to_update (gint update_interval)
     if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
       /* Failed for some reason other than the file not being present */
       sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                       "PRIORITY=%d", 3,
+                       "PRIORITY=%d", 2,
                        "MESSAGE=Failed to read attributes of updater timestamp file",
                        NULL);
     }
@@ -355,7 +355,7 @@ is_time_to_update (gint update_interval)
                            &error);
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                     "PRIORITY=%d", 3,
+                     "PRIORITY=%d", 2,
                      "MESSAGE=Failed to write updater stamp file: %s", error->message,
                      NULL);
     g_error_free (error);
