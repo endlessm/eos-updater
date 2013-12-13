@@ -3,6 +3,14 @@
 #include <gio/gio.h>
 #include <glib.h>
 #include <stdlib.h>
+#include <errno.h>
+
+#include <systemd/sd-journal.h>
+
+#define EOS_UPDATER_CONFIGURATION_ERROR_MSGID   "5af9f4df37f949a1948971e00be0d620"
+#define EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID   "f31fd043074a4a21b04784cf895c56ae"
+#define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
+#define EOS_UPDATER_SUCCESS_MSGID               "ce0a80bb9f734dc09f8b56a7fb981ae4"
 
 /* This represents the ostree daemon state, and matches the definition
  * inside ostree.  Ideally ostree would expose it in a header.
@@ -33,8 +41,8 @@ typedef enum _UpdateStep {
 #define SEC_PER_DAY (3600ll * 24)
 
 /* This file is touched whenever the updater starts */
-static const char *UPDATE_STAMP_DIR = "/var/lib/eos-updater";
-static const char *UPDATE_STAMP_NAME = "eos-updater-stamp";
+#define UPDATE_STAMP_DIR        "/var/lib/eos-updater"
+#define UPDATE_STAMP_NAME       "eos-updater-stamp"
 
 static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
@@ -85,7 +93,10 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
   }
 
   if (error) {
-    g_critical ("Error calling OSTree daemon: %s", error->message);
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
+                     "PRIORITY=%d", 3,
+                     "MESSAGE=Error calling OSTree daemon: %s", error->message,
+                     NULL);
     should_exit_failure = TRUE;
     g_main_loop_quit (main_loop);
     g_error_free (error);
@@ -134,8 +145,11 @@ report_error_status (OTD *proxy)
 
   error_code = otd__get_error_code (proxy);
   error_message = otd__get_error_message (proxy);
-  g_critical ("OSTree daemon returned error code %u: %s",
-              error_code, error_message);
+
+  sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
+                   "PRIORITY=%d", 3,
+                   "MESSAGE=OSTree daemon error (code:%u): %s", error_code, error_message,
+                   NULL);
 }
 
 /* The updater is driven by state transitions in the ostree daemon.
@@ -216,9 +230,12 @@ read_config_file (gint *update_interval)
   GError *error = NULL;
   gboolean success = TRUE;
 
-  if (!g_key_file_load_from_file (config, CONFIG_FILE_PATH,
-                                  G_KEY_FILE_NONE, &error)) {
-    g_critical ("Can't open config file: %s", CONFIG_FILE_PATH);
+  g_key_file_load_from_file (config, CONFIG_FILE_PATH, G_KEY_FILE_NONE, &error);
+  if (error) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", 3,
+                     "MESSAGE=Unable to open the configuration file: %s", error->message,
+                     NULL);
     success = FALSE;
     goto out;
   }
@@ -226,7 +243,10 @@ read_config_file (gint *update_interval)
   last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
                                                 LAST_STEP_KEY, &error);
   if (error) {
-    g_critical ("Can't read key \"%s\" in config file", LAST_STEP_KEY);
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", 3,
+                     "MESSAGE=Unable to read key '%s' in config file", LAST_STEP_KEY,
+                     NULL);
     success = FALSE;
     goto out;
   }
@@ -235,13 +255,19 @@ read_config_file (gint *update_interval)
                                              INTERVAL_KEY, &error);
 
   if (error) {
-    g_critical ("Can't read key \"%s\" in config file", INTERVAL_KEY);
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", 3,
+                     "MESSAGE=Unable to read key '%s' in config file", INTERVAL_KEY,
+                     NULL);
     success = FALSE;
     goto out;
   }
 
   if (*update_interval < 0) {
-    g_critical ("Specified update interval is less than zero");
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", 3,
+                     "MESSAGE=Specified update interval is less than zero",
+                     NULL);
     success = FALSE;
     goto out;
   }
@@ -277,7 +303,6 @@ initial_poll_idle_func (gpointer pointer)
 static gboolean
 is_time_to_update (gint update_interval)
 {
-  gchar *stamp_file_path;
   GFile *stamp_file;
   GFileInfo *stamp_file_info;
   guint64 last_update_time;
@@ -285,28 +310,33 @@ is_time_to_update (gint update_interval)
   GError *error = NULL;
   gboolean time_to_update = FALSE;
 
-  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0)
-    g_critical ("Failed to create updater timestamp directory %s",
-                UPDATE_STAMP_DIR);
+  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0) {
+    int saved_errno = errno;
+    const char *err_str = g_strerror (saved_errno);
 
-  stamp_file_path = g_strconcat (UPDATE_STAMP_DIR, "/",
-                                 UPDATE_STAMP_NAME, NULL);
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", 3,
+                     "MESSAGE=Failed to create updater timestamp directory: %s", err_str,
+                     NULL);
+  }
 
-  stamp_file = g_file_new_for_path (stamp_file_path);
-
+  stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
   stamp_file_info = g_file_query_info (stamp_file,
                                        G_FILE_ATTRIBUTE_TIME_MODIFIED,
-                                       G_FILE_QUERY_INFO_NONE, NULL, &error);
+                                       G_FILE_QUERY_INFO_NONE, NULL,
+                                       &error);
 
   if (error) {
     if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
       /* Failed for some reason other than the file not being present */
-      g_critical ("Failed to read attributes of updater timestamp file %s",
-                  stamp_file_path);
+      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                       "PRIORITY=%d", 3,
+                       "MESSAGE=Failed to read attributes of updater timestamp file",
+                       NULL);
     }
 
     time_to_update = TRUE;
-    g_error_free (error);
+    g_clear_error (&error);
   } else {
     /* Determine whether sufficient time has elapsed */
     current_time_usec = g_get_real_time ();
@@ -320,12 +350,18 @@ is_time_to_update (gint update_interval)
     g_object_unref (stamp_file_info);
   }
 
-  if (!g_file_replace_contents (stamp_file, "", 0, NULL, FALSE, 
-                                G_FILE_CREATE_NONE, NULL, NULL, NULL))
-    g_critical ("Failed to write updater stamp file %s", stamp_file_path);
+  g_file_replace_contents (stamp_file, "", 0, NULL, FALSE,
+                           G_FILE_CREATE_NONE, NULL, NULL,
+                           &error);
+  if (error) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                     "PRIORITY=%d", 3,
+                     "MESSAGE=Failed to write updater stamp file: %s", error->message,
+                     NULL);
+    g_error_free (error);
+  }
 
   g_object_unref (stamp_file);
-  g_free (stamp_file_path);
 
   return time_to_update;
 }
@@ -353,7 +389,10 @@ main (int argc, char **argv)
                      &error);
 
   if (error) {
-    g_printerr ("Error getting OSTree proxy object: %s", error->message);
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
+                     "PRIORITY=%d", 3,
+                     "MESSAGE=Error getting OSTree proxy object: %s", error->message,
+                     NULL);
     g_error_free (error);
     should_exit_failure = TRUE;
     goto out;
@@ -372,6 +411,10 @@ out:
   if (should_exit_failure) /* All paths setting this print an error message */
     return EXIT_FAILURE;
 
-  g_message ("Updater finished successfully; exiting");
+  sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_SUCCESS_MSGID,
+                   "PRIORITY=%d", 3,
+                   "MESSAGE=Updater finished successfully",
+                   NULL);
+
   return EXIT_SUCCESS;
 }
