@@ -94,7 +94,7 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
 
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
-                     "PRIORITY=%d", 3,
+                     "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Error calling OSTree daemon: %s", error->message,
                      NULL);
     should_exit_failure = TRUE;
