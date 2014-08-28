@@ -5,12 +5,16 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include <nm-client.h>
+#include <nm-device.h>
+
 #include <systemd/sd-journal.h>
 
 #define EOS_UPDATER_CONFIGURATION_ERROR_MSGID   "5af9f4df37f949a1948971e00be0d620"
 #define EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID   "f31fd043074a4a21b04784cf895c56ae"
 #define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
 #define EOS_UPDATER_SUCCESS_MSGID               "ce0a80bb9f734dc09f8b56a7fb981ae4"
+#define EOS_UPDATER_MOBILE_CONNECTED_MSGID      "7c80d571cbc248d2a5cfd985c7cbd44c"
 
 /* This represents the ostree daemon state, and matches the definition
  * inside ostree.  Ideally ostree would expose it in a header.
@@ -48,6 +52,7 @@ static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
+static const char *ON_MOBILE_KEY = "UpdateOnMobile";
 
 /* Ensures that the updater never tries to poll twice in one run */
 static gboolean polled_already = FALSE;
@@ -224,7 +229,8 @@ on_state_changed_notify (OTD *proxy,
 }
 
 static gboolean
-read_config_file (gint *update_interval)
+read_config_file (gint *update_interval,
+                  gboolean *update_on_mobile)
 {
   GKeyFile *config = g_key_file_new ();
   GError *error = NULL;
@@ -267,6 +273,18 @@ read_config_file (gint *update_interval)
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Specified update interval is less than zero",
+                     NULL);
+    success = FALSE;
+    goto out;
+  }
+
+  *update_on_mobile = g_key_file_get_boolean (config, AUTOMATIC_GROUP,
+                                              ON_MOBILE_KEY, &error);
+
+  if (error) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_ERR,
+                     "MESSAGE=Unable to read key '%s' in config file", ON_MOBILE_KEY,
                      NULL);
     success = FALSE;
     goto out;
@@ -366,15 +384,64 @@ is_time_to_update (gint update_interval)
   return time_to_update;
 }
 
+static gboolean
+is_connected_through_mobile (void)
+{
+  NMActiveConnection *connection;
+  NMClient *client;
+  NMDevice *device;
+  const GPtrArray *devices;
+  gboolean is_mobile = FALSE;
+  gint i;
+
+  client = nm_client_new ();
+  if (!client) {
+    return FALSE;
+  }
+
+  g_object_get (client, "primary-connection", &connection, NULL);
+  if (!connection) {
+    g_object_unref (client);
+    return FALSE;
+  }
+
+  devices = nm_active_connection_get_devices (connection);
+  for (i = 0; i < devices->len; i++) {
+    device = (NMDevice *) g_ptr_array_index (devices, i);
+    switch (nm_device_get_device_type (device)) {
+    case NM_DEVICE_TYPE_MODEM:
+    case NM_DEVICE_TYPE_BT:
+    case NM_DEVICE_TYPE_WIMAX:
+      is_mobile |= TRUE;
+      break;
+    }
+  }
+
+  g_object_unref (connection);
+  g_object_unref (client);
+
+  if (is_mobile)
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
+		     "PRIORITY=%d", LOG_INFO,
+		     "MESSAGE=Connected to mobile network. Not updating",
+		     NULL);
+
+  return is_mobile;
+}
+
 int
 main (int argc, char **argv)
 {
   OTD *proxy;
   GError *error = NULL;
   gint update_interval;
+  gboolean update_on_mobile;
 
-  if (!read_config_file (&update_interval))
+  if (!read_config_file (&update_interval, &update_on_mobile))
     return EXIT_FAILURE;
+
+  if (!update_on_mobile && is_connected_through_mobile ())
+    return EXIT_SUCCESS;
 
   if (!is_time_to_update (update_interval))
     return EXIT_SUCCESS;

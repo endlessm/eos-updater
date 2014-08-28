@@ -18,6 +18,7 @@ GLIB_REQUIRED_VERSION=2.36.0
 
 PKG_CHECK_MODULES(EOS_UPDATER,
                   gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
+                  libnm-glib
                   libsystemd-journal)
 
 AC_CONFIG_HEADERS([config.h])
