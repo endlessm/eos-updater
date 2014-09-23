@@ -69,6 +69,39 @@ static guint previous_state = OTD_STATE_NONE;
 
 static GMainLoop *main_loop;
 
+static void
+update_stamp_file (void)
+{
+  GFile *stamp_file;
+  GError *error = NULL;
+  gboolean ret = TRUE;
+
+  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0) {
+    int saved_errno = errno;
+    const char *err_str = g_strerror (saved_errno);
+
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_CRIT,
+                     "MESSAGE=Failed to create updater timestamp directory: %s", err_str,
+                     NULL);
+    return;
+  }
+
+  stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
+  g_file_replace_contents (stamp_file, "", 0, NULL, FALSE,
+                           G_FILE_CREATE_NONE, NULL, NULL,
+                           &error);
+  if (error) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_CRIT,
+                     "MESSAGE=Failed to write updater stamp file: %s", error->message,
+                     NULL);
+    g_error_free (error);
+  }
+
+  g_object_unref (stamp_file);
+}
+
 /* Called on completion of the async dbus calls to check whether they
  * succeeded. Success doesn't mean that the operation succeeded, but it
  * does mean the call reached the daemon.
@@ -84,6 +117,10 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
   switch (step) {
     case UPDATE_STEP_POLL:
       otd__call_poll_finish (proxy, res, &error);
+
+      /* Update the stamp file on successful poll */
+      if (!error)
+        update_stamp_file ();
       break;
 
     case UPDATE_STEP_FETCH:
@@ -329,16 +366,6 @@ is_time_to_update (gint update_interval)
   GError *error = NULL;
   gboolean time_to_update = FALSE;
 
-  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0) {
-    int saved_errno = errno;
-    const char *err_str = g_strerror (saved_errno);
-
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_CRIT,
-                     "MESSAGE=Failed to create updater timestamp directory: %s", err_str,
-                     NULL);
-  }
-
   stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
   stamp_file_info = g_file_query_info (stamp_file,
                                        G_FILE_ATTRIBUTE_TIME_MODIFIED,
@@ -367,17 +394,6 @@ is_time_to_update (gint update_interval)
                       G_USEC_PER_SEC < current_time_usec;
 
     g_object_unref (stamp_file_info);
-  }
-
-  g_file_replace_contents (stamp_file, "", 0, NULL, FALSE,
-                           G_FILE_CREATE_NONE, NULL, NULL,
-                           &error);
-  if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_CRIT,
-                     "MESSAGE=Failed to write updater stamp file: %s", error->message,
-                     NULL);
-    g_error_free (error);
   }
 
   g_object_unref (stamp_file);
