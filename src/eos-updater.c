@@ -14,6 +14,7 @@
 #define EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID   "f31fd043074a4a21b04784cf895c56ae"
 #define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
 #define EOS_UPDATER_SUCCESS_MSGID               "ce0a80bb9f734dc09f8b56a7fb981ae4"
+#define EOS_UPDATER_NOT_ONLINE_MSGID            "2797d0eaca084a9192e21838ab12cbd0"
 #define EOS_UPDATER_MOBILE_CONNECTED_MSGID      "7c80d571cbc248d2a5cfd985c7cbd44c"
 
 /* This represents the ostree daemon state, and matches the definition
@@ -385,6 +386,37 @@ is_time_to_update (gint update_interval)
 }
 
 static gboolean
+is_online (void)
+{
+  NMClient *client;
+  gboolean online;
+
+  client = nm_client_new ();
+  if (!client)
+    return FALSE;
+
+  /* Assume that the ostree server is remote and only consider to be
+   * online if we have global connectivity.
+   */
+  switch (nm_client_get_state (client)) {
+  case NM_STATE_CONNECTED_GLOBAL:
+    online = TRUE;
+    break;
+  default:
+    online = FALSE;
+    break;
+  }
+  g_object_unref (client);
+
+  if (!online)
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_ONLINE_MSGID,
+                     "PRIORITY=%d", LOG_INFO,
+                     "MESSAGE=Not currently online. Not updating",
+                     NULL);
+  return online;
+}
+
+static gboolean
 is_connected_through_mobile (void)
 {
   NMActiveConnection *connection;
@@ -439,6 +471,9 @@ main (int argc, char **argv)
 
   if (!read_config_file (&update_interval, &update_on_mobile))
     return EXIT_FAILURE;
+
+  if (!is_online ())
+    return EXIT_SUCCESS;
 
   if (!update_on_mobile && is_connected_through_mobile ())
     return EXIT_SUCCESS;
