@@ -4,7 +4,7 @@ Wants=network.target
 
 [Timer]
 OnBootSec=15m
-OnUnitInactiveSec=24h
+OnUnitInactiveSec=1h
 
 [Install]
 WantedBy=multi-user.target
