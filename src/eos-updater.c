@@ -14,6 +14,7 @@
 #define EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID   "f31fd043074a4a21b04784cf895c56ae"
 #define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
 #define EOS_UPDATER_SUCCESS_MSGID               "ce0a80bb9f734dc09f8b56a7fb981ae4"
+#define EOS_UPDATER_NOT_ONLINE_MSGID            "2797d0eaca084a9192e21838ab12cbd0"
 #define EOS_UPDATER_MOBILE_CONNECTED_MSGID      "7c80d571cbc248d2a5cfd985c7cbd44c"
 
 /* This represents the ostree daemon state, and matches the definition
@@ -68,6 +69,39 @@ static guint previous_state = OTD_STATE_NONE;
 
 static GMainLoop *main_loop;
 
+static void
+update_stamp_file (void)
+{
+  GFile *stamp_file;
+  GError *error = NULL;
+  gboolean ret = TRUE;
+
+  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0) {
+    int saved_errno = errno;
+    const char *err_str = g_strerror (saved_errno);
+
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_CRIT,
+                     "MESSAGE=Failed to create updater timestamp directory: %s", err_str,
+                     NULL);
+    return;
+  }
+
+  stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
+  g_file_replace_contents (stamp_file, "", 0, NULL, FALSE,
+                           G_FILE_CREATE_NONE, NULL, NULL,
+                           &error);
+  if (error) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_CRIT,
+                     "MESSAGE=Failed to write updater stamp file: %s", error->message,
+                     NULL);
+    g_error_free (error);
+  }
+
+  g_object_unref (stamp_file);
+}
+
 /* Called on completion of the async dbus calls to check whether they
  * succeeded. Success doesn't mean that the operation succeeded, but it
  * does mean the call reached the daemon.
@@ -83,6 +117,10 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
   switch (step) {
     case UPDATE_STEP_POLL:
       otd__call_poll_finish (proxy, res, &error);
+
+      /* Update the stamp file on successful poll */
+      if (!error)
+        update_stamp_file ();
       break;
 
     case UPDATE_STEP_FETCH:
@@ -328,16 +366,6 @@ is_time_to_update (gint update_interval)
   GError *error = NULL;
   gboolean time_to_update = FALSE;
 
-  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0) {
-    int saved_errno = errno;
-    const char *err_str = g_strerror (saved_errno);
-
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_CRIT,
-                     "MESSAGE=Failed to create updater timestamp directory: %s", err_str,
-                     NULL);
-  }
-
   stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
   stamp_file_info = g_file_query_info (stamp_file,
                                        G_FILE_ATTRIBUTE_TIME_MODIFIED,
@@ -368,20 +396,40 @@ is_time_to_update (gint update_interval)
     g_object_unref (stamp_file_info);
   }
 
-  g_file_replace_contents (stamp_file, "", 0, NULL, FALSE,
-                           G_FILE_CREATE_NONE, NULL, NULL,
-                           &error);
-  if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_CRIT,
-                     "MESSAGE=Failed to write updater stamp file: %s", error->message,
-                     NULL);
-    g_error_free (error);
-  }
-
   g_object_unref (stamp_file);
 
   return time_to_update;
+}
+
+static gboolean
+is_online (void)
+{
+  NMClient *client;
+  gboolean online;
+
+  client = nm_client_new ();
+  if (!client)
+    return FALSE;
+
+  /* Assume that the ostree server is remote and only consider to be
+   * online if we have global connectivity.
+   */
+  switch (nm_client_get_state (client)) {
+  case NM_STATE_CONNECTED_GLOBAL:
+    online = TRUE;
+    break;
+  default:
+    online = FALSE;
+    break;
+  }
+  g_object_unref (client);
+
+  if (!online)
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_ONLINE_MSGID,
+                     "PRIORITY=%d", LOG_INFO,
+                     "MESSAGE=Not currently online. Not updating",
+                     NULL);
+  return online;
 }
 
 static gboolean
@@ -439,6 +487,9 @@ main (int argc, char **argv)
 
   if (!read_config_file (&update_interval, &update_on_mobile))
     return EXIT_FAILURE;
+
+  if (!is_online ())
+    return EXIT_SUCCESS;
 
   if (!update_on_mobile && is_connected_through_mobile ())
     return EXIT_SUCCESS;
