@@ -478,6 +478,18 @@ main (int argc, char **argv)
   GError *error = NULL;
   gint update_interval;
   gboolean update_on_mobile;
+  gboolean force_update;
+  GOptionContext *context;
+
+  GOptionEntry entries[] = {
+    { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
+    { NULL }
+  };
+
+  context = g_option_context_new ("Endless Updater");
+  g_option_context_add_main_entries (context, entries, NULL);
+  g_option_context_parse (context, &argc, &argv, NULL);
+  g_option_context_free (context);
 
   if (!read_config_file (&update_interval, &update_on_mobile))
     return EXIT_FAILURE;
@@ -485,16 +497,18 @@ main (int argc, char **argv)
   if (!is_online ())
     return EXIT_SUCCESS;
 
-  if (!update_on_mobile && is_connected_through_mobile ()) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
-                     "PRIORITY=%d", LOG_INFO,
-                     "MESSAGE=Connected to mobile network. Not updating",
-                     NULL);
-    return EXIT_SUCCESS;
-  }
+  if (!force_update) {
+    if (!update_on_mobile && is_connected_through_mobile ()) {
+      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
+                       "PRIORITY=%d", LOG_INFO,
+                       "MESSAGE=Connected to mobile network. Not updating",
+                       NULL);
+      return EXIT_SUCCESS;
+    }
 
-  if (!is_time_to_update (update_interval))
-    return EXIT_SUCCESS;
+    if (!is_time_to_update (update_interval))
+      return EXIT_SUCCESS;
+  }
 
   main_loop = g_main_loop_new (NULL, FALSE);
 
