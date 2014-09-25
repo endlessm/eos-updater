@@ -1,3 +1,5 @@
+
+#include "eos-updater-generated.h"
 #include "ostree-daemon-generated.h"
 
 #include <gio/gio.h>
@@ -65,6 +67,8 @@ static GMainLoop *main_loop;
 
 typedef struct {
   OTD *proxy;
+
+  SystemUpdater *skeleton;
 
   UpdateStep current_step;
 
@@ -342,13 +346,9 @@ out:
   return success;
 }
 
-/* We want to poll once when the updater starts.  To make sure that we
- * can quit ourselves gracefully, we wait until the main loop starts.
- */
-static gboolean
-initial_poll_idle_func (gpointer pointer)
+static void
+updater_start (EosUpdater *updater)
 {
-  EosUpdater *updater = pointer;
   OTDState initial_state = otd__get_state (updater->proxy);
 
   /* Attempt to clear the error by pretending to be ready, which will
@@ -358,9 +358,20 @@ initial_poll_idle_func (gpointer pointer)
     initial_state = OTD_STATE_READY;
 
   on_state_changed (updater, initial_state);
+}
+
+/* We want to poll once when the updater starts.  To make sure that we
+ * can quit ourselves gracefully, we wait until the main loop starts.
+ */
+static gboolean
+initial_poll_idle_func (gpointer pointer)
+{
+  EosUpdater *updater = pointer;
+
+  updater_start (updater);
 
   /* Disable this function after the first run */
-  return FALSE;
+  return G_SOURCE_REMOVE;
 }
 
 static gboolean
@@ -478,6 +489,47 @@ is_connected_through_mobile (void)
   return is_mobile;
 }
 
+static gboolean
+handle_force_update (GDBusInterfaceSkeleton *skeleton,
+                     GDBusMethodInvocation  *invocation,
+                     gpointer                user_data)
+{
+  EosUpdater *updater = user_data;
+
+  updater_start (updater);
+
+  return TRUE;
+}
+
+static void
+bus_acquired (GDBusConnection *connection,
+              const gchar *name,
+              gpointer user_data)
+{
+  EosUpdater *updater = user_data;
+  updater->skeleton = system_updater__skeleton_new ();
+
+  g_signal_connect (updater->skeleton, "handle-force-update",
+                    G_CALLBACK (handle_force_update), updater);
+
+  g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (updater->skeleton),
+                                    connection,
+                                    "/com/endlessm/SystemUpdater",
+                                    NULL);
+}
+
+static void
+export_on_dbus (EosUpdater *updater)
+{
+  g_bus_own_name (G_BUS_TYPE_SYSTEM,
+                  "com.endlessm.SystemUpdater",
+                  G_BUS_NAME_OWNER_FLAGS_NONE,
+                  bus_acquired,
+                  NULL, /* name acquired */
+                  NULL, /* name lost */
+                  updater, NULL);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -541,6 +593,8 @@ main (int argc, char **argv)
                     G_CALLBACK (on_state_changed_notify), NULL);
 
   g_idle_add (initial_poll_idle_func, &updater);
+  export_on_dbus (&updater);
+
   g_main_loop_run (main_loop);
 
 out:

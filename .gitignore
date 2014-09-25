@@ -19,6 +19,8 @@ depcomp
 missing
 install-sh
 stamp-h1
+src/eos-updater-generated.c
+src/eos-updater-generated.h
 src/ostree-daemon-generated.c
 src/ostree-daemon-generated.h
 src/Makefile
