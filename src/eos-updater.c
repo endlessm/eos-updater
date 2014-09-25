@@ -55,19 +55,25 @@ static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
 static const char *ON_MOBILE_KEY = "UpdateOnMobile";
 
-/* Ensures that the updater never tries to poll twice in one run */
-static gboolean polled_already = FALSE;
-
 /* Read from config file */
 static UpdateStep last_automatic_step;
 
 /* Set when main should return failure */
 static gboolean should_exit_failure = FALSE;
 
-/* Avoid erroneous additional state transitions */
-static guint previous_state = OTD_STATE_NONE;
-
 static GMainLoop *main_loop;
+
+typedef struct {
+  OTD *proxy;
+
+  UpdateStep current_step;
+
+  /* Avoid erroneous additional state transitions */
+  guint previous_state;
+
+  /* Ensures that the updater never tries to poll twice in one run */
+  gboolean polled_already;
+} EosUpdater;
 
 static void
 update_stamp_file (void)
@@ -108,13 +114,13 @@ update_stamp_file (void)
  */
 static void
 update_step_callback (GObject *source_object, GAsyncResult *res,
-                      gpointer step_data)
+                      gpointer user_data)
 {
   OTD *proxy = (OTD *) source_object;
-  UpdateStep step = GPOINTER_TO_INT (step_data);
+  EosUpdater *updater = user_data;
   GError *error = NULL;
 
-  switch (step) {
+  switch (updater->current_step) {
     case UPDATE_STEP_POLL:
       otd__call_poll_finish (proxy, res, &error);
 
@@ -147,30 +153,30 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
 }
 
 static gboolean
-do_update_step (UpdateStep step, OTD *proxy)
+do_update_step (EosUpdater *updater, UpdateStep step)
 {
-  gpointer step_data = GINT_TO_POINTER (step);
-
   /* Don't do more of the process than configured */
   if (step > last_automatic_step)
     return FALSE;
 
+  updater->current_step = step;
+
   switch (step) {
     case UPDATE_STEP_POLL:
       /* Don't poll more than once, or we will get stuck in a loop */
-      if (polled_already)
+      if (updater->polled_already)
         return FALSE;
 
-      polled_already = TRUE;
-      otd__call_poll (proxy, NULL, update_step_callback, step_data);
+      updater->polled_already = TRUE;
+      otd__call_poll (updater->proxy, NULL, update_step_callback, updater);
       break;
 
     case UPDATE_STEP_FETCH:
-      otd__call_fetch (proxy, NULL, update_step_callback, step_data);
+      otd__call_fetch (updater->proxy, NULL, update_step_callback, updater);
       break;
 
     case UPDATE_STEP_APPLY:
-      otd__call_apply (proxy, NULL, update_step_callback, step_data);
+      otd__call_apply (updater->proxy, NULL, update_step_callback, updater);
       break;
 
     default:
@@ -181,13 +187,13 @@ do_update_step (UpdateStep step, OTD *proxy)
 }
 
 static void
-report_error_status (OTD *proxy)
+report_error_status (EosUpdater *updater)
 {
   const gchar *error_message;
   guint error_code;
 
-  error_code = otd__get_error_code (proxy);
-  error_message = otd__get_error_message (proxy);
+  error_code = otd__get_error_code (updater->proxy);
+  error_message = otd__get_error_message (updater->proxy);
 
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
                    "PRIORITY=%d", LOG_ERR,
@@ -199,14 +205,14 @@ report_error_status (OTD *proxy)
  * Whenever the state changes, we check if we need to do something
  * as a result of that state change. */
 static void
-on_state_changed (OTD *proxy, OTDState state)
+on_state_changed (EosUpdater *updater, OTDState state)
 {
   gboolean continue_running = TRUE;
 
-  if (state == previous_state)
+  if (state == updater->previous_state)
     return;
 
-  previous_state = state;
+  updater->previous_state = state;
 
   g_message ("OSTree daemon state is: %u", state);
 
@@ -215,11 +221,11 @@ on_state_changed (OTD *proxy, OTDState state)
       break;
 
     case OTD_STATE_READY: /* Must poll */
-      continue_running = do_update_step (UPDATE_STEP_POLL, proxy);
+      continue_running = do_update_step (updater, UPDATE_STEP_POLL);
       break;
 
     case OTD_STATE_ERROR: /* Log error and quit */
-      report_error_status (proxy);
+      report_error_status (updater);
       should_exit_failure = TRUE;
       continue_running = FALSE;
       break;
@@ -228,14 +234,14 @@ on_state_changed (OTD *proxy, OTDState state)
       break;
 
     case OTD_STATE_UPDATE_AVAILABLE: /* Possibly fetch */
-      continue_running = do_update_step (UPDATE_STEP_FETCH, proxy);
+      continue_running = do_update_step (updater, UPDATE_STEP_FETCH);
       break;
 
     case OTD_STATE_FETCHING: /* Wait for completion */
       break;
 
     case OTD_STATE_UPDATE_READY: /* Possibly apply */
-      continue_running = do_update_step (UPDATE_STEP_APPLY, proxy);
+      continue_running = do_update_step (updater, UPDATE_STEP_APPLY);
       break;
 
     case OTD_STATE_APPLYING_UPDATE: /* Wait for completion */
@@ -262,8 +268,9 @@ on_state_changed_notify (OTD *proxy,
                          GParamSpec *pspec,
                          gpointer data)
 {
+  EosUpdater *updater = data;
   OTDState state = otd__get_state (proxy);
-  on_state_changed (proxy, state);
+  on_state_changed (updater, state);
 }
 
 static gboolean
@@ -341,8 +348,8 @@ out:
 static gboolean
 initial_poll_idle_func (gpointer pointer)
 {
-  OTD *proxy = (OTD *) pointer;
-  OTDState initial_state = otd__get_state (proxy);
+  EosUpdater *updater = pointer;
+  OTDState initial_state = otd__get_state (updater->proxy);
 
   /* Attempt to clear the error by pretending to be ready, which will
    * trigger a poll
@@ -350,7 +357,7 @@ initial_poll_idle_func (gpointer pointer)
   if (initial_state == OTD_STATE_ERROR)
     initial_state = OTD_STATE_READY;
 
-  on_state_changed (proxy, initial_state);
+  on_state_changed (updater, initial_state);
 
   /* Disable this function after the first run */
   return FALSE;
@@ -480,6 +487,7 @@ main (int argc, char **argv)
   gboolean update_on_mobile;
   gboolean force_update;
   GOptionContext *context;
+  EosUpdater updater = { 0 };
 
   GOptionEntry entries[] = {
     { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
@@ -512,12 +520,12 @@ main (int argc, char **argv)
 
   main_loop = g_main_loop_new (NULL, FALSE);
 
-  proxy = otd__proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
-                     G_DBUS_PROXY_FLAGS_NONE,
-                     "org.gnome.OSTree",
-                     "/org/gnome/OSTree",
-                     NULL,
-                     &error);
+  updater.proxy = otd__proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
+                                               G_DBUS_PROXY_FLAGS_NONE,
+                                               "org.gnome.OSTree",
+                                               "/org/gnome/OSTree",
+                                               NULL,
+                                               &error);
 
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
@@ -529,10 +537,10 @@ main (int argc, char **argv)
     goto out;
   }
 
-  g_signal_connect (proxy, "notify::state",
+  g_signal_connect (updater.proxy, "notify::state",
                     G_CALLBACK (on_state_changed_notify), NULL);
 
-  g_idle_add (initial_poll_idle_func, proxy);
+  g_idle_add (initial_poll_idle_func, &updater);
   g_main_loop_run (main_loop);
 
 out:
