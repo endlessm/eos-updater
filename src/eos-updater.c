@@ -468,12 +468,6 @@ is_connected_through_mobile (void)
   g_object_unref (connection);
   g_object_unref (client);
 
-  if (is_mobile)
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
-		     "PRIORITY=%d", LOG_INFO,
-		     "MESSAGE=Connected to mobile network. Not updating",
-		     NULL);
-
   return is_mobile;
 }
 
@@ -491,8 +485,13 @@ main (int argc, char **argv)
   if (!is_online ())
     return EXIT_SUCCESS;
 
-  if (!update_on_mobile && is_connected_through_mobile ())
+  if (!update_on_mobile && is_connected_through_mobile ()) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
+                     "PRIORITY=%d", LOG_INFO,
+                     "MESSAGE=Connected to mobile network. Not updating",
+                     NULL);
     return EXIT_SUCCESS;
+  }
 
   if (!is_time_to_update (update_interval))
     return EXIT_SUCCESS;
