@@ -1,13 +1,13 @@
-eos_updater_in = eos-updater.service.in eos-updater.timer.in
+eos_updater_in = eos-auto-updates.service.in eos-auto-updates.timer.in
 
 systemdsystemunit_DATA = $(eos_updater_in:%.in=%)
 
 sysconf_DATA = eos-updater.conf
 
-eos-updater.service: eos-updater.service.in
+eos-auto-updates.service: eos-auto-updates.service.in
 	$(edit) $< >$@
 
-eos-updater.timer: eos-updater.timer.in
+eos-auto-updates.timer: eos-auto-updates.timer.in
 	$(edit) $< >$@
 
 dbusservicedir = $(datadir)/dbus-1/system-services

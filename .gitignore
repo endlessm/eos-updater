@@ -26,8 +26,8 @@ src/ostree-daemon-generated.h
 src/Makefile
 src/Makefile.in
 src/eos-updater
-data/eos-updater.service
-data/eos-updater.timer
+data/eos-auto-updates.service
+data/eos-auto-updates.timer
 debian/autoreconf.after
 debian/autoreconf.before
 debian/eos-updater.debhelper.log
