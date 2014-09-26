@@ -26,6 +26,7 @@ src/ostree-daemon-generated.h
 src/Makefile
 src/Makefile.in
 src/eos-updater
+data/com.endlessm.SystemUpdater.service
 data/eos-auto-updates.service
 data/eos-auto-updates.timer
 debian/autoreconf.after
