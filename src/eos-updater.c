@@ -503,6 +503,15 @@ handle_force_update (GDBusInterfaceSkeleton *skeleton,
 }
 
 static void
+name_lost (GDBusConnection *connection,
+	   const gchar *name,
+	   gpointer user_data)
+{
+  EosUpdater *updater = user_data;
+  g_dbus_interface_skeleton_unexport (G_DBUS_INTERFACE_SKELETON (updater->skeleton));
+}
+
+static void
 bus_acquired (GDBusConnection *connection,
               const gchar *name,
               gpointer user_data)
@@ -527,7 +536,7 @@ export_on_dbus (EosUpdater *updater)
                   G_BUS_NAME_OWNER_FLAGS_NONE,
                   bus_acquired,
                   NULL, /* name acquired */
-                  NULL, /* name lost */
+                  name_lost, /* name lost */
                   updater, NULL);
 }
 
@@ -600,6 +609,7 @@ main (int argc, char **argv)
 out:
   g_main_loop_unref (updater.main_loop);
   g_object_unref (updater.proxy);
+  g_dbus_interface_skeleton_unexport (G_DBUS_INTERFACE_SKELETON (updater.skeleton));
 
   if (should_exit_failure) /* All paths setting this print an error message */
     return EXIT_FAILURE;
