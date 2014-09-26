@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=com.endlessm.SystemUpdater
+Exec=@libexecdir@/eos-updater
