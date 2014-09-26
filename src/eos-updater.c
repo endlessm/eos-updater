@@ -480,6 +480,8 @@ is_connected_through_mobile (void)
     case NM_DEVICE_TYPE_WIMAX:
       is_mobile |= TRUE;
       break;
+    default:
+      break;
     }
   }
 
