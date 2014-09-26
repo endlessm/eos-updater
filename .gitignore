@@ -19,6 +19,7 @@ depcomp
 missing
 install-sh
 stamp-h1
+src/eos-auto-updates
 src/eos-updater-generated.c
 src/eos-updater-generated.h
 src/ostree-daemon-generated.c

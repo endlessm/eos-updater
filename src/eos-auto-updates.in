@@ -1,0 +1,20 @@
+#! @GJS_CONSOLE@
+
+const Gio = imports.gi.Gio;
+const GLib = imports.gi.GLib;
+const System = imports.system;
+
+const SystemUpdaterIface = '<node> \
+<interface name="com.endlessm.SystemUpdater"> \
+<method name="AutoUpdatesCheck"/> \
+</interface> \
+</node>';
+const SystemUpdaterProxy = Gio.DBusProxy.makeProxyWrapper(SystemUpdaterIface);
+
+let proxy = new SystemUpdaterProxy(Gio.DBus.system, 'com.endlessm.SystemUpdater', '/com/endlessm/SystemUpdater');
+try {
+    proxy.call_sync('AutoUpdatesCheck', null, Gio.DBusCallFlags.NONE, GLib.MAXINT32, null);
+} catch(e) {
+    logError(e, 'Unable to trigger automatic update');
+    System.exit(1);
+}

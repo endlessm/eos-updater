@@ -19,6 +19,16 @@
 #define EOS_UPDATER_NOT_ONLINE_MSGID            "2797d0eaca084a9192e21838ab12cbd0"
 #define EOS_UPDATER_MOBILE_CONNECTED_MSGID      "7c80d571cbc248d2a5cfd985c7cbd44c"
 
+G_DEFINE_QUARK (eos-updater-error-quark, eos_updater_error)
+
+typedef enum {
+  EOS_UPDATER_ERROR_INVALID_CONFIGURATION,
+  EOS_UPDATER_ERROR_OSTREE_ERROR,
+  EOS_UPDATER_ERROR_INVALID_STAMP,
+  EOS_UPDATER_ERROR_NOT_ONLINE,
+  EOS_UPDATER_ERROR_MOBILE_CONNECTED
+} EosUpdaterError;
+
 /* This represents the ostree daemon state, and matches the definition
  * inside ostree.  Ideally ostree would expose it in a header.
  */
@@ -57,27 +67,70 @@ static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
 static const char *ON_MOBILE_KEY = "UpdateOnMobile";
 
-/* Read from config file */
-static UpdateStep last_automatic_step;
+/* ------------------------------------------------------------------ */
 
-/* Set when main should return failure */
-static gboolean should_exit_failure = FALSE;
+enum {
+  PROP_0,
+  PROP_LAST_AUTOMATIC_STEP,
+  NUM_PROPS
+};
+
+static GParamSpec *props[NUM_PROPS] = { NULL, };
 
 typedef struct {
+  GObject parent;
+
+  GTask *task;
   OTD *proxy;
 
-  SystemUpdater *skeleton;
-
-  UpdateStep current_step;
-
-  GMainLoop *main_loop;
-
   /* Avoid erroneous additional state transitions */
-  guint previous_state;
+  OTDState previous_state;
 
   /* Ensures that the updater never tries to poll twice in one run */
   gboolean polled_already;
-} EosUpdater;
+
+  /* Current update step and last automatic step */
+  UpdateStep current_step;
+  UpdateStep last_automatic_step;
+} EosUpdaterTransaction;
+
+typedef GObjectClass EosUpdaterTransactionClass;
+
+static void eos_updater_transaction_initable_iface_init (GInitableIface *iface);
+
+#define EOS_TYPE_UPDATER_TRANSACTION (eos_updater_transaction_get_type ())
+#define EOS_UPDATER_TRANSACTION(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), EOS_TYPE_UPDATER_TRANSACTION, EosUpdaterTransaction))
+G_DEFINE_TYPE_WITH_CODE (EosUpdaterTransaction, eos_updater_transaction, G_TYPE_OBJECT,
+			 G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE, eos_updater_transaction_initable_iface_init))
+
+static void
+eos_updater_transaction_finalize (GObject *object)
+{
+  EosUpdaterTransaction *self = EOS_UPDATER_TRANSACTION (object);
+
+  g_clear_object (&self->proxy);
+  g_clear_object (&self->task);
+
+  G_OBJECT_CLASS (eos_updater_transaction_parent_class)->finalize (object);
+}
+
+static void
+eos_updater_transaction_set_property (GObject      *object,
+				      guint         prop_id,
+				      const GValue *value,
+				      GParamSpec   *pspec)
+{
+  EosUpdaterTransaction *self = EOS_UPDATER_TRANSACTION (object);
+
+  switch (prop_id) {
+  case PROP_LAST_AUTOMATIC_STEP:
+    self->last_automatic_step = g_value_get_uint (value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 update_stamp_file (void)
@@ -116,14 +169,15 @@ update_stamp_file (void)
  * does mean the call reached the daemon.
  */
 static void
-update_step_callback (GObject *source_object, GAsyncResult *res,
+update_step_callback (GObject *source_object,
+		      GAsyncResult *res,
                       gpointer user_data)
 {
   OTD *proxy = (OTD *) source_object;
-  EosUpdater *updater = user_data;
+  EosUpdaterTransaction *self = user_data;
   GError *error = NULL;
 
-  switch (updater->current_step) {
+  switch (self->current_step) {
     case UPDATE_STEP_POLL:
       otd__call_poll_finish (proxy, res, &error);
 
@@ -144,42 +198,44 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
       g_assert_not_reached ();
   }
 
-  if (error) {
+  if (error != NULL) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Error calling OSTree daemon: %s", error->message,
                      NULL);
-    should_exit_failure = TRUE;
-    g_main_loop_quit (updater->main_loop);
-    g_error_free (error);
+    g_task_return_error (self->task, error);
   }
 }
 
 static gboolean
-do_update_step (EosUpdater *updater, UpdateStep step)
+do_update_step (EosUpdaterTransaction *self,
+		UpdateStep step)
 {
+  GCancellable *cancellable;
+
   /* Don't do more of the process than configured */
-  if (step > last_automatic_step)
+  if (step > self->last_automatic_step)
     return FALSE;
 
-  updater->current_step = step;
+  self->current_step = step;
+  cancellable = g_task_get_cancellable (self->task);
 
   switch (step) {
     case UPDATE_STEP_POLL:
       /* Don't poll more than once, or we will get stuck in a loop */
-      if (updater->polled_already)
+      if (self->polled_already)
         return FALSE;
 
-      updater->polled_already = TRUE;
-      otd__call_poll (updater->proxy, NULL, update_step_callback, updater);
+      self->polled_already = TRUE;
+      otd__call_poll (self->proxy, cancellable, update_step_callback, self);
       break;
 
     case UPDATE_STEP_FETCH:
-      otd__call_fetch (updater->proxy, NULL, update_step_callback, updater);
+      otd__call_fetch (self->proxy, cancellable, update_step_callback, self);
       break;
 
     case UPDATE_STEP_APPLY:
-      otd__call_apply (updater->proxy, NULL, update_step_callback, updater);
+      otd__call_apply (self->proxy, cancellable, update_step_callback, self);
       break;
 
     default:
@@ -189,33 +245,20 @@ do_update_step (EosUpdater *updater, UpdateStep step)
   return TRUE;
 }
 
-static void
-report_error_status (EosUpdater *updater)
-{
-  const gchar *error_message;
-  guint error_code;
-
-  error_code = otd__get_error_code (updater->proxy);
-  error_message = otd__get_error_message (updater->proxy);
-
-  sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
-                   "PRIORITY=%d", LOG_ERR,
-                   "MESSAGE=OSTree daemon error (code:%u): %s", error_code, error_message,
-                   NULL);
-}
-
 /* The updater is driven by state transitions in the ostree daemon.
  * Whenever the state changes, we check if we need to do something
  * as a result of that state change. */
 static void
-on_state_changed (EosUpdater *updater, OTDState state)
+on_state_changed (EosUpdaterTransaction *self,
+		  OTDState state)
 {
   gboolean continue_running = TRUE;
+  GError *error = NULL;
 
-  if (state == updater->previous_state)
+  if (state == self->previous_state)
     return;
 
-  updater->previous_state = state;
+  self->previous_state = state;
 
   g_message ("OSTree daemon state is: %u", state);
 
@@ -224,12 +267,16 @@ on_state_changed (EosUpdater *updater, OTDState state)
       break;
 
     case OTD_STATE_READY: /* Must poll */
-      continue_running = do_update_step (updater, UPDATE_STEP_POLL);
+      continue_running = do_update_step (self, UPDATE_STEP_POLL);
       break;
 
     case OTD_STATE_ERROR: /* Log error and quit */
-      report_error_status (updater);
-      should_exit_failure = TRUE;
+      g_set_error (&error, eos_updater_error_quark (),
+		   EOS_UPDATER_ERROR_OSTREE_ERROR,
+		   "OSTree daemon error (code: %u): %s",
+		   otd__get_error_code (self->proxy),
+		   otd__get_error_message (self->proxy));
+
       continue_running = FALSE;
       break;
 
@@ -237,14 +284,14 @@ on_state_changed (EosUpdater *updater, OTDState state)
       break;
 
     case OTD_STATE_UPDATE_AVAILABLE: /* Possibly fetch */
-      continue_running = do_update_step (updater, UPDATE_STEP_FETCH);
+      continue_running = do_update_step (self, UPDATE_STEP_FETCH);
       break;
 
     case OTD_STATE_FETCHING: /* Wait for completion */
       break;
 
     case OTD_STATE_UPDATE_READY: /* Possibly apply */
-      continue_running = do_update_step (updater, UPDATE_STEP_APPLY);
+      continue_running = do_update_step (self, UPDATE_STEP_APPLY);
       break;
 
     case OTD_STATE_APPLYING_UPDATE: /* Wait for completion */
@@ -255,14 +302,26 @@ on_state_changed (EosUpdater *updater, OTDState state)
       break;
 
     default:
-      g_critical ("OSTree daemon entered invalid state: %u", state);
+      g_set_error (&error, eos_updater_error_quark (),
+		   EOS_UPDATER_ERROR_OSTREE_ERROR,
+		   "OSTree daemon entered invalid state: %u",
+		   state);
+
       continue_running = FALSE;
-      should_exit_failure = TRUE;
       break;
   }
 
-  if (!continue_running) {
-    g_main_loop_quit (updater->main_loop);
+  if (continue_running)
+    return;
+
+  if (error != NULL) {
+      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
+		       "PRIORITY=%d", LOG_ERR,
+		       "MESSAGE=%s", error->message,
+		       NULL);
+      g_task_return_error (self->task, error);
+  } else {
+      g_task_return_boolean (self->task, TRUE);
   }
 }
 
@@ -271,14 +330,146 @@ on_state_changed_notify (OTD *proxy,
                          GParamSpec *pspec,
                          gpointer data)
 {
-  EosUpdater *updater = data;
+  EosUpdaterTransaction *self = data;
   OTDState state = otd__get_state (proxy);
-  on_state_changed (updater, state);
+  on_state_changed (self, state);
 }
 
 static gboolean
+eos_updater_transaction_initable_init (GInitable *initable,
+				       GCancellable *cancellable,
+				       GError **error)
+{
+  EosUpdaterTransaction *self = EOS_UPDATER_TRANSACTION (initable);
+  GError *local_error = NULL;
+
+  self->proxy = otd__proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
+					     G_DBUS_PROXY_FLAGS_NONE,
+					     "org.gnome.OSTree",
+					     "/org/gnome/OSTree",
+					     cancellable,
+					     &local_error);
+
+  if (local_error) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_ERR,
+                     "MESSAGE=Error getting OSTree proxy object: %s", local_error->message,
+                     NULL);
+
+    g_set_error (error, eos_updater_error_quark (),
+		 EOS_UPDATER_ERROR_OSTREE_ERROR,
+		 "Error getting OSTree proxy object: %s",
+		 local_error->message);
+
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+static void
+eos_updater_transaction_initable_iface_init (GInitableIface *iface)
+{
+  iface->init = eos_updater_transaction_initable_init;
+}
+
+static void
+eos_updater_transaction_init (EosUpdaterTransaction *self)
+{
+}
+
+static void
+eos_updater_transaction_class_init (EosUpdaterTransactionClass *klass)
+{
+  GObjectClass *oclass = G_OBJECT_CLASS (klass);
+
+  oclass->finalize = eos_updater_transaction_finalize;
+  oclass->set_property = eos_updater_transaction_set_property;
+
+  props[PROP_LAST_AUTOMATIC_STEP] = g_param_spec_uint ("last-automatic-step",
+						       "Last automatic step",
+						       "Last automatic step",
+						       UPDATE_STEP_NONE,
+						       UPDATE_STEP_APPLY,
+						       UPDATE_STEP_NONE,
+						       G_PARAM_CONSTRUCT | G_PARAM_WRITABLE);
+  g_object_class_install_properties (oclass, NUM_PROPS, props);
+}
+
+static gboolean
+eos_updater_transaction_run_finish (EosUpdaterTransaction *self,
+				    GAsyncResult *res,
+				    GError **error)
+{
+  g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
+
+  return g_task_propagate_boolean (G_TASK (res), error);
+}
+
+static void
+eos_updater_transaction_run_async (EosUpdaterTransaction *self,
+				   GCancellable *cancellable,
+				   GAsyncReadyCallback callback,
+				   gpointer user_data)
+{
+  OTDState initial_state = otd__get_state (self->proxy);
+
+  g_assert (self->task == NULL);
+
+  self->task = g_task_new (self, cancellable, callback, user_data);
+
+  /* Attempt to clear the error by pretending to be ready, which will
+   * trigger a poll
+   */
+  if (initial_state == OTD_STATE_ERROR)
+    initial_state = OTD_STATE_READY;
+
+  g_signal_connect (self->proxy, "notify::state",
+                    G_CALLBACK (on_state_changed_notify), self);
+  on_state_changed (self, initial_state);
+}
+
+static void
+eos_updater_transaction_set_last_automatic_step (EosUpdaterTransaction *self,
+						 UpdateStep step)
+{
+  self->last_automatic_step = step;
+}
+
+static EosUpdaterTransaction *
+eos_updater_transaction_new (UpdateStep last_automatic_step,
+			     GError **error)
+{
+  return g_initable_new (eos_updater_transaction_get_type (),
+			 NULL, error, /* GCancellable */
+			 "last-automatic-step", last_automatic_step,
+			 NULL);
+}
+
+/* ------------------------------------------------------------------ */
+
+typedef struct {
+  GObject parent;
+
+  guint bus_owner_id;
+  SystemUpdater *skeleton;
+  GMainLoop *main_loop;
+
+  GCancellable *transaction_cancellable;
+  EosUpdaterTransaction *transaction;
+  GList *pending_invocations;
+} EosUpdater;
+
+typedef GObjectClass EosUpdaterClass;
+
+#define EOS_TYPE_UPDATER (eos_updater_get_type ())
+#define EOS_UPDATER(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), EOS_TYPE_UPDATER, EosUpdater))
+G_DEFINE_TYPE (EosUpdater, eos_updater, G_TYPE_OBJECT)
+
+static gboolean
 read_config_file (gint *update_interval,
-                  gboolean *update_on_mobile)
+                  gboolean *update_on_mobile,
+		  UpdateStep *last_automatic_step)
 {
   GKeyFile *config = g_key_file_new ();
   GError *error = NULL;
@@ -294,8 +485,8 @@ read_config_file (gint *update_interval,
     goto out;
   }
 
-  last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
-                                                LAST_STEP_KEY, &error);
+  *last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
+						 LAST_STEP_KEY, &error);
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
@@ -343,34 +534,6 @@ out:
   g_key_file_free (config);
 
   return success;
-}
-
-static void
-updater_start (EosUpdater *updater)
-{
-  OTDState initial_state = otd__get_state (updater->proxy);
-
-  /* Attempt to clear the error by pretending to be ready, which will
-   * trigger a poll
-   */
-  if (initial_state == OTD_STATE_ERROR)
-    initial_state = OTD_STATE_READY;
-
-  on_state_changed (updater, initial_state);
-}
-
-/* We want to poll once when the updater starts.  To make sure that we
- * can quit ourselves gracefully, we wait until the main loop starts.
- */
-static gboolean
-initial_poll_idle_func (gpointer pointer)
-{
-  EosUpdater *updater = pointer;
-
-  updater_start (updater);
-
-  /* Disable this function after the first run */
-  return G_SOURCE_REMOVE;
 }
 
 static gboolean
@@ -490,6 +653,65 @@ is_connected_through_mobile (void)
   return is_mobile;
 }
 
+static void
+updater_transaction_completed (GObject *object,
+			       GAsyncResult *res,
+			       gpointer user_data)
+{
+  EosUpdater *updater = user_data;
+  GError *error = NULL;
+  GDBusMethodInvocation *invocation;
+  GList *l;
+
+  eos_updater_transaction_run_finish (EOS_UPDATER_TRANSACTION (object), res, &error);
+
+  for (l = updater->pending_invocations; l != NULL; l = l->next) {
+    invocation = l->data;
+    if (error)
+      g_dbus_method_invocation_take_error (invocation, error);
+    else
+      g_dbus_method_invocation_return_value (invocation, NULL);
+  }
+
+  g_clear_pointer (&updater->pending_invocations, g_list_free);
+  g_clear_object (&updater->transaction);
+  g_clear_object (&updater->transaction_cancellable);
+
+  /* ref in ensure_update_transaction_for_invocation() */
+  g_object_unref (updater);
+
+  /* Time to quit */
+  g_main_loop_quit (updater->main_loop);
+}
+
+static void
+ensure_update_transaction_for_invocation (EosUpdater *updater,
+					  GDBusMethodInvocation *invocation,
+					  UpdateStep last_automatic_step)
+{
+  GError *error = NULL;
+  EosUpdaterTransaction *transaction;
+
+  if (updater->transaction == NULL)
+    transaction = eos_updater_transaction_new (last_automatic_step, &error);
+
+  if (error != NULL) {
+      g_dbus_method_invocation_take_error (invocation, error);
+      return;
+  }
+
+  if (updater->transaction == NULL) {
+    updater->transaction = transaction;
+    /* unref in the updater_transaction_completed() */
+    eos_updater_transaction_run_async (updater->transaction, NULL,
+				       updater_transaction_completed, g_object_ref (updater));
+  } else {
+    eos_updater_transaction_set_last_automatic_step (updater->transaction, last_automatic_step);
+  }
+
+  updater->pending_invocations = g_list_prepend (updater->pending_invocations, invocation);
+}
+
 static gboolean
 handle_force_update (GDBusInterfaceSkeleton *skeleton,
                      GDBusMethodInvocation  *invocation,
@@ -497,7 +719,59 @@ handle_force_update (GDBusInterfaceSkeleton *skeleton,
 {
   EosUpdater *updater = user_data;
 
-  updater_start (updater);
+  ensure_update_transaction_for_invocation (updater, invocation, UPDATE_STEP_APPLY);
+  return TRUE;
+}
+
+static gboolean
+handle_auto_updates_check (GDBusInterfaceSkeleton *skeleton,
+			   GDBusMethodInvocation  *invocation,
+			   gpointer                user_data)
+{
+  EosUpdater *updater = user_data;
+  gint update_interval;
+  gboolean update_on_mobile;
+  gboolean up_to_date = FALSE;
+  GError *error = NULL;
+  UpdateStep last_automatic_step;
+
+  if (!read_config_file (&update_interval, &update_on_mobile, &last_automatic_step))
+    {
+      g_set_error (&error, eos_updater_error_quark (),
+		   EOS_UPDATER_ERROR_INVALID_CONFIGURATION,
+		   "Invalid configuration detected");
+      goto out;
+    }
+
+  if (!is_online ())
+    {
+      g_set_error (&error, eos_updater_error_quark (),
+		   EOS_UPDATER_ERROR_NOT_ONLINE,
+		   "Network is offline");
+      goto out;
+    }
+
+  if (!update_on_mobile && is_connected_through_mobile ()) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
+		     "PRIORITY=%d", LOG_INFO,
+		     "MESSAGE=Connected to mobile network. Not updating",
+		     NULL);
+    g_set_error (&error, eos_updater_error_quark (),
+		 EOS_UPDATER_ERROR_MOBILE_CONNECTED,
+		 "Mobile connection detected, and policy prevents update");
+    goto out;
+  }
+
+  up_to_date = is_time_to_update (update_interval);
+
+ out:
+  if (error != NULL)
+    g_dbus_method_invocation_take_error (invocation, error);
+  else if (up_to_date)
+    /* If it's not time to update, just return */
+    g_dbus_method_invocation_return_value (invocation, NULL);
+  else
+    ensure_update_transaction_for_invocation (updater, invocation, last_automatic_step);
 
   return TRUE;
 }
@@ -517,11 +791,6 @@ bus_acquired (GDBusConnection *connection,
               gpointer user_data)
 {
   EosUpdater *updater = user_data;
-  updater->skeleton = system_updater__skeleton_new ();
-
-  g_signal_connect (updater->skeleton, "handle-force-update",
-                    G_CALLBACK (handle_force_update), updater);
-
   g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (updater->skeleton),
                                     connection,
                                     "/com/endlessm/SystemUpdater",
@@ -529,95 +798,77 @@ bus_acquired (GDBusConnection *connection,
 }
 
 static void
-export_on_dbus (EosUpdater *updater)
+eos_updater_finalize (GObject *object)
 {
-  g_bus_own_name (G_BUS_TYPE_SYSTEM,
-                  "com.endlessm.SystemUpdater",
-                  G_BUS_NAME_OWNER_FLAGS_NONE,
-                  bus_acquired,
-                  NULL, /* name acquired */
-                  name_lost, /* name lost */
-                  updater, NULL);
+  EosUpdater *updater = EOS_UPDATER (object);
+
+  if (updater->skeleton != NULL)
+    g_dbus_interface_skeleton_unexport (G_DBUS_INTERFACE_SKELETON (updater->skeleton));
+
+  if (updater->bus_owner_id != 0) {
+      g_bus_unown_name (updater->bus_owner_id);
+      updater->bus_owner_id = 0;
+  }
+
+  g_clear_pointer (&updater->main_loop, g_main_loop_unref);
+  g_clear_object (&updater->skeleton);
+
+  if (updater->transaction_cancellable != NULL) {
+    g_cancellable_cancel (updater->transaction_cancellable);
+    g_clear_object (&updater->transaction_cancellable);
+  }
+
+  g_clear_object (&updater->transaction);
+  g_clear_pointer (&updater->pending_invocations, g_list_free);
+
+  G_OBJECT_CLASS (eos_updater_parent_class)->finalize (object);
 }
+
+static void
+eos_updater_init (EosUpdater *updater)
+{
+  updater->skeleton = system_updater__skeleton_new ();
+
+  g_signal_connect (updater->skeleton, "handle-auto-updates-check",
+                    G_CALLBACK (handle_auto_updates_check), updater);
+  g_signal_connect (updater->skeleton, "handle-force-update",
+                    G_CALLBACK (handle_force_update), updater);
+
+  updater->bus_owner_id = g_bus_own_name (G_BUS_TYPE_SYSTEM,
+					  "com.endlessm.SystemUpdater",
+					  G_BUS_NAME_OWNER_FLAGS_NONE,
+					  bus_acquired,
+					  NULL, /* name acquired */
+					  name_lost, /* name lost */
+					  updater, NULL);
+
+  updater->main_loop = g_main_loop_new (NULL, FALSE);
+}
+
+static void
+eos_updater_class_init (EosUpdaterClass *klass)
+{
+  GObjectClass *oclass = G_OBJECT_CLASS (klass);
+
+  oclass->finalize = eos_updater_finalize;
+}
+
+static EosUpdater *
+eos_updater_new (void)
+{
+  return g_object_new (eos_updater_get_type (), NULL);
+}
+
+/* ------------------------------------------------------------------ */
 
 int
 main (int argc, char **argv)
 {
-  GError *error = NULL;
-  gint update_interval;
-  gboolean update_on_mobile;
-  gboolean force_update;
-  GOptionContext *context;
-  EosUpdater updater = { 0 };
+  EosUpdater *updater;
 
-  GOptionEntry entries[] = {
-    { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
-    { NULL }
-  };
-
-  context = g_option_context_new ("Endless Updater");
-  g_option_context_add_main_entries (context, entries, NULL);
-  g_option_context_parse (context, &argc, &argv, NULL);
-  g_option_context_free (context);
-
-  if (!read_config_file (&update_interval, &update_on_mobile))
-    return EXIT_FAILURE;
-
-  if (!is_online ())
-    return EXIT_SUCCESS;
-
-  if (!force_update) {
-    if (!update_on_mobile && is_connected_through_mobile ()) {
-      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
-                       "PRIORITY=%d", LOG_INFO,
-                       "MESSAGE=Connected to mobile network. Not updating",
-                       NULL);
-      return EXIT_SUCCESS;
-    }
-
-    if (!is_time_to_update (update_interval))
-      return EXIT_SUCCESS;
-  }
-
-  updater.main_loop = g_main_loop_new (NULL, FALSE);
-
-  updater.proxy = otd__proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
-                                               G_DBUS_PROXY_FLAGS_NONE,
-                                               "org.gnome.OSTree",
-                                               "/org/gnome/OSTree",
-                                               NULL,
-                                               &error);
-
-  if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Error getting OSTree proxy object: %s", error->message,
-                     NULL);
-    g_error_free (error);
-    should_exit_failure = TRUE;
-    goto out;
-  }
-
-  g_signal_connect (updater.proxy, "notify::state",
-                    G_CALLBACK (on_state_changed_notify), NULL);
-
-  g_idle_add (initial_poll_idle_func, &updater);
-  export_on_dbus (&updater);
-
-  g_main_loop_run (updater.main_loop);
-
-out:
-  g_main_loop_unref (updater.main_loop);
-  g_object_unref (updater.proxy);
-  g_dbus_interface_skeleton_unexport (G_DBUS_INTERFACE_SKELETON (updater.skeleton));
-
-  if (should_exit_failure) /* All paths setting this print an error message */
-    return EXIT_FAILURE;
-
-  sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_SUCCESS_MSGID,
-                   "PRIORITY=%d", LOG_INFO,
-                   "MESSAGE=Updater finished successfully",
-                   NULL);
+  updater = eos_updater_new ();
+  g_main_loop_run (updater->main_loop);
+  g_object_unref (updater);
 
   return EXIT_SUCCESS;
 }
