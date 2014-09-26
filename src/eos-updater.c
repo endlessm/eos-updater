@@ -84,7 +84,6 @@ update_stamp_file (void)
 {
   GFile *stamp_file;
   GError *error = NULL;
-  gboolean ret = TRUE;
 
   if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0) {
     int saved_errno = errno;
@@ -535,7 +534,6 @@ export_on_dbus (EosUpdater *updater)
 int
 main (int argc, char **argv)
 {
-  OTD *proxy;
   GError *error = NULL;
   gint update_interval;
   gboolean update_on_mobile;
