@@ -63,14 +63,14 @@ static UpdateStep last_automatic_step;
 /* Set when main should return failure */
 static gboolean should_exit_failure = FALSE;
 
-static GMainLoop *main_loop;
-
 typedef struct {
   OTD *proxy;
 
   SystemUpdater *skeleton;
 
   UpdateStep current_step;
+
+  GMainLoop *main_loop;
 
   /* Avoid erroneous additional state transitions */
   guint previous_state;
@@ -151,7 +151,7 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
                      "MESSAGE=Error calling OSTree daemon: %s", error->message,
                      NULL);
     should_exit_failure = TRUE;
-    g_main_loop_quit (main_loop);
+    g_main_loop_quit (updater->main_loop);
     g_error_free (error);
   }
 }
@@ -263,7 +263,7 @@ on_state_changed (EosUpdater *updater, OTDState state)
   }
 
   if (!continue_running) {
-    g_main_loop_quit (main_loop);
+    g_main_loop_quit (updater->main_loop);
   }
 }
 
@@ -570,7 +570,7 @@ main (int argc, char **argv)
       return EXIT_SUCCESS;
   }
 
-  main_loop = g_main_loop_new (NULL, FALSE);
+  updater.main_loop = g_main_loop_new (NULL, FALSE);
 
   updater.proxy = otd__proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
                                                G_DBUS_PROXY_FLAGS_NONE,
@@ -595,10 +595,10 @@ main (int argc, char **argv)
   g_idle_add (initial_poll_idle_func, &updater);
   export_on_dbus (&updater);
 
-  g_main_loop_run (main_loop);
+  g_main_loop_run (updater.main_loop);
 
 out:
-  g_main_loop_unref (main_loop);
+  g_main_loop_unref (updater.main_loop);
   g_object_unref (proxy);
 
   if (should_exit_failure) /* All paths setting this print an error message */
