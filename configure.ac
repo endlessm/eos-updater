@@ -14,6 +14,9 @@ AS_IF([test "x$with_systemdsystemunitdir" != "xno"], [
   AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
 ])
 
+GJS_CONSOLE=`$PKG_CONFIG --variable=gjs_console gjs-1.0`
+AC_SUBST(GJS_CONSOLE)
+
 GLIB_REQUIRED_VERSION=2.36.0
 
 PKG_CHECK_MODULES(EOS_UPDATER,

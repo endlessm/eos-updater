@@ -1,0 +1,6 @@
+<node>
+  <interface name="com.endlessm.SystemUpdater">
+    <method name="AutoUpdatesCheck"></method>
+    <method name="ForceUpdate"></method>
+  </interface>
+</node>
