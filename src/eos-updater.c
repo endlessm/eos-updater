@@ -16,6 +16,7 @@
 #define EOS_UPDATER_SUCCESS_MSGID               "ce0a80bb9f734dc09f8b56a7fb981ae4"
 #define EOS_UPDATER_NOT_ONLINE_MSGID            "2797d0eaca084a9192e21838ab12cbd0"
 #define EOS_UPDATER_MOBILE_CONNECTED_MSGID      "7c80d571cbc248d2a5cfd985c7cbd44c"
+#define EOS_UPDATER_NOT_TIME_MSGID              "7c853d8fbc0b4a9b9f331b5b9aee4435"
 
 /* This represents the ostree daemon state, and matches the definition
  * inside ostree.  Ideally ostree would expose it in a header.
@@ -506,8 +507,13 @@ main (int argc, char **argv)
       return EXIT_SUCCESS;
     }
 
-    if (!is_time_to_update (update_interval))
+    if (!is_time_to_update (update_interval)) {
+      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_TIME_MSGID,
+                       "PRIORITY=%d", LOG_INFO,
+                       "MESSAGE=Less than IntervalDays since last update. Exiting",
+                       NULL);
       return EXIT_SUCCESS;
+    }
   }
 
   main_loop = g_main_loop_new (NULL, FALSE);
