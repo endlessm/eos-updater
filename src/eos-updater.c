@@ -478,7 +478,7 @@ main (int argc, char **argv)
   GError *error = NULL;
   gint update_interval;
   gboolean update_on_mobile;
-  gboolean force_update;
+  gboolean force_update = FALSE;
   GOptionContext *context;
 
   GOptionEntry entries[] = {
