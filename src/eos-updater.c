@@ -77,7 +77,7 @@ update_stamp_file (void)
   GError *error = NULL;
   gboolean ret = TRUE;
 
-  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0) {
+  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0755) != 0) {
     int saved_errno = errno;
     const char *err_str = g_strerror (saved_errno);
 
@@ -118,10 +118,6 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
   switch (step) {
     case UPDATE_STEP_POLL:
       otd__call_poll_finish (proxy, res, &error);
-
-      /* Update the stamp file on successful poll */
-      if (!error)
-        update_stamp_file ();
       break;
 
     case UPDATE_STEP_FETCH:
@@ -548,6 +544,8 @@ out:
   if (should_exit_failure) /* All paths setting this print an error message */
     return EXIT_FAILURE;
 
+  /* Update the stamp file since all configured steps have succeeded. */
+  update_stamp_file ();
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_SUCCESS_MSGID,
                    "PRIORITY=%d", LOG_INFO,
                    "MESSAGE=Updater finished successfully",
