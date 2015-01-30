@@ -77,7 +77,7 @@ update_stamp_file (void)
   GError *error = NULL;
   gboolean ret = TRUE;
 
-  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0644) != 0) {
+  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0755) != 0) {
     int saved_errno = errno;
     const char *err_str = g_strerror (saved_errno);
 
