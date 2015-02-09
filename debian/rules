@@ -15,4 +15,4 @@ override_dh_auto_configure:
 	dh_auto_configure -- $(confflags)
 
 %:
-	dh $@ --with autotools-dev,autoreconf,systemd
+	dh $@ --with autotools-dev,autoreconf,systemd,python2

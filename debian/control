@@ -8,14 +8,18 @@ Build-Depends: debhelper (>= 8.0.0),
 	libnm-glib-dev,
 	libsystemd-journal-dev,
 	dh-autoreconf,
-	dh-systemd
+	dh-systemd,
+	python
 
 Package: eos-updater
 Section: misc
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends},
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends},
 	systemd (>= 200),
-	ostree
+	ostree,
+	python-gi,
+	gir1.2-glib-2.0,
+	gir1.2-ostree
 Description: Automatic updater for EndlessOS
  This package contains the automatic update
  component to keep Endless OS up to date.
