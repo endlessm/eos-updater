@@ -2,6 +2,8 @@
 Description=EndlessOS Updater
 ConditionKernelCommandLine=ostree
 Wants=network.target
+# Upgrade the ostree configuration before firing the updater.
+Wants=eos-release-upgrade.service
 
 [Service]
 Type=simple
