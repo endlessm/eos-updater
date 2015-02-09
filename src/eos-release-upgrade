@@ -1,0 +1,102 @@
+#!/usr/bin/env python
+# -*- mode: Python; python-indent: 4; coding: utf-8 -*-
+
+import os
+import sys
+import re
+import argparse
+import subprocess
+from gi.repository import GLib, OSTree
+
+# Array of (current, upgrade) refspec tuples.
+upgrade_refspecs = [('eos:master/odroidu2-echo', 'eos:eos1/odroidu2')]
+
+# Array of (current, upgrade) url tuples.
+url_base = 'http://endless:upgtnFSxLoDfUJnt@ostree.endlessm.com'
+upgrade_urls = [(url_base + '/ostree/echo', url_base + '/ostree/eos-armhf')]
+
+def get_booted_refspec(repo):
+    """Get the refspec for the currently booted deployment. Uses the
+    refspec recorded in the origin file or falls back to the first
+    branch in the repo remote configuration."""
+    refspec = None
+
+    # Horrible. Scrape "ostree admin status" output.
+    output = subprocess.check_output(['ostree', 'admin', 'status'])
+
+    # The currently booted deployment has a * in the first column and
+    # then the refspec is on the following line.
+    in_booted = False
+    for line in output.splitlines():
+        words = line.split()
+        if in_booted:
+            if words[1] == 'refspec:':
+                refspec = words[2]
+                break
+
+        if words[0] == '*':
+            in_booted = True
+
+    return refspec
+
+def get_repo_remote_branch(repo, os):
+    """Get the first remote branch for the specified OS."""
+    config = repo.get_config()
+    remote = 'remote "%s"' % os
+    branch = config.get_string(remote, 'branches').split(';')[0]
+    if branch == '':
+        raise Exception('No branch specified for remote "%s"' % os)
+    return branch
+
+def get_repo_remote_url(repo, os):
+    """Get the remote URL for the specified OS."""
+    config = repo.get_config()
+    remote = 'remote "%s"' % os
+    url = config.get_string(remote, 'url')
+    if url == '':
+        raise Exception('No url specified for remote "%s"' % os)
+    return url
+
+parser = argparse.ArgumentParser(description='Update ostree origin refs')
+args = parser.parse_args()
+
+repo = OSTree.Repo.new_default()
+repo.check()
+
+refspec = get_booted_refspec(repo)
+if refspec is None:
+    # Not booted in an ostree deployment. Make this non-fatal so that
+    # this can be run against converted systems.
+    print "Not booted in an ostree deployment"
+    exit(0)
+elif refspec == 'local:factory':
+    # Try to convert back to the eos refspec in the repo configuration.
+    branch = get_repo_remote_branch(repo, 'eos')
+    refspec = 'eos:' + branch
+
+os, branch = refspec.split(':')
+url = get_repo_remote_url(repo, os)
+
+# Check if we want to update the branch or url.
+new_branch = branch
+new_url = url
+for orig_refspec, next_refspec in upgrade_refspecs:
+    orig_os, orig_branch = orig_refspec.split(':')
+    if orig_os == os and orig_branch == branch:
+        new_branch = next_refspec.split(':')[1]
+        break
+for orig_url, next_url in upgrade_urls:
+    if orig_url == url:
+        new_url = next_url
+        break
+
+if new_branch != branch or new_url != url:
+    print 'Upgrading %s to branch %s, url %s' %(os, new_branch, new_url)
+    cmd = ['ostree', 'admin', 'set-origin', os, new_url]
+    if new_branch != branch:
+        # Unfortunately, set-origin does not update the branches in the
+        # repo configuration, so we have to pass in the --set option.
+        cmd.extend([new_branch, '--set=branches=' + new_branch + ';'])
+    subprocess.check_call(cmd)
+else:
+    print 'OSTree configuration up to date'

@@ -1,0 +1,8 @@
+[Unit]
+Description=EndlessOS Release Upgrader
+ConditionKernelCommandLine=ostree
+Requires=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=@libexecdir@/eos-release-upgrade

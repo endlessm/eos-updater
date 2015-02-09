@@ -1,3 +1,4 @@
+*~
 *.la
 *.lo
 *.o
@@ -25,6 +26,7 @@ src/Makefile.in
 src/eos-updater
 data/eos-updater.service
 data/eos-updater.timer
+data/eos-release-upgrade.service
 config.h.in~
 debian/autoreconf.after
 debian/autoreconf.before

@@ -1,13 +1,15 @@
-eos_updater_in = eos-updater.service.in eos-updater.timer.in
+systemd_in = \
+	eos-updater.service.in \
+	eos-updater.timer.in \
+	eos-release-upgrade.service.in \
+	$(NULL)
 
-systemdsystemunit_DATA = $(eos_updater_in:%.in=%)
+systemdsystemunit_DATA = $(systemd_in:%.in=%)
 
 sysconf_DATA = eos-updater.conf
 
-eos-updater.service: eos-updater.service.in
-	$(edit) $< >$@
-
-eos-updater.timer: eos-updater.timer.in
+SUFFIXES = .in
+.in:
 	$(edit) $< >$@
 
 edit = sed \
@@ -17,7 +19,8 @@ edit = sed \
 	-e 's|@localstatedir[@]|$(localstatedir)|g' \
 	-e 's|@libexecdir[@]|$(libexecdir)|g'
 
-EXTRA_DIST = $(eos_updater_in) \
+EXTRA_DIST = \
+	$(systemd_in) \
 	$(sysconf_DATA) \
 	$(NULL)
 

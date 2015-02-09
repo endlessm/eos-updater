@@ -1,5 +1,6 @@
 [Unit]
 Description=EndlessOS Automatic Update Timer
+ConditionKernelCommandLine=ostree
 Wants=network.target
 
 [Timer]
