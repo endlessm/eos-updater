@@ -4,10 +4,8 @@ systemdsystemunit_DATA = $(eos_updater_in:%.in=%)
 
 sysconf_DATA = eos-updater.conf
 
-eos-updater.service: eos-updater.service.in
-	$(edit) $< >$@
-
-eos-updater.timer: eos-updater.timer.in
+SUFFIXES = .in
+.in:
 	$(edit) $< >$@
 
 edit = sed \
