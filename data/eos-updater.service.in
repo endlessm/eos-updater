@@ -1,5 +1,6 @@
 [Unit]
 Description=EndlessOS Updater
+ConditionKernelCommandLine=ostree
 Wants=network.target
 
 [Service]
