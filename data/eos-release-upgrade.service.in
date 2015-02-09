@@ -1,0 +1,7 @@
+[Unit]
+Description=EndlessOS Release Upgrader
+Requires=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=@libexecdir@/eos-release-upgrade
