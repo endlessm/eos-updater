@@ -9,11 +9,11 @@ import subprocess
 from gi.repository import GLib, OSTree
 
 # Array of (current, upgrade) refspec tuples.
-upgrade_refspecs = []
+upgrade_refspecs = [('eos:master/odroidu2-echo', 'eos:eos1/odroidu2')]
 
 # Array of (current, upgrade) url tuples.
 url_base = 'http://endless:upgtnFSxLoDfUJnt@ostree.endlessm.com'
-upgrade_urls = []
+upgrade_urls = [(url_base + '/ostree/echo', url_base + '/ostree/eos-armhf')]
 
 def get_booted_refspec(repo):
     """Get the refspec for the currently booted deployment. Uses the
