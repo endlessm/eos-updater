@@ -2,6 +2,7 @@ AM_CFLAGS = $(EOS_UPDATER_CFLAGS)
 eos_updater_LDADD = $(EOS_UPDATER_LIBS)
 
 libexec_PROGRAMS = eos-updater
+dist_libexec_SCRIPTS = eos-release-upgrade
 
 BUILT_SOURCES = \
 	ostree-daemon-generated.h \
