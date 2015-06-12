@@ -18,21 +18,6 @@
 #define EOS_UPDATER_MOBILE_CONNECTED_MSGID      "7c80d571cbc248d2a5cfd985c7cbd44c"
 #define EOS_UPDATER_NOT_TIME_MSGID              "7c853d8fbc0b4a9b9f331b5b9aee4435"
 
-/* This represents the ostree daemon state, and matches the definition
- * inside ostree.  Ideally ostree would expose it in a header.
- */
-typedef enum {
-  OTD_STATE_NONE = 0,
-  OTD_STATE_READY,
-  OTD_STATE_ERROR,
-  OTD_STATE_POLLING,
-  OTD_STATE_UPDATE_AVAILABLE,
-  OTD_STATE_FETCHING,
-  OTD_STATE_UPDATE_READY,
-  OTD_STATE_APPLYING_UPDATE,
-  OTD_STATE_UPDATE_APPLIED,
-} OTDState;
-
 /* The step of the update. These constants are used in the configuration
  * file to indicate which is the final automatic step before the user
  * needs to intervene.
