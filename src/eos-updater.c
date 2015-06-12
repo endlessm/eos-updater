@@ -111,21 +111,21 @@ static void
 update_step_callback (GObject *source_object, GAsyncResult *res,
                       gpointer step_data)
 {
-  OTD *proxy = (OTD *) source_object;
+  OTDOSTree *proxy = (OTDOSTree *) source_object;
   UpdateStep step = GPOINTER_TO_INT (step_data);
   GError *error = NULL;
 
   switch (step) {
     case UPDATE_STEP_POLL:
-      otd__call_poll_finish (proxy, res, &error);
+      otd_ostree_call_poll_finish (proxy, res, &error);
       break;
 
     case UPDATE_STEP_FETCH:
-      otd__call_fetch_finish (proxy, res, &error);
+      otd_ostree_call_fetch_finish (proxy, res, &error);
       break;
 
     case UPDATE_STEP_APPLY:
-      otd__call_apply_finish (proxy, res, &error);
+      otd_ostree_call_apply_finish (proxy, res, &error);
       break;
 
     default:
@@ -144,7 +144,7 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
 }
 
 static gboolean
-do_update_step (UpdateStep step, OTD *proxy)
+do_update_step (UpdateStep step, OTDOSTree *proxy)
 {
   gpointer step_data = GINT_TO_POINTER (step);
 
@@ -159,15 +159,15 @@ do_update_step (UpdateStep step, OTD *proxy)
         return FALSE;
 
       polled_already = TRUE;
-      otd__call_poll (proxy, NULL, update_step_callback, step_data);
+      otd_ostree_call_poll (proxy, NULL, update_step_callback, step_data);
       break;
 
     case UPDATE_STEP_FETCH:
-      otd__call_fetch (proxy, NULL, update_step_callback, step_data);
+      otd_ostree_call_fetch (proxy, NULL, update_step_callback, step_data);
       break;
 
     case UPDATE_STEP_APPLY:
-      otd__call_apply (proxy, NULL, update_step_callback, step_data);
+      otd_ostree_call_apply (proxy, NULL, update_step_callback, step_data);
       break;
 
     default:
@@ -178,13 +178,13 @@ do_update_step (UpdateStep step, OTD *proxy)
 }
 
 static void
-report_error_status (OTD *proxy)
+report_error_status (OTDOSTree *proxy)
 {
   const gchar *error_message;
   guint error_code;
 
-  error_code = otd__get_error_code (proxy);
-  error_message = otd__get_error_message (proxy);
+  error_code = otd_ostree_get_error_code (proxy);
+  error_message = otd_ostree_get_error_message (proxy);
 
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
                    "PRIORITY=%d", LOG_ERR,
@@ -196,7 +196,7 @@ report_error_status (OTD *proxy)
  * Whenever the state changes, we check if we need to do something
  * as a result of that state change. */
 static void
-on_state_changed (OTD *proxy, OTDState state)
+on_state_changed (OTDOSTree *proxy, OTDState state)
 {
   gboolean continue_running = TRUE;
 
@@ -255,11 +255,11 @@ on_state_changed (OTD *proxy, OTDState state)
 }
 
 static void
-on_state_changed_notify (OTD *proxy,
+on_state_changed_notify (OTDOSTree *proxy,
                          GParamSpec *pspec,
                          gpointer data)
 {
-  OTDState state = otd__get_state (proxy);
+  OTDState state = otd_ostree_get_state (proxy);
   on_state_changed (proxy, state);
 }
 
@@ -338,8 +338,8 @@ out:
 static gboolean
 initial_poll_idle_func (gpointer pointer)
 {
-  OTD *proxy = (OTD *) pointer;
-  OTDState initial_state = otd__get_state (proxy);
+  OTDOSTree *proxy = (OTDOSTree *) pointer;
+  OTDState initial_state = otd_ostree_get_state (proxy);
 
   /* Attempt to clear the error by pretending to be ready, which will
    * trigger a poll
@@ -471,7 +471,7 @@ is_connected_through_mobile (void)
 int
 main (int argc, char **argv)
 {
-  OTD *proxy;
+  OTDOSTree *proxy;
   GError *error = NULL;
   gint update_interval;
   gboolean update_on_mobile;
@@ -514,7 +514,7 @@ main (int argc, char **argv)
 
   main_loop = g_main_loop_new (NULL, FALSE);
 
-  proxy = otd__proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
+  proxy = otd_ostree_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
                      G_DBUS_PROXY_FLAGS_NONE,
                      "org.gnome.OSTree",
                      "/org/gnome/OSTree",
