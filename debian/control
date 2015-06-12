@@ -2,7 +2,8 @@ Source: eos-updater
 Section: misc
 Priority: optional
 Maintainer: John Hiesey <john@endlessm.com>
-Build-Depends: debhelper (>= 8.0.0),
+Standards-Version: 3.9.6
+Build-Depends: debhelper (>= 9.0.0),
 	autotools-dev,
 	libglib2.0-dev,
 	libnm-glib-dev,
