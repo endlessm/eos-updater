@@ -20,7 +20,7 @@
  * Author: Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "ostree-daemon-apply.h"
+#include "eos-updater-apply.h"
 #include <ostree.h>
 
 static void
@@ -28,7 +28,7 @@ apply_finished (GObject *object,
                 GAsyncResult *res,
                 gpointer user_data)
 {
-  OTDOSTree *ostree = OTD_OSTREE (object);
+  EosUpdater *updater = EOS_UPDATER (object);
   GTask *task;
   GError *error = NULL;
 
@@ -46,14 +46,14 @@ apply_finished (GObject *object,
 
   if (error)
     {
-      ostree_daemon_set_error (ostree, error);
+      eos_updater_set_error (updater, error);
       g_clear_error (&error);
     }
   else
     {
-      otd_ostree_set_error_code (ostree, 0);
-      otd_ostree_set_error_message (ostree, "");
-      ostree_daemon_set_state (ostree, OTD_STATE_UPDATE_APPLIED);
+      eos_updater_set_error_code (updater, 0);
+      eos_updater_set_error_message (updater, "");
+      eos_updater_set_state_changed (updater, EOS_STATE_UPDATE_APPLIED);
     }
 
   return;
@@ -71,10 +71,10 @@ apply (GTask *task,
        gpointer task_data,
        GCancellable *cancel)
 {
-  OTDOSTree *ostree = OTD_OSTREE (object);
+  EosUpdater *updater = EOS_UPDATER (object);
   GError *error = NULL;
   GMainContext *task_context = g_main_context_new ();
-  const gchar *update_id = otd_ostree_get_update_id (ostree);
+  const gchar *update_id = eos_updater_get_update_id (updater);
   gint bootversion = 0;
   gint newbootver = 0;
   gs_unref_object OstreeDeployment *merge_deployment = NULL;
@@ -127,31 +127,31 @@ apply (GTask *task,
 }
 
 gboolean
-handle_apply (OTDOSTree             *ostree,
+handle_apply (EosUpdater            *updater,
               GDBusMethodInvocation *call,
               gpointer               user_data)
 {
   OstreeRepo *repo = OSTREE_REPO (user_data);
   GTask *task = NULL;
-  OTDState state = otd_ostree_get_state (ostree);
+  EosState state = eos_updater_get_state (updater);
 
   switch (state)
     {
-    case OTD_STATE_UPDATE_READY:
+    case EOS_STATE_UPDATE_READY:
       break;
     default:
       g_dbus_method_invocation_return_error (call,
-        OTD_ERROR, OTD_ERROR_WRONG_STATE,
-        "Can't call Apply() while in state %s", otd_state_to_string (state));
+        EOS_ERROR, EOS_ERROR_WRONG_STATE,
+        "Can't call Apply() while in state %s", eos_state_to_string (state));
       goto bail;
     }
 
-  ostree_daemon_set_state (ostree, OTD_STATE_APPLYING_UPDATE);
-  task = g_task_new (ostree, NULL, apply_finished, g_object_ref (repo));
+  eos_updater_set_state_changed (updater, EOS_STATE_APPLYING_UPDATE);
+  task = g_task_new (updater, NULL, apply_finished, g_object_ref (repo));
   g_task_set_task_data (task, g_object_ref (repo), g_object_unref);
   g_task_run_in_thread (task, apply);
 
-  otd_ostree_complete_apply (ostree, call);
+  eos_updater_complete_apply (updater, call);
 
 bail:
   return TRUE;

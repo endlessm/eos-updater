@@ -22,8 +22,8 @@
 
 #pragma once
 
-#include "ostree-daemon-generated.h"
-#include "ostree-daemon-types.h"
+#include "eos-updater-generated.h"
+#include "eos-updater-types.h"
 #include <libgsystem.h>
 #include <glib.h>
 #include <ostree.h>
@@ -36,21 +36,21 @@
 
 G_BEGIN_DECLS
 
-#define OTD_ERROR (otd_error_quark())
-GQuark otd_error_quark (void);
+#define EOS_ERROR (eos_error_quark())
+GQuark eos_error_quark (void);
 
-const gchar *otd_state_to_string (OTDState state);
-void ostree_daemon_set_state (OTDOSTree *ostree, OTDState state);
+const gchar *eos_state_to_string (EosState state);
+void eos_updater_set_state_changed (EosUpdater *updater, EosState state);
 
-void ostree_daemon_set_error (OTDOSTree *ostree, GError *error);
+void eos_updater_set_error (EosUpdater *updater, GError *error);
 
-OstreeRepo * ostree_daemon_local_repo (void);
+OstreeRepo * eos_updater_local_repo (void);
 
-gboolean ostree_daemon_resolve_upgrade (OTDOSTree  *ostree,
-                                        OstreeRepo *repo,
-                                        gchar     **upgrade_remote,
-                                        gchar     **upgrade_ref,
-                                        gchar     **booted_checksum,
-                                        GError    **error);
+gboolean eos_updater_resolve_upgrade (EosUpdater  *updater,
+                                      OstreeRepo *repo,
+                                      gchar     **upgrade_remote,
+                                      gchar     **upgrade_ref,
+                                      gchar     **booted_checksum,
+                                      GError    **error);
 
 G_END_DECLS

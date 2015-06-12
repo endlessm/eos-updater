@@ -22,14 +22,24 @@
 
 #pragma once
 
-#include "ostree-daemon-generated.h"
-#include "ostree-daemon-util.h"
-#include <ostree.h>
-
 G_BEGIN_DECLS
 
-gboolean handle_apply (OTDOSTree             *ostree,
-                       GDBusMethodInvocation *call,
-                       gpointer               user_data);
+typedef enum {
+  EOS_ERROR_WRONG_STATE,
+  EOS_N_ERRORS /*< skip >*/
+} EOSError;
+
+typedef enum {
+  EOS_STATE_NONE = 0,
+  EOS_STATE_READY,
+  EOS_STATE_ERROR,
+  EOS_STATE_POLLING,
+  EOS_STATE_UPDATE_AVAILABLE,
+  EOS_STATE_FETCHING,
+  EOS_STATE_UPDATE_READY,
+  EOS_STATE_APPLYING_UPDATE,
+  EOS_STATE_UPDATE_APPLIED,
+  EOS_N_STATES,
+} EosState;
 
 G_END_DECLS

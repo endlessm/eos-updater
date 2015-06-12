@@ -20,14 +20,14 @@
  * Author: Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "ostree-daemon-poll.h"
+#include "eos-updater-poll.h"
 
 static void
 metadata_fetch_finished (GObject *object,
                          GAsyncResult *res,
                          gpointer user_data)
 {
-  OTDOSTree *ostree = OTD_OSTREE (object);
+  EosUpdater *updater = EOS_UPDATER (object);
   GTask     *task;
   GError    *error = NULL;
 
@@ -53,24 +53,25 @@ metadata_fetch_finished (GObject *object,
       const gchar *message;
 
       // get the sha256 sum uf the currently booted image:
-      if (!ostree_daemon_resolve_upgrade (ostree, repo, NULL, NULL, &cur, &error))
+      if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
         goto out;
 
       // Everything is happy thusfar
-      otd_ostree_set_error_code (ostree, 0);
-      otd_ostree_set_error_message (ostree, "");
+      eos_updater_set_error_code (updater, 0);
+      eos_updater_set_error_message (updater, "");
       // if we have a checksum for the remote upgrade candidate
       // and it's ≠ what we're currently booted into, advertise it as such:
-      if (g_strcmp0 (cur, csum) != 0) {
-        ostree_daemon_set_state (ostree, OTD_STATE_UPDATE_AVAILABLE);
+      if (g_strcmp0 (cur, csum) != 0)
+        {
+          eos_updater_set_state_changed (updater, EOS_STATE_UPDATE_AVAILABLE);
         }
       else
         {
-          ostree_daemon_set_state (ostree, OTD_STATE_READY);
+          eos_updater_set_state_changed (updater, EOS_STATE_READY);
           goto out;
         }
 
-      otd_ostree_set_update_id (ostree, csum);
+      eos_updater_set_update_id (updater, csum);
 
       if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT,
                                      csum, &commit, &error))
@@ -78,8 +79,8 @@ metadata_fetch_finished (GObject *object,
 
       g_variant_get_child (commit, 3, "&s", &label);
       g_variant_get_child (commit, 4, "&s", &message);
-      otd_ostree_set_update_label (ostree, label ? label : "");
-      otd_ostree_set_update_message (ostree, message ? message : "");
+      eos_updater_set_update_label (updater, label ? label : "");
+      eos_updater_set_update_message (updater, message ? message : "");
 
       if (ostree_repo_get_commit_sizes (repo, csum,
                                         &new_archived, &new_unpacked,
@@ -89,19 +90,19 @@ metadata_fetch_finished (GObject *object,
                                         g_task_get_cancellable (task),
                                         &error))
         {
-          otd_ostree_set_full_download_size (ostree, archived);
-          otd_ostree_set_full_unpacked_size (ostree, unpacked);
-          otd_ostree_set_download_size (ostree, new_archived);
-          otd_ostree_set_unpacked_size (ostree, new_unpacked);
-          otd_ostree_set_downloaded_bytes (ostree, 0);
+          eos_updater_set_full_download_size (updater, archived);
+          eos_updater_set_full_unpacked_size (updater, unpacked);
+          eos_updater_set_download_size (updater, new_archived);
+          eos_updater_set_unpacked_size (updater, new_unpacked);
+          eos_updater_set_downloaded_bytes (updater, 0);
         }
       else // no size data available (may or may not be an error):
         {
-          otd_ostree_set_full_download_size (ostree, -1);
-          otd_ostree_set_full_unpacked_size (ostree, -1);
-          otd_ostree_set_download_size (ostree, -1);
-          otd_ostree_set_unpacked_size (ostree, -1);
-          otd_ostree_set_downloaded_bytes (ostree, -1);
+          eos_updater_set_full_download_size (updater, -1);
+          eos_updater_set_full_unpacked_size (updater, -1);
+          eos_updater_set_download_size (updater, -1);
+          eos_updater_set_unpacked_size (updater, -1);
+          eos_updater_set_downloaded_bytes (updater, -1);
 
           // shouldn't actually stop us offering an update, as long
           // as the branch itself is resolvable in the next step,
@@ -114,7 +115,7 @@ metadata_fetch_finished (GObject *object,
         }
 
       // get the sha256 sum uf the currently booted image:
-      if (!ostree_daemon_resolve_upgrade (ostree, repo, NULL, NULL, &cur, &error))
+      if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
         goto out;
     }
   else if (!error) // this should never happen, but check for it anyway:
@@ -127,7 +128,7 @@ metadata_fetch_finished (GObject *object,
  out:
   if (error)
     {
-      ostree_daemon_set_error (ostree, error);
+      eos_updater_set_error (updater, error);
       g_clear_error (&error);
     }
   return;
@@ -145,7 +146,7 @@ metadata_fetch (GTask *task,
                 gpointer task_data,
                 GCancellable *cancel)
 {
-  OTDOSTree *ostree = OTD_OSTREE (object);
+  EosUpdater *updater = EOS_UPDATER (object);
   OstreeRepo *repo = OSTREE_REPO (task_data);
   OstreeRepoPullFlags flags = (OSTREE_REPO_PULL_FLAGS_COMMIT_ONLY);
   GError *error = NULL;
@@ -159,8 +160,8 @@ metadata_fetch (GTask *task,
 
   g_main_context_push_thread_default (task_context);
 
-  if (!ostree_daemon_resolve_upgrade (ostree, repo,
-                                      &remote, &branch, NULL, &error))
+  if (!eos_updater_resolve_upgrade (updater, repo,
+                                    &remote, &branch, NULL, &error))
     goto error;
 
   pullrefs[0] = branch;
@@ -204,35 +205,35 @@ metadata_fetch (GTask *task,
 }
 
 gboolean
-handle_poll (OTDOSTree             *ostree,
+handle_poll (EosUpdater            *updater,
              GDBusMethodInvocation *call,
              gpointer               user_data)
 {
   OstreeRepo *repo = OSTREE_REPO (user_data);
   GTask *task = NULL;
-  OTDState state = otd_ostree_get_state (ostree);
+  EosState state = eos_updater_get_state (updater);
   // gboolean poll_ok = FALSE;
 
   switch (state)
     {
-      case OTD_STATE_READY:
-      case OTD_STATE_UPDATE_AVAILABLE:
-      case OTD_STATE_UPDATE_READY:
-      case OTD_STATE_ERROR:
+      case EOS_STATE_READY:
+      case EOS_STATE_UPDATE_AVAILABLE:
+      case EOS_STATE_UPDATE_READY:
+      case EOS_STATE_ERROR:
         break;
       default:
         g_dbus_method_invocation_return_error (call,
-          OTD_ERROR, OTD_ERROR_WRONG_STATE,
-          "Can't call Poll() while in state %s", otd_state_to_string (state));
+          EOS_ERROR, EOS_ERROR_WRONG_STATE,
+          "Can't call Poll() while in state %s", eos_state_to_string (state));
         goto bail;
     }
 
-  ostree_daemon_set_state (ostree, OTD_STATE_POLLING);
-  task = g_task_new (ostree, NULL, metadata_fetch_finished, g_object_ref (repo));
+  eos_updater_set_state_changed (updater, EOS_STATE_POLLING);
+  task = g_task_new (updater, NULL, metadata_fetch_finished, g_object_ref (repo));
   g_task_set_task_data (task, g_object_ref (repo), g_object_unref);
   g_task_run_in_thread (task, metadata_fetch);
 
-  otd_ostree_complete_poll (ostree, call);
+  eos_updater_complete_poll (updater, call);
 
 bail:
   return TRUE;

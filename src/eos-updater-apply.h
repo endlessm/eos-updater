@@ -22,24 +22,14 @@
 
 #pragma once
 
+#include "eos-updater-generated.h"
+#include "eos-updater-util.h"
+#include <ostree.h>
+
 G_BEGIN_DECLS
 
-typedef enum {
-  OTD_ERROR_WRONG_STATE,
-  OTD_N_ERRORS /*< skip >*/
-} OTDError;
-
-typedef enum {
-  OTD_STATE_NONE = 0,
-  OTD_STATE_READY,
-  OTD_STATE_ERROR,
-  OTD_STATE_POLLING,
-  OTD_STATE_UPDATE_AVAILABLE,
-  OTD_STATE_FETCHING,
-  OTD_STATE_UPDATE_READY,
-  OTD_STATE_APPLYING_UPDATE,
-  OTD_STATE_UPDATE_APPLIED,
-  OTD_N_STATES,
-} OTDState;
+gboolean handle_apply (EosUpdater            *updater,
+                       GDBusMethodInvocation *call,
+                       gpointer               user_data);
 
 G_END_DECLS

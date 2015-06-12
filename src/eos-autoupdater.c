@@ -1,5 +1,5 @@
-#include "ostree-daemon-generated.h"
-#include "ostree-daemon-types.h"
+#include "eos-updater-generated.h"
+#include "eos-updater-types.h"
 
 #include <gio/gio.h>
 #include <glib.h>
@@ -12,7 +12,7 @@
 #include <systemd/sd-journal.h>
 
 #define EOS_UPDATER_CONFIGURATION_ERROR_MSGID   "5af9f4df37f949a1948971e00be0d620"
-#define EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID   "f31fd043074a4a21b04784cf895c56ae"
+#define EOS_UPDATER_DAEMON_ERROR_MSGID          "f31fd043074a4a21b04784cf895c56ae"
 #define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
 #define EOS_UPDATER_SUCCESS_MSGID               "ce0a80bb9f734dc09f8b56a7fb981ae4"
 #define EOS_UPDATER_NOT_ONLINE_MSGID            "2797d0eaca084a9192e21838ab12cbd0"
@@ -52,7 +52,7 @@ static UpdateStep last_automatic_step;
 static gboolean should_exit_failure = FALSE;
 
 /* Avoid erroneous additional state transitions */
-static guint previous_state = OTD_STATE_NONE;
+static guint previous_state = EOS_STATE_NONE;
 
 static GMainLoop *main_loop;
 
@@ -97,21 +97,21 @@ static void
 update_step_callback (GObject *source_object, GAsyncResult *res,
                       gpointer step_data)
 {
-  OTDOSTree *proxy = (OTDOSTree *) source_object;
+  EosUpdater *proxy = (EosUpdater *) source_object;
   UpdateStep step = GPOINTER_TO_INT (step_data);
   GError *error = NULL;
 
   switch (step) {
     case UPDATE_STEP_POLL:
-      otd_ostree_call_poll_finish (proxy, res, &error);
+      eos_updater_call_poll_finish (proxy, res, &error);
       break;
 
     case UPDATE_STEP_FETCH:
-      otd_ostree_call_fetch_finish (proxy, res, &error);
+      eos_updater_call_fetch_finish (proxy, res, &error);
       break;
 
     case UPDATE_STEP_APPLY:
-      otd_ostree_call_apply_finish (proxy, res, &error);
+      eos_updater_call_apply_finish (proxy, res, &error);
       break;
 
     default:
@@ -119,9 +119,9 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
   }
 
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_DAEMON_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Error calling OSTree daemon: %s", error->message,
+                     "MESSAGE=Error calling EOS updater: %s", error->message,
                      NULL);
     should_exit_failure = TRUE;
     g_main_loop_quit (main_loop);
@@ -130,7 +130,7 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
 }
 
 static gboolean
-do_update_step (UpdateStep step, OTDOSTree *proxy)
+do_update_step (UpdateStep step, EosUpdater *proxy)
 {
   gpointer step_data = GINT_TO_POINTER (step);
 
@@ -145,15 +145,15 @@ do_update_step (UpdateStep step, OTDOSTree *proxy)
         return FALSE;
 
       polled_already = TRUE;
-      otd_ostree_call_poll (proxy, NULL, update_step_callback, step_data);
+      eos_updater_call_poll (proxy, NULL, update_step_callback, step_data);
       break;
 
     case UPDATE_STEP_FETCH:
-      otd_ostree_call_fetch (proxy, NULL, update_step_callback, step_data);
+      eos_updater_call_fetch (proxy, NULL, update_step_callback, step_data);
       break;
 
     case UPDATE_STEP_APPLY:
-      otd_ostree_call_apply (proxy, NULL, update_step_callback, step_data);
+      eos_updater_call_apply (proxy, NULL, update_step_callback, step_data);
       break;
 
     default:
@@ -164,25 +164,25 @@ do_update_step (UpdateStep step, OTDOSTree *proxy)
 }
 
 static void
-report_error_status (OTDOSTree *proxy)
+report_error_status (EosUpdater *proxy)
 {
   const gchar *error_message;
   guint error_code;
 
-  error_code = otd_ostree_get_error_code (proxy);
-  error_message = otd_ostree_get_error_message (proxy);
+  error_code = eos_updater_get_error_code (proxy);
+  error_message = eos_updater_get_error_message (proxy);
 
-  sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
+  sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_DAEMON_ERROR_MSGID,
                    "PRIORITY=%d", LOG_ERR,
-                   "MESSAGE=OSTree daemon error (code:%u): %s", error_code, error_message,
+                   "MESSAGE=EOS updater error (code:%u): %s", error_code, error_message,
                    NULL);
 }
 
-/* The updater is driven by state transitions in the ostree daemon.
- * Whenever the state changes, we check if we need to do something
- * as a result of that state change. */
+/* The autoupdater is driven by state transitions in the updater daemon.
+ * Whenever the state changes, we check if we need to do something as a
+ * result of that state change. */
 static void
-on_state_changed (OTDOSTree *proxy, OTDState state)
+on_state_changed (EosUpdater *proxy, EosState state)
 {
   gboolean continue_running = TRUE;
 
@@ -191,45 +191,45 @@ on_state_changed (OTDOSTree *proxy, OTDState state)
 
   previous_state = state;
 
-  g_message ("OSTree daemon state is: %u", state);
+  g_message ("EOS updater state is: %u", state);
 
   switch (state) {
-    case OTD_STATE_NONE: /* State should change soon */
+    case EOS_STATE_NONE: /* State should change soon */
       break;
 
-    case OTD_STATE_READY: /* Must poll */
+    case EOS_STATE_READY: /* Must poll */
       continue_running = do_update_step (UPDATE_STEP_POLL, proxy);
       break;
 
-    case OTD_STATE_ERROR: /* Log error and quit */
+    case EOS_STATE_ERROR: /* Log error and quit */
       report_error_status (proxy);
       should_exit_failure = TRUE;
       continue_running = FALSE;
       break;
 
-    case OTD_STATE_POLLING: /* Wait for completion */
+    case EOS_STATE_POLLING: /* Wait for completion */
       break;
 
-    case OTD_STATE_UPDATE_AVAILABLE: /* Possibly fetch */
+    case EOS_STATE_UPDATE_AVAILABLE: /* Possibly fetch */
       continue_running = do_update_step (UPDATE_STEP_FETCH, proxy);
       break;
 
-    case OTD_STATE_FETCHING: /* Wait for completion */
+    case EOS_STATE_FETCHING: /* Wait for completion */
       break;
 
-    case OTD_STATE_UPDATE_READY: /* Possibly apply */
+    case EOS_STATE_UPDATE_READY: /* Possibly apply */
       continue_running = do_update_step (UPDATE_STEP_APPLY, proxy);
       break;
 
-    case OTD_STATE_APPLYING_UPDATE: /* Wait for completion */
+    case EOS_STATE_APPLYING_UPDATE: /* Wait for completion */
       break;
 
-    case OTD_STATE_UPDATE_APPLIED: /* Done; exit */
+    case EOS_STATE_UPDATE_APPLIED: /* Done; exit */
       continue_running = FALSE;
       break;
 
     default:
-      g_critical ("OSTree daemon entered invalid state: %u", state);
+      g_critical ("EOS updater entered invalid state: %u", state);
       continue_running = FALSE;
       should_exit_failure = TRUE;
       break;
@@ -241,11 +241,11 @@ on_state_changed (OTDOSTree *proxy, OTDState state)
 }
 
 static void
-on_state_changed_notify (OTDOSTree *proxy,
+on_state_changed_notify (EosUpdater *proxy,
                          GParamSpec *pspec,
                          gpointer data)
 {
-  OTDState state = otd_ostree_get_state (proxy);
+  EosState state = eos_updater_get_state (proxy);
   on_state_changed (proxy, state);
 }
 
@@ -324,14 +324,14 @@ out:
 static gboolean
 initial_poll_idle_func (gpointer pointer)
 {
-  OTDOSTree *proxy = (OTDOSTree *) pointer;
-  OTDState initial_state = otd_ostree_get_state (proxy);
+  EosUpdater *proxy = (EosUpdater *) pointer;
+  EosState initial_state = eos_updater_get_state (proxy);
 
   /* Attempt to clear the error by pretending to be ready, which will
    * trigger a poll
    */
-  if (initial_state == OTD_STATE_ERROR)
-    initial_state = OTD_STATE_READY;
+  if (initial_state == EOS_STATE_ERROR)
+    initial_state = EOS_STATE_READY;
 
   on_state_changed (proxy, initial_state);
 
@@ -457,7 +457,7 @@ is_connected_through_mobile (void)
 int
 main (int argc, char **argv)
 {
-  OTDOSTree *proxy;
+  EosUpdater *proxy;
   GError *error = NULL;
   gint update_interval;
   gboolean update_on_mobile;
@@ -500,17 +500,17 @@ main (int argc, char **argv)
 
   main_loop = g_main_loop_new (NULL, FALSE);
 
-  proxy = otd_ostree_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
+  proxy = eos_updater_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
                      G_DBUS_PROXY_FLAGS_NONE,
-                     "org.gnome.OSTree",
-                     "/org/gnome/OSTree",
+                     "com.endlessm.Updater",
+                     "/com/endlessm/Updater",
                      NULL,
                      &error);
 
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_OSTREE_DAEMON_ERROR_MSGID,
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_DAEMON_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Error getting OSTree proxy object: %s", error->message,
+                     "MESSAGE=Error getting EOS updater object: %s", error->message,
                      NULL);
     g_error_free (error);
     should_exit_failure = TRUE;

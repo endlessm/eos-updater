@@ -22,7 +22,7 @@ PKG_CHECK_MODULES([EOS_AUTOUPDATER],
                   libnm-glib
                   libsystemd-journal])
 
-PKG_CHECK_MODULES([OSTREE_DAEMON],
+PKG_CHECK_MODULES([EOS_UPDATER],
                   [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
                   ostree-1 >= OSTREE_REQUIRED_VERSION
                   libgsystem])

@@ -5,7 +5,7 @@
     <xsl:text>[D-BUS Service]
 Name=</xsl:text>
     <xsl:apply-templates /><xsl:text>
-Exec=/usr/bin/ostree-daemon
+Exec=/usr/bin/eos-updater
 User=root</xsl:text>
   </xsl:template>
 

@@ -20,25 +20,25 @@
  * Author: Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "ostree-daemon-util.h"
-#include "ostree-daemon.h"
+#include "eos-updater-util.h"
+#include "eos-updater.h"
 #include <ostree.h>
 
-static const GDBusErrorEntry otd_error_entries[] = {
-  { OTD_ERROR_WRONG_STATE, "org.gnome.OSTree.Error.WrongState" }
+static const GDBusErrorEntry eos_error_entries[] = {
+  { EOS_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" }
 };
 
 /* Ensure that every error code has an associated D-Bus error name */
-G_STATIC_ASSERT (G_N_ELEMENTS (otd_error_entries) == OTD_N_ERRORS);
+G_STATIC_ASSERT (G_N_ELEMENTS (eos_error_entries) == EOS_N_ERRORS);
 
 GQuark
-otd_error_quark (void)
+eos_error_quark (void)
 {
   static volatile gsize quark_volatile = 0;
-  g_dbus_error_register_error_domain ("otd-error-quark",
+  g_dbus_error_register_error_domain ("eos-error-quark",
                                       &quark_volatile,
-                                      otd_error_entries,
-                                      G_N_ELEMENTS (otd_error_entries));
+                                      eos_error_entries,
+                                      G_N_ELEMENTS (eos_error_entries));
   return (GQuark) quark_volatile;
 }
 
@@ -53,36 +53,36 @@ static const gchar * state_str[] = {
    "ApplyUpdate",
    "UpdateApplied" };
 
-G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == OTD_N_STATES);
+G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_N_STATES);
 
-const gchar * otd_state_to_string (OTDState state)
+const gchar * eos_state_to_string (EosState state)
 {
-  g_assert (state < OTD_N_STATES);
+  g_assert (state < EOS_N_STATES);
 
   return state_str[state];
 };
 
 
 void
-ostree_daemon_set_state (OTDOSTree *ostree, OTDState state)
+eos_updater_set_state_changed (EosUpdater *updater, EosState state)
 {
-  otd_ostree_set_state (ostree, state);
-  otd_ostree_emit_state_changed (ostree, state);
+  eos_updater_set_state (updater, state);
+  eos_updater_emit_state_changed (updater, state);
 }
 
 void
-ostree_daemon_set_error (OTDOSTree *ostree, GError *error)
+eos_updater_set_error (EosUpdater *updater, GError *error)
 {
   gint code = error ? error->code : -1;
   const gchar *msg = (error && error->message) ? error->message : "Unspecified";
 
-  otd_ostree_set_error_code (ostree, code);
-  otd_ostree_set_error_message (ostree, msg);
-  ostree_daemon_set_state (ostree, OTD_STATE_ERROR);
+  eos_updater_set_error_code (updater, code);
+  eos_updater_set_error_message (updater, msg);
+  eos_updater_set_state_changed (updater, EOS_STATE_ERROR);
 }
 
 OstreeRepo *
-ostree_daemon_local_repo (void)
+eos_updater_local_repo (void)
 {
   OstreeRepo *ret = NULL;
   GError *error = NULL;
@@ -108,12 +108,12 @@ ostree_daemon_local_repo (void)
 }
 
 gboolean
-ostree_daemon_resolve_upgrade (OTDOSTree  *ostree,
-                               OstreeRepo *repo,
-                               gchar     **upgrade_remote,
-                               gchar     **upgrade_ref,
-                               gchar     **booted_checksum,
-                               GError    **error)
+eos_updater_resolve_upgrade (EosUpdater  *updater,
+                             OstreeRepo *repo,
+                             gchar     **upgrade_remote,
+                             gchar     **upgrade_ref,
+                             gchar     **booted_checksum,
+                             GError    **error)
 {
   gboolean ret = FALSE;
   // gint cur_bootversion = -1;

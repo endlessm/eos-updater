@@ -22,14 +22,14 @@
 
 #pragma once
 
-#include "ostree-daemon-generated.h"
-#include "ostree-daemon-util.h"
+#include "eos-updater-generated.h"
+#include "eos-updater-util.h"
 #include <ostree.h>
 
 G_BEGIN_DECLS
 
-gboolean handle_fetch (OTDOSTree             *ostree,
-                       GDBusMethodInvocation *call,
-                       gpointer               user_data);
+gboolean handle_poll (EosUpdater            *updater,
+                      GDBusMethodInvocation *call,
+                      gpointer               user_data);
 
 G_END_DECLS

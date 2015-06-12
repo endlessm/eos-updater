@@ -19,12 +19,12 @@
 # Boston, MA 02111-1307, USA.
 
 libexec_PROGRAMS = eos-autoupdater
-bin_PROGRAMS = ostree-daemon
-dist_bin_SCRIPTS = ostree-daemon-ctl
+bin_PROGRAMS = eos-updater
+dist_bin_SCRIPTS = eos-updater-ctl
 
 BUILT_SOURCES = \
-	ostree-daemon-generated.h \
-	ostree-daemon-generated.c \
+	eos-updater-generated.h \
+	eos-updater-generated.c \
 	$(NULL)
 
 eos_autoupdater_CFLAGS = $(EOS_AUTOUPDATER_CFLAGS)
@@ -32,52 +32,52 @@ eos_autoupdater_LDADD = $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
 nodist_eos_autoupdater_SOURCES = $(BUILT_SOURCES)
 
-ostree_daemon_CFLAGS = $(OSTREE_DAEMON_CFLAGS)
-ostree_daemon_LDADD  = $(OSTREE_DAEMON_LIBS)
-ostree_daemon_SOURCES = \
-	ostree-daemon-apply.c \
-	ostree-daemon-apply.h \
-	ostree-daemon-fetch.c \
-	ostree-daemon-fetch.h \
-	ostree-daemon-poll.c \
-	ostree-daemon-poll.h \
-	ostree-daemon-util.c \
-	ostree-daemon-util.h \
-	ostree-daemon.c \
-	ostree-daemon.h \
-	ostree-daemon.xml \
+eos_updater_CFLAGS = $(EOS_UPDATER_CFLAGS)
+eos_updater_LDADD  = $(EOS_UPDATER_LIBS)
+eos_updater_SOURCES = \
+	eos-updater-apply.c \
+	eos-updater-apply.h \
+	eos-updater-fetch.c \
+	eos-updater-fetch.h \
+	eos-updater-poll.c \
+	eos-updater-poll.h \
+	eos-updater-util.c \
+	eos-updater-util.h \
+	eos-updater.c \
+	eos-updater.h \
+	eos-updater.xml \
 	$(NULL)
-nodist_ostree_daemon_SOURCES = $(BUILT_SOURCES)
+nodist_eos_updater_SOURCES = $(BUILT_SOURCES)
 
 dbusconfdir = ${sysconfdir}/dbus-1/system.d
 dbussystemservicedir = $(datadir)/dbus-1/system-services
 
-dbusconf_DATA = $(ostree_daemon_dbus_if).conf
-dbussystemservice_DATA = $(ostree_daemon_dbus_if).service
+dbusconf_DATA = $(eos_updater_dbus_if).conf
+dbussystemservice_DATA = $(eos_updater_dbus_if).service
 
 CLEANFILES = $(BUILT_SOURCES) $(dbusconf_DATA) $(dbussystemservice_DATA)
 
 EXTRA_DIST = \
-	ostree-daemon-ifname.xslt \
-	ostree-daemon-policy.xslt \
-	ostree-daemon-service.xslt \
-	ostree-daemon.xml \
+	eos-updater-ifname.xslt \
+	eos-updater-policy.xslt \
+	eos-updater-service.xslt \
+	eos-updater.xml \
 	$(NULL)
 
-ostree_daemon_dbus_if := \
-	$(shell $(XSLTPROC) $(srcdir)/ostree-daemon-ifname.xslt \
-		$(srcdir)/ostree-daemon.xml)
+eos_updater_dbus_if := \
+	$(shell $(XSLTPROC) $(srcdir)/eos-updater-ifname.xslt \
+		$(srcdir)/eos-updater.xml)
 
-$(BUILT_SOURCES): ostree-daemon.xml
+$(BUILT_SOURCES): eos-updater.xml
 	$(GDBUS_CODEGEN)                        \
-	   --interface-prefix $(basename $(ostree_daemon_dbus_if)). \
+	   --interface-prefix $(basename $(eos_updater_dbus_if)). \
 	   --generate-c-code $(basename $(@F))  \
-	   --c-namespace OTD                    \
+	   --c-namespace Eos                    \
 	   --c-generate-object-manager          \
 	   $(<F)
 
-$(ostree_daemon_dbus_if).conf: ostree-daemon-policy.xslt ostree-daemon.xml
+$(eos_updater_dbus_if).conf: eos-updater-policy.xslt eos-updater.xml
 	$(XSLTPROC) $+ > $@
 
-$(ostree_daemon_dbus_if).service: ostree-daemon-service.xslt ostree-daemon.xml
+$(eos_updater_dbus_if).service: eos-updater-service.xslt eos-updater.xml
 	$(XSLTPROC) $+ > $@

@@ -20,12 +20,12 @@
  * Author: Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "ostree-daemon.h"
-#include "ostree-daemon-generated.h"
-#include "ostree-daemon-util.h"
-#include "ostree-daemon-poll.h"
-#include "ostree-daemon-fetch.h"
-#include "ostree-daemon-apply.h"
+#include "eos-updater.h"
+#include "eos-updater-generated.h"
+#include "eos-updater-util.h"
+#include "eos-updater-poll.h"
+#include "eos-updater-fetch.h"
+#include "eos-updater-apply.h"
 #include <ostree.h>
 #include <gio/gio.h>
 
@@ -36,11 +36,11 @@ on_bus_acquired (GDBusConnection *connection,
                  const gchar     *name,
                  gpointer         user_data)
 {
-  OTDObjectSkeleton *object = NULL;
-  OTDOSTree *ostree = NULL;
+  EosObjectSkeleton *object = NULL;
+  EosUpdater *updater = NULL;
   OstreeRepo *repo = OSTREE_REPO (user_data);
   GError *error = NULL;
-  OTDState state;
+  EosState state;
 
   gs_free gchar *src = NULL;
   gs_free gchar *ref = NULL;
@@ -48,42 +48,42 @@ on_bus_acquired (GDBusConnection *connection,
 
   message ("Acquired a message bus connection\n");
 
-  /* Create a new org.freedesktop.DBus.ObjectManager rooted at /org/gnome */
-  manager = g_dbus_object_manager_server_new ("/org/gnome");
-  object  = otd_object_skeleton_new ("/org/gnome/OSTree");
+  /* Create a new org.freedesktop.DBus.ObjectManager rooted at /com/endlessm */
+  manager = g_dbus_object_manager_server_new ("/com/endlessm");
+  object  = eos_object_skeleton_new ("/com/endlessm/Updater");
 
-  /* Make the newly created object export the interface org.gnome.OSTree
-     (note that @skeleton takes its own reference to @ostree). */
-  ostree  = otd_ostree_skeleton_new ();
-  otd_object_skeleton_set_ostree (object, ostree);
-  g_object_unref (ostree);
+  /* Make the newly created object export the interface com.endlessm.Updater
+     (note that @skeleton takes its own reference to @updater). */
+  updater = eos_updater_skeleton_new ();
+  eos_object_skeleton_set_updater (object, updater);
+  g_object_unref (updater);
 
   /* Handle the various DBus methods: */
-  g_signal_connect (ostree, "handle-fetch", G_CALLBACK (handle_fetch), repo);
-  g_signal_connect (ostree, "handle-poll",  G_CALLBACK (handle_poll), repo);
-  g_signal_connect (ostree, "handle-apply", G_CALLBACK (handle_apply), repo);
+  g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), repo);
+  g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), repo);
+  g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), repo);
 
-  if (ostree_daemon_resolve_upgrade (ostree, repo, NULL, NULL, &sum, &error))
+  if (eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &sum, &error))
     {
-      otd_ostree_set_current_id (ostree, sum);
-      otd_ostree_set_download_size (ostree, 0);
-      otd_ostree_set_downloaded_bytes (ostree, 0);
-      otd_ostree_set_unpacked_size (ostree, 0);
-      otd_ostree_set_error_code (ostree, 0);
-      otd_ostree_set_error_message (ostree, "");
-      otd_ostree_set_update_id (ostree, "");
-      state = OTD_STATE_READY;
+      eos_updater_set_current_id (updater, sum);
+      eos_updater_set_download_size (updater, 0);
+      eos_updater_set_downloaded_bytes (updater, 0);
+      eos_updater_set_unpacked_size (updater, 0);
+      eos_updater_set_error_code (updater, 0);
+      eos_updater_set_error_message (updater, "");
+      eos_updater_set_update_id (updater, "");
+      state = EOS_STATE_READY;
     }
   else
     {
-      otd_ostree_set_error_code (ostree, error->code);
-      otd_ostree_set_error_message (ostree, error->message);
-      state = OTD_STATE_ERROR;
+      eos_updater_set_error_code (updater, error->code);
+      eos_updater_set_error_message (updater, error->message);
+      state = EOS_STATE_ERROR;
     }
 
   // We are deliberately not emitting a signal here: This
   // isn't a state change, it's our initial state:
-  otd_ostree_set_state (ostree, state);
+  eos_updater_set_state_changed (updater, state);
 
   /* Export the object (@manager takes its own reference to @object) */
   g_dbus_object_manager_server_export (manager, G_DBUS_OBJECT_SKELETON (object));
@@ -122,10 +122,10 @@ main (gint argc, gchar *argv[])
 #endif
   g_set_prgname (argv[0]);
 
-  repo = ostree_daemon_local_repo ();
+  repo = eos_updater_local_repo ();
   loop = g_main_loop_new (NULL, FALSE);
   id = g_bus_own_name (G_BUS_TYPE_SYSTEM,
-                       "org.gnome.OSTree",
+                       "com.endlessm.Updater",
                        G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT |
                        G_BUS_NAME_OWNER_FLAGS_REPLACE,
                        on_bus_acquired,
