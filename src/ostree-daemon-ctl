@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright © 2013 Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+#
+# Quick test command line for ostree-daemon
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
+import sys
+from gi.repository import GObject, Gio, GLib
+
+OTDStates = [
+  "None",
+  "Ready",
+  "Error",
+  "Polling",
+  "UpdateAvailable",
+  "Fetching",
+  "UpdateReady",
+  "ApplyingUpdate",
+  "UpdateApplied"
+]
+
+def signal_emitted (proxy, signal, parameters):
+  if (signal != "StateChanged"):
+      return
+  print "======= State changed to: " + OTDStates[parameters[0]] +  " ======="
+
+def dump_daemon_properties (proxy):
+
+  print "======= Properties ======="
+  s = proxy.get_cached_property ("State").get_uint32()
+  print "State: " + OTDStates[s]
+
+  for x in proxy.get_cached_property_names():
+    if x != "State":
+        print " " + x + ": " + str(proxy.get_cached_property(x))
+  print ""
+
+def main (argv):
+  loop = GObject.MainLoop()
+
+  b = Gio.bus_get_sync (Gio.BusType.SYSTEM, None)
+  dproxy = Gio.DBusProxy.new_sync (b, 0, None,
+    'org.gnome.OSTree',
+    '/org/gnome/OSTree',
+    'org.gnome.OSTree', None)
+
+  if len(argv) > 1:
+    methods = { "poll": "Poll",
+                "fetch": "Fetch",
+                "apply": "Apply" }
+    if argv[1] in methods.keys():
+      dproxy.call_sync ("org.gnome.OSTree." + methods[argv[1]],
+        None,
+        0, -1, None)
+      sys.exit(0)
+    else:
+      print "Unknown action: " + argv[1]
+
+  dproxy.connect ('g-properties-changed',
+    lambda proxy, changed, invalidated, user_data:
+      dump_daemon_properties (proxy), None)
+
+  dproxy.connect ('g-signal',
+    lambda proxy, sender, signal, parameters, user_data:
+      signal_emitted (proxy, signal, parameters), None)
+
+  dump_daemon_properties (dproxy)
+
+  loop.run()
+
+if __name__ == '__main__':
+  main(sys.argv)

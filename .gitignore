@@ -23,6 +23,9 @@ src/ostree-daemon-generated.h
 src/Makefile
 src/Makefile.in
 src/eos-updater
+src/org.gnome.OSTree.conf
+src/org.gnome.OSTree.service
+src/ostree-daemon
 data/eos-updater.service
 data/eos-updater.timer
 config.h.in~
