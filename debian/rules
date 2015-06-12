@@ -14,5 +14,8 @@ confflags = --with-systemdsystemunitdir=/lib/systemd/system
 override_dh_auto_configure:
 	dh_auto_configure -- $(confflags)
 
+override_dh_strip:
+	dh_strip --dbg-package=eos-updater-dbg
+
 %:
 	dh $@ --with autoreconf,systemd

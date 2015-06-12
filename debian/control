@@ -18,6 +18,15 @@ Section: misc
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},
 	systemd (>= 200)
-Description: Automatic updater for EndlessOS
- This package contains the automatic update
- component to keep Endless OS up to date.
+Description: Updater for EndlessOS
+ This package contains the components for keeping Endless OS up to date.
+
+Package: eos-updater-dbg
+Section: debug
+Priority: extra
+Architecture: any
+Depends: ${misc:Depends}, eos-updater (= ${binary:Version})
+Description: Updater for EndlessOS - debugging symbols
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package provides the eos-updater debugging symbols.
