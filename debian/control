@@ -4,9 +4,12 @@ Priority: optional
 Maintainer: John Hiesey <john@endlessm.com>
 Standards-Version: 3.9.6
 Build-Depends: debhelper (>= 9.0.0),
-	libglib2.0-dev,
+	libglib2.0-dev (>= 2.36.0),
 	libnm-glib-dev,
 	libsystemd-journal-dev,
+	libostree-dev (>= 2015.6),
+	libgsystem-dev,
+	xsltproc,
 	dh-autoreconf,
 	dh-systemd
 
