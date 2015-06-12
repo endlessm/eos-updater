@@ -4,7 +4,6 @@ Priority: optional
 Maintainer: John Hiesey <john@endlessm.com>
 Standards-Version: 3.9.6
 Build-Depends: debhelper (>= 9.0.0),
-	autotools-dev,
 	libglib2.0-dev,
 	libnm-glib-dev,
 	libsystemd-journal-dev,
