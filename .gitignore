@@ -22,12 +22,12 @@ src/ostree-daemon-generated.c
 src/ostree-daemon-generated.h
 src/Makefile
 src/Makefile.in
-src/eos-updater
+src/eos-autoupdater
 src/org.gnome.OSTree.conf
 src/org.gnome.OSTree.service
 src/ostree-daemon
-data/eos-updater.service
-data/eos-updater.timer
+data/eos-autoupdater.service
+data/eos-autoupdater.timer
 config.h.in~
 debian/autoreconf.after
 debian/autoreconf.before

@@ -1,4 +1,5 @@
 #include "ostree-daemon-generated.h"
+#include "ostree-daemon-types.h"
 
 #include <gio/gio.h>
 #include <glib.h>
@@ -468,7 +469,7 @@ main (int argc, char **argv)
     { NULL }
   };
 
-  context = g_option_context_new ("Endless Updater");
+  context = g_option_context_new ("Endless Automatic Updater");
   g_option_context_add_main_entries (context, entries, NULL);
   g_option_context_parse (context, &argc, &argv, NULL);
   g_option_context_free (context);

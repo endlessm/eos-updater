@@ -17,10 +17,10 @@ AS_IF([test "x$with_systemdsystemunitdir" != "xno"], [
 GLIB_REQUIRED_VERSION=2.36.0
 OSTREE_REQUIRED_VERSION=2015.6
 
-PKG_CHECK_MODULES(EOS_UPDATER,
-                  gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
+PKG_CHECK_MODULES([EOS_AUTOUPDATER],
+                  [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
                   libnm-glib
-                  libsystemd-journal)
+                  libsystemd-journal])
 
 PKG_CHECK_MODULES([OSTREE_DAEMON],
                   [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION

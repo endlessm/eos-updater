@@ -18,7 +18,7 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
-libexec_PROGRAMS = eos-updater
+libexec_PROGRAMS = eos-autoupdater
 bin_PROGRAMS = ostree-daemon
 dist_bin_SCRIPTS = ostree-daemon-ctl
 
@@ -27,10 +27,10 @@ BUILT_SOURCES = \
 	ostree-daemon-generated.c \
 	$(NULL)
 
-eos_updater_CFLAGS = $(EOS_UPDATER_CFLAGS)
-eos_updater_LDADD = $(EOS_UPDATER_LIBS)
-eos_updater_SOURCES = eos-updater.c
-nodist_eos_updater_SOURCES = $(BUILT_SOURCES)
+eos_autoupdater_CFLAGS = $(EOS_AUTOUPDATER_CFLAGS)
+eos_autoupdater_LDADD = $(EOS_AUTOUPDATER_LIBS)
+eos_autoupdater_SOURCES = eos-autoupdater.c
+nodist_eos_autoupdater_SOURCES = $(BUILT_SOURCES)
 
 ostree_daemon_CFLAGS = $(OSTREE_DAEMON_CFLAGS)
 ostree_daemon_LDADD  = $(OSTREE_DAEMON_LIBS)
