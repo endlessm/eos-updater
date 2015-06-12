@@ -17,8 +17,7 @@ Package: eos-updater
 Section: misc
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},
-	systemd (>= 200),
-	ostree
+	systemd (>= 200)
 Description: Automatic updater for EndlessOS
  This package contains the automatic update
  component to keep Endless OS up to date.
