@@ -163,12 +163,6 @@ metadata_fetch (GTask *task,
 
   pullrefs[0] = branch;
 
-  /* FIXME: upstream ostree_repo_pull has an unbalanced
-   * g_main_context_get_thread_default/g_main_context_unref
-   * instead of
-   * g_main_context_ref_thread_default/g_main_context_unref
-   * which breaks our g_main_context_unref down in cleanup.
-   */
   if (!ostree_repo_pull (repo, remote, pullrefs, flags, NULL, cancel, &error))
     goto error;
 

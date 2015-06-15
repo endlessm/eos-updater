@@ -118,12 +118,6 @@ content_fetch (GTask *task,
 
   progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
-  /* FIXME: upstream ostree_repo_pull had an unbalanced
-   * g_main_context_get_thread_default/g_main_context_unref
-   * instead of
-   * g_main_context_ref_thread_default/g_main_context_unref
-   * patch has been accepted upstream, but double check when merging
-   */
   if (!ostree_repo_pull (repo, src, pullrefs, flags, progress, cancel, &error))
     goto error;
 
