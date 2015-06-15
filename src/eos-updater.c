@@ -117,9 +117,6 @@ main (gint argc, gchar *argv[])
   OstreeRepo *repo = NULL;
   guint id = 0;
 
-#ifndef GLIB_VERSION_2_36
-  g_type_init ();
-#endif
   g_set_prgname (argv[0]);
 
   repo = eos_updater_local_repo ();
