@@ -159,7 +159,7 @@ handle_fetch (EosUpdater            *updater,
               gpointer               user_data)
 {
   OstreeRepo *repo = OSTREE_REPO (user_data);
-  GTask *task = NULL;
+  gs_unref_object GTask *task = NULL;
   EosState state = eos_updater_get_state (updater);
 
   switch (state)
