@@ -92,7 +92,7 @@ content_fetch (GTask *task,
   EosUpdater *updater = EOS_UPDATER (object);
   OstreeRepo *repo = OSTREE_REPO (task_data);
   OstreeRepoPullFlags flags = OSTREE_REPO_PULL_FLAGS_NONE;
-  OstreeAsyncProgress *progress = NULL;
+  gs_unref_object OstreeAsyncProgress *progress = NULL;
   GError *error = NULL;
   gs_free gchar *src = NULL;
   gs_free gchar *ref = NULL;
