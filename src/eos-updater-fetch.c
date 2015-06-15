@@ -61,14 +61,6 @@ content_fetch_finished (GObject *object,
   g_assert_not_reached ();
 }
 
-typedef struct {
-  EosUpdater *eos;
-  OstreeRepo *repo;
-  guint fetched;
-  guint requested;
-  guint64 bytes;
-} ProgressData;
-
 static void
 update_progress (OstreeAsyncProgress *progress,
                  gpointer object)
