@@ -43,6 +43,7 @@ eos_updater_SOURCES = \
 	eos-updater-poll.h \
 	eos-updater-util.c \
 	eos-updater-util.h \
+	eos-updater-types.h \
 	eos-updater.c \
 	eos-updater.xml \
 	$(NULL)
