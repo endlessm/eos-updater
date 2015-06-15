@@ -68,13 +68,14 @@ eos_updater_dbus_if := \
 	$(shell $(XSLTPROC) $(srcdir)/eos-updater-ifname.xslt \
 		$(srcdir)/eos-updater.xml)
 
-$(BUILT_SOURCES): eos-updater.xml
+eos-updater-generated.c: eos-updater-generated.h
+eos-updater-generated.h: eos-updater.xml
 	$(GDBUS_CODEGEN)                        \
 	   --interface-prefix $(basename $(eos_updater_dbus_if)). \
-	   --generate-c-code $(basename $(@F))  \
+	   --generate-c-code eos-updater-generated	\
 	   --c-namespace Eos                    \
 	   --c-generate-object-manager          \
-	   $(<F)
+	   $<
 
 $(eos_updater_dbus_if).conf: eos-updater-policy.xslt eos-updater.xml
 	$(XSLTPROC) $+ > $@
