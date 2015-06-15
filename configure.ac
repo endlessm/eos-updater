@@ -15,11 +15,19 @@ AS_IF([test "x$with_systemdsystemunitdir" != "xno"], [
 ])
 
 GLIB_REQUIRED_VERSION=2.36.0
+OSTREE_REQUIRED_VERSION=2015.6
 
-PKG_CHECK_MODULES(EOS_UPDATER,
-                  gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
+PKG_CHECK_MODULES([EOS_AUTOUPDATER],
+                  [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
                   libnm-glib
-                  libsystemd-journal)
+                  libsystemd-journal])
+
+PKG_CHECK_MODULES([EOS_UPDATER],
+                  [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
+                  ostree-1 >= OSTREE_REQUIRED_VERSION
+                  libgsystem])
+AC_PATH_PROG([XSLTPROC], [xsltproc], [AC_MSG_ERROR([xsltproc required for build])])
+AC_PATH_PROG([GDBUS_CODEGEN], [gdbus-codegen], [AC_MSG_ERROR([gdbus-codegen required for build])])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([

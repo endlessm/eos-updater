@@ -1,0 +1,10 @@
+[Unit]
+Description=EndlessOS Automatic Updater
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=@libexecdir@/eos-autoupdater
+
+[Install]
+Alias=eos-updater.service

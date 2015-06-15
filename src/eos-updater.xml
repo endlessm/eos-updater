@@ -1,5 +1,5 @@
 <node>
-  <interface name="org.gnome.OSTree">
+  <interface name="com.endlessm.Updater">
     <method name="Poll" ></method>
     <method name="Fetch"></method>
     <method name="Apply"></method>
