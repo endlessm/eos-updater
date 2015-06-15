@@ -21,7 +21,6 @@
  */
 
 #include "eos-updater-util.h"
-#include "eos-updater.h"
 #include <ostree.h>
 
 static const GDBusErrorEntry eos_error_entries[] = {

@@ -20,7 +20,6 @@
  * Author: Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "eos-updater.h"
 #include "eos-updater-generated.h"
 #include "eos-updater-util.h"
 #include "eos-updater-poll.h"
@@ -28,6 +27,7 @@
 #include "eos-updater-apply.h"
 #include <ostree.h>
 #include <gio/gio.h>
+#include <glib.h>
 
 static GDBusObjectManagerServer *manager = NULL;
 
