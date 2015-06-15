@@ -81,7 +81,7 @@ apply (GTask *task,
   gs_unref_object OstreeDeployment *merge_deployment = NULL;
   gs_unref_object OstreeDeployment *new_deployment = NULL;
   GKeyFile *origin = NULL;
-  OstreeSysroot *sysroot = NULL;
+  gs_unref_object OstreeSysroot *sysroot = NULL;
 
   g_main_context_push_thread_default (task_context);
 
