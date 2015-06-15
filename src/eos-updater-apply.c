@@ -59,8 +59,9 @@ apply_finished (GObject *object,
   return;
 
  invalid_task:
-  // Either the threading or the memory management is shafted. Or both.
-  // We're boned. Log an error and activate the self destruct mechanism:
+  /* Either the threading or the memory management is shafted. Or both.
+   * We're boned. Log an error and activate the self destruct mechanism.
+   */
   g_error ("Invalid async task object when returning from Poll() thread!");
   g_assert_not_reached ();
 }

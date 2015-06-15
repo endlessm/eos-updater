@@ -37,7 +37,7 @@ metadata_fetch_finished (GObject *object,
   if (!g_task_is_valid (res, object))
     goto invalid_task;
 
-  // get the sha256 of the fetched update:
+  /* get the sha256 of the fetched update */
   task = G_TASK (res);
   csum = g_task_propagate_pointer (task, &error);
 
@@ -52,15 +52,16 @@ metadata_fetch_finished (GObject *object,
       const gchar *label;
       const gchar *message;
 
-      // get the sha256 sum uf the currently booted image:
+      /* get the sha256 sum of the currently booted image */
       if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
         goto out;
 
-      // Everything is happy thusfar
+      /* Everything is happy thusfar */
       eos_updater_set_error_code (updater, 0);
       eos_updater_set_error_message (updater, "");
-      // if we have a checksum for the remote upgrade candidate
-      // and it's ≠ what we're currently booted into, advertise it as such:
+      /* if we have a checksum for the remote upgrade candidate
+       * and it's ≠ what we're currently booted into, advertise it as such.
+       */
       if (g_strcmp0 (cur, csum) != 0)
         {
           eos_updater_set_state_changed (updater, EOS_STATE_UPDATE_AVAILABLE);
@@ -96,7 +97,7 @@ metadata_fetch_finished (GObject *object,
           eos_updater_set_unpacked_size (updater, new_unpacked);
           eos_updater_set_downloaded_bytes (updater, 0);
         }
-      else // no size data available (may or may not be an error):
+      else /* no size data available (may or may not be an error) */
         {
           eos_updater_set_full_download_size (updater, -1);
           eos_updater_set_full_unpacked_size (updater, -1);
@@ -104,9 +105,10 @@ metadata_fetch_finished (GObject *object,
           eos_updater_set_unpacked_size (updater, -1);
           eos_updater_set_downloaded_bytes (updater, -1);
 
-          // shouldn't actually stop us offering an update, as long
-          // as the branch itself is resolvable in the next step,
-          // but log it anyway:
+          /* shouldn't actually stop us offering an update, as long
+           * as the branch itself is resolvable in the next step,
+           * but log it anyway.
+           */
           if (error)
             {
               message ("No size summary data: %s", error->message);
@@ -114,7 +116,7 @@ metadata_fetch_finished (GObject *object,
             }
         }
 
-      // get the sha256 sum uf the currently booted image:
+      /* get the sha256 sum uf the currently booted image */
       if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
         goto out;
     }
@@ -128,8 +130,9 @@ metadata_fetch_finished (GObject *object,
   return;
 
  invalid_task:
-  // Either the threading or the memory management is shafted. Or both.
-  // We're boned. Log an error and activate the self destruct mechanism:
+  /* Either the threading or the memory management is shafted. Or both.
+   * We're boned. Log an error and activate the self destruct mechanism.
+   */
   g_error ("Invalid async task object when returning from Poll() thread!");
   g_assert_not_reached ();
 }
@@ -160,11 +163,12 @@ metadata_fetch (GTask *task,
 
   pullrefs[0] = branch;
 
-  // FIXME: upstream ostree_repo_pull has an unbalanced
-  // g_main_context_get_thread_default/g_main_context_unref
-  // instead of
-  // g_main_context_ref_thread_default/g_main_context_unref
-  // which breaks our g_main_context_unref down in cleanup:
+  /* FIXME: upstream ostree_repo_pull has an unbalanced
+   * g_main_context_get_thread_default/g_main_context_unref
+   * instead of
+   * g_main_context_ref_thread_default/g_main_context_unref
+   * which breaks our g_main_context_unref down in cleanup.
+   */
   if (!ostree_repo_pull (repo, remote, pullrefs, flags, NULL, cancel, &error))
     goto error;
 
@@ -185,7 +189,7 @@ metadata_fetch (GTask *task,
                                  csum, &commit, &error))
     goto error;
 
-  // returning the sha256 sum of the just-fetched rev:
+  /* returning the sha256 sum of the just-fetched rev */
   g_task_return_pointer (task, csum, g_free);
   goto cleanup;
 

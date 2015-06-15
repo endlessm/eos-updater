@@ -81,8 +81,9 @@ on_bus_acquired (GDBusConnection *connection,
       state = EOS_STATE_ERROR;
     }
 
-  // We are deliberately not emitting a signal here: This
-  // isn't a state change, it's our initial state:
+  /* We are deliberately not emitting a signal here. This
+   * isn't a state change, it's our initial state.
+   */
   eos_updater_set_state_changed (updater, state);
 
   /* Export the object (@manager takes its own reference to @object) */

@@ -54,8 +54,9 @@ content_fetch_finished (GObject *object,
   return;
 
  invalid_task:
-  // Either the threading or the memory management is shafted. Or both.
-  // We're boned. Log an error and activate the self destruct mechanism:
+  /* Either the threading or the memory management is shafted. Or both.
+   * We're boned. Log an error and activate the self destruct mechanism.
+   */
   g_error ("Invalid async task object when returning from Poll() thread!");
   g_assert_not_reached ();
 }
@@ -107,20 +108,22 @@ content_fetch (GTask *task,
   message ("Fetch: %s:%s resolved to: %s", src, ref, sum);
   message ("User asked us for commit: %s", eos_updater_get_update_id (updater));
 
-  // rather than re-resolving the update, we get the las ID that the
-  // user Poll()ed. We do this because that is the last update for which
-  // we had size data: If there's been a new update since, then the
-  // system hasn;t seen the download/unpack sizes for that so it cannot
-  // be considered to have been approved.
+  /* rather than re-resolving the update, we get the last ID that the
+   * user Poll()ed. We do this because that is the last update for which
+   * we had size data: If there's been a new update since, then the
+   * system hasn;t seen the download/unpack sizes for that so it cannot
+   * be considered to have been approved.
+   */
   pullrefs[0] = (gchar *) eos_updater_get_update_id (updater);
 
   progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
-  // FIXME: upstream ostree_repo_pull had an unbalanced
-  // g_main_context_get_thread_default/g_main_context_unref
-  // instead of
-  // g_main_context_ref_thread_default/g_main_context_unref
-  // patch has been accepted upstream, but double check when merging
+  /* FIXME: upstream ostree_repo_pull had an unbalanced
+   * g_main_context_get_thread_default/g_main_context_unref
+   * instead of
+   * g_main_context_ref_thread_default/g_main_context_unref
+   * patch has been accepted upstream, but double check when merging
+   */
   if (!ostree_repo_pull (repo, src, pullrefs, flags, progress, cancel, &error))
     goto error;
 
