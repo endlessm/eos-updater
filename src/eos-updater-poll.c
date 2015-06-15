@@ -64,11 +64,11 @@ metadata_fetch_finished (GObject *object,
        */
       if (g_strcmp0 (cur, csum) != 0)
         {
-          eos_updater_set_state_changed (updater, EOS_STATE_UPDATE_AVAILABLE);
+          eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
         }
       else
         {
-          eos_updater_set_state_changed (updater, EOS_STATE_READY);
+          eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_READY);
           goto out;
         }
 
@@ -195,23 +195,24 @@ handle_poll (EosUpdater            *updater,
 {
   OstreeRepo *repo = OSTREE_REPO (user_data);
   gs_unref_object GTask *task = NULL;
-  EosState state = eos_updater_get_state (updater);
+  EosUpdaterState state = eos_updater_get_state (updater);
 
   switch (state)
     {
-      case EOS_STATE_READY:
-      case EOS_STATE_UPDATE_AVAILABLE:
-      case EOS_STATE_UPDATE_READY:
-      case EOS_STATE_ERROR:
+      case EOS_UPDATER_STATE_READY:
+      case EOS_UPDATER_STATE_UPDATE_AVAILABLE:
+      case EOS_UPDATER_STATE_UPDATE_READY:
+      case EOS_UPDATER_STATE_ERROR:
         break;
       default:
         g_dbus_method_invocation_return_error (call,
-          EOS_ERROR, EOS_ERROR_WRONG_STATE,
-          "Can't call Poll() while in state %s", eos_state_to_string (state));
+          EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_STATE,
+          "Can't call Poll() while in state %s",
+          eos_updater_state_to_string (state));
         goto bail;
     }
 
-  eos_updater_set_state_changed (updater, EOS_STATE_POLLING);
+  eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_POLLING);
   task = g_task_new (updater, NULL, metadata_fetch_finished, repo);
   g_task_set_task_data (task, g_object_ref (repo), g_object_unref);
   g_task_run_in_thread (task, metadata_fetch);

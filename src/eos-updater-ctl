@@ -22,7 +22,7 @@
 import sys
 from gi.repository import GObject, Gio, GLib
 
-EosStates = [
+EosUpdaterStates = [
   "None",
   "Ready",
   "Error",
@@ -37,13 +37,13 @@ EosStates = [
 def signal_emitted (proxy, signal, parameters):
   if (signal != "StateChanged"):
       return
-  print "======= State changed to: " + EosStates[parameters[0]] +  " ======="
+  print "======= State changed to: " + EosUpdaterStates[parameters[0]] +  " ======="
 
 def dump_daemon_properties (proxy):
 
   print "======= Properties ======="
   s = proxy.get_cached_property ("State").get_uint32()
-  print "State: " + EosStates[s]
+  print "State: " + EosUpdaterStates[s]
 
   for x in proxy.get_cached_property_names():
     if x != "State":

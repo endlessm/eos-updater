@@ -23,21 +23,21 @@
 #include "eos-updater-util.h"
 #include <ostree.h>
 
-static const GDBusErrorEntry eos_error_entries[] = {
-  { EOS_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" }
+static const GDBusErrorEntry eos_updater_error_entries[] = {
+  { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" }
 };
 
 /* Ensure that every error code has an associated D-Bus error name */
-G_STATIC_ASSERT (G_N_ELEMENTS (eos_error_entries) == EOS_N_ERRORS);
+G_STATIC_ASSERT (G_N_ELEMENTS (eos_updater_error_entries) == EOS_UPDATER_N_ERRORS);
 
 GQuark
-eos_error_quark (void)
+eos_updater_error_quark (void)
 {
   static volatile gsize quark_volatile = 0;
-  g_dbus_error_register_error_domain ("eos-error-quark",
+  g_dbus_error_register_error_domain ("eos-updater-error-quark",
                                       &quark_volatile,
-                                      eos_error_entries,
-                                      G_N_ELEMENTS (eos_error_entries));
+                                      eos_updater_error_entries,
+                                      G_N_ELEMENTS (eos_updater_error_entries));
   return (GQuark) quark_volatile;
 }
 
@@ -52,18 +52,18 @@ static const gchar * state_str[] = {
    "ApplyUpdate",
    "UpdateApplied" };
 
-G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_N_STATES);
+G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_UPDATER_N_STATES);
 
-const gchar * eos_state_to_string (EosState state)
+const gchar * eos_updater_state_to_string (EosUpdaterState state)
 {
-  g_assert (state < EOS_N_STATES);
+  g_assert (state < EOS_UPDATER_N_STATES);
 
   return state_str[state];
 };
 
 
 void
-eos_updater_set_state_changed (EosUpdater *updater, EosState state)
+eos_updater_set_state_changed (EosUpdater *updater, EosUpdaterState state)
 {
   eos_updater_set_state (updater, state);
   eos_updater_emit_state_changed (updater, state);
@@ -77,7 +77,7 @@ eos_updater_set_error (EosUpdater *updater, GError *error)
 
   eos_updater_set_error_code (updater, code);
   eos_updater_set_error_message (updater, msg);
-  eos_updater_set_state_changed (updater, EOS_STATE_ERROR);
+  eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
 }
 
 OstreeRepo *

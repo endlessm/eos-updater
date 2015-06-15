@@ -40,7 +40,7 @@ on_bus_acquired (GDBusConnection *connection,
   EosUpdater *updater = NULL;
   OstreeRepo *repo = OSTREE_REPO (user_data);
   GError *error = NULL;
-  EosState state;
+  EosUpdaterState state;
 
   gs_free gchar *src = NULL;
   gs_free gchar *ref = NULL;
@@ -72,13 +72,13 @@ on_bus_acquired (GDBusConnection *connection,
       eos_updater_set_error_code (updater, 0);
       eos_updater_set_error_message (updater, "");
       eos_updater_set_update_id (updater, "");
-      state = EOS_STATE_READY;
+      state = EOS_UPDATER_STATE_READY;
     }
   else
     {
       eos_updater_set_error_code (updater, error->code);
       eos_updater_set_error_message (updater, error->message);
-      state = EOS_STATE_ERROR;
+      state = EOS_UPDATER_STATE_ERROR;
     }
 
   /* We are deliberately not emitting a signal here. This

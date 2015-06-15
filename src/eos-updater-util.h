@@ -36,11 +36,12 @@
 
 G_BEGIN_DECLS
 
-#define EOS_ERROR (eos_error_quark())
-GQuark eos_error_quark (void);
+#define EOS_UPDATER_ERROR (eos_updater_error_quark())
+GQuark eos_updater_error_quark (void);
 
-const gchar *eos_state_to_string (EosState state);
-void eos_updater_set_state_changed (EosUpdater *updater, EosState state);
+const gchar *eos_updater_state_to_string (EosUpdaterState state);
+void eos_updater_set_state_changed (EosUpdater *updater,
+                                    EosUpdaterState state);
 
 void eos_updater_set_error (EosUpdater *updater, GError *error);
 

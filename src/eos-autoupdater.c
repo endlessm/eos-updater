@@ -52,7 +52,7 @@ static UpdateStep last_automatic_step;
 static gboolean should_exit_failure = FALSE;
 
 /* Avoid erroneous additional state transitions */
-static guint previous_state = EOS_STATE_NONE;
+static guint previous_state = EOS_UPDATER_STATE_NONE;
 
 static GMainLoop *main_loop;
 
@@ -182,7 +182,7 @@ report_error_status (EosUpdater *proxy)
  * Whenever the state changes, we check if we need to do something as a
  * result of that state change. */
 static void
-on_state_changed (EosUpdater *proxy, EosState state)
+on_state_changed (EosUpdater *proxy, EosUpdaterState state)
 {
   gboolean continue_running = TRUE;
 
@@ -194,37 +194,37 @@ on_state_changed (EosUpdater *proxy, EosState state)
   g_message ("EOS updater state is: %u", state);
 
   switch (state) {
-    case EOS_STATE_NONE: /* State should change soon */
+    case EOS_UPDATER_STATE_NONE: /* State should change soon */
       break;
 
-    case EOS_STATE_READY: /* Must poll */
+    case EOS_UPDATER_STATE_READY: /* Must poll */
       continue_running = do_update_step (UPDATE_STEP_POLL, proxy);
       break;
 
-    case EOS_STATE_ERROR: /* Log error and quit */
+    case EOS_UPDATER_STATE_ERROR: /* Log error and quit */
       report_error_status (proxy);
       should_exit_failure = TRUE;
       continue_running = FALSE;
       break;
 
-    case EOS_STATE_POLLING: /* Wait for completion */
+    case EOS_UPDATER_STATE_POLLING: /* Wait for completion */
       break;
 
-    case EOS_STATE_UPDATE_AVAILABLE: /* Possibly fetch */
+    case EOS_UPDATER_STATE_UPDATE_AVAILABLE: /* Possibly fetch */
       continue_running = do_update_step (UPDATE_STEP_FETCH, proxy);
       break;
 
-    case EOS_STATE_FETCHING: /* Wait for completion */
+    case EOS_UPDATER_STATE_FETCHING: /* Wait for completion */
       break;
 
-    case EOS_STATE_UPDATE_READY: /* Possibly apply */
+    case EOS_UPDATER_STATE_UPDATE_READY: /* Possibly apply */
       continue_running = do_update_step (UPDATE_STEP_APPLY, proxy);
       break;
 
-    case EOS_STATE_APPLYING_UPDATE: /* Wait for completion */
+    case EOS_UPDATER_STATE_APPLYING_UPDATE: /* Wait for completion */
       break;
 
-    case EOS_STATE_UPDATE_APPLIED: /* Done; exit */
+    case EOS_UPDATER_STATE_UPDATE_APPLIED: /* Done; exit */
       continue_running = FALSE;
       break;
 
@@ -245,7 +245,7 @@ on_state_changed_notify (EosUpdater *proxy,
                          GParamSpec *pspec,
                          gpointer data)
 {
-  EosState state = eos_updater_get_state (proxy);
+  EosUpdaterState state = eos_updater_get_state (proxy);
   on_state_changed (proxy, state);
 }
 
@@ -325,13 +325,13 @@ static gboolean
 initial_poll_idle_func (gpointer pointer)
 {
   EosUpdater *proxy = (EosUpdater *) pointer;
-  EosState initial_state = eos_updater_get_state (proxy);
+  EosUpdaterState initial_state = eos_updater_get_state (proxy);
 
   /* Attempt to clear the error by pretending to be ready, which will
    * trigger a poll
    */
-  if (initial_state == EOS_STATE_ERROR)
-    initial_state = EOS_STATE_READY;
+  if (initial_state == EOS_UPDATER_STATE_ERROR)
+    initial_state = EOS_UPDATER_STATE_READY;
 
   on_state_changed (proxy, initial_state);
 
