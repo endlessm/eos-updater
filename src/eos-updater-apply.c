@@ -32,7 +32,7 @@ apply_finished (GObject *object,
   GTask *task;
   GError *error = NULL;
 
-  gs_unref_object OstreeRepo *repo = OSTREE_REPO (user_data);
+  OstreeRepo *repo = OSTREE_REPO (user_data);
   gboolean bootver_changed = FALSE;
 
   if (!g_task_is_valid (res, object))
@@ -148,7 +148,7 @@ handle_apply (EosUpdater            *updater,
     }
 
   eos_updater_set_state_changed (updater, EOS_STATE_APPLYING_UPDATE);
-  task = g_task_new (updater, NULL, apply_finished, g_object_ref (repo));
+  task = g_task_new (updater, NULL, apply_finished, repo);
   g_task_set_task_data (task, g_object_ref (repo), g_object_unref);
   g_task_run_in_thread (task, apply);
 
