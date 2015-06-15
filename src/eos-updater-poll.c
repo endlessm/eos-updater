@@ -171,14 +171,6 @@ metadata_fetch (GTask *task,
   if (!ostree_repo_resolve_rev (repo, refspec, TRUE, &csum, &error))
     goto error;
 
-  if (!csum)
-    {
-      if (!error)
-        g_set_error (&error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                     "Server does not have image '%s'", refspec);
-      goto error;
-    }
-
   if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT,
                                  csum, &commit, &error))
     goto error;

@@ -124,12 +124,7 @@ content_fetch (GTask *task,
   message ("Fetch: pull() completed");
 
   if (!ostree_repo_read_commit (repo, pullrefs[0], NULL, NULL, cancel, &error))
-    {
-      if (!error)
-        g_set_error (&error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                     "Failed to fetch update %s from %s", ref, src);
-      goto error;
-    }
+    goto error;
 
   message ("Fetch: commit %s cached", pullrefs[0]);
   g_task_return_boolean (task, TRUE);
