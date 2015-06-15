@@ -44,12 +44,6 @@ content_fetch_finished (GObject *object,
     {
       eos_updater_set_error (updater, error);
     }
-  else if (!fetched) // bizarre, should not happen
-    {
-      eos_updater_set_error_code (updater, G_IO_ERROR_NOT_FOUND);
-      eos_updater_set_error_message (updater, "Update not found on server");
-      eos_updater_set_state_changed (updater, EOS_STATE_ERROR);
-    }
   else
     {
       eos_updater_set_error_code (updater, 0);

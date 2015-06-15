@@ -118,12 +118,6 @@ metadata_fetch_finished (GObject *object,
       if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
         goto out;
     }
-  else if (!error) // this should never happen, but check for it anyway:
-    {
-      g_set_error (&error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                   "Update not found on server");
-      goto out;
-    }
 
  out:
   if (error)
