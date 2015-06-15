@@ -206,7 +206,6 @@ handle_poll (EosUpdater            *updater,
   OstreeRepo *repo = OSTREE_REPO (user_data);
   GTask *task = NULL;
   EosState state = eos_updater_get_state (updater);
-  // gboolean poll_ok = FALSE;
 
   switch (state)
     {

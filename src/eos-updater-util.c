@@ -116,14 +116,11 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
                              GError    **error)
 {
   gboolean ret = FALSE;
-  // gint cur_bootversion = -1;
   gs_free gchar *o_refspec = NULL;
   gs_free gchar *o_remote = NULL;
   gs_free gchar *o_ref = NULL;
   gs_unref_ptrarray GPtrArray *cur_deployments = NULL;
-  // gs_unref_object OstreeDeployment *old_deployment = NULL;
   gs_unref_object OstreeDeployment *merge_deployment = NULL;
-  // gs_unref_object GFile *sysroot = g_file_new_for_path ("/");
   const gchar *osname;
   const gchar *booted;
   GKeyFile *origin;
