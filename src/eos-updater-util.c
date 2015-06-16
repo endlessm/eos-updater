@@ -129,6 +129,13 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
   if (!ostree_sysroot_load (sysroot, NULL, error))
     goto out;
 
+  if (!ostree_sysroot_get_booted_deployment (sysroot))
+    {
+      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                           "Not an ostree system");
+      goto out;
+    }
+
   merge_deployment = ostree_sysroot_get_merge_deployment (sysroot, NULL);
   osname = ostree_deployment_get_osname (merge_deployment);
   origin = ostree_deployment_get_origin (merge_deployment);
