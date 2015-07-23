@@ -1,6 +1,6 @@
 AC_INIT([eos-updater],[1.0])
 AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE([dist-xz no-dist-gzip tar-ustar foreign])
+AM_INIT_AUTOMAKE([1.11.2 dist-xz no-dist-gzip tar-ustar foreign])
 AC_PROG_CC
 
 PKG_PROG_PKG_CONFIG
