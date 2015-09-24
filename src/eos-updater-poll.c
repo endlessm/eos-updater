@@ -47,8 +47,10 @@ metadata_fetch_finished (GObject *object,
       gint64 unpacked = -1;
       gint64 new_archived = 0;
       gint64 new_unpacked = 0;
+      gs_unref_variant GVariant *current_commit = NULL;
       gs_unref_variant GVariant *commit = NULL;
       gs_free gchar *cur = NULL;
+      gboolean is_newer = FALSE;
       const gchar *label;
       const gchar *message;
 
@@ -56,13 +58,26 @@ metadata_fetch_finished (GObject *object,
       if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
         goto out;
 
+      if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT,
+                                     cur, &current_commit, &error))
+        goto out;
+
+      if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT,
+                                     csum, &commit, &error))
+        goto out;
+
+      /* Determine if the new commit is newer than the old commit to prevent
+       * inadvertant (or malicious) attempts to downgrade the system.
+       */
+      is_newer = ostree_commit_get_timestamp (commit) > ostree_commit_get_timestamp (current_commit);
+
       /* Everything is happy thusfar */
       eos_updater_set_error_code (updater, 0);
       eos_updater_set_error_message (updater, "");
       /* if we have a checksum for the remote upgrade candidate
        * and it's ≠ what we're currently booted into, advertise it as such.
        */
-      if (g_strcmp0 (cur, csum) != 0)
+      if (is_newer && g_strcmp0 (cur, csum) != 0)
         {
           eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
         }
@@ -73,10 +88,6 @@ metadata_fetch_finished (GObject *object,
         }
 
       eos_updater_set_update_id (updater, csum);
-
-      if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT,
-                                     csum, &commit, &error))
-        goto out;
 
       g_variant_get_child (commit, 3, "&s", &label);
       g_variant_get_child (commit, 4, "&s", &message);
