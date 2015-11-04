@@ -86,6 +86,12 @@ apply (GTask *task,
   g_main_context_push_thread_default (task_context);
 
   sysroot = ostree_sysroot_new_default ();
+  /* The sysroot lock must be taken to prevent multiple processes (like this
+   * and ostree admin upgrade) from deploying simultaneously, which will fail.
+   * The lock will be unlocked automatically when sysroot is deallocated.
+   */
+  if (!ostree_sysroot_lock (sysroot, &error))
+    goto error;
   if (!ostree_sysroot_load (sysroot, cancel, &error))
     goto error;
 
