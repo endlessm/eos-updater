@@ -18,7 +18,7 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
-libexec_PROGRAMS = eos-autoupdater
+libexec_PROGRAMS = eos-autoupdater eos-update-apply
 bin_PROGRAMS = eos-updater
 dist_bin_SCRIPTS = eos-updater-ctl
 
@@ -31,6 +31,10 @@ eos_autoupdater_CFLAGS = $(EOS_AUTOUPDATER_CFLAGS)
 eos_autoupdater_LDADD = $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
 nodist_eos_autoupdater_SOURCES = $(BUILT_SOURCES)
+
+eos_update_apply_CFLAGS = $(EOS_UPDATE_APPLY_CFLAGS)
+eos_update_apply_LDADD = $(EOS_UPDATE_APPLY_LIBS)
+eos_update_apply_SOURCES = eos-update-apply.c
 
 eos_updater_CFLAGS = $(EOS_UPDATER_CFLAGS)
 eos_updater_LDADD  = $(EOS_UPDATER_LIBS)

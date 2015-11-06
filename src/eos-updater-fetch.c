@@ -22,6 +22,8 @@
 
 #include "eos-updater-fetch.h"
 
+#include <string.h>
+
 static void
 content_fetch_finished (GObject *object,
                         GAsyncResult *res,
@@ -39,6 +41,15 @@ content_fetch_finished (GObject *object,
 
   task = G_TASK (res);
   fetched = g_task_propagate_boolean (task, &error);
+
+  if (!error)
+    {
+      const gchar *update_id = eos_updater_get_update_id (updater);
+      g_autoptr(GFile) update_file = g_file_new_for_path("/ostree/apply-version");
+      g_file_replace_contents (update_file, update_id, strlen(update_id), NULL,
+                               TRUE, G_FILE_CREATE_REPLACE_DESTINATION, NULL,
+                               NULL, &error);
+    }
 
   if (error)
     {

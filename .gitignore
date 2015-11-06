@@ -26,8 +26,10 @@ src/eos-autoupdater
 src/com.endlessm.Updater.conf
 src/com.endlessm.Updater.service
 src/eos-updater
+src/eos-update-apply
 data/eos-autoupdater.service
 data/eos-autoupdater.timer
+data/eos-update-apply.service
 config.h.in~
 debian/autoreconf.after
 debian/autoreconf.before

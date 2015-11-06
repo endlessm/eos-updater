@@ -1,0 +1,15 @@
+[Unit]
+Description=EndlessOS Update On Reboot
+ConditionKernelCommandLine=ostree
+Requires=local-fs.target
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/true
+ExecStop=@libexecdir@/eos-update-apply
+TimeoutStopSec=600
+
+[Install]
+WantedBy=basic.target

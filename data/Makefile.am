@@ -1,4 +1,4 @@
-eos_autoupdater_in = eos-autoupdater.service.in eos-autoupdater.timer.in
+eos_autoupdater_in = eos-autoupdater.service.in eos-autoupdater.timer.in eos-update-apply.service.in
 
 systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
 
@@ -8,6 +8,9 @@ eos-autoupdater.service: eos-autoupdater.service.in
 	$(edit) $< >$@
 
 eos-autoupdater.timer: eos-autoupdater.timer.in
+	$(edit) $< >$@
+
+eos-update-apply.service: eos-update-apply.service.in
 	$(edit) $< >$@
 
 edit = sed \
