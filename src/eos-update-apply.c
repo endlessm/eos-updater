@@ -20,6 +20,7 @@ apply (GCancellable *cancel,
   gs_unref_object OstreeDeployment *new_deployment = NULL;
   GKeyFile *origin = NULL;
   gs_unref_object OstreeSysroot *sysroot = NULL;
+  gs_unref_object OstreeRepo *repo = NULL;
 
   if (!g_file_load_contents (update_file, cancel, &update_id, &id_length, NULL, error))
     {
@@ -44,7 +45,15 @@ apply (GCancellable *cancel,
     goto out;
   if (!ostree_sysroot_load (sysroot, cancel, error))
     goto out;
+  if (!ostree_sysroot_get_repo (sysroot, &repo, cancel, error))
+    goto out;
 
+  /* To speed up deployment substantially, disable fsync during the checkout.
+   * This is still safe since syncfs() will be called anyway when writing the
+   * deployment. Partially written deployments won't cause problems since they
+   * will be invisible until the boot config is updated after the syncfs() call.
+   */
+  ostree_repo_set_disable_fsync (repo, TRUE);
   bootversion = ostree_sysroot_get_bootversion (sysroot);
   merge_deployment = ostree_sysroot_get_merge_deployment (sysroot, NULL);
   origin = ostree_deployment_get_origin (merge_deployment);
