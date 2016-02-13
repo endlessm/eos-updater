@@ -131,6 +131,8 @@ metadata_fetch_finished (GObject *object,
       if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
         goto out;
     }
+  else /* csum == NULL means OnHold=true, nothing to do here */
+    eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_READY);
 
  out:
   if (error)
@@ -172,6 +174,12 @@ metadata_fetch (GTask *task,
                                     &remote, &branch, NULL, &error))
     goto error;
 
+  if (!branch) /* this means OnHold=true */
+    {
+      g_task_return_pointer (task, NULL, NULL);
+      goto cleanup;
+    }
+
   pullrefs[0] = branch;
 
   if (!ostree_repo_pull (repo, remote, pullrefs, flags, NULL, cancel, &error))
@@ -185,6 +193,8 @@ metadata_fetch (GTask *task,
   if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT,
                                  csum, &commit, &error))
     goto error;
+
+  eos_updater_set_update_refspec (updater, refspec);
 
   /* returning the sha256 sum of the just-fetched rev */
   g_task_return_pointer (task, csum, g_free);
