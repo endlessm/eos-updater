@@ -9,6 +9,7 @@ Build-Depends: debhelper (>= 9.0.0),
 	libsystemd-journal-dev,
 	libostree-dev (>= 2015.6),
 	libgsystem-dev,
+	libsoup2.4-dev,
 	xsltproc,
 	dh-autoreconf,
 	dh-systemd
