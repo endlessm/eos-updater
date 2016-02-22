@@ -170,7 +170,6 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
   gs_free gchar *baseurl = NULL;
   gs_free gchar *uri = NULL;
   gs_free gchar *query = NULL;
-  gs_unref_ptrarray GPtrArray *cur_deployments = NULL;
   gs_unref_object OstreeDeployment *merge_deployment = NULL;
   const gchar *osname;
   const gchar *booted;
