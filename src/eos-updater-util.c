@@ -213,6 +213,13 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
   if (booted_checksum)
     *booted_checksum = g_strdup (booted);
 
+  if (!upgrade_remote && !upgrade_ref)
+    {
+      /* Nothing left to do */
+      ret = TRUE;
+      goto out;
+    }
+
   /* Get branch configuration data baseurl */
   repo_config = ostree_repo_get_config (repo);
   osgroup = g_strdup_printf ("remote \"%s\"", osname);
