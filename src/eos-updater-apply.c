@@ -76,6 +76,7 @@ apply (GTask *task,
   GError *error = NULL;
   GMainContext *task_context = g_main_context_new ();
   const gchar *update_id = eos_updater_get_update_id (updater);
+  const gchar *update_refspec = eos_updater_get_update_refspec (updater);
   gint bootversion = 0;
   gint newbootver = 0;
   gs_unref_object OstreeDeployment *merge_deployment = NULL;
@@ -97,7 +98,7 @@ apply (GTask *task,
 
   bootversion = ostree_sysroot_get_bootversion (sysroot);
   merge_deployment = ostree_sysroot_get_merge_deployment (sysroot, NULL);
-  origin = ostree_deployment_get_origin (merge_deployment);
+  origin = ostree_sysroot_origin_new_from_refspec (sysroot, update_refspec);
 
   if (!ostree_sysroot_deploy_tree (sysroot,
                                    NULL,

@@ -6,6 +6,7 @@
     
     <property name="State"            type="u" access="read"/>
     <property name="UpdateID"         type="s" access="read"/>
+    <property name="UpdateRefspec"    type="s" access="read"/>
     <property name="CurrentID"        type="s" access="read"/>
     <property name="UpdateLabel"      type="s" access="read"/>
     <property name="UpdateMessage"    type="s" access="read"/>
