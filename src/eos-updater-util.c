@@ -23,6 +23,17 @@
 #include "eos-updater-util.h"
 #include <ostree.h>
 #include <libsoup/soup.h>
+#include <eosmetrics/eosmetrics.h>
+
+
+/*
+ * Records which branch will be used by the updater. The payload is a 4-tuple
+ * of 3 strings and boolean: vendor name, product ID, selected OStree ref, and
+ * whether the machine is on hold
+ */
+#define EOS_UPDATER_BRANCH_SELECTED "99f48aac-b5a0-426d-95f4-18af7d081c4e"
+
+static gboolean metric_sent = FALSE;
 
 static const GDBusErrorEntry eos_updater_error_entries[] = {
   { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" }
@@ -158,6 +169,7 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
                              GError    **error)
 {
   gboolean ret = FALSE;
+  gboolean on_hold = FALSE;
   guint status = 0;
   gs_free gchar *o_refspec = NULL;
   gs_free gchar *o_remote = NULL;
@@ -316,6 +328,7 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
       if (g_key_file_get_boolean (bkf, p_id, ON_HOLD_KEY, NULL))
         {
           message ("Product is on hold, nothing to upgrade here");
+          on_hold = TRUE;
           ret = TRUE;
           goto out;
         }
@@ -332,6 +345,7 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
         {
           message ("No product-specific configuration and %s is on hold, "
                    "nothing to upgrade here", DEFAULT_GROUP);
+          on_hold = TRUE;
           ret = TRUE;
           goto out;
         }
@@ -352,6 +366,16 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
   shuffle_out_values (upgrade_remote, o_remote, NULL);
   shuffle_out_values (upgrade_ref, p_ref, NULL);
 
-  out:
-    return ret;
+out:
+  if ((p_ref || on_hold) && !metric_sent)
+    {
+      emtr_event_recorder_record_event (emtr_event_recorder_get_default (),
+                                        EOS_UPDATER_BRANCH_SELECTED,
+                                        g_variant_new ("(sssb)", vendor,
+                                                       product,
+                                                       on_hold ? o_ref : p_ref,
+                                                       on_hold));
+      metric_sent = TRUE;
+    }
+  return ret;
 }
