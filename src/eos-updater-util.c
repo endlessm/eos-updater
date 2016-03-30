@@ -367,14 +367,18 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
   shuffle_out_values (upgrade_ref, p_ref, NULL);
 
 out:
-  if ((p_ref || on_hold) && !metric_sent)
+  if (((upgrade_ref && *upgrade_ref) || on_hold) && !metric_sent)
     {
-      emtr_event_recorder_record_event (emtr_event_recorder_get_default (),
-                                        EOS_UPDATER_BRANCH_SELECTED,
-                                        g_variant_new ("(sssb)", vendor,
-                                                       product,
-                                                       on_hold ? o_ref : p_ref,
-                                                       on_hold));
+      message ("Recording metric event %s: (%s, %s, %s, %d)",
+               EOS_UPDATER_BRANCH_SELECTED, vendor, product,
+               on_hold ? o_ref : *upgrade_ref, on_hold);
+      emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
+                                             EOS_UPDATER_BRANCH_SELECTED,
+                                             g_variant_new ("(sssb)", vendor,
+                                                            product,
+                                                            on_hold ? o_ref :
+                                                              *upgrade_ref,
+                                                            on_hold));
       metric_sent = TRUE;
     }
   return ret;
