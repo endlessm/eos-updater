@@ -20,7 +20,7 @@ OSTREE_REQUIRED_VERSION=2015.6
 PKG_CHECK_MODULES([EOS_AUTOUPDATER],
                   [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
                   libnm-glib
-                  libsystemd-journal])
+                  libsystemd])
 
 PKG_CHECK_MODULES([EOS_UPDATER],
                   [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
