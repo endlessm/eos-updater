@@ -46,6 +46,8 @@ eos_updater_SOURCES = \
 	eos-updater-types.h \
 	eos-updater.c \
 	eos-updater.xml \
+	eos-updater-data.h \
+	eos-updater-data.c \
 	$(NULL)
 nodist_eos_updater_SOURCES = $(BUILT_SOURCES)
 
