@@ -21,6 +21,7 @@
  */
 
 #include "eos-updater-poll.h"
+#include "eos-updater-data.h"
 
 static void
 metadata_fetch_finished (GObject *object,
@@ -30,9 +31,9 @@ metadata_fetch_finished (GObject *object,
   EosUpdater *updater = EOS_UPDATER (object);
   GTask     *task;
   GError    *error = NULL;
-
-  gs_free gchar *csum;
-  OstreeRepo *repo = OSTREE_REPO (user_data);
+  EosUpdaterData *data = user_data;
+  gs_free gchar *csum = NULL;
+  OstreeRepo *repo = data->repo;
 
   if (!g_task_is_valid (res, object))
     goto invalid_task;
@@ -158,7 +159,8 @@ metadata_fetch (GTask *task,
                 GCancellable *cancel)
 {
   EosUpdater *updater = EOS_UPDATER (object);
-  OstreeRepo *repo = OSTREE_REPO (task_data);
+  EosUpdaterData *data = task_data;
+  OstreeRepo *repo = data->repo;
   OstreeRepoPullFlags flags = (OSTREE_REPO_PULL_FLAGS_COMMIT_ONLY);
   GError *error = NULL;
   gs_free gchar *remote = NULL;
@@ -218,7 +220,6 @@ handle_poll (EosUpdater            *updater,
              GDBusMethodInvocation *call,
              gpointer               user_data)
 {
-  OstreeRepo *repo = OSTREE_REPO (user_data);
   gs_unref_object GTask *task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
 
@@ -238,8 +239,8 @@ handle_poll (EosUpdater            *updater,
     }
 
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_POLLING);
-  task = g_task_new (updater, NULL, metadata_fetch_finished, repo);
-  g_task_set_task_data (task, g_object_ref (repo), g_object_unref);
+  task = g_task_new (updater, NULL, metadata_fetch_finished, user_data);
+  g_task_set_task_data (task, user_data, NULL);
   g_task_run_in_thread (task, metadata_fetch);
 
   eos_updater_complete_poll (updater, call);
