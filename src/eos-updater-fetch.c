@@ -31,13 +31,12 @@ content_fetch_finished (GObject *object,
   EosUpdater *updater = EOS_UPDATER (object);
   GTask *task;
   GError *error = NULL;
-  gboolean fetched = FALSE;
 
   if (!g_task_is_valid (res, object))
     goto invalid_task;
 
   task = G_TASK (res);
-  fetched = g_task_propagate_boolean (task, &error);
+  g_task_propagate_boolean (task, &error);
 
   if (error)
     {
