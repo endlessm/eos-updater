@@ -31,8 +31,6 @@ apply_finished (GObject *object,
   EosUpdater *updater = EOS_UPDATER (object);
   GTask *task;
   GError *error = NULL;
-
-  OstreeRepo *repo = OSTREE_REPO (user_data);
   gboolean bootver_changed = FALSE;
 
   if (!g_task_is_valid (res, object))
