@@ -174,8 +174,7 @@ metadata_fetch (GTask *task,
 
   g_main_context_push_thread_default (task_context);
 
-  if (!eos_updater_resolve_upgrade (updater, repo, &refspec,
-                                    &orig_refspec, NULL, &error))
+  if (!eos_updater_get_upgrade_info (repo, &refspec, &orig_refspec, &error))
     goto error;
 
   if (!refspec) /* this means OnHold=true */

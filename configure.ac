@@ -14,7 +14,7 @@ AS_IF([test "x$with_systemdsystemunitdir" != "xno"], [
   AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
 ])
 
-GLIB_REQUIRED_VERSION=2.36.0
+GLIB_REQUIRED_VERSION=2.44.0
 OSTREE_REQUIRED_VERSION=2015.6
 
 PKG_CHECK_MODULES([EOS_AUTOUPDATER],

@@ -43,15 +43,16 @@ const gchar *eos_updater_state_to_string (EosUpdaterState state);
 void eos_updater_set_state_changed (EosUpdater *updater,
                                     EosUpdaterState state);
 
-void eos_updater_set_error (EosUpdater *updater, GError *error);
+void eos_updater_set_error (EosUpdater *updater,
+                            GError *error);
 
-OstreeRepo * eos_updater_local_repo (void);
+OstreeRepo *eos_updater_local_repo (void);
 
-gboolean eos_updater_resolve_upgrade (EosUpdater  *updater,
-                                      OstreeRepo *repo,
-                                      gchar     **upgrade_refspec,
-                                      gchar     **original_refspec,
-                                      gchar     **booted_checksum,
-                                      GError    **error);
+gboolean eos_updater_get_upgrade_info (OstreeRepo *repo,
+                                       gchar **upgrade_refspec,
+                                       gchar **original_refspec,
+                                       GError **error);
+
+gchar *eos_updater_get_booted_checksum (GError **error);
 
 G_END_DECLS

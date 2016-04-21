@@ -40,7 +40,6 @@ on_bus_acquired (GDBusConnection *connection,
   EosObjectSkeleton *object = NULL;
   EosUpdater *updater = NULL;
   EosUpdaterData *data = user_data;
-  OstreeRepo *repo = data->repo;
   GError *error = NULL;
   EosUpdaterState state;
 
@@ -65,7 +64,8 @@ on_bus_acquired (GDBusConnection *connection,
   g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), data);
   g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), data);
 
-  if (eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &sum, &error))
+  sum = eos_updater_get_booted_checksum (&error);
+  if (sum != NULL)
     {
       eos_updater_set_current_id (updater, sum);
       eos_updater_set_download_size (updater, 0);
@@ -85,6 +85,7 @@ on_bus_acquired (GDBusConnection *connection,
 
   /* We are deliberately not emitting a signal here. This
    * isn't a state change, it's our initial state.
+   * krnowak: ORLY? It calls eos_updater_emit_state_changed…
    */
   eos_updater_set_state_changed (updater, state);
 
