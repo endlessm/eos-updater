@@ -49,14 +49,19 @@ metadata_fetch_finished (GObject *object,
       gint64 new_unpacked = 0;
       gs_unref_variant GVariant *current_commit = NULL;
       gs_unref_variant GVariant *commit = NULL;
-      gs_free gchar *cur = NULL;
+      const gchar *cur;
       gboolean is_newer = FALSE;
       const gchar *label;
       const gchar *message;
 
       /* get the sha256 sum of the currently booted image */
-      if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
-        goto out;
+      cur = eos_updater_get_current_id (updater);
+      if (cur == NULL || *cur == '\0')
+        {
+          g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                               "Could not determine booted checksum");
+          goto out;
+        }
 
       if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT,
                                      cur, &current_commit, &error))
