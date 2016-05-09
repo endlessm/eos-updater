@@ -86,6 +86,7 @@ content_fetch (GTask *task,
   OstreeRepoPullFlags flags = OSTREE_REPO_PULL_FLAGS_NONE;
   gs_unref_object OstreeAsyncProgress *progress = NULL;
   GError *error = NULL;
+  const gchar *refspec;
   gs_free gchar *src = NULL;
   gs_free gchar *ref = NULL;
   const gchar *sum;
@@ -94,7 +95,9 @@ content_fetch (GTask *task,
 
   g_main_context_push_thread_default (task_context);
 
-  if (!eos_updater_resolve_upgrade (updater, repo, &src, &ref, NULL, &error))
+  refspec = eos_updater_get_update_refspec (updater);
+
+  if (!ostree_parse_refspec (refspec, &src, &ref, &error))
     goto error;
 
   sum = eos_updater_get_update_id (updater);
