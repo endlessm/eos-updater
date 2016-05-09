@@ -96,11 +96,23 @@ content_fetch (GTask *task,
   g_main_context_push_thread_default (task_context);
 
   refspec = eos_updater_get_update_refspec (updater);
+  if (refspec == NULL || *refspec == '\0')
+    {
+      g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                           "fetch called with empty update refspec");
+      goto error;
+    }
 
   if (!ostree_parse_refspec (refspec, &src, &ref, &error))
     goto error;
 
   sum = eos_updater_get_update_id (updater);
+  if (sum == NULL || *sum == '\0')
+    {
+      g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                           "fetch called with empty update commit");
+      goto error;
+    }
 
   message ("Fetch: %s:%s resolved to: %s", src, ref, sum);
 
