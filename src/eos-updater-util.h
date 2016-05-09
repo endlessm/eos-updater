@@ -49,8 +49,7 @@ OstreeRepo * eos_updater_local_repo (void);
 
 gboolean eos_updater_resolve_upgrade (EosUpdater  *updater,
                                       OstreeRepo *repo,
-                                      gchar     **upgrade_remote,
-                                      gchar     **upgrade_ref,
+                                      gchar     **upgrade_refspec,
                                       gchar     **booted_checksum,
                                       GError    **error);
 
