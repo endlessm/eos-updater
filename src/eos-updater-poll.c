@@ -164,6 +164,7 @@ metadata_fetch (GTask *task,
   gs_free gchar *remote = NULL;
   gs_free gchar *branch = NULL;
   gs_free gchar *refspec = NULL;
+  gs_free gchar *orig_refspec = NULL;
   gchar *pullrefs[] = { NULL, NULL };
   gchar *csum = NULL;
   GMainContext *task_context = g_main_context_new ();
@@ -171,7 +172,8 @@ metadata_fetch (GTask *task,
 
   g_main_context_push_thread_default (task_context);
 
-  if (!eos_updater_resolve_upgrade (updater, repo, &refspec, NULL, &error))
+  if (!eos_updater_resolve_upgrade (updater, repo, &refspec,
+                                    &orig_refspec, NULL, &error))
     goto error;
 
   if (!refspec) /* this means OnHold=true */
@@ -196,6 +198,7 @@ metadata_fetch (GTask *task,
     goto error;
 
   eos_updater_set_update_refspec (updater, refspec);
+  eos_updater_set_original_refspec (updater, orig_refspec);
 
   /* returning the sha256 sum of the just-fetched rev */
   g_task_return_pointer (task, csum, g_free);
