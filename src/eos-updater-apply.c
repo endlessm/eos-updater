@@ -73,10 +73,12 @@ apply (GTask *task,
        GCancellable *cancel)
 {
   EosUpdater *updater = EOS_UPDATER (object);
+  OstreeRepo *repo = OSTREE_REPO (task_data);
   GError *error = NULL;
   GMainContext *task_context = g_main_context_new ();
   const gchar *update_id = eos_updater_get_update_id (updater);
   const gchar *update_refspec = eos_updater_get_update_refspec (updater);
+  const gchar *orig_refspec = eos_updater_get_original_refspec (updater);
   gint bootversion = 0;
   gint newbootver = 0;
   gs_unref_object OstreeDeployment *merge_deployment = NULL;
@@ -110,6 +112,30 @@ apply (GTask *task,
                                    cancel,
                                    &error))
     goto error;
+
+  /* If the original refspec is not the update refspec, then we may have
+   * a ref to a no longer needed tree. Delete that remote ref so the
+   * cleanup done in simple_write_deployment() really removes that tree
+   * if no deployments point to it anymore.
+   */
+  if (g_strcmp0 (update_refspec, orig_refspec) != 0)
+    {
+      gs_free gchar *rev = NULL;
+
+      if (!ostree_repo_resolve_rev (repo, orig_refspec, TRUE, &rev, &error))
+        goto error;
+
+      if (rev)
+        {
+          if (!ostree_repo_prepare_transaction (repo, NULL, cancel, &error))
+            goto error;
+
+          ostree_repo_transaction_set_refspec (repo, orig_refspec, NULL);
+
+          if (!ostree_repo_commit_transaction (repo, NULL, cancel, &error))
+            goto error;
+        }
+    }
 
   if (!ostree_sysroot_simple_write_deployment (sysroot,
                                                NULL,
