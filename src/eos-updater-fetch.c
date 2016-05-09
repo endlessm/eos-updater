@@ -88,17 +88,18 @@ content_fetch (GTask *task,
   GError *error = NULL;
   gs_free gchar *src = NULL;
   gs_free gchar *ref = NULL;
-  gs_free gchar *sum = NULL;
+  const gchar *sum;
   gchar *pullrefs[] = { NULL, NULL };
   GMainContext *task_context = g_main_context_new ();
 
   g_main_context_push_thread_default (task_context);
 
-  if (!eos_updater_resolve_upgrade (updater, repo, &src, &ref, &sum, &error))
+  if (!eos_updater_resolve_upgrade (updater, repo, &src, &ref, NULL, &error))
     goto error;
 
+  sum = eos_updater_get_update_id (updater);
+
   message ("Fetch: %s:%s resolved to: %s", src, ref, sum);
-  message ("User asked us for commit: %s", eos_updater_get_update_id (updater));
 
   /* rather than re-resolving the update, we get the last ID that the
    * user Poll()ed. We do this because that is the last update for which
@@ -106,7 +107,7 @@ content_fetch (GTask *task,
    * system hasn;t seen the download/unpack sizes for that so it cannot
    * be considered to have been approved.
    */
-  pullrefs[0] = (gchar *) eos_updater_get_update_id (updater);
+  pullrefs[0] = (gchar *) sum;
 
   progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
