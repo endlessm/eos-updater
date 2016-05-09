@@ -171,22 +171,22 @@ metadata_fetch (GTask *task,
 
   g_main_context_push_thread_default (task_context);
 
-  if (!eos_updater_resolve_upgrade (updater, repo,
-                                    &remote, &branch, NULL, &error))
+  if (!eos_updater_resolve_upgrade (updater, repo, &refspec, NULL, &error))
     goto error;
 
-  if (!branch) /* this means OnHold=true */
+  if (!refspec) /* this means OnHold=true */
     {
       g_task_return_pointer (task, NULL, NULL);
       goto cleanup;
     }
 
+  if (!ostree_parse_refspec (refspec, &remote, &branch, &error))
+    goto error;
+
   pullrefs[0] = branch;
 
   if (!ostree_repo_pull (repo, remote, pullrefs, flags, NULL, cancel, &error))
     goto error;
-
-  refspec = g_strdup_printf ("%s:%s", remote, branch);
 
   if (!ostree_repo_resolve_rev (repo, refspec, TRUE, &csum, &error))
     goto error;

@@ -163,8 +163,7 @@ static const gchar *dmi_attributes[] =
 gboolean
 eos_updater_resolve_upgrade (EosUpdater  *updater,
                              OstreeRepo *repo,
-                             gchar     **upgrade_remote,
-                             gchar     **upgrade_ref,
+                             gchar     **upgrade_refspec,
                              gchar     **booted_checksum,
                              GError    **error)
 {
@@ -225,7 +224,7 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
   if (booted_checksum)
     *booted_checksum = g_strdup (booted);
 
-  if (!upgrade_remote && !upgrade_ref)
+  if (!upgrade_refspec)
     {
       /* Nothing left to do */
       ret = TRUE;
@@ -363,21 +362,20 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
 
   message ("Using product branch %s", p_ref);
   ret = TRUE;
-  shuffle_out_values (upgrade_remote, o_remote, NULL);
-  shuffle_out_values (upgrade_ref, p_ref, NULL);
+  *upgrade_refspec = g_strdup_printf ("%s:%s", o_remote, p_ref);
 
 out:
-  if (((upgrade_ref && *upgrade_ref) || on_hold) && !metric_sent)
+  if ((p_ref || on_hold) && !metric_sent)
     {
       message ("Recording metric event %s: (%s, %s, %s, %d)",
                EOS_UPDATER_BRANCH_SELECTED, vendor, product,
-               on_hold ? o_ref : *upgrade_ref, on_hold);
+               on_hold ? o_ref : p_ref, on_hold);
       emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
                                              EOS_UPDATER_BRANCH_SELECTED,
                                              g_variant_new ("(sssb)", vendor,
                                                             product,
                                                             on_hold ? o_ref :
-                                                              *upgrade_ref,
+                                                              p_ref,
                                                             on_hold));
       metric_sent = TRUE;
     }
