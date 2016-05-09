@@ -63,7 +63,7 @@ on_bus_acquired (GDBusConnection *connection,
   g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), repo);
   g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), repo);
 
-  if (eos_updater_resolve_upgrade (updater, repo, NULL, &sum, &error))
+  if (eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &sum, &error))
     {
       eos_updater_set_current_id (updater, sum);
       eos_updater_set_download_size (updater, 0);

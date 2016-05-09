@@ -164,6 +164,7 @@ gboolean
 eos_updater_resolve_upgrade (EosUpdater  *updater,
                              OstreeRepo *repo,
                              gchar     **upgrade_refspec,
+                             gchar     **original_refspec,
                              gchar     **booted_checksum,
                              GError    **error)
 {
@@ -363,6 +364,7 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
   message ("Using product branch %s", p_ref);
   ret = TRUE;
   *upgrade_refspec = g_strdup_printf ("%s:%s", o_remote, p_ref);
+  shuffle_out_values (original_refspec, o_refspec, NULL);
 
 out:
   if ((p_ref || on_hold) && !metric_sent)
