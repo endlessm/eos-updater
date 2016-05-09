@@ -126,10 +126,6 @@ metadata_fetch_finished (GObject *object,
               g_clear_error (&error);
             }
         }
-
-      /* get the sha256 sum uf the currently booted image */
-      if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
-        goto out;
     }
   else /* csum == NULL means OnHold=true, nothing to do here */
     eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_READY);
