@@ -49,14 +49,19 @@ metadata_fetch_finished (GObject *object,
       gint64 new_unpacked = 0;
       gs_unref_variant GVariant *current_commit = NULL;
       gs_unref_variant GVariant *commit = NULL;
-      gs_free gchar *cur = NULL;
+      const gchar *cur;
       gboolean is_newer = FALSE;
       const gchar *label;
       const gchar *message;
 
       /* get the sha256 sum of the currently booted image */
-      if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
-        goto out;
+      cur = eos_updater_get_current_id (updater);
+      if (cur == NULL || *cur == '\0')
+        {
+          g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                               "Could not determine booted checksum");
+          goto out;
+        }
 
       if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT,
                                      cur, &current_commit, &error))
@@ -126,10 +131,6 @@ metadata_fetch_finished (GObject *object,
               g_clear_error (&error);
             }
         }
-
-      /* get the sha256 sum uf the currently booted image */
-      if (!eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &cur, &error))
-        goto out;
     }
   else /* csum == NULL means OnHold=true, nothing to do here */
     eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_READY);
@@ -163,6 +164,7 @@ metadata_fetch (GTask *task,
   gs_free gchar *remote = NULL;
   gs_free gchar *branch = NULL;
   gs_free gchar *refspec = NULL;
+  gs_free gchar *orig_refspec = NULL;
   gchar *pullrefs[] = { NULL, NULL };
   gchar *csum = NULL;
   GMainContext *task_context = g_main_context_new ();
@@ -170,22 +172,23 @@ metadata_fetch (GTask *task,
 
   g_main_context_push_thread_default (task_context);
 
-  if (!eos_updater_resolve_upgrade (updater, repo,
-                                    &remote, &branch, NULL, &error))
+  if (!eos_updater_resolve_upgrade (updater, repo, &refspec,
+                                    &orig_refspec, NULL, &error))
     goto error;
 
-  if (!branch) /* this means OnHold=true */
+  if (!refspec) /* this means OnHold=true */
     {
       g_task_return_pointer (task, NULL, NULL);
       goto cleanup;
     }
 
+  if (!ostree_parse_refspec (refspec, &remote, &branch, &error))
+    goto error;
+
   pullrefs[0] = branch;
 
   if (!ostree_repo_pull (repo, remote, pullrefs, flags, NULL, cancel, &error))
     goto error;
-
-  refspec = g_strdup_printf ("%s:%s", remote, branch);
 
   if (!ostree_repo_resolve_rev (repo, refspec, TRUE, &csum, &error))
     goto error;
@@ -195,6 +198,7 @@ metadata_fetch (GTask *task,
     goto error;
 
   eos_updater_set_update_refspec (updater, refspec);
+  eos_updater_set_original_refspec (updater, orig_refspec);
 
   /* returning the sha256 sum of the just-fetched rev */
   g_task_return_pointer (task, csum, g_free);

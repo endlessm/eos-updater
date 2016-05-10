@@ -86,19 +86,35 @@ content_fetch (GTask *task,
   OstreeRepoPullFlags flags = OSTREE_REPO_PULL_FLAGS_NONE;
   gs_unref_object OstreeAsyncProgress *progress = NULL;
   GError *error = NULL;
+  const gchar *refspec;
   gs_free gchar *src = NULL;
   gs_free gchar *ref = NULL;
-  gs_free gchar *sum = NULL;
+  const gchar *sum;
   gchar *pullrefs[] = { NULL, NULL };
   GMainContext *task_context = g_main_context_new ();
 
   g_main_context_push_thread_default (task_context);
 
-  if (!eos_updater_resolve_upgrade (updater, repo, &src, &ref, &sum, &error))
+  refspec = eos_updater_get_update_refspec (updater);
+  if (refspec == NULL || *refspec == '\0')
+    {
+      g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                           "fetch called with empty update refspec");
+      goto error;
+    }
+
+  if (!ostree_parse_refspec (refspec, &src, &ref, &error))
     goto error;
 
+  sum = eos_updater_get_update_id (updater);
+  if (sum == NULL || *sum == '\0')
+    {
+      g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                           "fetch called with empty update commit");
+      goto error;
+    }
+
   message ("Fetch: %s:%s resolved to: %s", src, ref, sum);
-  message ("User asked us for commit: %s", eos_updater_get_update_id (updater));
 
   /* rather than re-resolving the update, we get the last ID that the
    * user Poll()ed. We do this because that is the last update for which
@@ -106,7 +122,7 @@ content_fetch (GTask *task,
    * system hasn;t seen the download/unpack sizes for that so it cannot
    * be considered to have been approved.
    */
-  pullrefs[0] = (gchar *) eos_updater_get_update_id (updater);
+  pullrefs[0] = (gchar *) sum;
 
   progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
