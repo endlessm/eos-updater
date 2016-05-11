@@ -114,19 +114,21 @@ eos_updater_local_repo (void)
 static gchar *
 cleanstr (gchar *s)
 {
-  gchar *i, *j, *k;
+  gchar *read;
+  gchar *write;
 
-  if (!s)
+  if (s == NULL)
     return s;
 
-  for (i = s; *i; i++)
-    /* only allow printable */
-    if (*i < 32 || *i > 126)
-      for (j = i; *j; j++)
-        {
-          k = j + 1;
-          *j = *k;
-        }
+  for (read = write = s; *read != '\0'; ++read)
+    {
+      /* only allow printable */
+      if (*read < 32 || *read > 126)
+        continue;
+      *write = *read;
+      ++write;
+    }
+  *write = '\0';
 
   return s;
 }
