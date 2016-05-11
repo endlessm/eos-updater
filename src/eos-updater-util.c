@@ -133,13 +133,13 @@ cleanstr (gchar *s)
   return s;
 }
 
-static const gchar *BRANCHES_CONFIG_PATH = "eos-branch";
-static const gchar *DEFAULT_GROUP = "Default";
-static const gchar *OSTREE_REF_KEY = "OstreeRef";
-static const gchar *ON_HOLD_KEY = "OnHold";
-static const gchar *DT_COMPATIBLE = "/proc/device-tree/compatible";
-static const gchar *DMI_PATH = "/sys/class/dmi/id/";
-static const gchar *dmi_attributes[] =
+static const gchar *const BRANCHES_CONFIG_PATH = "eos-branch";
+static const gchar *const DEFAULT_GROUP = "Default";
+static const gchar *const OSTREE_REF_KEY = "OstreeRef";
+static const gchar *const ON_HOLD_KEY = "OnHold";
+static const gchar *const DT_COMPATIBLE = "/proc/device-tree/compatible";
+static const gchar *const DMI_PATH = "/sys/class/dmi/id/";
+static const gchar *const dmi_attributes[] =
   {
     "bios_date",
     "bios_vendor",
