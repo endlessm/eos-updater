@@ -94,12 +94,12 @@ OstreeRepo *
 eos_updater_local_repo (void)
 {
   GError *error = NULL;
-  gs_unref_object OstreeRepo *repo = ostree_repo_new_default ();
+  g_autoptr(OstreeRepo) repo = ostree_repo_new_default ();
 
   if (!ostree_repo_open (repo, NULL, &error))
     {
       GFile *file = ostree_repo_get_path (repo);
-      gs_free gchar *path = g_file_get_path (file);
+      g_autofree gchar *path = g_file_get_path (file);
 
       g_warning ("Repo at '%s' is not Ok (%s)",
                  path ? path : "", error->message);
@@ -156,7 +156,7 @@ static const gchar *dmi_attributes[] =
 static OstreeDeployment *
 get_booted_deployment (GError **error)
 {
-  gs_unref_object OstreeSysroot *sysroot = ostree_sysroot_new_default ();
+  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
   OstreeDeployment *booted_deployment = NULL;
 
   if (!ostree_sysroot_load (sysroot, NULL, error))
@@ -186,7 +186,7 @@ get_origin_refspec (OstreeDeployment *booted_deployment,
                     GError **error)
 {
   GKeyFile *origin;
-  gs_free gchar *refspec = NULL;
+  g_autofree gchar *refspec = NULL;
 
   origin = ostree_deployment_get_origin (booted_deployment);
 
@@ -216,7 +216,7 @@ get_baseurl (OstreeDeployment *booted_deployment,
              GError **error)
 {
   const gchar *osname;
-  gs_free gchar *url = NULL;
+  g_autofree gchar *url = NULL;
 
   osname = ostree_deployment_get_osname (booted_deployment);
   if (!ostree_repo_remote_get_url (repo, osname, &url, error))
@@ -231,13 +231,13 @@ get_baseurl (OstreeDeployment *booted_deployment,
 static void
 get_arm_hw_descriptors (GHashTable *hw_descriptors)
 {
-  gs_unref_object GFile *fp = NULL;
-  gs_free gchar *fc = NULL;
+  g_autoptr(GFile) fp = NULL;
+  g_autofree gchar *fc = NULL;
 
   fp = g_file_new_for_path (DT_COMPATIBLE);
   if (g_file_load_contents (fp, NULL, &fc, NULL, NULL, NULL))
     {
-      gs_strfreev gchar **sv = g_strsplit (fc, ",", -1);
+      g_auto(GStrv) sv = g_strsplit (fc, ",", -1);
 
       if (sv && sv[0])
         g_hash_table_insert (hw_descriptors, g_strdup (VENDOR_KEY),
@@ -255,9 +255,9 @@ get_x86_hw_descriptors (GHashTable *hw_descriptors)
 
   for (i = 0; dmi_attributes[i]; i++)
     {
-      gs_free gchar *path = NULL;
-      gs_unref_object GFile *fp = NULL;
-      gs_free gchar *fc = NULL;
+      g_autofree gchar *path = NULL;
+      g_autoptr(GFile) fp = NULL;
+      g_autofree gchar *fc = NULL;
       gsize len;
 
       path = g_strconcat (DMI_PATH, dmi_attributes[i], NULL);
@@ -303,12 +303,12 @@ download_branch_file (const gchar *baseurl,
                       GHashTable *query_params,
                       GError **error)
 {
-  gs_free gchar *query = NULL;
-  gs_free gchar *uri = NULL;
-  gs_unref_object SoupSession *soup = NULL;
-  gs_unref_object SoupMessage *msg = NULL;
+  g_autofree gchar *query = NULL;
+  g_autofree gchar *uri = NULL;
+  g_autoptr(SoupSession) soup = NULL;
+  g_autoptr(SoupMessage) msg = NULL;
   guint status = 0;
-  gs_unref_keyfile GKeyFile *bkf = NULL;
+  g_autoptr(GKeyFile) bkf = NULL;
 
   query = soup_form_encode_hash (query_params);
   uri = g_strconcat (baseurl, "/", BRANCHES_CONFIG_PATH, "?", query, NULL);
@@ -340,8 +340,8 @@ process_single_group (GKeyFile *bkf,
                       gchar **p_ref,
                       GError **error)
 {
-  GError *local_error = NULL;
-  gs_free gchar *ref = NULL;
+  g_autoptr(GError) local_error = NULL;
+  g_autofree gchar *ref = NULL;
 
   if (g_key_file_get_boolean (bkf, group_name, ON_HOLD_KEY, &local_error))
     {
@@ -349,6 +349,7 @@ process_single_group (GKeyFile *bkf,
       *p_ref = NULL;
       return TRUE;
     }
+
   /* The "OnHold" key is optional. */
   if (!g_error_matches (local_error,
                         G_KEY_FILE_ERROR,
@@ -357,7 +358,6 @@ process_single_group (GKeyFile *bkf,
       g_propagate_error (error, local_error);
       return FALSE;
     }
-  g_clear_error (&local_error);
   ref = g_key_file_get_string (bkf, group_name, OSTREE_REF_KEY, error);
   if (ref == NULL)
     return FALSE;
@@ -432,15 +432,15 @@ get_upgrade_info (OstreeRepo *repo,
                   GError **error)
 {
   gboolean on_hold = FALSE;
-  gs_free gchar *booted_remote = NULL;
-  gs_free gchar *booted_ref = NULL;
-  gs_free gchar *ref = NULL;
-  gs_free gchar *vendor = NULL;
-  gs_free gchar *product = NULL;
-  gs_free gchar *product_group = NULL;
-  gs_free gchar *baseurl = NULL;
-  gs_unref_hashtable GHashTable *hw_descriptors = NULL;
-  gs_unref_keyfile GKeyFile *bkf = NULL;
+  g_autofree gchar *booted_remote = NULL;
+  g_autofree gchar *booted_ref = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *vendor = NULL;
+  g_autofree gchar *product = NULL;
+  g_autofree gchar *product_group = NULL;
+  g_autofree gchar *baseurl = NULL;
+  g_autoptr(GHashTable) hw_descriptors = NULL;
+  g_autoptr(GKeyFile) bkf = NULL;
 
   if (!get_origin_refspec (booted_deployment, &booted_remote, &booted_ref, error))
     return FALSE;
@@ -494,7 +494,7 @@ eos_updater_get_upgrade_info (OstreeRepo *repo,
                               gchar **original_refspec,
                               GError **error)
 {
-  gs_unref_object OstreeDeployment *booted_deployment = NULL;
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (upgrade_refspec != NULL, FALSE);
@@ -514,7 +514,7 @@ eos_updater_get_upgrade_info (OstreeRepo *repo,
 gchar *
 eos_updater_get_booted_checksum (GError **error)
 {
-  gs_unref_object OstreeDeployment *booted_deployment = NULL;
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
 
   booted_deployment = get_booted_deployment (error);
   if (booted_deployment == NULL)

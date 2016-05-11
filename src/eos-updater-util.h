@@ -24,7 +24,6 @@
 
 #include "eos-updater-generated.h"
 #include "eos-updater-types.h"
-#include <libgsystem.h>
 #include <glib.h>
 #include <ostree.h>
 
@@ -35,6 +34,16 @@
   g_log (G_LOG_DOMAIN, G_LOG_LEVEL_MESSAGE, _f, ## __VA_ARGS__)
 
 G_BEGIN_DECLS
+
+/* TODO: Add those to ostree */
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (OstreeAsyncProgress, g_object_unref)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (OstreeDeployment, g_object_unref)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (OstreeRepo, g_object_unref)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (OstreeSysroot, g_object_unref)
+
+/* id returned by g_bus_own_name */
+typedef guint EosBusNameID;
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
 
 #define EOS_UPDATER_ERROR (eos_updater_error_quark())
 GQuark eos_updater_error_quark (void);

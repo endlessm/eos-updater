@@ -32,7 +32,7 @@ metadata_fetch_finished (GObject *object,
   GTask     *task;
   GError    *error = NULL;
   EosUpdaterData *data = user_data;
-  gs_free gchar *csum = NULL;
+  g_autofree gchar *csum = NULL;
   OstreeRepo *repo = data->repo;
 
   if (!g_task_is_valid (res, object))
@@ -48,8 +48,8 @@ metadata_fetch_finished (GObject *object,
       gint64 unpacked = -1;
       gint64 new_archived = 0;
       gint64 new_unpacked = 0;
-      gs_unref_variant GVariant *current_commit = NULL;
-      gs_unref_variant GVariant *commit = NULL;
+      g_autoptr(GVariant) current_commit = NULL;
+      g_autoptr(GVariant) commit = NULL;
       const gchar *cur;
       gboolean is_newer = FALSE;
       const gchar *label;
@@ -163,14 +163,14 @@ metadata_fetch (GTask *task,
   OstreeRepo *repo = data->repo;
   OstreeRepoPullFlags flags = (OSTREE_REPO_PULL_FLAGS_COMMIT_ONLY);
   GError *error = NULL;
-  gs_free gchar *remote = NULL;
-  gs_free gchar *branch = NULL;
-  gs_free gchar *refspec = NULL;
-  gs_free gchar *orig_refspec = NULL;
+  g_autofree gchar *remote = NULL;
+  g_autofree gchar *branch = NULL;
+  g_autofree gchar *refspec = NULL;
+  g_autofree gchar *orig_refspec = NULL;
   gchar *pullrefs[] = { NULL, NULL };
   gchar *csum = NULL;
   GMainContext *task_context = g_main_context_new ();
-  gs_unref_variant GVariant *commit = NULL;
+  g_autoptr(GVariant) commit = NULL;
 
   g_main_context_push_thread_default (task_context);
 
@@ -219,7 +219,7 @@ handle_poll (EosUpdater            *updater,
              GDBusMethodInvocation *call,
              gpointer               user_data)
 {
-  gs_unref_object GTask *task = NULL;
+  g_autoptr(GTask) task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
 
   switch (state)

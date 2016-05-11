@@ -43,9 +43,9 @@ on_bus_acquired (GDBusConnection *connection,
   GError *error = NULL;
   EosUpdaterState state;
 
-  gs_free gchar *src = NULL;
-  gs_free gchar *ref = NULL;
-  gs_free gchar *sum = NULL;
+  g_autofree gchar *src = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *sum = NULL;
 
   message ("Acquired a message bus connection\n");
 
@@ -117,10 +117,10 @@ on_name_lost (GDBusConnection *connection,
 gint
 main (gint argc, gchar *argv[])
 {
-  GMainLoop *loop = NULL;
-  OstreeRepo *repo = NULL;
-  EosUpdaterData data;
-  guint id = 0;
+  g_autoptr(GMainLoop) loop = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
+  g_auto(EosUpdaterData) data = EOS_UPDATER_DATA_INIT;
+  g_auto(EosBusNameID) id = 0;
 
   g_set_prgname (argv[0]);
 
@@ -138,11 +138,6 @@ main (gint argc, gchar *argv[])
                        NULL);
 
   g_main_loop_run (loop);
-
-  g_bus_unown_name (id);
-  g_main_loop_unref (loop);
-  eos_updater_data_clear (&data);
-  g_object_unref (repo);
 
   return 0;
 }

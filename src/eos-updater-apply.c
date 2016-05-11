@@ -81,10 +81,10 @@ apply (GTask *task,
   const gchar *orig_refspec = eos_updater_get_original_refspec (updater);
   gint bootversion = 0;
   gint newbootver = 0;
-  gs_unref_object OstreeDeployment *merge_deployment = NULL;
-  gs_unref_object OstreeDeployment *new_deployment = NULL;
+  g_autoptr(OstreeDeployment) merge_deployment = NULL;
+  g_autoptr(OstreeDeployment) new_deployment = NULL;
   GKeyFile *origin = NULL;
-  gs_unref_object OstreeSysroot *sysroot = NULL;
+  g_autoptr(OstreeSysroot) sysroot = NULL;
 
   g_main_context_push_thread_default (task_context);
 
@@ -120,7 +120,7 @@ apply (GTask *task,
    */
   if (g_strcmp0 (update_refspec, orig_refspec) != 0)
     {
-      gs_free gchar *rev = NULL;
+      g_autofree gchar *rev = NULL;
 
       if (!ostree_repo_resolve_rev (repo, orig_refspec, TRUE, &rev, &error))
         goto error;
@@ -165,7 +165,7 @@ handle_apply (EosUpdater            *updater,
               GDBusMethodInvocation *call,
               gpointer               user_data)
 {
-  gs_unref_object GTask *task = NULL;
+  g_autoptr(GTask) task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
 
   switch (state)

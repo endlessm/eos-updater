@@ -33,9 +33,13 @@ struct EosUpdaterData
   OstreeRepo *repo;
 };
 
+#define EOS_UPDATER_DATA_INIT { NULL }
+
 void eos_updater_data_init (EosUpdaterData *data,
                             OstreeRepo *repo);
 
 void eos_updater_data_clear (EosUpdaterData *data);
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (EosUpdaterData, eos_updater_data_clear)
 
 G_END_DECLS

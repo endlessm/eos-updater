@@ -83,11 +83,11 @@ content_fetch (GTask *task,
   EosUpdaterData *data = task_data;
   OstreeRepo *repo = data->repo;
   OstreeRepoPullFlags flags = OSTREE_REPO_PULL_FLAGS_NONE;
-  gs_unref_object OstreeAsyncProgress *progress = NULL;
+  g_autoptr(OstreeAsyncProgress) progress = NULL;
   GError *error = NULL;
   const gchar *refspec;
-  gs_free gchar *src = NULL;
-  gs_free gchar *ref = NULL;
+  g_autofree gchar *src = NULL;
+  g_autofree gchar *ref = NULL;
   const gchar *sum;
   gchar *pullrefs[] = { NULL, NULL };
   GMainContext *task_context = g_main_context_new ();
@@ -154,7 +154,7 @@ handle_fetch (EosUpdater            *updater,
               GDBusMethodInvocation *call,
               gpointer               user_data)
 {
-  gs_unref_object GTask *task = NULL;
+  g_autoptr(GTask) task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
 
   switch (state)
