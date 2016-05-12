@@ -27,9 +27,6 @@
 #include <glib.h>
 #include <ostree.h>
 
-#define shuffle_out_values(out,local,null) \
-    ({ if (out) { *out = local; local = null; } })
-
 #define message(_f, ...) \
   g_log (G_LOG_DOMAIN, G_LOG_LEVEL_MESSAGE, _f, ## __VA_ARGS__)
 
