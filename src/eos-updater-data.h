@@ -22,21 +22,40 @@
 
 #pragma once
 
+#include "eos-updater-branch-file.h"
+#include "eos-updater-extensions.h"
+
 #include <ostree.h>
 
 G_BEGIN_DECLS
+
+typedef enum
+{
+  EOS_UPDATER_DOWNLOAD_FIRST,
+
+  EOS_UPDATER_DOWNLOAD_MAIN = EOS_UPDATER_DOWNLOAD_FIRST,
+  EOS_UPDATER_DOWNLOAD_LAN,
+
+  EOS_UPDATER_DOWNLOAD_N_SOURCES,
+} EosUpdaterDownloadSource;
 
 typedef struct EosUpdaterData EosUpdaterData;
 
 struct EosUpdaterData
 {
   OstreeRepo *repo;
+  EosUpdaterDownloadSource *download_order;
+  gsize n_download_sources;
+  EosBranchFile *branch_file;
+  EosExtensions *extensions;
+  gchar **overridden_urls;
 };
 
-#define EOS_UPDATER_DATA_INIT { NULL }
+#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, 0, NULL, NULL, NULL }
 
-void eos_updater_data_init (EosUpdaterData *data,
-                            OstreeRepo *repo);
+gboolean eos_updater_data_init (EosUpdaterData *data,
+                                OstreeRepo *repo,
+                                GError **error);
 
 void eos_updater_data_clear (EosUpdaterData *data);
 
