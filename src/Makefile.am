@@ -72,7 +72,7 @@ eos_updater_dbus_if := \
 
 eos-updater-generated.c: eos-updater-generated.h
 eos-updater-generated.h: eos-updater.xml
-	$(GDBUS_CODEGEN)                        \
+	$(AM_V_GEN)$(GDBUS_CODEGEN)                        \
 	   --interface-prefix $(basename $(eos_updater_dbus_if)). \
 	   --generate-c-code eos-updater-generated	\
 	   --c-namespace Eos                    \
@@ -80,7 +80,7 @@ eos-updater-generated.h: eos-updater.xml
 	   $<
 
 $(eos_updater_dbus_if).conf: eos-updater-policy.xslt eos-updater.xml
-	$(XSLTPROC) $+ > $@
+	$(AM_V_GEN)$(XSLTPROC) $+ > $@
 
 $(eos_updater_dbus_if).service: eos-updater-service.xslt eos-updater.xml
-	$(XSLTPROC) $+ > $@
+	$(AM_V_GEN)$(XSLTPROC) $+ > $@

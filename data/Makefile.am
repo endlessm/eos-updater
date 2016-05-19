@@ -5,10 +5,10 @@ systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
 sysconf_DATA = eos-updater.conf
 
 eos-autoupdater.service: eos-autoupdater.service.in
-	$(edit) $< >$@
+	$(AM_V_GEN)$(edit) $< >$@
 
 eos-autoupdater.timer: eos-autoupdater.timer.in
-	$(edit) $< >$@
+	$(AM_V_GEN)$(edit) $< >$@
 
 edit = sed \
 	-e 's|@bindir[@]|$(bindir)|g' \
