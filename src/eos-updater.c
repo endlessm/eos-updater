@@ -21,6 +21,7 @@
  */
 
 #include "eos-updater-generated.h"
+#include "eos-updater-data.h"
 #include "eos-updater-util.h"
 #include "eos-updater-poll.h"
 #include "eos-updater-fetch.h"
@@ -38,13 +39,13 @@ on_bus_acquired (GDBusConnection *connection,
 {
   EosObjectSkeleton *object = NULL;
   EosUpdater *updater = NULL;
-  OstreeRepo *repo = OSTREE_REPO (user_data);
+  EosUpdaterData *data = user_data;
   GError *error = NULL;
   EosUpdaterState state;
 
-  gs_free gchar *src = NULL;
-  gs_free gchar *ref = NULL;
-  gs_free gchar *sum = NULL;
+  g_autofree gchar *src = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *sum = NULL;
 
   message ("Acquired a message bus connection\n");
 
@@ -59,11 +60,12 @@ on_bus_acquired (GDBusConnection *connection,
   g_object_unref (updater);
 
   /* Handle the various DBus methods: */
-  g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), repo);
-  g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), repo);
-  g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), repo);
+  g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), data);
+  g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), data);
+  g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), data);
 
-  if (eos_updater_resolve_upgrade (updater, repo, NULL, NULL, &sum, &error))
+  sum = eos_updater_get_booted_checksum (&error);
+  if (sum != NULL)
     {
       eos_updater_set_current_id (updater, sum);
       eos_updater_set_download_size (updater, 0);
@@ -83,6 +85,7 @@ on_bus_acquired (GDBusConnection *connection,
 
   /* We are deliberately not emitting a signal here. This
    * isn't a state change, it's our initial state.
+   * krnowak: ORLY? It calls eos_updater_emit_state_changed…
    */
   eos_updater_set_state_changed (updater, state);
 
@@ -114,13 +117,15 @@ on_name_lost (GDBusConnection *connection,
 gint
 main (gint argc, gchar *argv[])
 {
-  GMainLoop *loop = NULL;
-  OstreeRepo *repo = NULL;
-  guint id = 0;
+  g_autoptr(GMainLoop) loop = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
+  g_auto(EosUpdaterData) data = EOS_UPDATER_DATA_INIT;
+  g_auto(EosBusNameID) id = 0;
 
   g_set_prgname (argv[0]);
 
   repo = eos_updater_local_repo ();
+  eos_updater_data_init (&data, repo);
   loop = g_main_loop_new (NULL, FALSE);
   id = g_bus_own_name (G_BUS_TYPE_SYSTEM,
                        "com.endlessm.Updater",
@@ -129,15 +134,10 @@ main (gint argc, gchar *argv[])
                        on_bus_acquired,
                        on_name_acquired,
                        on_name_lost,
-                       repo,
+                       &data,
                        NULL);
 
   g_main_loop_run (loop);
-
-  g_bus_unown_name (id);
-  g_main_loop_unref (loop);
-
-  g_object_unref (repo);
 
   return 0;
 }

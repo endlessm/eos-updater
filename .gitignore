@@ -3,6 +3,7 @@
 *.o
 .deps
 .libs
+*~
 Makefile
 Makefile.in
 aclocal.m4
@@ -28,7 +29,6 @@ src/com.endlessm.Updater.service
 src/eos-updater
 data/eos-autoupdater.service
 data/eos-autoupdater.timer
-config.h.in~
 debian/autoreconf.after
 debian/autoreconf.before
 debian/eos-updater.debhelper.log

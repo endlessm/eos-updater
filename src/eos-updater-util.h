@@ -24,17 +24,23 @@
 
 #include "eos-updater-generated.h"
 #include "eos-updater-types.h"
-#include <libgsystem.h>
 #include <glib.h>
 #include <ostree.h>
-
-#define shuffle_out_values(out,local,null) \
-    ({ if (out) { *out = local; local = null; } })
 
 #define message(_f, ...) \
   g_log (G_LOG_DOMAIN, G_LOG_LEVEL_MESSAGE, _f, ## __VA_ARGS__)
 
 G_BEGIN_DECLS
+
+/* TODO: Add those to ostree */
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (OstreeAsyncProgress, g_object_unref)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (OstreeDeployment, g_object_unref)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (OstreeRepo, g_object_unref)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (OstreeSysroot, g_object_unref)
+
+/* id returned by g_bus_own_name */
+typedef guint EosBusNameID;
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
 
 #define EOS_UPDATER_ERROR (eos_updater_error_quark())
 GQuark eos_updater_error_quark (void);
@@ -43,15 +49,16 @@ const gchar *eos_updater_state_to_string (EosUpdaterState state);
 void eos_updater_set_state_changed (EosUpdater *updater,
                                     EosUpdaterState state);
 
-void eos_updater_set_error (EosUpdater *updater, GError *error);
+void eos_updater_set_error (EosUpdater *updater,
+                            GError *error);
 
-OstreeRepo * eos_updater_local_repo (void);
+OstreeRepo *eos_updater_local_repo (void);
 
-gboolean eos_updater_resolve_upgrade (EosUpdater  *updater,
-                                      OstreeRepo *repo,
-                                      gchar     **upgrade_refspec,
-                                      gchar     **original_refspec,
-                                      gchar     **booted_checksum,
-                                      GError    **error);
+gboolean eos_updater_get_upgrade_info (OstreeRepo *repo,
+                                       gchar **upgrade_refspec,
+                                       gchar **original_refspec,
+                                       GError **error);
+
+gchar *eos_updater_get_booted_checksum (GError **error);
 
 G_END_DECLS

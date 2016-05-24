@@ -21,6 +21,7 @@
  */
 
 #include "eos-updater-apply.h"
+#include "eos-updater-data.h"
 #include <ostree.h>
 
 static void
@@ -31,8 +32,6 @@ apply_finished (GObject *object,
   EosUpdater *updater = EOS_UPDATER (object);
   GTask *task;
   GError *error = NULL;
-
-  OstreeRepo *repo = OSTREE_REPO (user_data);
   gboolean bootver_changed = FALSE;
 
   if (!g_task_is_valid (res, object))
@@ -73,7 +72,8 @@ apply (GTask *task,
        GCancellable *cancel)
 {
   EosUpdater *updater = EOS_UPDATER (object);
-  OstreeRepo *repo = OSTREE_REPO (task_data);
+  EosUpdaterData *data = task_data;
+  OstreeRepo *repo = data->repo;
   GError *error = NULL;
   GMainContext *task_context = g_main_context_new ();
   const gchar *update_id = eos_updater_get_update_id (updater);
@@ -81,10 +81,10 @@ apply (GTask *task,
   const gchar *orig_refspec = eos_updater_get_original_refspec (updater);
   gint bootversion = 0;
   gint newbootver = 0;
-  gs_unref_object OstreeDeployment *merge_deployment = NULL;
-  gs_unref_object OstreeDeployment *new_deployment = NULL;
+  g_autoptr(OstreeDeployment) merge_deployment = NULL;
+  g_autoptr(OstreeDeployment) new_deployment = NULL;
   GKeyFile *origin = NULL;
-  gs_unref_object OstreeSysroot *sysroot = NULL;
+  g_autoptr(OstreeSysroot) sysroot = NULL;
 
   g_main_context_push_thread_default (task_context);
 
@@ -120,7 +120,7 @@ apply (GTask *task,
    */
   if (g_strcmp0 (update_refspec, orig_refspec) != 0)
     {
-      gs_free gchar *rev = NULL;
+      g_autofree gchar *rev = NULL;
 
       if (!ostree_repo_resolve_rev (repo, orig_refspec, TRUE, &rev, &error))
         goto error;
@@ -165,8 +165,7 @@ handle_apply (EosUpdater            *updater,
               GDBusMethodInvocation *call,
               gpointer               user_data)
 {
-  OstreeRepo *repo = OSTREE_REPO (user_data);
-  gs_unref_object GTask *task = NULL;
+  g_autoptr(GTask) task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
 
   switch (state)
@@ -182,8 +181,8 @@ handle_apply (EosUpdater            *updater,
     }
 
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_APPLYING_UPDATE);
-  task = g_task_new (updater, NULL, apply_finished, repo);
-  g_task_set_task_data (task, g_object_ref (repo), g_object_unref);
+  task = g_task_new (updater, NULL, apply_finished, user_data);
+  g_task_set_task_data (task, user_data, NULL);
   g_task_run_in_thread (task, apply);
 
   eos_updater_complete_apply (updater, call);

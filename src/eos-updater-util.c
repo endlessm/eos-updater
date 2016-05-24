@@ -33,8 +33,6 @@
  */
 #define EOS_UPDATER_BRANCH_SELECTED "99f48aac-b5a0-426d-95f4-18af7d081c4e"
 
-static gboolean metric_sent = FALSE;
-
 static const GDBusErrorEntry eos_updater_error_entries[] = {
   { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" }
 };
@@ -95,15 +93,13 @@ eos_updater_set_error (EosUpdater *updater, GError *error)
 OstreeRepo *
 eos_updater_local_repo (void)
 {
-  OstreeRepo *ret = NULL;
   GError *error = NULL;
-
-  gs_unref_object OstreeRepo *repo = ostree_repo_new_default ();
+  g_autoptr(OstreeRepo) repo = ostree_repo_new_default ();
 
   if (!ostree_repo_open (repo, NULL, &error))
     {
       GFile *file = ostree_repo_get_path (repo);
-      gs_free gchar *path = g_file_get_path (file);
+      g_autofree gchar *path = g_file_get_path (file);
 
       g_warning ("Repo at '%s' is not Ok (%s)",
                  path ? path : "", error->message);
@@ -112,39 +108,38 @@ eos_updater_local_repo (void)
       g_assert_not_reached ();
     }
 
-  ret = repo;
-  repo = NULL;
-
-  return ret;
+  return g_steal_pointer (&repo);
 }
 
 static gchar *
 cleanstr (gchar *s)
 {
-  gchar *i, *j, *k;
+  gchar *read;
+  gchar *write;
 
-  if (!s)
+  if (s == NULL)
     return s;
 
-  for (i = s; *i; i++)
-    /* only allow printable */
-    if (*i < 32 || *i > 126)
-      for (j = i; *j; j++)
-        {
-          k = j + 1;
-          *j = *k;
-        }
+  for (read = write = s; *read != '\0'; ++read)
+    {
+      /* only allow printable */
+      if (*read < 32 || *read > 126)
+        continue;
+      *write = *read;
+      ++write;
+    }
+  *write = '\0';
 
   return s;
 }
 
-static const gchar *BRANCHES_CONFIG_PATH = "eos-branch";
-static const gchar *DEFAULT_GROUP = "Default";
-static const gchar *OSTREE_REF_KEY = "OstreeRef";
-static const gchar *ON_HOLD_KEY = "OnHold";
-static const gchar *DT_COMPATIBLE = "/proc/device-tree/compatible";
-static const gchar *DMI_PATH = "/sys/class/dmi/id/";
-static const gchar *dmi_attributes[] =
+static const gchar *const BRANCHES_CONFIG_PATH = "eos-branch";
+static const gchar *const DEFAULT_GROUP = "Default";
+static const gchar *const OSTREE_REF_KEY = "OstreeRef";
+static const gchar *const ON_HOLD_KEY = "OnHold";
+static const gchar *const DT_COMPATIBLE = "/proc/device-tree/compatible";
+static const gchar *const DMI_PATH = "/sys/class/dmi/id/";
+static const gchar *const dmi_attributes[] =
   {
     "bios_date",
     "bios_vendor",
@@ -160,148 +155,165 @@ static const gchar *dmi_attributes[] =
     NULL,
   };
 
-gboolean
-eos_updater_resolve_upgrade (EosUpdater  *updater,
-                             OstreeRepo *repo,
-                             gchar     **upgrade_refspec,
-                             gchar     **original_refspec,
-                             gchar     **booted_checksum,
-                             GError    **error)
+static OstreeDeployment *
+get_booted_deployment (GError **error)
 {
-  gboolean ret = FALSE;
-  gboolean on_hold = FALSE;
-  guint status = 0;
-  gs_free gchar *o_refspec = NULL;
-  gs_free gchar *o_remote = NULL;
-  gs_free gchar *o_ref = NULL;
-  gs_free gchar *vendor = NULL;
-  gs_free gchar *product = NULL;
-  gs_free gchar *p_id = NULL;
-  gs_free gchar *p_ref = NULL;
-  gs_free gchar *osgroup = NULL;
-  gs_free gchar *baseurl = NULL;
-  gs_free gchar *uri = NULL;
-  gs_free gchar *query = NULL;
-  gs_unref_object OstreeDeployment *merge_deployment = NULL;
-  const gchar *osname;
-  const gchar *booted;
-  GKeyFile *origin;
-  GKeyFile *repo_config;
-  GHashTable *hw_descriptors = NULL;
-  gs_unref_object SoupSession *soup = NULL;
-  gs_unref_object SoupMessage *msg = NULL;
-  gs_unref_keyfile GKeyFile *bkf = NULL;
-
-  OstreeSysroot *sysroot = ostree_sysroot_new_default ();
+  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
+  OstreeDeployment *booted_deployment = NULL;
 
   if (!ostree_sysroot_load (sysroot, NULL, error))
-    goto out;
+    return NULL;
 
-  if (!ostree_sysroot_get_booted_deployment (sysroot))
+  booted_deployment = ostree_sysroot_get_booted_deployment (sysroot);
+  if (booted_deployment == NULL)
     {
       g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
                            "Not an ostree system");
-      goto out;
+      return NULL;
     }
 
-  merge_deployment = ostree_sysroot_get_merge_deployment (sysroot, NULL);
-  osname = ostree_deployment_get_osname (merge_deployment);
-  origin = ostree_deployment_get_origin (merge_deployment);
-  booted = ostree_deployment_get_csum (merge_deployment);
+  return g_object_ref (booted_deployment);
+}
 
-  if (!origin)
+static gchar *
+get_booted_checksum (OstreeDeployment *booted_deployment)
+{
+  return g_strdup (ostree_deployment_get_csum (booted_deployment));
+}
+
+static gboolean
+get_origin_refspec (OstreeDeployment *booted_deployment,
+                    gchar **remote,
+                    gchar **ref,
+                    GError **error)
+{
+  GKeyFile *origin;
+  g_autofree gchar *refspec = NULL;
+
+  origin = ostree_deployment_get_origin (booted_deployment);
+
+  if (origin == NULL)
     {
+      const gchar *osname;
+      const gchar *booted;
+
+      osname = ostree_deployment_get_osname (booted_deployment);
+      booted = ostree_deployment_get_csum (booted_deployment);
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
                    "No origin found for %s (%s), cannot upgrade",
                    osname, booted);
-      goto out;
+      return FALSE;
     }
 
-  o_refspec = g_key_file_get_string (origin, "origin", "refspec", NULL);
+  refspec = g_key_file_get_string (origin, "origin", "refspec", error);
+  if (refspec == NULL)
+    return FALSE;
 
-  if (!ostree_parse_refspec (o_refspec, &o_remote, &o_ref, error))
-    goto out;
+  return ostree_parse_refspec (refspec, remote, ref, error);
+}
 
-  if (booted_checksum)
-    *booted_checksum = g_strdup (booted);
+static gchar *
+get_baseurl (OstreeDeployment *booted_deployment,
+             OstreeRepo *repo,
+             GError **error)
+{
+  const gchar *osname;
+  g_autofree gchar *url = NULL;
 
-  if (!upgrade_refspec)
+  osname = ostree_deployment_get_osname (booted_deployment);
+  if (!ostree_repo_remote_get_url (repo, osname, &url, error))
+    return NULL;
+
+  return g_steal_pointer (&url);
+}
+
+#define VENDOR_KEY "sys_vendor"
+#define PRODUCT_KEY "product_name"
+
+static void
+get_arm_hw_descriptors (GHashTable *hw_descriptors)
+{
+  g_autoptr(GFile) fp = NULL;
+  g_autofree gchar *fc = NULL;
+
+  fp = g_file_new_for_path (DT_COMPATIBLE);
+  if (g_file_load_contents (fp, NULL, &fc, NULL, NULL, NULL))
     {
-      /* Nothing left to do */
-      ret = TRUE;
-      goto out;
+      g_auto(GStrv) sv = g_strsplit (fc, ",", -1);
+
+      if (sv && sv[0])
+        g_hash_table_insert (hw_descriptors, g_strdup (VENDOR_KEY),
+                             g_strdup (g_strstrip (sv[0])));
+      if (sv && sv[1])
+        g_hash_table_insert (hw_descriptors, g_strdup (PRODUCT_KEY),
+                             g_strdup (g_strstrip (sv[1])));
     }
+}
 
-  /* Get branch configuration data baseurl */
-  repo_config = ostree_repo_get_config (repo);
-  osgroup = g_strdup_printf ("remote \"%s\"", osname);
-  baseurl = g_key_file_get_string (repo_config, osgroup, "url", error);
-  if (!baseurl)
-    goto out;
+static void
+get_x86_hw_descriptors (GHashTable *hw_descriptors)
+{
+  guint i;
 
-  /* Get product identifier */
-  hw_descriptors = g_hash_table_new_full (g_str_hash, g_str_equal,
-                                          g_free, g_free);
+  for (i = 0; dmi_attributes[i]; i++)
+    {
+      g_autofree gchar *path = NULL;
+      g_autoptr(GFile) fp = NULL;
+      g_autofree gchar *fc = NULL;
+      gsize len;
+
+      path = g_strconcat (DMI_PATH, dmi_attributes[i], NULL);
+      fp = g_file_new_for_path (path);
+      if (g_file_load_contents (fp, NULL, &fc, &len, NULL, NULL))
+        {
+          if (len > 128)
+            fc[128] = '\0';
+          g_hash_table_insert (hw_descriptors, g_strdup (dmi_attributes[i]),
+                               g_strdup (g_strstrip (fc)));
+        }
+    }
+}
+
+static GHashTable *
+get_hw_descriptors (void)
+{
+  GHashTable *hw_descriptors = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                      g_free, g_free);
+
   if (g_file_test (DT_COMPATIBLE, G_FILE_TEST_EXISTS))
     { /* ARM */
-      gs_unref_object GFile *fp = NULL;
-      gs_free gchar *fc = NULL;
-
-      fp = g_file_new_for_path (DT_COMPATIBLE);
-      if (g_file_load_contents (fp, NULL, &fc, NULL, NULL, NULL))
-        {
-          gs_strfreev gchar **sv = g_strsplit (fc, ",", -1);
-
-          if (sv && sv[0])
-            g_hash_table_insert (hw_descriptors, g_strdup ("sys_vendor"),
-                                 g_strdup (g_strstrip (sv[0])));
-          if (sv && sv[1])
-            g_hash_table_insert (hw_descriptors, g_strdup ("product_name"),
-                                 g_strdup (g_strstrip (sv[1])));
-        }
+      get_arm_hw_descriptors (hw_descriptors);
     }
   else
     { /* X86 */
-      guint i;
-
-      for (i = 0; dmi_attributes[i]; i++)
-        {
-          gs_free gchar *path = NULL;
-          gs_unref_object GFile *fp = NULL;
-          gs_free gchar *fc = NULL;
-          gsize len;
-
-          path = g_strconcat (DMI_PATH, dmi_attributes[i], NULL);
-          fp = g_file_new_for_path (path);
-          if (g_file_load_contents (fp, NULL, &fc, &len, NULL, NULL))
-            {
-              if (len > 128)
-                fc[128] = '\0';
-              g_hash_table_insert (hw_descriptors, g_strdup (dmi_attributes[i]),
-                                   g_strdup (g_strstrip (fc)));
-            }
-        }
+      get_x86_hw_descriptors (hw_descriptors);
     }
 
-  if (!g_hash_table_lookup (hw_descriptors, "sys_vendor"))
-    g_hash_table_insert (hw_descriptors, g_strdup ("sys_vendor"),
+  if (!g_hash_table_lookup (hw_descriptors, VENDOR_KEY))
+    g_hash_table_insert (hw_descriptors, g_strdup (VENDOR_KEY),
                          g_strdup ("EOSUNKNOWN"));
 
-  if (!g_hash_table_lookup (hw_descriptors, "product_name"))
-    g_hash_table_insert (hw_descriptors, g_strdup ("product_name"),
+  if (!g_hash_table_lookup (hw_descriptors, PRODUCT_KEY))
+    g_hash_table_insert (hw_descriptors, g_strdup (PRODUCT_KEY),
                          g_strdup ("EOSUNKNOWN"));
 
-  vendor = g_strdup (g_hash_table_lookup (hw_descriptors, "sys_vendor"));
-  product = g_strdup (g_hash_table_lookup (hw_descriptors, "product_name"));
-  p_id = g_strconcat (cleanstr (vendor), " ", cleanstr (product), NULL);
-  message ("Product group: %s", p_id);
+  return hw_descriptors;
+}
 
-  /* Build the HTTP URI */
-  g_hash_table_insert (hw_descriptors, g_strdup ("ref"), g_strdup (o_ref));
-  g_hash_table_insert (hw_descriptors, g_strdup ("commit"), g_strdup (booted));
-  query = soup_form_encode_hash (hw_descriptors);
+static GKeyFile *
+download_branch_file (const gchar *baseurl,
+                      GHashTable *query_params,
+                      GError **error)
+{
+  g_autofree gchar *query = NULL;
+  g_autofree gchar *uri = NULL;
+  g_autoptr(SoupSession) soup = NULL;
+  g_autoptr(SoupMessage) msg = NULL;
+  guint status = 0;
+  g_autoptr(GKeyFile) bkf = NULL;
+
+  query = soup_form_encode_hash (query_params);
   uri = g_strconcat (baseurl, "/", BRANCHES_CONFIG_PATH, "?", query, NULL);
-  g_hash_table_destroy (hw_descriptors);
   message ("Branches configuration URI: %s", uri);
 
   /* Download branch configuration data */
@@ -313,73 +325,202 @@ eos_updater_resolve_upgrade (EosUpdater  *updater,
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
                    "Failed to download branch config data (HTTP %d),"
                    " cannot upgrade", status);
-      goto out;
+      return NULL;
     }
 
   bkf = g_key_file_new ();
   if (!g_key_file_load_from_data (bkf, msg->response_body->data, -1,
                                   G_KEY_FILE_NONE, error))
-    goto out;
+    return NULL;
+  return g_steal_pointer (&bkf);
+}
 
+static gboolean
+process_single_group (GKeyFile *bkf,
+                      const gchar *group_name,
+                      gboolean *on_hold,
+                      gchar **p_ref,
+                      GError **error)
+{
+  g_autoptr(GError) local_error = NULL;
+  g_autofree gchar *ref = NULL;
+
+  if (g_key_file_get_boolean (bkf, group_name, ON_HOLD_KEY, &local_error))
+    {
+      *on_hold = TRUE;
+      *p_ref = NULL;
+      return TRUE;
+    }
+
+  /* The "OnHold" key is optional. */
+  if (!g_error_matches (local_error,
+                        G_KEY_FILE_ERROR,
+                        G_KEY_FILE_ERROR_KEY_NOT_FOUND))
+    {
+      g_propagate_error (error, local_error);
+      return FALSE;
+    }
+  ref = g_key_file_get_string (bkf, group_name, OSTREE_REF_KEY, error);
+  if (ref == NULL)
+    return FALSE;
+  *on_hold = FALSE;
+  *p_ref = g_steal_pointer (&ref);
+  return TRUE;
+}
+
+static gboolean
+process_branch_file (GKeyFile *bkf,
+                     const gchar *group_name,
+                     gboolean *on_hold,
+                     gchar **p_ref,
+                     GError **error)
+{
   /* Check for product-specific entry */
-  if (g_key_file_has_group (bkf, p_id))
+  if (g_key_file_has_group (bkf, group_name))
     {
       message ("Product-specific branch configuration found");
-      if (g_key_file_get_boolean (bkf, p_id, ON_HOLD_KEY, NULL))
-        {
-          message ("Product is on hold, nothing to upgrade here");
-          on_hold = TRUE;
-          ret = TRUE;
-          goto out;
-        }
-      p_ref = g_key_file_get_string (bkf, p_id, OSTREE_REF_KEY, error);
-      if (!p_ref)
-        goto out;
+      if (!process_single_group (bkf, group_name, on_hold, p_ref, error))
+        return FALSE;
+      if (*on_hold)
+        message ("Product is on hold, nothing to upgrade here");
+      return TRUE;
     }
   /* Check for a DEFAULT_GROUP entry */
-  else if (g_key_file_has_group (bkf, DEFAULT_GROUP))
+  if (g_key_file_has_group (bkf, DEFAULT_GROUP))
     {
       message ("No product-specific branch configuration found, following %s",
                DEFAULT_GROUP);
-      if (g_key_file_get_boolean (bkf, DEFAULT_GROUP, ON_HOLD_KEY, NULL))
+      if (!process_single_group (bkf, DEFAULT_GROUP, on_hold, p_ref, error))
+        return FALSE;
+      if (*on_hold)
+        message ("No product-specific configuration and %s is on hold, "
+                 "nothing to upgrade here", DEFAULT_GROUP);
+      return TRUE;
+    }
+
+  *on_hold = FALSE;
+  *p_ref = NULL;
+  return TRUE;
+}
+
+static void
+maybe_send_metric (const gchar *vendor,
+                   const gchar *product,
+                   const gchar *ref,
+                   gboolean on_hold)
+{
+  static gboolean metric_sent = FALSE;
+
+  if (metric_sent)
+    return;
+
+  message ("Recording metric event %s: (%s, %s, %s, %d)",
+           EOS_UPDATER_BRANCH_SELECTED, vendor, product,
+           ref, on_hold);
+  emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
+                                         EOS_UPDATER_BRANCH_SELECTED,
+                                         g_variant_new ("(sssb)", vendor,
+                                                        product,
+                                                        ref,
+                                                        on_hold));
+  metric_sent = TRUE;
+}
+
+static gboolean
+get_upgrade_info (OstreeRepo *repo,
+                  OstreeDeployment *booted_deployment,
+                  gchar **upgrade_refspec,
+                  gchar **original_refspec,
+                  GError **error)
+{
+  gboolean on_hold = FALSE;
+  g_autofree gchar *booted_remote = NULL;
+  g_autofree gchar *booted_ref = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *vendor = NULL;
+  g_autofree gchar *product = NULL;
+  g_autofree gchar *product_group = NULL;
+  g_autofree gchar *baseurl = NULL;
+  g_autoptr(GHashTable) hw_descriptors = NULL;
+  g_autoptr(GKeyFile) bkf = NULL;
+
+  if (!get_origin_refspec (booted_deployment, &booted_remote, &booted_ref, error))
+    return FALSE;
+
+  baseurl = get_baseurl (booted_deployment, repo, error);
+  if (!baseurl)
+    return FALSE;
+
+  hw_descriptors = get_hw_descriptors ();
+  vendor = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, VENDOR_KEY)));
+  product = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, PRODUCT_KEY)));
+  product_group = g_strdup_printf ("%s %s", vendor, product);
+  message ("Product group: %s", product_group);
+
+  g_hash_table_insert (hw_descriptors, g_strdup ("ref"), g_strdup (booted_ref));
+  g_hash_table_insert (hw_descriptors, g_strdup ("commit"), get_booted_checksum (booted_deployment));
+  bkf = download_branch_file (baseurl, hw_descriptors, error);
+  if (bkf == NULL)
+    return FALSE;
+
+  if (!process_branch_file (bkf, product_group, &on_hold, &ref, error))
+    return FALSE;
+
+  if (on_hold)
+    {
+      ref = g_strdup (booted_ref);
+      *upgrade_refspec = NULL;
+      *original_refspec = NULL;
+    }
+  else
+    {
+      if (ref == NULL)
         {
-          message ("No product-specific configuration and %s is on hold, "
-                   "nothing to upgrade here", DEFAULT_GROUP);
-          on_hold = TRUE;
-          ret = TRUE;
-          goto out;
+          message ("No product-specific branch configuration or %s found, "
+                   "following the origin file", DEFAULT_GROUP);
+          ref = g_strdup (booted_ref);
         }
-      p_ref = g_key_file_get_string (bkf, DEFAULT_GROUP, OSTREE_REF_KEY, error);
-      if (!p_ref)
-        goto out;
-    }
-  else /* fallback to the the origin file ref */
-    {
-      message ("No product-specific branch configuration or %s found, "
-               "following the origin file", DEFAULT_GROUP);
-      p_ref = o_ref;
-      o_ref = NULL;
+
+      message ("Using product branch %s", ref);
+      *upgrade_refspec = g_strdup_printf ("%s:%s", booted_remote, ref);
+      *original_refspec = g_strdup_printf ("%s:%s", booted_remote, booted_ref);
     }
 
-  message ("Using product branch %s", p_ref);
-  ret = TRUE;
-  *upgrade_refspec = g_strdup_printf ("%s:%s", o_remote, p_ref);
-  shuffle_out_values (original_refspec, o_refspec, NULL);
+  maybe_send_metric (vendor, product, ref, on_hold);
+  return TRUE;
+}
 
-out:
-  if ((p_ref || on_hold) && !metric_sent)
-    {
-      message ("Recording metric event %s: (%s, %s, %s, %d)",
-               EOS_UPDATER_BRANCH_SELECTED, vendor, product,
-               on_hold ? o_ref : p_ref, on_hold);
-      emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
-                                             EOS_UPDATER_BRANCH_SELECTED,
-                                             g_variant_new ("(sssb)", vendor,
-                                                            product,
-                                                            on_hold ? o_ref :
-                                                              p_ref,
-                                                            on_hold));
-      metric_sent = TRUE;
-    }
-  return ret;
+gboolean
+eos_updater_get_upgrade_info (OstreeRepo *repo,
+                              gchar **upgrade_refspec,
+                              gchar **original_refspec,
+                              GError **error)
+{
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
+
+  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
+  g_return_val_if_fail (upgrade_refspec != NULL, FALSE);
+  g_return_val_if_fail (original_refspec != NULL, FALSE);
+
+  booted_deployment = get_booted_deployment (error);
+  if (booted_deployment == NULL)
+    return FALSE;
+
+  return get_upgrade_info (repo,
+                           booted_deployment,
+                           upgrade_refspec,
+                           original_refspec,
+                           error);
+}
+
+gchar *
+eos_updater_get_booted_checksum (GError **error)
+{
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
+
+  booted_deployment = get_booted_deployment (error);
+  if (booted_deployment == NULL)
+    return NULL;
+
+  return get_booted_checksum (booted_deployment);
 }

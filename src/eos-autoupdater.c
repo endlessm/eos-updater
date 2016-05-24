@@ -61,7 +61,6 @@ update_stamp_file (void)
 {
   GFile *stamp_file;
   GError *error = NULL;
-  gboolean ret = TRUE;
 
   if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0755) != 0) {
     int saved_errno = errno;
@@ -444,6 +443,8 @@ is_connected_through_mobile (void)
     case NM_DEVICE_TYPE_BT:
     case NM_DEVICE_TYPE_WIMAX:
       is_mobile |= TRUE;
+      break;
+    default:
       break;
     }
   }

@@ -21,6 +21,7 @@
  */
 
 #include "eos-updater-fetch.h"
+#include "eos-updater-data.h"
 
 static void
 content_fetch_finished (GObject *object,
@@ -31,14 +32,11 @@ content_fetch_finished (GObject *object,
   GTask *task;
   GError *error = NULL;
 
-  OstreeRepo *repo = OSTREE_REPO (user_data);
-  gboolean fetched = FALSE;
-
   if (!g_task_is_valid (res, object))
     goto invalid_task;
 
   task = G_TASK (res);
-  fetched = g_task_propagate_boolean (task, &error);
+  g_task_propagate_boolean (task, &error);
 
   if (error)
     {
@@ -82,13 +80,14 @@ content_fetch (GTask *task,
                GCancellable *cancel)
 {
   EosUpdater *updater = EOS_UPDATER (object);
-  OstreeRepo *repo = OSTREE_REPO (task_data);
+  EosUpdaterData *data = task_data;
+  OstreeRepo *repo = data->repo;
   OstreeRepoPullFlags flags = OSTREE_REPO_PULL_FLAGS_NONE;
-  gs_unref_object OstreeAsyncProgress *progress = NULL;
+  g_autoptr(OstreeAsyncProgress) progress = NULL;
   GError *error = NULL;
   const gchar *refspec;
-  gs_free gchar *src = NULL;
-  gs_free gchar *ref = NULL;
+  g_autofree gchar *src = NULL;
+  g_autofree gchar *ref = NULL;
   const gchar *sum;
   gchar *pullrefs[] = { NULL, NULL };
   GMainContext *task_context = g_main_context_new ();
@@ -155,8 +154,7 @@ handle_fetch (EosUpdater            *updater,
               GDBusMethodInvocation *call,
               gpointer               user_data)
 {
-  OstreeRepo *repo = OSTREE_REPO (user_data);
-  gs_unref_object GTask *task = NULL;
+  g_autoptr(GTask) task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
 
   switch (state)
@@ -172,8 +170,8 @@ handle_fetch (EosUpdater            *updater,
     }
 
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_FETCHING);
-  task = g_task_new (updater, NULL, content_fetch_finished, repo);
-  g_task_set_task_data (task, g_object_ref (repo), g_object_unref);
+  task = g_task_new (updater, NULL, content_fetch_finished, user_data);
+  g_task_set_task_data (task, user_data, NULL);
   g_task_run_in_thread (task, content_fetch);
 
   eos_updater_complete_fetch (updater, call);
