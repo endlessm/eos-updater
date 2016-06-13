@@ -21,7 +21,11 @@
  */
 
 #include "eos-updater-apply.h"
+#include "eos-updater-avahi.h"
 #include "eos-updater-data.h"
+
+#include "eos-util.h"
+
 #include <ostree.h>
 
 static void
@@ -147,6 +151,19 @@ apply (GTask *task,
     goto error;
 
   newbootver = ostree_deployment_get_deployserial (new_deployment);
+
+  if (!eos_extensions_save (data->extensions,
+                            repo,
+                            cancel,
+                            &error))
+    goto error;
+  g_set_object (&data->branch_file, data->extensions->branch_file);
+  g_clear_object (&data->extensions);
+
+  if (!eos_avahi_generate_service_file (repo,
+                                        data->branch_file,
+                                        &error))
+    goto error;
 
   g_task_return_boolean (task, bootversion != newbootver);
   goto cleanup;
