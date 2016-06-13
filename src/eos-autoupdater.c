@@ -1,5 +1,9 @@
-#include "eos-updater-generated.h"
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
+ * TODO: Copyright?
+ */
+
 #include "eos-updater-types.h"
+#include "eos-updater-generated.h"
 
 #include <gio/gio.h>
 #include <glib.h>
