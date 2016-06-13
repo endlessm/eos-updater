@@ -20,8 +20,10 @@
  * Author: Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "eos-updater-fetch.h"
 #include "eos-updater-data.h"
+#include "eos-updater-fetch.h"
+
+#include "eos-util.h"
 
 static void
 content_fetch_finished (GObject *object,
@@ -73,6 +75,31 @@ update_progress (OstreeAsyncProgress *progress,
     eos_updater_set_downloaded_bytes (updater, bytes);
 }
 
+static gboolean
+repo_pull (OstreeRepo *self,
+           const gchar *remote_name,
+           const gchar *ref,
+           const gchar *url_override,
+           OstreeAsyncProgress *progress,
+           GCancellable *cancellable,
+           GError **error)
+{
+  g_auto(GVariantBuilder) builder = { { 0, } };
+  g_autoptr(GVariant) options = NULL;
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+  g_variant_builder_add (&builder, "{s@v}", "refs",
+                         g_variant_new_variant (g_variant_new_strv (&ref, 1)));
+  if (url_override != NULL)
+    g_variant_builder_add (&builder, "{s@v}", "override-url",
+                           g_variant_new_variant (g_variant_new_string (url_override)));
+
+  options = g_variant_ref_sink (g_variant_builder_end (&builder));
+  return ostree_repo_pull_with_options (self, remote_name, options,
+                                        progress, cancellable, error);
+
+}
+
 static void
 content_fetch (GTask *task,
                gpointer object,
@@ -82,15 +109,14 @@ content_fetch (GTask *task,
   EosUpdater *updater = EOS_UPDATER (object);
   EosUpdaterData *data = task_data;
   OstreeRepo *repo = data->repo;
-  OstreeRepoPullFlags flags = OSTREE_REPO_PULL_FLAGS_NONE;
   g_autoptr(OstreeAsyncProgress) progress = NULL;
   GError *error = NULL;
   const gchar *refspec;
-  g_autofree gchar *src = NULL;
+  g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
   const gchar *sum;
-  gchar *pullrefs[] = { NULL, NULL };
   GMainContext *task_context = g_main_context_new ();
+  const gchar *url_override = NULL;
 
   g_main_context_push_thread_default (task_context);
 
@@ -102,7 +128,7 @@ content_fetch (GTask *task,
       goto error;
     }
 
-  if (!ostree_parse_refspec (refspec, &src, &ref, &error))
+  if (!ostree_parse_refspec (refspec, &remote, &ref, &error))
     goto error;
 
   sum = eos_updater_get_update_id (updater);
@@ -113,27 +139,30 @@ content_fetch (GTask *task,
       goto error;
     }
 
-  message ("Fetch: %s:%s resolved to: %s", src, ref, sum);
+  message ("Fetch: %s:%s resolved to: %s", remote, ref, sum);
+  progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
+  if (data->overridden_urls)
+    {
+      guint idx = g_random_int_range (0, g_strv_length (data->overridden_urls));
+
+      url_override = data->overridden_urls[idx];
+    }
   /* rather than re-resolving the update, we get the last ID that the
    * user Poll()ed. We do this because that is the last update for which
    * we had size data: If there's been a new update since, then the
    * system hasn;t seen the download/unpack sizes for that so it cannot
    * be considered to have been approved.
    */
-  pullrefs[0] = (gchar *) sum;
-
-  progress = ostree_async_progress_new_and_connect (update_progress, updater);
-
-  if (!ostree_repo_pull (repo, src, pullrefs, flags, progress, cancel, &error))
+  if (!repo_pull (repo, remote, sum, url_override, progress, cancel, &error))
     goto error;
 
   message ("Fetch: pull() completed");
 
-  if (!ostree_repo_read_commit (repo, pullrefs[0], NULL, NULL, cancel, &error))
+  if (!ostree_repo_read_commit (repo, sum, NULL, NULL, cancel, &error))
     goto error;
 
-  message ("Fetch: commit %s cached", pullrefs[0]);
+  message ("Fetch: commit %s cached", sum);
   g_task_return_boolean (task, TRUE);
   goto cleanup;
 
