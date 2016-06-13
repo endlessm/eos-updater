@@ -60,13 +60,35 @@ static guint previous_state = EOS_UPDATER_STATE_NONE;
 
 static GMainLoop *main_loop;
 
+static gchar *
+dup_envvar_or (const gchar *envvar,
+               const gchar *default_value)
+{
+  const gchar *value = g_getenv (envvar);
+
+  if (value != NULL)
+    return g_strdup (value);
+
+  return g_strdup (default_value);
+}
+
+static gchar *
+get_stamp_dir (void)
+{
+  return dup_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_UPDATE_STAMP_DIR",
+                        UPDATE_STAMP_DIR);
+}
+
 static void
 update_stamp_file (void)
 {
-  GFile *stamp_file;
-  GError *error = NULL;
+  g_autofree gchar *stamp_dir = NULL;
+  g_autofree gchar *stamp_path = NULL;
+  g_autoptr(GFile) stamp_file = NULL;
+  g_autoptr(GError) error = NULL;
 
-  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0755) != 0) {
+  stamp_dir = get_stamp_dir ();
+  if (g_mkdir_with_parents (stamp_dir, 0755) != 0) {
     int saved_errno = errno;
     const char *err_str = g_strerror (saved_errno);
 
@@ -77,7 +99,8 @@ update_stamp_file (void)
     return;
   }
 
-  stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
+  stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
+  stamp_file = g_file_new_for_path (stamp_path);
   g_file_replace_contents (stamp_file, "", 0, NULL, FALSE,
                            G_FILE_CREATE_NONE, NULL, NULL,
                            &error);
@@ -86,10 +109,8 @@ update_stamp_file (void)
                      "PRIORITY=%d", LOG_CRIT,
                      "MESSAGE=Failed to write updater stamp file: %s", error->message,
                      NULL);
-    g_error_free (error);
+    return;
   }
-
-  g_object_unref (stamp_file);
 }
 
 /* Called on completion of the async dbus calls to check whether they
@@ -251,22 +272,28 @@ on_state_changed_notify (EosUpdater *proxy,
   on_state_changed (proxy, state);
 }
 
+static gchar *
+get_config_file_path (void)
+{
+  return dup_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_CONFIG_FILE_PATH",
+                        CONFIG_FILE_PATH);
+}
+
 static gboolean
 read_config_file (gint *update_interval,
                   gboolean *update_on_mobile)
 {
-  GKeyFile *config = g_key_file_new ();
-  GError *error = NULL;
-  gboolean success = TRUE;
+  g_autofree gchar *config_path = get_config_file_path ();
+  g_autoptr(GKeyFile) config = g_key_file_new ();
+  g_autoptr(GError) error = NULL;
 
-  g_key_file_load_from_file (config, CONFIG_FILE_PATH, G_KEY_FILE_NONE, &error);
+  g_key_file_load_from_file (config, config_path, G_KEY_FILE_NONE, &error);
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to open the configuration file: %s", error->message,
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
   last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
@@ -276,8 +303,7 @@ read_config_file (gint *update_interval,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to read key '%s' in config file", LAST_STEP_KEY,
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
   *update_interval = g_key_file_get_integer (config, AUTOMATIC_GROUP,
@@ -288,8 +314,7 @@ read_config_file (gint *update_interval,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to read key '%s' in config file", INTERVAL_KEY,
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
   if (*update_interval < 0) {
@@ -297,8 +322,7 @@ read_config_file (gint *update_interval,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Specified update interval is less than zero",
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
   *update_on_mobile = g_key_file_get_boolean (config, AUTOMATIC_GROUP,
@@ -309,15 +333,10 @@ read_config_file (gint *update_interval,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to read key '%s' in config file", ON_MOBILE_KEY,
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
-out:
-  g_clear_error (&error);
-  g_key_file_free (config);
-
-  return success;
+  return TRUE;
 }
 
 /* We want to poll once when the updater starts.  To make sure that we
@@ -458,6 +477,42 @@ is_connected_through_mobile (void)
   return is_mobile;
 }
 
+static gboolean
+listen_on_session_bus (void)
+{
+  g_autofree gchar *value = NULL;
+
+  value = dup_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS",
+                         NULL);
+
+  return value != NULL;
+}
+
+static gint
+get_dbus_timeout (void)
+{
+  g_autofree gchar *value = NULL;
+  gint64 timeout;
+  gchar *str_end = NULL;
+
+  value = dup_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT",
+                         NULL);
+
+  if (value == NULL || value[0] == '\0')
+    return -1;
+
+  errno = 0;
+  timeout = g_ascii_strtoll (value, &str_end, 10);
+  if (errno != 0 ||
+      str_end == NULL ||
+      *str_end != '\0' ||
+      timeout > G_MAXINT ||
+      timeout < 0)
+    return -1;
+
+  return timeout;
+}
+
 int
 main (int argc, char **argv)
 {
@@ -472,6 +527,8 @@ main (int argc, char **argv)
     { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
     { NULL }
   };
+  GBusType bus_type = G_BUS_TYPE_SYSTEM;
+  gint dbus_timeout;
 
   context = g_option_context_new ("Endless Automatic Updater");
   g_option_context_add_main_entries (context, entries, NULL);
@@ -504,7 +561,9 @@ main (int argc, char **argv)
 
   main_loop = g_main_loop_new (NULL, FALSE);
 
-  proxy = eos_updater_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
+  if (listen_on_session_bus ())
+    bus_type = G_BUS_TYPE_SESSION;
+  proxy = eos_updater_proxy_new_for_bus_sync (bus_type,
                      G_DBUS_PROXY_FLAGS_NONE,
                      "com.endlessm.Updater",
                      "/com/endlessm/Updater",
@@ -520,6 +579,9 @@ main (int argc, char **argv)
     should_exit_failure = TRUE;
     goto out;
   }
+
+  dbus_timeout = get_dbus_timeout ();
+  g_dbus_proxy_set_default_timeout (G_DBUS_PROXY (proxy), dbus_timeout);
 
   g_signal_connect (proxy, "notify::state",
                     G_CALLBACK (on_state_changed_notify), NULL);
