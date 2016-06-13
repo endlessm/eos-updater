@@ -35,7 +35,39 @@
 #include <gio/gio.h>
 #include <glib.h>
 
-static GDBusObjectManagerServer *manager = NULL;
+typedef struct LocalData LocalData;
+
+struct LocalData
+{
+  EosQuitFile *quit_file;
+  GDBusObjectManagerServer *manager;
+  EosUpdater *updater;
+
+  GMainLoop *loop;
+  EosUpdaterData *data;
+};
+
+#define LOCAL_DATA_CLEARED { NULL, NULL, NULL, NULL, NULL }
+
+static void
+local_data_clear (LocalData *local_data)
+{
+  g_clear_object (&local_data->quit_file);
+  g_clear_object (&local_data->updater);
+  g_clear_object (&local_data->manager);
+  g_clear_pointer (&local_data->loop, g_main_loop_unref);
+}
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (LocalData, local_data_clear)
+
+static void
+local_data_init (LocalData *local_data,
+                 EosUpdaterData *data,
+                 GMainLoop *loop)
+{
+  local_data->data = data;
+  local_data->loop = g_main_loop_ref (loop);
+}
 
 static void
 on_bus_acquired (GDBusConnection *connection,
@@ -44,7 +76,7 @@ on_bus_acquired (GDBusConnection *connection,
 {
   EosObjectSkeleton *object = NULL;
   EosUpdater *updater = NULL;
-  EosUpdaterData *data = user_data;
+  LocalData *local_data = user_data;
   GError *error = NULL;
 
   g_autofree gchar *src = NULL;
@@ -54,14 +86,14 @@ on_bus_acquired (GDBusConnection *connection,
   message ("Acquired a message bus connection\n");
 
   /* Create a new org.freedesktop.DBus.ObjectManager rooted at /com/endlessm */
-  manager = g_dbus_object_manager_server_new ("/com/endlessm");
+  local_data->manager = g_dbus_object_manager_server_new ("/com/endlessm");
   object  = eos_object_skeleton_new ("/com/endlessm/Updater");
 
   /* Make the newly created object export the interface com.endlessm.Updater
      (note that @skeleton takes its own reference to @updater). */
-  updater = eos_updater_skeleton_new ();
+  local_data->updater = eos_updater_skeleton_new ();
+  updater = local_data->updater;
   eos_object_skeleton_set_updater (object, updater);
-  g_object_unref (updater);
 
   sum = eos_updater_get_booted_checksum (&error);
   if (sum != NULL)
@@ -82,9 +114,9 @@ on_bus_acquired (GDBusConnection *connection,
   if (!is_installed_system (&error))
     {
       /* Disable updates on live USBs: */
-      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_on_live_boot), data);
-      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_on_live_boot), data);
-      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), data);
+      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_on_live_boot), local_data->data);
+      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_on_live_boot), local_data->data);
+      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), local_data->data);
 
       eos_updater_set_error (updater, error);
       g_clear_error (&error);
@@ -92,18 +124,18 @@ on_bus_acquired (GDBusConnection *connection,
   else
     {
       /* Handle the various DBus methods: */
-      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), data);
-      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), data);
-      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), data);
+      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), local_data->data);
+      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), local_data->data);
+      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), local_data->data);
     }
 
   /* Export the object (@manager takes its own reference to @object) */
-  g_dbus_object_manager_server_export (manager, G_DBUS_OBJECT_SKELETON (object));
+  g_dbus_object_manager_server_export (local_data->manager, G_DBUS_OBJECT_SKELETON (object));
   g_object_unref (object);
 
   /* Export all objects */
   message ("Exporting objects");
-  g_dbus_object_manager_server_set_connection (manager, connection);
+  g_dbus_object_manager_server_set_connection (local_data->manager, connection);
 }
 
 static void
@@ -122,6 +154,77 @@ on_name_lost (GDBusConnection *connection,
   message ("Lost the name %s\n", name);
 }
 
+static gchar *
+quit_file_name (void)
+{
+  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_QUIT_FILE",
+                                     NULL);
+}
+
+static EosQuitFileCheckResult
+check_and_quit (gpointer local_data_ptr)
+{
+  LocalData *local_data = local_data_ptr;
+  EosUpdaterState state;
+
+  state = eos_updater_get_state (local_data->updater);
+  switch (state)
+    {
+    case EOS_UPDATER_STATE_NONE:
+    case EOS_UPDATER_STATE_READY:
+    case EOS_UPDATER_STATE_ERROR:
+    case EOS_UPDATER_STATE_UPDATE_APPLIED:
+      g_main_loop_quit (local_data->loop);
+      return EOS_QUIT_FILE_QUIT;
+
+    case EOS_UPDATER_STATE_POLLING:
+    case EOS_UPDATER_STATE_UPDATE_AVAILABLE:
+    case EOS_UPDATER_STATE_FETCHING:
+    case EOS_UPDATER_STATE_UPDATE_READY:
+    case EOS_UPDATER_STATE_APPLYING_UPDATE:
+      return EOS_QUIT_FILE_KEEP_CHECKING;
+
+    case EOS_UPDATER_N_STATES:
+      g_assert_not_reached ();
+    }
+
+  g_assert_not_reached ();
+}
+
+static gboolean
+maybe_setup_quit_file (LocalData *local_data,
+                       GError **error)
+{
+  g_autofree gchar *filename = quit_file_name ();
+  g_autoptr(EosQuitFile) quit_file = NULL;
+
+  if (filename == NULL)
+    return TRUE;
+
+  quit_file = eos_updater_setup_quit_file (filename,
+                                           check_and_quit,
+                                           local_data,
+                                           NULL,
+                                           5,
+                                           error);
+  if (quit_file == NULL)
+    return FALSE;
+
+  local_data->quit_file = g_steal_pointer (&quit_file);
+  return TRUE;
+}
+
+static gboolean
+listen_on_session_bus (void)
+{
+  g_autofree gchar *value = NULL;
+
+  value = eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS",
+                                     NULL);
+
+  return value != NULL;
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -130,26 +233,36 @@ main (gint argc, gchar *argv[])
   g_auto(EosUpdaterData) data = EOS_UPDATER_DATA_CLEARED;
   g_auto(EosBusNameID) id = 0;
   g_autoptr(GError) error = NULL;
+  g_auto(LocalData) local_data = LOCAL_DATA_CLEARED;
+  GBusType bus_type = G_BUS_TYPE_SYSTEM;
 
   g_set_prgname (argv[0]);
 
   repo = eos_updater_local_repo ();
   if (!eos_updater_data_init (&data, repo, &error))
     {
-      message ("Failed to initialize eos-updater: %s\n", error->message);
+      message ("Failed to initialize eos-updater: %s", error->message);
       return 1;
     }
   loop = g_main_loop_new (NULL, FALSE);
-  id = g_bus_own_name (G_BUS_TYPE_SYSTEM,
+  local_data_init (&local_data, &data, loop);
+  if (listen_on_session_bus ())
+    bus_type = G_BUS_TYPE_SESSION;
+  id = g_bus_own_name (bus_type,
                        "com.endlessm.Updater",
                        G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT |
                        G_BUS_NAME_OWNER_FLAGS_REPLACE,
                        on_bus_acquired,
                        on_name_acquired,
                        on_name_lost,
-                       &data,
+                       &local_data,
                        NULL);
 
+  if (!maybe_setup_quit_file (&local_data, &error))
+    {
+      message ("Failed to set up the quit file: %s", error->message);
+      return 1;
+    }
   g_main_loop_run (loop);
 
   return 0;
