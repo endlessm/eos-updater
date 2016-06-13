@@ -27,6 +27,8 @@
 #include "eos-updater-generated.h"
 #include "eos-updater-types.h"
 
+#include "eos-refcounted.h"
+
 #include <glib.h>
 #include <glib-object.h>
 #include <gio/gio.h>
@@ -95,5 +97,26 @@ guint eos_updater_queue_callback (GMainContext *context,
 gboolean eos_updater_get_timestamp_from_branch_file_keyfile (GKeyFile *branch_file,
                                                              GDateTime **out_timestamp,
                                                              GError **error);
+
+gchar *eos_updater_dup_envvar_or (const gchar *envvar,
+                                  const gchar *default_value);
+
+#define EOS_TYPE_QUIT_FILE eos_quit_file_get_type ()
+EOS_DECLARE_REFCOUNTED (EosQuitFile, eos_quit_file, EOS, QUIT_FILE)
+
+typedef enum
+{
+  EOS_QUIT_FILE_QUIT,
+  EOS_QUIT_FILE_KEEP_CHECKING
+} EosQuitFileCheckResult;
+
+typedef EosQuitFileCheckResult (* EosQuitFileCheckCallback) (gpointer user_data);
+
+EosQuitFile *eos_updater_setup_quit_file (const gchar *path,
+                                          EosQuitFileCheckCallback check_callback,
+                                          gpointer user_data,
+                                          GDestroyNotify notify,
+                                          guint timeout_seconds,
+                                          GError **error);
 
 G_END_DECLS
