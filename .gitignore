@@ -1,5 +1,7 @@
 *.la
 *.lo
+*.log
+*.trs
 *.o
 *~
 .deps
@@ -50,3 +52,7 @@ src/eos-updater
 src/eos-updater-generated.c
 src/eos-updater-generated.h
 stamp-h1
+test-driver
+tests/services/test-eos-updater.service
+tests/test-update-from-lan
+tests/test-update-from-main
