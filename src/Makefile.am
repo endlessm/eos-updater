@@ -64,6 +64,8 @@ eos_updater_LDADD  = $(common_ldadd) $(EOS_UPDATER_LIBS)
 eos_updater_SOURCES = \
 	eos-updater-apply.c \
 	eos-updater-apply.h \
+	eos-updater-avahi-emulator.c \
+	eos-updater-avahi-emulator.h \
 	eos-updater-avahi.c \
 	eos-updater-avahi.h \
 	eos-updater-branch-file.h \
