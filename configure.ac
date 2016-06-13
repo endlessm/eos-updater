@@ -60,13 +60,17 @@ AS_IF([test "x$want_metrics" = 'xyes'],
 PKG_CHECK_MODULES([EOS_UPDATER],
                   [$EOS_UPDATER_MODULES])
 
-AC_PATH_PROG([XSLTPROC], [xsltproc], [AC_MSG_ERROR([xsltproc required for build])])
-AC_PATH_PROG([GDBUS_CODEGEN], [gdbus-codegen], [AC_MSG_ERROR([gdbus-codegen required for build])])
+AC_PATH_PROG([XSLTPROC], [xsltproc], [AC_MSG_ERROR([xsltproc is required for build])])
+AC_PATH_PROG([GDBUS_CODEGEN], [gdbus-codegen], [AC_MSG_ERROR([gdbus-codegen is required for build])])
+AC_PATH_PROG([OSTREE], [ostree], [AC_MSG_ERROR([ostree is required for tests])])
+AC_PATH_PROG([GPG], [gpg], [AC_MSG_ERROR([gpg is required for tests])])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
 data/Makefile
+tests/Makefile
+tests/services/test-eos-updater.service
 ])
 AC_OUTPUT
