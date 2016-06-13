@@ -273,6 +273,8 @@ eos_updater_set_error (EosUpdater *updater,
 
   g_warn_if_fail (error != NULL);
 
+  message ("Changing to error state: %s, %d, %s", error_name, code, msg);
+
   eos_updater_set_error_name (updater, error_name);
   eos_updater_set_error_code (updater, code);
   eos_updater_set_error_message (updater, msg);
@@ -283,6 +285,8 @@ void
 eos_updater_clear_error (EosUpdater *updater,
                          EosUpdaterState state)
 {
+  message ("Clearing error state and changing to state %d", state);
+
   eos_updater_set_error_code (updater, 0);
   eos_updater_set_error_message (updater, "");
   eos_updater_set_state_changed (updater, state);
