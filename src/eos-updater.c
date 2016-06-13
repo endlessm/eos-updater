@@ -20,13 +20,16 @@
  * Author: Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "eos-updater-generated.h"
-#include "eos-updater-data.h"
-#include "eos-updater-util.h"
-#include "eos-updater-poll.h"
-#include "eos-updater-fetch.h"
 #include "eos-updater-apply.h"
+#include "eos-updater-data.h"
+#include "eos-updater-fetch.h"
+#include "eos-updater-generated.h"
+#include "eos-updater-poll.h"
+
+#include "eos-util.h"
+
 #include <ostree.h>
+
 #include <gio/gio.h>
 #include <glib.h>
 
@@ -119,13 +122,18 @@ main (gint argc, gchar *argv[])
 {
   g_autoptr(GMainLoop) loop = NULL;
   g_autoptr(OstreeRepo) repo = NULL;
-  g_auto(EosUpdaterData) data = EOS_UPDATER_DATA_INIT;
+  g_auto(EosUpdaterData) data = EOS_UPDATER_DATA_CLEARED;
   g_auto(EosBusNameID) id = 0;
+  g_autoptr(GError) error = NULL;
 
   g_set_prgname (argv[0]);
 
   repo = eos_updater_local_repo ();
-  eos_updater_data_init (&data, repo);
+  if (!eos_updater_data_init (&data, repo, &error))
+    {
+      message ("Failed to initialize eos-updater: %s\n", error->message);
+      return 1;
+    }
   loop = g_main_loop_new (NULL, FALSE);
   id = g_bus_own_name (G_BUS_TYPE_SYSTEM,
                        "com.endlessm.Updater",
