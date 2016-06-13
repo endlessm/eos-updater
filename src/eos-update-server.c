@@ -179,9 +179,10 @@ struct Data
   GBytes *cached_config;
 
   guint async_requests_pending;
+  EosQuitFile *quit_file;
 };
 
-#define DATA_CLEARED { NULL, NULL, NULL, 0, 0u, NULL, NULL, NULL, 0 }
+#define DATA_CLEARED { NULL, NULL, NULL, 0, 0u, NULL, NULL, NULL, 0, NULL }
 
 static void
 data_setup_timeout (Data *data);
@@ -263,6 +264,58 @@ data_generate_config (Data *data,
   return TRUE;
 }
 
+static gchar *
+quit_file_name (void)
+{
+  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE",
+                                     NULL);
+}
+
+static EosQuitFileCheckResult
+check_and_quit (gpointer data_ptr)
+{
+  Data *data = data_ptr;
+  FILE *log;
+  g_autofree gchar *str = NULL;
+
+  log = fopen ("eos-update-server.log", "a");
+  str = g_strdup_printf ("requests pending: %u\n",
+                         data->async_requests_pending);
+  fwrite (str, 1, strlen (str), log);
+  fclose (log);
+  if (data->async_requests_pending > 0)
+    return EOS_QUIT_FILE_KEEP_CHECKING;
+
+  g_main_loop_quit (data->loop);
+  return EOS_QUIT_FILE_QUIT;
+}
+
+static gboolean
+maybe_setup_quit_file (Data *data,
+                       GError **error)
+{
+  g_autofree gchar *filename = quit_file_name ();
+  g_autoptr(EosQuitFile) quit_file = NULL;
+  FILE *log;
+
+  log = fopen ("eos-update-server.log", "w");
+  fclose (log);
+  if (filename == NULL)
+    return TRUE;
+
+  quit_file = eos_updater_setup_quit_file (filename,
+                                           check_and_quit,
+                                           data,
+                                           NULL,
+                                           5,
+                                           error);
+  if (quit_file == NULL)
+    return FALSE;
+
+  data->quit_file = g_steal_pointer (&quit_file);
+  return TRUE;
+}
+
 static gboolean
 data_init (Data *data,
            Options *options,
@@ -290,6 +343,8 @@ data_init (Data *data,
     return FALSE;
 
   data_setup_timeout (data);
+  if (!maybe_setup_quit_file (data, error))
+    return FALSE;
 
   return TRUE;
 }
@@ -300,6 +355,7 @@ data_clear (Data *data)
   if (data == NULL)
     return;
 
+  g_clear_object (&data->quit_file);
   data->async_requests_pending = 0;
   g_clear_pointer (&data->cached_config, g_bytes_unref);
   g_clear_pointer (&data->cached_repo_root, g_free);
