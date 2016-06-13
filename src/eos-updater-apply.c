@@ -67,6 +67,13 @@ apply_finished (GObject *object,
   g_assert_not_reached ();
 }
 
+static gchar *
+get_test_osname (void)
+{
+  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME",
+                                     NULL);
+}
+
 static void
 apply (GTask *task,
        gpointer object,
@@ -83,10 +90,11 @@ apply (GTask *task,
   const gchar *orig_refspec = eos_updater_get_original_refspec (updater);
   gint bootversion = 0;
   gint newbootver = 0;
-  g_autoptr(OstreeDeployment) merge_deployment = NULL;
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_autoptr(OstreeDeployment) new_deployment = NULL;
   GKeyFile *origin = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
+  g_autofree gchar *osname = get_test_osname ();
 
   g_main_context_push_thread_default (task_context);
 
@@ -101,14 +109,17 @@ apply (GTask *task,
     goto error;
 
   bootversion = ostree_sysroot_get_bootversion (sysroot);
-  merge_deployment = ostree_sysroot_get_merge_deployment (sysroot, NULL);
+  booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
+                                                                             &error);
+  if (booted_deployment == NULL)
+    goto error;
   origin = ostree_sysroot_origin_new_from_refspec (sysroot, update_refspec);
 
   if (!ostree_sysroot_deploy_tree (sysroot,
-                                   NULL,
+                                   osname,
                                    update_id,
                                    origin,
-                                   merge_deployment,
+                                   booted_deployment,
                                    NULL,
                                    &new_deployment,
                                    cancel,
@@ -140,9 +151,9 @@ apply (GTask *task,
     }
 
   if (!ostree_sysroot_simple_write_deployment (sysroot,
-                                               NULL,
+                                               osname,
                                                new_deployment,
-                                               merge_deployment,
+                                               booted_deployment,
                                                0,
                                                cancel,
                                                &error))
