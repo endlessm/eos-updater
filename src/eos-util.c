@@ -1,0 +1,438 @@
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
+ *
+ * Copyright © 2013 Collabora Ltd.
+ * Copyright 2016 Kinvolk GmbH
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
+ *
+ * Authors: Vivek Dasmohapatra <vivek@etla.org>
+ *          Krzesimir Nowak <krzesimir@kinvolk.io>
+ */
+
+#include "eos-util.h"
+
+#include <libsoup/soup.h>
+
+#include <string.h>
+
+static const GDBusErrorEntry eos_updater_error_entries[] = {
+  { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" },
+  { EOS_UPDATER_ERROR_LIVE_BOOT, "com.endlessm.Updater.Error.LiveBoot" },
+  { EOS_UPDATER_ERROR_LAN_DISCOVERY_ERROR, "com.endlessm.Updater.Error.LANDiscoveryError" },
+  { EOS_UPDATER_ERROR_WRONG_CONFIGURATION, "com.endlessm.Updater.Error.WrongConfiguration" }
+};
+
+/* Ensure that every error code has an associated D-Bus error name */
+G_STATIC_ASSERT (G_N_ELEMENTS (eos_updater_error_entries) == EOS_UPDATER_N_ERRORS);
+
+GQuark
+eos_updater_error_quark (void)
+{
+  static volatile gsize quark_volatile = 0;
+  g_dbus_error_register_error_domain ("eos-updater-error-quark",
+                                      &quark_volatile,
+                                      eos_updater_error_entries,
+                                      G_N_ELEMENTS (eos_updater_error_entries));
+  return (GQuark) quark_volatile;
+}
+
+static const gchar * state_str[] = {
+   "None",
+   "Ready",
+   "Error",
+   "Polling",
+   "UpdateAvailable",
+   "Fetching",
+   "UpdateReady",
+   "ApplyUpdate",
+   "UpdateApplied" };
+
+G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_UPDATER_N_STATES);
+
+const gchar *
+eos_updater_state_to_string (EosUpdaterState state)
+{
+  g_assert (state < EOS_UPDATER_N_STATES);
+
+  return state_str[state];
+};
+
+OstreeRepo *
+eos_updater_local_repo (void)
+{
+  GError *error = NULL;
+  g_autoptr(OstreeRepo) repo = ostree_repo_new_default ();
+
+  if (!ostree_repo_open (repo, NULL, &error))
+    {
+      GFile *file = ostree_repo_get_path (repo);
+      g_autofree gchar *path = g_file_get_path (file);
+
+      g_warning ("Repo at '%s' is not Ok (%s)",
+                 path ? path : "", error->message);
+
+      g_clear_error (&error);
+      g_assert_not_reached ();
+    }
+
+  return g_steal_pointer (&repo);
+}
+
+static gboolean
+ensure_is_ancestor (GFile *dir,
+                    GFile *file,
+                    GError **error)
+{
+  g_autoptr(GFile) child = NULL;
+
+  child = g_object_ref (file);
+  for (;;)
+    {
+      g_autoptr(GFile) parent = g_file_get_parent (child);
+
+      if (parent == NULL)
+        {
+          g_autofree gchar *raw_dir_path = g_file_get_path (dir);
+          g_autofree gchar *raw_file_path = g_file_get_path (file);
+
+          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                       "%s is not an ancestor of %s, not deleting anything",
+                       raw_dir_path,
+                       raw_file_path);
+          return FALSE;
+        }
+
+      if (g_file_equal (dir, parent))
+        break;
+
+      g_set_object (&child, parent);
+    }
+
+  return TRUE;
+}
+
+/* pass /a as the dir parameter and /a/b/c/d as the file parameter,
+ * will delete the /a/b/c/d file then /a/b/c and /a/b directories if
+ * empty.
+ */
+static gboolean
+delete_file_and_subdirs (GFile *dir,
+                         GFile *file,
+                         GCancellable *cancellable,
+                         GError **error)
+{
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GFile) child = NULL;
+
+  if (!ensure_is_ancestor (dir, file, error))
+    return FALSE;
+
+  if (!g_file_delete (file, cancellable, &local_error))
+    {
+      if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        g_clear_error (&local_error);
+      else
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+    }
+
+  child = g_object_ref (file);
+  for (;;)
+    {
+      g_autoptr(GFile) parent = g_file_get_parent (child);
+
+      if (g_file_equal (dir, parent))
+        break;
+
+      if (!g_file_delete (parent, cancellable, &local_error))
+        {
+          if (!(g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
+                g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_EMPTY)))
+            {
+              g_propagate_error (error, g_steal_pointer (&local_error));
+              return FALSE;
+            }
+
+          break;
+        }
+
+      g_set_object (&child, parent);
+    }
+
+  return TRUE;
+}
+
+static gboolean
+create_directories_and_file (GFile *target,
+                             GBytes *contents,
+                             GCancellable *cancellable,
+                             GError **error)
+{
+  g_autoptr(GFile) target_parent = g_file_get_parent (target);
+  g_autoptr(GError) local_error = NULL;
+  gconstpointer raw;
+  gsize len;
+
+  if (!g_file_make_directory_with_parents (target_parent, cancellable, &local_error))
+    {
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+      g_clear_error (&local_error);
+    }
+
+  raw = g_bytes_get_data (contents, &len);
+  return g_file_replace_contents (target,
+                                  raw,
+                                  len,
+                                  NULL,
+                                  FALSE,
+                                  G_FILE_CREATE_NONE,
+                                  NULL,
+                                  cancellable,
+                                  error);
+}
+
+gboolean
+eos_updater_save_or_delete  (GBytes *contents,
+                             GFile *dir,
+                             const gchar *filename,
+                             GCancellable *cancellable,
+                             GError **error)
+{
+  g_autoptr(GFile) target = g_file_get_child (dir, filename);
+  g_autoptr(GFile) target_parent = g_file_get_parent (target);
+
+  if (contents == NULL)
+    return delete_file_and_subdirs (dir, target, cancellable, error);
+
+  return create_directories_and_file (target, contents, cancellable, error);
+}
+
+static GFile *
+get_eos_extensions_path (OstreeRepo *repo)
+{
+  g_autofree gchar *rel_path = g_build_filename ("extensions", "eos", NULL);
+
+  return g_file_get_child (ostree_repo_get_path (repo), rel_path);
+}
+
+gboolean
+eos_updater_create_extensions_dir (OstreeRepo *repo,
+                                   GFile **dir,
+                                   GError **error)
+{
+  g_autoptr(GFile) ext_path = get_eos_extensions_path (repo);
+  g_autoptr(GError) local_error = NULL;
+
+  if (!g_file_make_directory_with_parents (ext_path, NULL, &local_error))
+    {
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+      g_clear_error (&local_error);
+    }
+
+  *dir = g_steal_pointer (&ext_path);
+  return TRUE;
+}
+
+void
+eos_updater_set_state_changed (EosUpdater *updater, EosUpdaterState state)
+{
+  eos_updater_set_state (updater, state);
+  eos_updater_emit_state_changed (updater, state);
+}
+
+void
+eos_updater_set_error (EosUpdater *updater,
+                       const GError *error)
+{
+  gint code = error ? error->code : -1;
+  const gchar *msg = (error && error->message) ? error->message : "Unspecified";
+  g_autofree gchar *error_name = g_dbus_error_encode_gerror (error);
+
+  g_warn_if_fail (error != NULL);
+
+  eos_updater_set_error_name (updater, error_name);
+  eos_updater_set_error_code (updater, code);
+  eos_updater_set_error_message (updater, msg);
+  eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
+}
+
+void
+eos_updater_clear_error (EosUpdater *updater,
+                         EosUpdaterState state)
+{
+  eos_updater_set_error_code (updater, 0);
+  eos_updater_set_error_message (updater, "");
+  eos_updater_set_state_changed (updater, state);
+}
+
+OstreeDeployment *
+eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
+                                                       GError **error)
+{
+  OstreeDeployment *booted_deployment = NULL;
+
+  booted_deployment = ostree_sysroot_get_booted_deployment (sysroot);
+  if (booted_deployment == NULL)
+    {
+      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                           "Not an ostree system");
+      return NULL;
+    }
+
+  return g_object_ref (booted_deployment);
+}
+
+OstreeDeployment *
+eos_updater_get_booted_deployment (GError **error)
+{
+  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
+
+  if (!ostree_sysroot_load (sysroot, NULL, error))
+    return NULL;
+
+  return eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot, error);
+}
+
+gchar *
+eos_updater_get_booted_checksum (GError **error)
+{
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
+
+  booted_deployment = eos_updater_get_booted_deployment (error);
+  if (booted_deployment == NULL)
+    return NULL;
+
+  return g_strdup (ostree_deployment_get_csum (booted_deployment));
+}
+
+gchar *
+eos_updater_get_baseurl (OstreeDeployment *booted_deployment,
+                         OstreeRepo *repo,
+                         GError **error)
+{
+  const gchar *osname;
+  g_autofree gchar *url = NULL;
+
+  osname = ostree_deployment_get_osname (booted_deployment);
+  if (!ostree_repo_remote_get_url (repo, osname, &url, error))
+    return NULL;
+
+  return g_steal_pointer (&url);
+}
+
+gboolean
+eos_updater_get_ostree_path (OstreeRepo *repo,
+                             gchar **ostree_path,
+                             GError **error)
+{
+  g_autoptr(OstreeDeployment) deployment = NULL;
+  g_autofree gchar *ostree_url = NULL;
+  g_autoptr(SoupURI) uri = NULL;
+  g_autofree gchar *path = NULL;
+  gsize to_move = 0;
+
+  deployment = eos_updater_get_booted_deployment (error);
+  if (deployment == NULL)
+    return FALSE;
+
+  ostree_url = eos_updater_get_baseurl (deployment,
+                                        repo,
+                                        error);
+  if (ostree_url == NULL)
+    return FALSE;
+
+  uri = soup_uri_new (ostree_url);
+  if (uri == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_DATA,
+                   "ostree %s remote's URL is invalid (%s)",
+                   ostree_deployment_get_osname (deployment),
+                   ostree_url);
+      return FALSE;
+    }
+
+  path = g_strdup (soup_uri_get_path (uri));
+  while (path[to_move] == '/')
+    ++to_move;
+  if (to_move > 0)
+    memmove (path, path + to_move, strlen (path));
+  *ostree_path = g_steal_pointer (&path);
+  return TRUE;
+}
+
+guint
+eos_updater_queue_callback (GMainContext *context,
+                            GSourceFunc function,
+                            gpointer user_data,
+                            const gchar *name)
+{
+  GSource *source = g_idle_source_new ();
+  guint id;
+
+  if (name != NULL)
+    g_source_set_name (source, name);
+  g_source_set_callback (source, function, user_data, NULL);
+  id = g_source_attach (source, context);
+  g_source_unref (source);
+
+  return id;
+}
+
+gboolean
+eos_updater_get_timestamp_from_branch_file_keyfile (GKeyFile *branch_file,
+                                                    GDateTime **out_timestamp,
+                                                    GError **error)
+{
+  gint64 unix_utc;
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GDateTime) timestamp = NULL;
+
+  g_return_val_if_fail (branch_file != NULL, FALSE);
+  g_return_val_if_fail (out_timestamp != NULL, FALSE);
+
+  unix_utc = g_key_file_get_int64 (branch_file,
+                                   "main",
+                                   "UnixUTCTimestamp",
+                                   &local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  timestamp = g_date_time_new_from_unix_utc (unix_utc);
+  if (timestamp == NULL)
+    {
+      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                           "Invalid branch file timestamp");
+      return FALSE;
+    }
+
+  *out_timestamp = g_steal_pointer (&timestamp);
+  return TRUE;
+}
