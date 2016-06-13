@@ -1,0 +1,7 @@
+[Unit]
+Description=EndlessOS Local Update Server
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=@libexecdir@/eos-update-server
