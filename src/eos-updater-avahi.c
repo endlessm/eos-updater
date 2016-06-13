@@ -22,6 +22,7 @@
 
 #include "config.h"
 
+#include "eos-updater-avahi-emulator.h"
 #include "eos-updater-avahi.h"
 
 #include "eos-util.h"
@@ -396,33 +397,14 @@ browse_cb (AvahiServiceBrowser *browser,
     }
 }
 
-EosAvahiDiscoverer *
-eos_avahi_discoverer_new (GMainContext *context,
-                          EosAvahiDiscovererCallback callback,
-                          gpointer user_data,
-                          GDestroyNotify notify,
-                          GError **error)
+static gboolean
+setup_real_avahi_discoverer (EosAvahiDiscoverer *discoverer,
+                             GMainContext *context,
+                             GError **error)
 {
-  g_autoptr(EosAvahiDiscoverer) discoverer = NULL;
   int failure = 0;
 
-  g_return_val_if_fail (callback != NULL, NULL);
-
   avahi_set_allocator (avahi_glib_allocator ());
-
-  discoverer = g_object_new (EOS_TYPE_AVAHI_DISCOVERER, NULL);
-  discoverer->callback = callback;
-  discoverer->user_data = user_data;
-  discoverer->notify = notify;
-  if (context == NULL)
-    discoverer->context = g_main_context_ref_thread_default ();
-  else
-    discoverer->context = g_main_context_ref (context);
-  discoverer->discovered_services = g_hash_table_new_full (g_str_hash,
-                                                      g_str_equal,
-                                                      g_free,
-                                                      NULL);
-  discoverer->found_services = object_array_new ();
 
   discoverer->poll = avahi_glib_poll_new (context, G_PRIORITY_DEFAULT);
   discoverer->client = avahi_client_new (avahi_glib_poll_get (discoverer->poll),
@@ -456,8 +438,70 @@ eos_avahi_discoverer_new (GMainContext *context,
                    EOS_UPDATER_ERROR_LAN_DISCOVERY_ERROR,
                    "Failed to create service browser: %s",
                    avahi_strerror (avahi_client_errno (discoverer->client)));
-      return NULL;
+      return FALSE;
     }
+
+  return TRUE;
+}
+
+static gboolean
+setup_emulated_avahi_discoverer (EosAvahiDiscoverer *discoverer,
+                                 GError **error)
+{
+  g_autoptr(GPtrArray) services = NULL;
+
+  if (!eos_updater_avahi_emulator_get_services (&services, error))
+    return FALSE;
+  g_clear_pointer (&discoverer->found_services, g_ptr_array_unref);
+  discoverer->found_services = g_steal_pointer (&services);
+  queue_callback (discoverer);
+  return TRUE;
+}
+
+static gboolean
+use_avahi_emulator (void)
+{
+  g_autofree gchar *value = NULL;
+
+  value = eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_USE_AVAHI_EMULATOR",
+                                     NULL);
+
+  return value != NULL;
+}
+
+EosAvahiDiscoverer *
+eos_avahi_discoverer_new (GMainContext *context,
+                          EosAvahiDiscovererCallback callback,
+                          gpointer user_data,
+                          GDestroyNotify notify,
+                          GError **error)
+{
+  g_autoptr(EosAvahiDiscoverer) discoverer = NULL;
+
+  g_return_val_if_fail (callback != NULL, NULL);
+
+  discoverer = g_object_new (EOS_TYPE_AVAHI_DISCOVERER, NULL);
+  discoverer->callback = callback;
+  discoverer->user_data = user_data;
+  discoverer->notify = notify;
+  if (context == NULL)
+    discoverer->context = g_main_context_ref_thread_default ();
+  else
+    discoverer->context = g_main_context_ref (context);
+  discoverer->discovered_services = g_hash_table_new_full (g_str_hash,
+                                                           g_str_equal,
+                                                           g_free,
+                                                           NULL);
+  discoverer->found_services = object_array_new ();
+
+  if (use_avahi_emulator ())
+    {
+      if (!setup_emulated_avahi_discoverer (discoverer, error))
+        return NULL;
+    }
+  else if (!setup_real_avahi_discoverer (discoverer, context, error))
+    return NULL;
+
   return g_steal_pointer (&discoverer);
 }
 
@@ -629,17 +673,28 @@ generate_v2_service_file (OstreeRepo *repo,
                                                   error);
 }
 
+static gchar *
+get_avahi_services_dir (void)
+{
+  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR",
+                                    "/etc/avahi/services");
+}
+
 gboolean
 eos_avahi_generate_service_file (OstreeRepo *repo,
                                  EosBranchFile *branch_file,
                                  GError **error)
 {
   g_autoptr(GFile) service_file = NULL;
+  g_autofree gchar *services_dir = NULL;
+  g_autofree gchar *service_file_path = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (EOS_IS_BRANCH_FILE (branch_file), FALSE);
 
-  service_file = g_file_new_for_path ("/etc/avahi/services/eos-updater.service");
+  services_dir = get_avahi_services_dir ();
+  service_file_path = g_build_filename (services_dir, "eos-updater.service", NULL);
+  service_file = g_file_new_for_path (service_file_path);
 
   if (branch_file->raw_signature != NULL)
     return generate_v2_service_file (repo, service_file, error);
