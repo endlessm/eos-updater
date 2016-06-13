@@ -135,15 +135,23 @@ string_to_download_order (const gchar *str,
   return strv_to_download_order (sources, order, n_download_sources, error);
 }
 
+static gchar *
+get_config_file_path (void)
+{
+  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_CONFIG_FILE_PATH",
+                                    CONFIG_FILE_PATH);
+}
+
 static gboolean
 read_config (EosUpdaterData *data,
              GError **error)
 {
   g_autoptr(GKeyFile) config = g_key_file_new ();
+  g_autofree gchar *config_file_path = get_config_file_path ();
   g_autofree gchar *download_order_str = NULL;
   g_autoptr(GError) local_error = NULL;
 
-  if (!g_key_file_load_from_file (config, CONFIG_FILE_PATH, G_KEY_FILE_NONE, &local_error))
+  if (!g_key_file_load_from_file (config, config_file_path, G_KEY_FILE_NONE, &local_error))
     {
       /* The documentation is not very clear about which error is
        * returned when the file is not found.
