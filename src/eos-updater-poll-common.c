@@ -840,6 +840,44 @@ get_origin_refspec (OstreeDeployment *booted_deployment,
 }
 
 static void
+get_custom_hw_descriptors (GHashTable *hw_descriptors,
+                           const gchar *path)
+{
+  g_autoptr(GKeyFile) keyfile = NULL;
+  g_auto(GStrv) keys = NULL;
+  gchar **iter;
+  const gchar *group = "descriptors";
+
+  keyfile = g_key_file_new ();
+  if (!g_key_file_load_from_file (keyfile,
+                                  path,
+                                  G_KEY_FILE_NONE,
+                                  NULL))
+    return;
+
+  keys = g_key_file_get_keys (keyfile,
+                              group,
+                              NULL,
+                              NULL);
+  if (keys == NULL)
+    return;
+
+  for (iter = keys; *iter != NULL; ++iter)
+    {
+      const gchar *key = *iter;
+      gchar *value = g_key_file_get_string (keyfile,
+                                            group,
+                                            key,
+                                            NULL);
+
+      if (value == NULL)
+        continue;
+
+      g_hash_table_insert (hw_descriptors, g_strdup (key), value);
+    }
+}
+
+static void
 get_arm_hw_descriptors (GHashTable *hw_descriptors)
 {
   g_autoptr(GFile) fp = NULL;
@@ -883,20 +921,28 @@ get_x86_hw_descriptors (GHashTable *hw_descriptors)
     }
 }
 
+static gchar *
+get_custom_descriptors_path (void)
+{
+  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_CUSTOM_DESCRIPTORS_PATH",
+                                    NULL);
+}
+
 GHashTable *
 get_hw_descriptors (void)
 {
   GHashTable *hw_descriptors = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                       g_free, g_free);
+  g_autofree gchar *custom_descriptors = NULL;
 
-  if (g_file_test (DT_COMPATIBLE, G_FILE_TEST_EXISTS))
-    { /* ARM */
-      get_arm_hw_descriptors (hw_descriptors);
-    }
+  custom_descriptors = get_custom_descriptors_path ();
+  if (custom_descriptors != NULL)
+    get_custom_hw_descriptors (hw_descriptors,
+                               custom_descriptors);
+  else if (g_file_test (DT_COMPATIBLE, G_FILE_TEST_EXISTS))
+    get_arm_hw_descriptors (hw_descriptors);
   else
-    { /* X86 */
-      get_x86_hw_descriptors (hw_descriptors);
-    }
+    get_x86_hw_descriptors (hw_descriptors);
 
   if (!g_hash_table_lookup (hw_descriptors, VENDOR_KEY))
     g_hash_table_insert (hw_descriptors, g_strdup (VENDOR_KEY),
