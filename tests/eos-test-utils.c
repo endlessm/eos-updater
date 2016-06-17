@@ -585,6 +585,7 @@ generate_branch_file (GFile *repo,
                       GFile *gpg_home,
                       const gchar *keyid,
                       GDateTime *timestamp,
+                      const gchar *ostree_path,
                       GError **error)
 {
   g_autoptr(GKeyFile) branch_file = g_key_file_new ();
@@ -609,6 +610,7 @@ generate_branch_file (GFile *repo,
 
   unix_time = g_date_time_to_unix (timestamp);
   g_key_file_set_int64 (branch_file, "main", "UnixUTCTimestamp", unix_time);
+  g_key_file_set_string_list (branch_file, "main", "OstreePaths", &ostree_path, 1);
 
   get_branch_file_paths (repo,
                          &branch_file_path,
@@ -674,6 +676,7 @@ eos_test_subserver_update (EosTestSubserver *subserver,
                              subserver->gpg_home,
                              subserver->keyid,
                              timestamp,
+                             subserver->ostree_path,
                              error))
     return FALSE;
 

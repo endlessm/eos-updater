@@ -578,6 +578,8 @@ get_newest_branch_file (LanData *lan_data,
         {
           g_autoptr(OstreeGpgVerifyResult) gpg_result = NULL;
           OstreeRepo *repo = lan_data->fetch_data->data->repo;
+          g_auto(GStrv) ostree_paths = NULL;
+
           gpg_result = ostree_repo_gpg_verify_data (repo,
                                                     NULL,
                                                     branch_file_contents,
@@ -605,6 +607,25 @@ get_newest_branch_file (LanData *lan_data,
                        uri,
                        declared,
                        from_file);
+              continue;
+            }
+
+          if (!eos_updater_get_ostree_paths_from_branch_file_keyfile (branch_file->branch_file,
+                                                                      &ostree_paths,
+                                                                      &error))
+            {
+              message ("Failed to get ostree paths from branch file from %s: %s",
+                       uri,
+                       error->message);
+              continue;
+            }
+
+          if (!g_strv_contains ((const gchar *const *)ostree_paths,
+                                lan_data->cached_ostree_path))
+            {
+              message ("The branch file from %s has no ostree path %s as it declared, looks suspicious",
+                       uri,
+                       lan_data->cached_ostree_path);
               continue;
             }
         }
