@@ -494,8 +494,8 @@ generate_ref_file (GFile *repo,
   g_autoptr(GFile) ref_file = NULL;
   g_autoptr(GFile) ref_file_sig = NULL;
   g_autoptr(GFile) ref_file_parent = NULL;
-  g_autoptr(GBytes) bytes = NULL;
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+  g_autoptr(GKeyFile) keyfile;
 
   get_ref_file_paths (repo,
                       ref,
@@ -507,8 +507,10 @@ generate_ref_file (GFile *repo,
                          error))
     return FALSE;
 
-  bytes = g_bytes_new_static (commit, strlen (commit));
-  if (!create_file (ref_file, bytes, error))
+  keyfile = g_key_file_new ();
+  g_key_file_set_string (keyfile, "mapping", "ref", ref);
+  g_key_file_set_string (keyfile, "mapping", "commit", commit);
+  if (!save_key_file (ref_file, keyfile, error))
     return FALSE;
 
   if (!gpg_sign (gpg_home,
