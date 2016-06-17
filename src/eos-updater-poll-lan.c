@@ -43,24 +43,34 @@ typedef struct
   GError *error;
   EosUpdateInfo *info;
   EosMetricsInfo *metrics;
+  gchar *cached_ostree_path;
 } LanData;
 
 #define LAN_DATA_CLEARED { NULL, NULL, NULL, NULL, NULL }
 
-static void
+static gboolean
 lan_data_init (LanData *lan_data,
-               EosMetadataFetchData *fetch_data)
+               EosMetadataFetchData *fetch_data,
+               GError **error)
 {
-  g_return_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data));
+  g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), FALSE);
 
   memset (lan_data, 0, sizeof (*lan_data));
   lan_data->fetch_data = g_object_ref (fetch_data);
   lan_data->main_loop = g_main_loop_new (fetch_data->context, FALSE);
+
+  if (!eos_updater_get_ostree_path (fetch_data->data->repo,
+                                    &lan_data->cached_ostree_path,
+                                    error))
+    return FALSE;
+
+  return TRUE;
 }
 
 static void
 lan_data_clear (LanData *lan_data)
 {
+  g_clear_pointer (&lan_data->cached_ostree_path, g_free);
   g_clear_object (&lan_data->metrics);
   g_clear_object (&lan_data->info);
   g_clear_error (&lan_data->error);
@@ -238,18 +248,9 @@ typedef enum
 
 static gboolean
 check_ostree_path (LanData *lan_data,
-                   const gchar *ostree_path,
-                   gboolean *ok,
-                   GError **error)
+                   const gchar *ostree_path)
 {
-  g_autofree gchar *current_ostree_path = NULL;
-  OstreeRepo *repo = lan_data->fetch_data->data->repo;
-
-  if (!eos_updater_get_ostree_path (repo, &current_ostree_path, error))
-    return FALSE;
-
-  *ok = (g_strcmp0 (ostree_path, current_ostree_path) == 0);
-  return TRUE;
+  return g_strcmp0 (ostree_path, lan_data->cached_ostree_path) == 0;
 }
 
 typedef enum
@@ -290,23 +291,6 @@ check_dl_time (LanData *lan_data,
   return DL_TIME_NEW;
 }
 
-static gboolean
-txt_v1_handler_risky_checks (LanData *lan_data,
-                             GHashTable *records,
-                             gboolean *valid,
-                             GError **error)
-{
-  if (!check_ostree_path (lan_data,
-                          g_hash_table_lookup (records, eos_avahi_v1_ostree_path),
-                          valid,
-                          error))
-    return FALSE;
-  if (!*valid)
-    // TODO: message
-    return TRUE;
-  return TRUE;
-}
-
 static ServiceValidResult
 time_check (LanData *lan_data,
             EosServiceWithBranchFile *swbf,
@@ -337,23 +321,21 @@ time_check (LanData *lan_data,
   return SERVICE_INVALID;
 }
 
-static ServiceValidResult
-txt_v1_handler_time_check (LanData *lan_data,
-                           EosServiceWithBranchFile *swbf,
-                           GHashTable *records)
-{
-  const gchar *dl_time = g_hash_table_lookup (records, eos_avahi_v1_branch_file_dl_time);
-
-  return time_check (lan_data, swbf, dl_time);
-}
-
 static gboolean
 txt_v1_handler_checks (LanData *lan_data,
                        EosServiceWithBranchFile *swbf,
                        GHashTable *records)
 {
-  ServiceValidResult result = txt_v1_handler_time_check (lan_data, swbf, records);
+  const gchar *ostree_path = g_hash_table_lookup (records,
+                                                  eos_avahi_v1_ostree_path);
+  const gchar *dl_time;
+  ServiceValidResult result;
 
+  if (!check_ostree_path (lan_data, ostree_path))
+    return FALSE;
+
+  dl_time = g_hash_table_lookup (records, eos_avahi_v1_branch_file_dl_time);
+  result = time_check (lan_data, swbf, dl_time);
   if (result == SERVICE_VALID_MORE_CHECKS)
     {
       const gchar *sha512sum = g_hash_table_lookup (records, eos_avahi_v1_branch_file_sha512sum);
@@ -389,33 +371,9 @@ txt_v1_handler (LanData *lan_data,
       *valid = FALSE;
       return TRUE;
     }
-  if (!txt_v1_handler_risky_checks (lan_data,
-                                    records,
-                                    valid,
-                                    error))
-    return FALSE;
-  if (!*valid)
-    return TRUE;
   *valid = txt_v1_handler_checks (lan_data,
                                   swbf,
                                   records);
-  return TRUE;
-}
-
-static gboolean
-txt_v2_handler_risky_checks (LanData *lan_data,
-                             GHashTable *records,
-                             gboolean *valid,
-                             GError **error)
-{
-  if (!check_ostree_path (lan_data,
-                          g_hash_table_lookup (records, eos_avahi_v2_ostree_path),
-                          valid,
-                          error))
-    return FALSE;
-  if (!*valid)
-    // TODO: message
-    return TRUE;
   return TRUE;
 }
 
@@ -424,9 +382,16 @@ txt_v2_handler_checks (LanData *lan_data,
                        EosServiceWithBranchFile *swbf,
                        GHashTable *records)
 {
-  const gchar *dl_time = g_hash_table_lookup (records, eos_avahi_v2_branch_file_timestamp);
+  const gchar *ostree_path = g_hash_table_lookup (records,
+                                                  eos_avahi_v2_ostree_path);
+  const gchar *dl_time;
 
-  return time_check (lan_data, swbf, dl_time);
+  if (!check_ostree_path (lan_data, ostree_path))
+    return FALSE;
+
+  dl_time = g_hash_table_lookup (records, eos_avahi_v2_branch_file_timestamp);
+
+  return time_check (lan_data, swbf, dl_time) != SERVICE_INVALID;
 }
 
 static gboolean
@@ -447,11 +412,6 @@ txt_v2_handler (LanData *lan_data,
       *valid = FALSE;
       return TRUE;
     }
-  if (!txt_v2_handler_risky_checks (lan_data,
-                                    records,
-                                    valid,
-                                    error))
-    return FALSE;
   *valid = txt_v2_handler_checks (lan_data,
                                   swbf,
                                   records);
@@ -886,6 +846,9 @@ metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (out_metrics != NULL, FALSE);
 
+  if (!lan_data_init (&lan_data, fetch_data, error))
+    return FALSE;
+
   discoverer = eos_avahi_discoverer_new (fetch_data->context,
                                          discoverer_callback,
                                          &lan_data,
@@ -895,7 +858,6 @@ metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
   if (discoverer == NULL)
     return FALSE;
 
-  lan_data_init (&lan_data, fetch_data);
   g_main_loop_run (lan_data.main_loop);
   if (lan_data.error != NULL)
     {
