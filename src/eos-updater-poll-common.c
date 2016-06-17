@@ -434,7 +434,8 @@ commit_checksum_from_extensions_ref (OstreeRepo *repo,
   gconstpointer raw_data;
   gsize raw_len;
   g_autoptr(EosExtensions) extensions = NULL;
-
+  g_autoptr(GKeyFile) ref_keyfile = NULL;
+  g_autofree gchar *actual_ref = NULL;
 
   if (!get_extensions_url (repo, remote_name, url_override, &extensions_url, error))
     return FALSE;
@@ -454,8 +455,36 @@ commit_checksum_from_extensions_ref (OstreeRepo *repo,
   if (!ostree_gpg_verify_result_require_valid_signature (gpg_result, error))
     return FALSE;
 
+  ref_keyfile = g_key_file_new ();
   raw_data = g_bytes_get_data (contents, &raw_len);
-  checksum = g_strndup (raw_data, raw_len);
+  if (!g_key_file_load_from_data (ref_keyfile,
+                                  raw_data,
+                                  raw_len,
+                                  G_KEY_FILE_NONE,
+                                  error))
+    return FALSE;
+
+  actual_ref = g_key_file_get_string (ref_keyfile,
+                                      "mapping",
+                                      "ref",
+                                      error);
+  if (actual_ref == NULL)
+    return FALSE;
+
+  if (g_strcmp0 (actual_ref, ref) != 0)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "The file under %s contains data about ref %s, instead of %s",
+                   eos_ref_url, actual_ref, ref);
+      return FALSE;
+    }
+
+  checksum = g_key_file_get_string (ref_keyfile,
+                                    "mapping",
+                                    "commit",
+                                    error);
+  if (checksum == NULL)
+    return FALSE;
   g_strstrip (checksum);
 
   if (!ostree_validate_structureof_checksum_string (checksum, error))
