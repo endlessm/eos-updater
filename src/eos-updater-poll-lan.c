@@ -875,7 +875,7 @@ discoverer_callback (EosAvahiDiscoverer *discoverer,
 
 gboolean
 metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
-                         EosUpdateInfo **info,
+                         EosUpdateInfo **out_info,
                          EosMetricsInfo **out_metrics,
                          GError **error)
 {
@@ -883,7 +883,8 @@ metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
   g_auto(LanData) lan_data = LAN_DATA_CLEARED;
 
   g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), FALSE);
-  g_return_val_if_fail (info != NULL, FALSE);
+  g_return_val_if_fail (out_info != NULL, FALSE);
+  g_return_val_if_fail (out_metrics != NULL, FALSE);
 
   discoverer = eos_avahi_discoverer_new (fetch_data->context,
                                          discoverer_callback,
@@ -901,7 +902,7 @@ metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
       g_propagate_error (error, g_steal_pointer (&lan_data.error));
       return FALSE;
     }
-  *info = g_steal_pointer (&lan_data.info);
+  *out_info = g_steal_pointer (&lan_data.info);
   *out_metrics = g_steal_pointer (&lan_data.metrics);
   return TRUE;
 }
