@@ -445,7 +445,28 @@ eos_updater_get_timestamp_from_branch_file_keyfile (GKeyFile *branch_file,
       return FALSE;
     }
 
-  *out_timestamp = g_steal_pointer (&timestamp);
+  if (out_timestamp != NULL)
+    *out_timestamp = g_steal_pointer (&timestamp);
+  return TRUE;
+}
+
+gboolean
+eos_updater_get_ostree_paths_from_branch_file_keyfile (GKeyFile *branch_file,
+                                                       gchar ***out_ostree_paths,
+                                                       GError **error)
+{
+  g_auto(GStrv) ostree_paths = NULL;
+
+  ostree_paths = g_key_file_get_string_list (branch_file,
+                                             "main",
+                                             "OstreePaths",
+                                             NULL,
+                                             error);
+  if (ostree_paths == NULL)
+    return FALSE;
+
+  if (out_ostree_paths != NULL)
+    *out_ostree_paths = g_steal_pointer (&ostree_paths);
   return TRUE;
 }
 
