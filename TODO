@@ -51,12 +51,13 @@
 
       - eos-update-server would likely be distributed together with
         the slave or eos-updater project could be configured to build
-        only the slave and the eos-update-server programs
+        only the eos-update-server program, so the slave would build
+        it itself
 
     - setting up a fake sysroot with some specific commit (like we
       currently do in "make check")
 
-    - setting up an avahi service file and systemd service and timer
+    - setting up an avahi service file and systemd service and socket
       unit files
 
     - cleanup the mess
