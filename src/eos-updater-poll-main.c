@@ -163,7 +163,7 @@ download_branch_file (OstreeRepo *repo,
 
 gboolean
 metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
-                          EosUpdateInfo **info,
+                          EosUpdateInfo **out_info,
                           EosMetricsInfo **out_metrics,
                           GError **error)
 {
@@ -171,9 +171,11 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *orig_refspec = NULL;
   g_autoptr(EosBranchFile) branch_file = NULL;
+  g_autoptr(EosUpdateInfo) info = NULL;
   g_autoptr(EosMetricsInfo) metrics = NULL;
 
-  g_return_val_if_fail (info != NULL, FALSE);
+  g_return_val_if_fail (out_info != NULL, FALSE);
+  g_return_val_if_fail (out_metrics != NULL, FALSE);
 
   if (!download_branch_file (repo,
                              &branch_file,
@@ -213,16 +215,15 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
 
       g_set_object (&extensions->branch_file, branch_file);
       if (commit != NULL)
-        *info = eos_update_info_new (checksum,
-                                     commit,
-                                     refspec,
-                                     orig_refspec,
-                                     NULL,
-                                     extensions);
-      else
-        *info = NULL;
+        info = eos_update_info_new (checksum,
+                                    commit,
+                                    refspec,
+                                    orig_refspec,
+                                    NULL,
+                                    extensions);
     }
 
+  *out_info = g_steal_pointer (&info);
   *out_metrics = g_steal_pointer (&metrics);
   return TRUE;
 }
