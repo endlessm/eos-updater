@@ -57,7 +57,8 @@ static const gchar * state_str[] = {
    "Fetching",
    "UpdateReady",
    "ApplyUpdate",
-   "UpdateApplied" };
+   "UpdateApplied"
+};
 
 G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_UPDATER_N_STATES);
 
@@ -72,7 +73,7 @@ eos_updater_state_to_string (EosUpdaterState state)
 OstreeRepo *
 eos_updater_local_repo (void)
 {
-  GError *error = NULL;
+  g_autoptr(GError) error = NULL;
   g_autoptr(OstreeRepo) repo = ostree_repo_new_default ();
 
   if (!ostree_repo_open (repo, NULL, &error))
@@ -80,39 +81,25 @@ eos_updater_local_repo (void)
       GFile *file = ostree_repo_get_path (repo);
       g_autofree gchar *path = g_file_get_path (file);
 
-      g_warning ("Repo at '%s' is not Ok (%s)",
-                 path ? path : "", error->message);
-
-      g_clear_error (&error);
-      g_assert_not_reached ();
+      g_error ("Repo at '%s' is not Ok (%s)",
+               path ? path : "", error->message);
     }
 
   return g_steal_pointer (&repo);
 }
 
 static gboolean
-ensure_is_ancestor (GFile *dir,
-                    GFile *file,
-                    GError **error)
+is_ancestor (GFile *dir,
+             GFile *file)
 {
-  g_autoptr(GFile) child = NULL;
+  g_autoptr(GFile) child = g_object_ref (file);
 
-  child = g_object_ref (file);
   for (;;)
     {
       g_autoptr(GFile) parent = g_file_get_parent (child);
 
       if (parent == NULL)
-        {
-          g_autofree gchar *raw_dir_path = g_file_get_path (dir);
-          g_autofree gchar *raw_file_path = g_file_get_path (file);
-
-          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                       "%s is not an ancestor of %s, not deleting anything",
-                       raw_dir_path,
-                       raw_file_path);
-          return FALSE;
-        }
+        return FALSE;
 
       if (g_file_equal (dir, parent))
         break;
@@ -136,8 +123,16 @@ delete_file_and_subdirs (GFile *dir,
   g_autoptr(GError) local_error = NULL;
   g_autoptr(GFile) child = NULL;
 
-  if (!ensure_is_ancestor (dir, file, error))
-    return FALSE;
+  if (!is_ancestor (dir, file))
+    {
+      g_autofree gchar *raw_dir_path = g_file_get_path (dir);
+      g_autofree gchar *raw_file_path = g_file_get_path (file);
+
+      g_warning ("%s is not an ancestor of %s, not deleting anything",
+                 raw_dir_path,
+                 raw_file_path);
+      return FALSE;
+    }
 
   if (!g_file_delete (file, cancellable, &local_error))
     {
@@ -274,14 +269,36 @@ eos_updater_set_error (EosUpdater *updater, GError *error)
 }
 
 static gboolean
-fallback_to_the_first_deployment (void)
+fallback_to_the_fake_deployment (void)
 {
-  g_autofree gchar *value = NULL;
+  const gchar *value = NULL;
 
-  value = eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK",
-                                     NULL);
+  value = g_getenv ("EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK");
 
   return value != NULL;
+}
+
+static OstreeDeployment *
+get_fake_deployment (OstreeSysroot *sysroot,
+                     GError **error)
+{
+  static OstreeDeployment *fake_booted_deployment = NULL;
+
+  if (fake_booted_deployment == NULL)
+    {
+      g_autoptr(GPtrArray) deployments = NULL;
+
+      deployments = ostree_sysroot_get_deployments (sysroot);
+      if (deployments->len == 0)
+        {
+          g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                               "No deployments found at all");
+          return NULL;
+        }
+      fake_booted_deployment = g_object_ref (g_ptr_array_index (deployments, 0));
+    }
+
+  return g_object_ref (fake_booted_deployment);
 }
 
 OstreeDeployment *
@@ -291,34 +308,15 @@ eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
   OstreeDeployment *booted_deployment = NULL;
 
   booted_deployment = ostree_sysroot_get_booted_deployment (sysroot);
-  if (booted_deployment == NULL)
-    {
-      g_autoptr(GPtrArray) deployments = NULL;
-      static OstreeDeployment *fake_booted_deployment = NULL;
+  if (booted_deployment != NULL)
+    return g_object_ref (booted_deployment);
 
-      if (!fallback_to_the_first_deployment ())
-        {
-          g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                               "Not an ostree system");
-          return NULL;
-        }
+  if (fallback_to_the_fake_deployment ())
+    return get_fake_deployment (sysroot, error);
 
-      if (fake_booted_deployment == NULL)
-        {
-          deployments = ostree_sysroot_get_deployments (sysroot);
-          if (deployments->len == 0)
-            {
-              g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                                   "No deployments found at all");
-              return NULL;
-            }
-          fake_booted_deployment = g_object_ref (g_ptr_array_index (deployments, 0));
-        }
-
-      return g_object_ref (fake_booted_deployment);
-    }
-
-  return g_object_ref (booted_deployment);
+  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                       "Not an ostree system");
+  return NULL;
 }
 
 OstreeDeployment *
@@ -396,7 +394,7 @@ eos_updater_get_ostree_path (OstreeRepo *repo,
   while (path[to_move] == '/')
     ++to_move;
   if (to_move > 0)
-    memmove (path, path + to_move, strlen (path));
+    memmove (path, path + to_move, strlen (path) - to_move + 1);
   *ostree_path = g_steal_pointer (&path);
   return TRUE;
 }
@@ -407,16 +405,13 @@ eos_updater_queue_callback (GMainContext *context,
                             gpointer user_data,
                             const gchar *name)
 {
-  GSource *source = g_idle_source_new ();
-  guint id;
+  g_autoptr(GSource) source = g_idle_source_new ();
 
   if (name != NULL)
     g_source_set_name (source, name);
   g_source_set_callback (source, function, user_data, NULL);
-  id = g_source_attach (source, context);
-  g_source_unref (source);
 
-  return id;
+  return g_source_attach (source, context);
 }
 
 gboolean
@@ -544,7 +539,6 @@ on_quit_file_changed (GFileMonitor *monitor,
                       gpointer quit_file_ptr)
 {
   EosQuitFile *quit_file = EOS_QUIT_FILE (quit_file_ptr);
-  guint id;
 
   if (event != G_FILE_MONITOR_EVENT_DELETED)
     return;
@@ -553,9 +547,8 @@ on_quit_file_changed (GFileMonitor *monitor,
     quit_file->timeout_id = g_timeout_add_seconds (quit_file->timeout_seconds,
                                                    quit_file_source_func,
                                                    quit_file);
-  id = quit_file->signal_id;
+  g_signal_handler_disconnect (quit_file->monitor, quit_file->signal_id);
   quit_file->signal_id = 0;
-  g_signal_handler_disconnect (quit_file->monitor, id);
 }
 
 EosQuitFile *
@@ -576,7 +569,7 @@ eos_updater_setup_quit_file (const gchar *path,
                                  NULL,
                                  error);
   if (monitor == NULL)
-    return FALSE;
+    return NULL;
 
   quit_file = g_object_new (EOS_TYPE_QUIT_FILE, NULL);
   quit_file->monitor = g_steal_pointer (&monitor);

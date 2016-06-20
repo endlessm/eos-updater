@@ -45,13 +45,15 @@ EOS_DEFINE_REFCOUNTED (EOS_BRANCH_FILE,
                        eos_branch_file_dispose_impl,
                        eos_branch_file_finalize_impl)
 
-static GDateTime *
+static gboolean
 get_download_time (GFile *file,
                    GCancellable *cancellable,
+                   GDateTime **out_download_time,
                    GError **error)
 {
   g_autoptr(GFileInfo) info = NULL;
   guint64 mod_time;
+  g_autoptr(GDateTime) download_time = NULL;
 
   info = g_file_query_info (file,
                             G_FILE_ATTRIBUTE_TIME_MODIFIED,
@@ -63,7 +65,16 @@ get_download_time (GFile *file,
 
   mod_time = g_file_info_get_attribute_uint64 (info,
                                                G_FILE_ATTRIBUTE_TIME_MODIFIED);
-  return g_date_time_new_from_unix_utc (mod_time);
+  download_time = g_date_time_new_from_unix_utc (mod_time);
+  if (download_time == NULL)
+    {
+      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                           "Invalid branch file modification time");
+      return FALSE;
+    }
+
+  *out_download_time = g_steal_pointer (&download_time);
+  return TRUE;
 }
 
 static gboolean
@@ -74,9 +85,6 @@ read_file_to_bytes (GFile *file,
 {
   g_autofree gchar *contents = NULL;
   gsize len = 0;
-
-  if (!g_file_query_exists (file, cancellable))
-    return TRUE;
 
   if (!g_file_load_contents (file,
                              cancellable,
@@ -136,6 +144,7 @@ eos_branch_file_new_from_files (GFile *branch_file,
   g_autoptr(GBytes) branch_file_bytes = NULL;
   g_autoptr(GBytes) signature_bytes = NULL;
   g_autoptr(GDateTime) download_time = NULL;
+  g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (G_IS_FILE (branch_file), NULL);
   g_return_val_if_fail (G_IS_FILE (signature), NULL);
@@ -145,25 +154,25 @@ eos_branch_file_new_from_files (GFile *branch_file,
                            &branch_file_bytes,
                            error))
     return NULL;
-  if (branch_file_bytes == NULL)
-    {
-      g_autofree gchar *path = g_file_get_path (branch_file);
 
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                   "cached branch file in %s not found", path);
-      return NULL;
-    }
   if (!read_file_to_bytes (signature,
                            cancellable,
                            &signature_bytes,
-                           error))
-    return NULL;
-  if (signature_bytes == NULL)
+                           &local_error))
     {
-      download_time = get_download_time (branch_file,
-                                         cancellable,
-                                         error);
-      if (download_time == NULL)
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
+
+      /* signature file not found, means we have an old version of the
+       * branch file, read the download time from branch file's
+       * mtime */
+      if (!get_download_time (branch_file,
+                              cancellable,
+                              &download_time,
+                              error))
         return NULL;
     }
 
@@ -266,13 +275,15 @@ eos_branch_file_save (EosBranchFile *branch_file,
   if (branch_file->raw_signature == NULL)
     {
       gint64 unix_time = g_date_time_to_unix (branch_file->download_time);
+      g_autoptr(GError) local_error;
 
       if (unix_time < 0)
         {
-          g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
                        "invalid download time of the branch file");
           return FALSE;
         }
+
       if (!g_file_set_attribute_uint64 (target,
                                         G_FILE_ATTRIBUTE_TIME_MODIFIED,
                                         unix_time,
@@ -280,9 +291,17 @@ eos_branch_file_save (EosBranchFile *branch_file,
                                         cancellable,
                                         error))
         return FALSE;
-    }
 
-  if (branch_file->raw_signature != NULL)
+      if (!g_file_delete (target_signature,
+                          cancellable,
+                          &local_error))
+        {
+          if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+            return FALSE;
+          g_clear_error (&local_error);
+        }
+    }
+  else
     {
       contents = g_bytes_get_data (branch_file->raw_signature,
                                    &len);
@@ -295,13 +314,6 @@ eos_branch_file_save (EosBranchFile *branch_file,
                                     NULL,
                                     cancellable,
                                     error))
-        return FALSE;
-    }
-  else
-    {
-      if (g_file_delete (target_signature,
-                         cancellable,
-                         error))
         return FALSE;
     }
 

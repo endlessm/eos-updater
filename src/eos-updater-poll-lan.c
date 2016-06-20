@@ -36,16 +36,14 @@ typedef enum
   TXT_RECORD_NOT_FOUND
 } TxtRecordError;
 
-typedef struct LanData LanData;
-
-struct LanData
+typedef struct
 {
   EosMetadataFetchData *fetch_data;
   GMainLoop *main_loop;
   GError *error;
   EosUpdateInfo *info;
   EosMetricsInfo *metrics;
-};
+} LanData;
 
 #define LAN_DATA_CLEARED { NULL, NULL, NULL, NULL, NULL }
 
@@ -53,9 +51,6 @@ static void
 lan_data_init (LanData *lan_data,
                EosMetadataFetchData *fetch_data)
 {
-  if (lan_data == NULL)
-    return;
-
   g_return_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data));
 
   memset (lan_data, 0, sizeof (*lan_data));
@@ -66,9 +61,6 @@ lan_data_init (LanData *lan_data,
 static void
 lan_data_clear (LanData *lan_data)
 {
-  if (lan_data == NULL)
-    return;
-
   g_clear_object (&lan_data->metrics);
   g_clear_object (&lan_data->info);
   g_clear_error (&lan_data->error);

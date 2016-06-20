@@ -154,9 +154,8 @@ walk_definitions_directory (GFileEnumerator *enumerator,
                             GPtrArray **services,
                             GError **error)
 {
-  g_autoptr(GPtrArray) found_services = NULL;
+  g_autoptr(GPtrArray) found_services = object_array_new ();
 
-  found_services = object_array_new ();
   for (;;)
     {
       GFileInfo *info;

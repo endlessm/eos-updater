@@ -37,16 +37,33 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef struct Options Options;
-
-struct Options
+typedef struct
 {
   guint16 local_port;
   gint timeout_seconds;
   gchar *served_remote;
-};
+} Options;
 
 #define OPTIONS_CLEARED { 0u, 0, NULL }
+
+static gboolean
+check_option_is (const gchar *option_name,
+                 const gchar *long_name,
+                 const gchar *short_name,
+                 GError **error)
+{
+  if (g_strcmp0 (option_name, long_name) != 0 && g_strcmp0 (option_name, short_name) != 0)
+    {
+      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
+                   "Wrong option %s to parse, expected either %s or %s, should not happen",
+                   option_name,
+                   long_name,
+                   short_name);
+      return FALSE;
+    }
+
+  return TRUE;
+}
 
 static gboolean
 local_port_goption (const gchar *option_name,
@@ -59,12 +76,8 @@ local_port_goption (const gchar *option_name,
   int saved_errno;
   Options* options = options_ptr;
 
-  if (g_strcmp0 (option_name, "--local-port") != 0 && g_strcmp0 (option_name, "-p") != 0)
-    {
-      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
-                   "Wrong option %s to parse, should not happen", option_name);
-      return FALSE;
-    }
+  if (!check_option_is (option_name, "--local-port", "-p", error))
+    return FALSE;
 
   errno = 0;
   number = g_ascii_strtoull (value, (gchar **)&endptr, 10);
@@ -90,12 +103,9 @@ serve_remote_goption (const gchar *option_name,
   g_autofree gchar *remote = NULL;
   g_autofree gchar *test_refspec = g_strdup_printf ("%s:test", value);
 
-  if (g_strcmp0 (option_name, "--serve-remote") != 0 && g_strcmp0 (option_name, "-r") != 0)
-    {
-      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
-                   "Wrong option %s to parse, should not happen", option_name);
-      return FALSE;
-    }
+  if (!check_option_is (option_name, "--serve-remote", "-r", error))
+    return FALSE;
+
   if (!ostree_parse_refspec (test_refspec, &remote, NULL, NULL) ||
       g_strcmp0 (value, remote) != 0)
     {
@@ -139,9 +149,6 @@ options_init (Options *options,
 static void
 options_clear (Options *options)
 {
-  if (options == NULL)
-    return;
-
   options->local_port = 0;
   options->timeout_seconds = 0;
   g_clear_pointer (&options->served_remote, g_free);
@@ -152,19 +159,13 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (Options, options_clear)
 static void
 clear_source (guint *id)
 {
-  guint source_id;
-
   if (id == NULL || *id == 0)
     return;
-  source_id = *id;
+  g_source_remove (*id);
   *id = 0;
-
-  g_source_remove (source_id);
 }
 
-typedef struct Data Data;
-
-struct Data
+typedef struct
 {
   OstreeRepo *repo;
   GMainLoop *loop;
@@ -180,7 +181,7 @@ struct Data
 
   guint async_requests_pending;
   EosQuitFile *quit_file;
-};
+} Data;
 
 #define DATA_CLEARED { NULL, NULL, NULL, 0, 0u, NULL, NULL, NULL, 0, NULL }
 
@@ -326,9 +327,6 @@ data_init (Data *data,
   g_autoptr(GFile) path = NULL;
   g_autoptr(GFile) sig_path = NULL;
 
-  if (data == NULL)
-    return TRUE;
-
   memset (data, 0, sizeof (*data));
   data->repo = eos_updater_local_repo ();
   data->loop = g_main_loop_new (NULL, FALSE);
@@ -352,9 +350,6 @@ data_init (Data *data,
 static void
 data_clear (Data *data)
 {
-  if (data == NULL)
-    return;
-
   g_clear_object (&data->quit_file);
   data->async_requests_pending = 0;
   g_clear_pointer (&data->cached_config, g_bytes_unref);

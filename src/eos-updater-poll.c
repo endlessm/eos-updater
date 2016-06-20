@@ -337,13 +337,11 @@ maybe_send_metric (EosMetricsInfo *metrics)
 #endif
 }
 
-typedef struct UpdateAndMetrics UpdateAndMetrics;
-
-struct UpdateAndMetrics
+typedef struct
 {
   EosUpdateInfo *update;
   EosMetricsInfo *metrics;
-};
+} UpdateAndMetrics;
 
 static UpdateAndMetrics *
 update_and_metrics_new (EosUpdateInfo *update,

@@ -461,10 +461,9 @@ setup_emulated_avahi_discoverer (EosAvahiDiscoverer *discoverer,
 static gboolean
 use_avahi_emulator (void)
 {
-  g_autofree gchar *value = NULL;
+  const gchar *value = NULL;
 
-  value = eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_USE_AVAHI_EMULATOR",
-                                     NULL);
+  value = g_getenv ("EOS_UPDATER_TEST_UPDATER_USE_AVAHI_EMULATOR");
 
   return value != NULL;
 }
