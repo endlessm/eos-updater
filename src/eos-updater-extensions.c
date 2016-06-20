@@ -106,7 +106,7 @@ eos_extensions_save (EosExtensions *extensions,
     {
       g_autofree gchar *ref_sig_filename = NULL;
 
-      if (!eos_updater_save_or_delete (extensions->summary_sig,
+      if (!eos_updater_save_or_delete (extensions->ref,
                                        ext_path,
                                        extensions->ref_name,
                                        cancellable,
@@ -114,7 +114,7 @@ eos_extensions_save (EosExtensions *extensions,
         return FALSE;
 
       ref_sig_filename = g_strconcat (extensions->ref_name, ".sig", NULL);
-      if (!eos_updater_save_or_delete (extensions->summary_sig,
+      if (!eos_updater_save_or_delete (extensions->ref_sig,
                                        ext_path,
                                        ref_sig_filename,
                                        cancellable,

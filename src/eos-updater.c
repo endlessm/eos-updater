@@ -35,9 +35,7 @@
 #include <gio/gio.h>
 #include <glib.h>
 
-typedef struct LocalData LocalData;
-
-struct LocalData
+typedef struct
 {
   EosQuitFile *quit_file;
   GDBusObjectManagerServer *manager;
@@ -45,7 +43,7 @@ struct LocalData
 
   GMainLoop *loop;
   EosUpdaterData *data;
-};
+} LocalData;
 
 #define LOCAL_DATA_CLEARED { NULL, NULL, NULL, NULL, NULL }
 
@@ -165,9 +163,8 @@ static EosQuitFileCheckResult
 check_and_quit (gpointer local_data_ptr)
 {
   LocalData *local_data = local_data_ptr;
-  EosUpdaterState state;
+  EosUpdaterState state = eos_updater_get_state (local_data->updater);
 
-  state = eos_updater_get_state (local_data->updater);
   switch (state)
     {
     case EOS_UPDATER_STATE_NONE:
@@ -217,10 +214,9 @@ maybe_setup_quit_file (LocalData *local_data,
 static gboolean
 listen_on_session_bus (void)
 {
-  g_autofree gchar *value = NULL;
+  const gchar *value = NULL;
 
-  value = eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS",
-                                     NULL);
+  value = g_getenv ("EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS");
 
   return value != NULL;
 }

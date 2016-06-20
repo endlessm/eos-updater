@@ -47,7 +47,20 @@ struct EosUpdaterData
   EosUpdaterDownloadSource *download_order;
   gsize n_download_sources;
   EosBranchFile *branch_file;
+
+  /* fields below are meant to be shared between some update stages;
+   * when adding a new one, document it.
+   */
+
+  /* extensions field is filled with some of the results of the
+   * polling stage and it is saved to disk in apply stage when
+   * deploying an update succeeds.
+   */
   EosExtensions *extensions;
+  /* overridden_urls field is filled with some of the results of the
+   * polling stage and it is used during fetch stage to select a
+   * server to download the data from.
+   */
   gchar **overridden_urls;
 };
 

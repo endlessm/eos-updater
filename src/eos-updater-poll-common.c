@@ -933,9 +933,8 @@ get_hw_descriptors (void)
 {
   GHashTable *hw_descriptors = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                       g_free, g_free);
-  g_autofree gchar *custom_descriptors = NULL;
+  g_autofree gchar *custom_descriptors = get_custom_descriptors_path ();
 
-  custom_descriptors = get_custom_descriptors_path ();
   if (custom_descriptors != NULL)
     get_custom_hw_descriptors (hw_descriptors,
                                custom_descriptors);

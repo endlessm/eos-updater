@@ -30,7 +30,8 @@
 
 G_BEGIN_DECLS
 
-typedef struct {
+typedef struct
+{
   GTestDBus *dbus;
   GFile *tmpdir;
 } EosUpdaterFixture;

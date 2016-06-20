@@ -31,8 +31,8 @@ eos_updater_data_init (EosUpdaterData *data,
                        OstreeRepo *repo,
                        GError **error)
 {
-  g_return_if_fail (data != NULL);
-  g_return_if_fail (OSTREE_IS_REPO (repo));
+  g_return_val_if_fail (data != NULL, FALSE);
+  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
 
   memset (data, 0, sizeof *data);
   data->repo = g_object_ref (repo);

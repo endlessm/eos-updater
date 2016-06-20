@@ -82,12 +82,11 @@ get_stamp_dir (void)
 static void
 update_stamp_file (void)
 {
-  g_autofree gchar *stamp_dir = NULL;
+  g_autofree gchar *stamp_dir = get_stamp_dir ();
   g_autofree gchar *stamp_path = NULL;
   g_autoptr(GFile) stamp_file = NULL;
   g_autoptr(GError) error = NULL;
 
-  stamp_dir = get_stamp_dir ();
   if (g_mkdir_with_parents (stamp_dir, 0755) != 0) {
     int saved_errno = errno;
     const char *err_str = g_strerror (saved_errno);
@@ -480,10 +479,9 @@ is_connected_through_mobile (void)
 static gboolean
 listen_on_session_bus (void)
 {
-  g_autofree gchar *value = NULL;
+  const gchar *value = NULL;
 
-  value = dup_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS",
-                         NULL);
+  value = g_getenv ("EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS");
 
   return value != NULL;
 }
