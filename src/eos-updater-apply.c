@@ -79,12 +79,18 @@ apply (GTask *task,
   const gchar *update_id = eos_updater_get_update_id (updater);
   const gchar *update_refspec = eos_updater_get_update_refspec (updater);
   const gchar *orig_refspec = eos_updater_get_original_refspec (updater);
+  g_autofree gchar *contents = NULL;
+  g_autoptr(GFile) rev_flags_path;
+  GFile *repo_path = ostree_repo_get_path (repo);
+  g_autoptr(GFile) flags_extension_dir;
   gint bootversion = 0;
   gint newbootver = 0;
   g_autoptr(OstreeDeployment) merge_deployment = NULL;
   g_autoptr(OstreeDeployment) new_deployment = NULL;
   GKeyFile *origin = NULL;
+  g_autoptr(GKeyFile) rev_flags;
   g_autoptr(OstreeSysroot) sysroot = NULL;
+  gsize len = 0;
 
   g_main_context_push_thread_default (task_context);
 
@@ -144,6 +150,26 @@ apply (GTask *task,
                                                0,
                                                cancel,
                                                &error))
+    goto error;
+
+  flags_extension_dir = g_file_resolve_relative_path (repo_path, "extensions/eos/boot-flags");
+  if (!g_file_make_directory_with_parents (flags_extension_dir, cancel, &error) &&
+      !g_error_matches(error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+    goto error;
+
+  rev_flags = g_key_file_new ();
+  g_key_file_set_string(rev_flags, "boot-flags", "successful", "0");
+  g_key_file_set_string(rev_flags, "boot-flags", "tries_left", "1");
+
+  contents = g_key_file_to_data (rev_flags, &len, &error);
+  if (!contents)
+    goto error;
+
+  rev_flags_path = g_file_resolve_relative_path (flags_extension_dir, update_id);
+  if (!g_file_replace_contents (rev_flags_path,
+                                contents, len,
+                                NULL, FALSE, 0, NULL,
+                                cancel, &error))
     goto error;
 
   newbootver = ostree_deployment_get_deployserial (new_deployment);
