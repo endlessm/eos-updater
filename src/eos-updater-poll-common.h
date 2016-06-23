@@ -136,4 +136,9 @@ gboolean get_origin_refspec (OstreeDeployment *booted_deployment,
 
 GHashTable *get_hw_descriptors (void);
 
+gboolean check_branch_file_validity (OstreeRepo *repo,
+                                     EosBranchFile *cached_branch_file,
+                                     EosBranchFile *branch_file,
+                                     gboolean *out_valid,
+                                     GError **error);
 G_END_DECLS
