@@ -76,7 +76,18 @@ eos_update_server_CFLAGS = $(common_cflags) $(EOS_UPDATE_SERVER_CFLAGS)
 eos_update_server_LDADD = $(common_ldadd) $(preparelib) $(EOS_UPDATE_SERVER_LIBS)
 eos_update_server_SOURCES = eos-update-server.c
 
-bin_PROGRAMS = eos-updater
+bin_PROGRAMS = eos-updater eos-prepare-volume
+
+eos_prepare_volume_CFLAGS = \
+	$(common_cflags) \
+	$(NULL)
+eos_prepare_volume_LDADD = \
+	$(common_ldadd) \
+	$(preparelib) \
+	$(NULL)
+eos_prepare_volume_SOURCES = \
+	eos-prepare-volume.c \
+	$(NULL)
 
 eos_updater_CFLAGS = \
 	$(common_cflags) \

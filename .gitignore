@@ -43,6 +43,7 @@ src/Makefile.in
 src/com.endlessm.Updater.conf
 src/com.endlessm.Updater.service
 src/eos-autoupdater
+src/eos-prepare-volume
 src/eos-update-server
 src/eos-updater
 src/eos-updater-generated.c
