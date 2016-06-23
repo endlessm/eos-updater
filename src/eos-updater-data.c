@@ -28,7 +28,7 @@ void
 eos_updater_data_init (EosUpdaterData *data,
                        OstreeRepo *repo)
 {
-  g_return_if_fail (data == NULL);
+  g_return_if_fail (data != NULL);
   g_return_if_fail (OSTREE_IS_REPO (repo));
 
   memset (data, 0, sizeof *data);
@@ -38,8 +38,7 @@ eos_updater_data_init (EosUpdaterData *data,
 void
 eos_updater_data_clear (EosUpdaterData *data)
 {
-  if (data == NULL)
-    return;
+  g_return_if_fail (data != NULL);
 
   g_clear_object (&data->repo);
 }
