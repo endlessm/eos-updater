@@ -38,6 +38,16 @@
 
 #endif /* HAS_EOSMETRICS_0 */
 
+typedef enum
+{
+  EOS_UPDATER_DOWNLOAD_FIRST,
+
+  EOS_UPDATER_DOWNLOAD_MAIN = EOS_UPDATER_DOWNLOAD_FIRST,
+  EOS_UPDATER_DOWNLOAD_LAN,
+
+  EOS_UPDATER_DOWNLOAD_N_SOURCES,
+} EosUpdaterDownloadSource;
+
 /*
  * Records which branch will be used by the updater. The payload is a 4-tuple
  * of 3 strings and boolean: vendor name, product ID, selected OStree ref, and
@@ -81,11 +91,12 @@ string_to_download_source (const gchar *str,
 
 static gboolean
 strv_to_download_order (gchar **sources,
-                        EosUpdaterDownloadSource **order,
-                        gsize *n_download_sources,
+                        GArray **out_download_order,
                         GError **error)
 {
-  g_autoptr(GArray) array = g_array_new (FALSE, FALSE, sizeof (EosUpdaterDownloadSource));
+  g_autoptr(GArray) array = g_array_new (FALSE, /* not null terminated */
+                                         FALSE, /* no clearing */
+                                         sizeof (EosUpdaterDownloadSource));
   g_autoptr(GHashTable) found_sources = g_hash_table_new (NULL, NULL);
   gchar **iter;
 
@@ -99,38 +110,23 @@ strv_to_download_order (gchar **sources,
 
       if (!g_hash_table_add (found_sources, GINT_TO_POINTER (idx)))
         {
-          g_set_error (error, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_CONFIGURATION, "Duplicated download source %s", key);
+          g_set_error (error, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_CONFIGURATION,
+                       "Duplicated download source %s",
+                       key);
           return FALSE;
         }
       g_array_append_val (array, idx);
     }
 
-  *n_download_sources = array->len;
-  *order = (EosUpdaterDownloadSource*)g_array_free (g_steal_pointer (&array), FALSE);
-  return TRUE;
-}
-
-static gboolean
-string_to_download_order (const gchar *str,
-                          EosUpdaterDownloadSource **order,
-                          gsize *n_download_sources,
-                          GError **error)
-{
-  g_autofree gchar *dup = g_strstrip (g_strdup (str));
-  g_auto(GStrv) sources = NULL;
-
-  g_return_val_if_fail (order != NULL, FALSE);
-
-  if (dup[0] == '\0')
+  if (array->len == 0)
     {
-      *order = g_new (EosUpdaterDownloadSource, 1);
-      (*order)[0] = EOS_UPDATER_DOWNLOAD_MAIN;
-      *n_download_sources = 1;
-      return TRUE;
+      g_set_error_literal (error, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_CONFIGURATION,
+                           "No download sources");
+      return FALSE;
     }
 
-  sources = g_strsplit (dup, ",", -1);
-  return strv_to_download_order (sources, order, n_download_sources, error);
+  *out_download_order = g_steal_pointer (&array);
+  return TRUE;
 }
 
 static gchar *
@@ -140,17 +136,59 @@ get_config_file_path (void)
                                     CONFIG_FILE_PATH);
 }
 
+typedef struct
+{
+  GArray *download_order;
+} SourcesConfig;
+
+#define SOURCES_CONFIG_CLEARED { NULL }
+
+static void
+sources_config_clear (SourcesConfig *config)
+{
+  g_clear_pointer (&config->download_order, g_array_unref);
+  g_clear_pointer (&config->volume_path, g_free);
+}
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (SourcesConfig, sources_config_clear)
+
 static gboolean
-read_config (EosUpdaterData *data,
+sources_config_has_source (SourcesConfig *config,
+                           EosUpdaterDownloadSource source,
+                           gchar **out_group_name)
+{
+  gsize idx;
+
+  for (idx = 0; idx < config->download_order->len; ++idx)
+    {
+      EosUpdaterDownloadSource config_source = g_array_index (config->download_order,
+                                                              EosUpdaterDownloadSource,
+                                                              idx);
+
+      if (config_source == source)
+        {
+          *out_group_name = g_strdup_printf ("Source \"%s\"",
+                                             order_key_str[source]);
+          return TRUE;
+        }
+    }
+
+  *out_group_name = NULL;
+  return FALSE;
+}
+
+static gboolean
+read_config (SourcesConfig *sources_config,
              GError **error)
 {
   g_autoptr(GKeyFile) config = g_key_file_new ();
   g_autofree gchar *config_file_path = get_config_file_path ();
-  g_autofree gchar *download_order_str = NULL;
+  g_auto(GStrv) download_order_strv = NULL;
   g_autoptr(GError) local_error = NULL;
 
   if (!g_key_file_load_from_file (config, config_file_path, G_KEY_FILE_NONE, &local_error))
     {
+      EosUpdaterDownloadSource main_source = EOS_UPDATER_DOWNLOAD_MAIN;
       /* The documentation is not very clear about which error is
        * returned when the file is not found.
        */
@@ -160,28 +198,37 @@ read_config (EosUpdaterData *data,
           g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
         }
-      /* config file was not found, fall back to the defaults */
-      download_order_str = g_strdup ("main");
-      g_clear_error (&local_error);
-    }
-  else
-    {
-      download_order_str = g_key_file_get_string (config, DOWNLOAD_GROUP, ORDER_KEY, error);
-      if (download_order_str == NULL)
-        return FALSE;
+
+      /* Config file was not found, fall back to the defaults
+       */
+      sources_config->download_order = g_array_sized_new (FALSE, /* not null terminated */
+                                                          FALSE, /* no clearing */
+                                                          sizeof (EosUpdaterDownloadSource),
+                                                          1);
+      g_array_append_val (sources_config->download_order, main_source);
+
+      return TRUE;
     }
 
-  g_clear_pointer (&data->download_order, g_free);
-  data->n_download_sources = 0;
-  return string_to_download_order (download_order_str,
-                                   &data->download_order,
-                                   &data->n_download_sources,
-                                   error);
+  download_order_strv = g_key_file_get_string_list (config,
+                                                    DOWNLOAD_GROUP,
+                                                    ORDER_KEY,
+                                                    NULL,
+                                                    error);
+  if (download_order_strv == NULL)
+    return FALSE;
+
+  if (!strv_to_download_order (download_order_strv,
+                               &sources_config->download_order,
+                               error))
+    return FALSE;
+
+  return TRUE;
 }
 
-/* This is to make sure that the the function we pass is of the
-   correct prototype. g_ptr_array_add will not tell that to us,
-   because it takes a gpointer.
+/* This is to make sure that the function we pass is of the correct
+ * prototype. g_ptr_array_add will not tell that to us, because it
+ * takes a gpointer.
  */
 static void
 add_fetcher (GPtrArray *fetchers,
@@ -190,28 +237,52 @@ add_fetcher (GPtrArray *fetchers,
   g_ptr_array_add (fetchers, fetcher);
 }
 
-static GPtrArray *
-get_fetchers (EosUpdaterData *data)
+static void
+add_source_variant (GPtrArray *source_variants,
+                    GVariant *variant)
 {
-  GPtrArray *fetchers = g_ptr_array_new ();
+  g_variant_ref_sink (variant);
+
+  g_ptr_array_add (source_variants, variant);
+}
+
+static void
+get_fetchers (SourcesConfig *config,
+              GPtrArray **out_fetchers,
+              GPtrArray **out_source_variants)
+{
+  g_autoptr(GPtrArray) fetchers = g_ptr_array_sized_new (config->download_order->len);
+  g_autoptr(GPtrArray) source_variants = g_ptr_array_new_full (config->download_order->len,
+                                                               (GDestroyNotify)g_variant_unref);
   gsize idx;
 
-  for (idx = 0; idx < data->n_download_sources; ++idx)
-    switch (data->download_order[idx])
-      {
-      case EOS_UPDATER_DOWNLOAD_MAIN:
-        add_fetcher (fetchers, metadata_fetch_from_main);
-        break;
+  for (idx = 0; idx < config->download_order->len; ++idx)
+    {
+      g_auto(GVariantDict) dict_builder;
 
-      case EOS_UPDATER_DOWNLOAD_LAN:
-        add_fetcher (fetchers, metadata_fetch_from_lan);
-        break;
+      g_variant_dict_init (&dict_builder, NULL);
+      switch (g_array_index (config->download_order,
+                             EosUpdaterDownloadSource,
+                             idx))
+        {
+        case EOS_UPDATER_DOWNLOAD_MAIN:
+          add_fetcher (fetchers, metadata_fetch_from_main);
+          break;
 
-      case EOS_UPDATER_DOWNLOAD_N_SOURCES:
-        g_assert_not_reached ();
-      }
+        case EOS_UPDATER_DOWNLOAD_LAN:
+          add_fetcher (fetchers, metadata_fetch_from_lan);
+          break;
 
-  return fetchers;
+        case EOS_UPDATER_DOWNLOAD_N_SOURCES:
+          g_assert_not_reached ();
+        }
+
+      add_source_variant (source_variants,
+                          g_variant_dict_end (&dict_builder));
+    }
+
+  *out_fetchers = g_steal_pointer (&fetchers);
+  *out_source_variants = g_steal_pointer (&source_variants);
 }
 
 static void
@@ -368,7 +439,7 @@ update_and_metrics_free (UpdateAndMetrics *uam)
 }
 
 static UpdateAndMetrics *
-get_latest_uam (EosUpdaterData *data,
+get_latest_uam (SourcesConfig *config,
                 GHashTable *source_to_uam,
                 gboolean with_updates)
 {
@@ -403,9 +474,12 @@ get_latest_uam (EosUpdaterData *data,
         g_hash_table_insert (latest, name_ptr, uam_ptr);
     }
 
-  for (idx = 0; idx < data->n_download_sources; ++idx)
+  for (idx = 0; idx < config->download_order->len; ++idx)
     {
-      const gchar *name = order_key_str[data->download_order[idx]];
+      EosUpdaterDownloadSource source = g_array_index (sources,
+                                                       EosUpdaterDownloadSource,
+                                                       idx);
+      const gchar *name = order_key_str[source];
       UpdateAndMetrics *uam = g_hash_table_lookup (latest, name);
 
       if (uam != NULL)
@@ -426,19 +500,21 @@ metadata_fetch (GTask *task,
   g_autoptr(GMainContext) task_context = g_main_context_new ();
   g_autoptr(EosMetadataFetchData) fetch_data = NULL;
   g_autoptr(GPtrArray) fetchers = NULL;
+  g_autoptr(GPtrArray) source_variants = NULL;
   guint idx;
   UpdateAndMetrics *latest_uam = NULL;
   g_autoptr(GHashTable) source_to_uam = NULL;
+  g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
 
   fetch_data = eos_metadata_fetch_data_new (task, data, task_context);
 
-  if (!read_config (data, &error))
+  if (!read_config (&config, &error))
     {
       g_task_return_error (task, g_steal_pointer (&error));
       return;
     }
 
-  fetchers = get_fetchers (data);
+  get_fetchers (&config, &fetchers, &source_variants);
   source_to_uam = g_hash_table_new_full (NULL,
                                          NULL,
                                          NULL,
@@ -446,12 +522,26 @@ metadata_fetch (GTask *task,
   for (idx = 0; idx < fetchers->len; ++idx)
     {
       MetadataFetcher fetcher = g_ptr_array_index (fetchers, idx);
+      GVariant *source_variant = g_ptr_array_index (source_variants, idx);
       g_autoptr(EosUpdateInfo) info = NULL;
       g_autoptr(EosMetricsInfo) metrics = NULL;
       const gchar *name = order_key_str[data->download_order[idx]];
       UpdateAndMetrics *uam;
+      const GVariantType *source_variant_type = g_variant_get_type (source_variant);
 
-      if (!fetcher (fetch_data, &info, &metrics, &error))
+      if (!g_variant_type_equal (source_variant_type, G_VARIANT_TYPE_VARDICT))
+        {
+          g_autofree gchar *expected = g_variant_type_dup_string (G_VARIANT_TYPE_VARDICT);
+          g_autofree gchar *got = g_variant_type_dup_string (source_variant_type);
+
+          message ("Wrong type of %s fetcher configuration, expected %s, got %s",
+                   name,
+                   expected,
+                   got);
+          continue;
+        }
+
+      if (!fetcher (fetch_data, source_variant, &info, &metrics, &error))
         {
           message ("Failed to poll metadata from source %s: %s",
                    name, error->message);
@@ -471,9 +561,9 @@ metadata_fetch (GTask *task,
 
   if (g_hash_table_size (source_to_uam) > 0)
     {
-      latest_uam = get_latest_uam (data, source_to_uam, FALSE);
+      latest_uam = get_latest_uam (&config, source_to_uam, FALSE);
       maybe_send_metric (latest_uam->metrics);
-      latest_uam = get_latest_uam (data, source_to_uam, TRUE);
+      latest_uam = get_latest_uam (&config, source_to_uam, TRUE);
       if (latest_uam != NULL)
         {
           g_task_return_pointer (task,

@@ -856,6 +856,7 @@ discoverer_callback (EosAvahiDiscoverer *discoverer,
 
 gboolean
 metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
+                         GVariant *source_variant,
                          EosUpdateInfo **out_info,
                          EosMetricsInfo **out_metrics,
                          GError **error)

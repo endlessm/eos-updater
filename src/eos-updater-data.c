@@ -36,9 +36,6 @@ eos_updater_data_init (EosUpdaterData *data,
 
   memset (data, 0, sizeof *data);
   data->repo = g_object_ref (repo);
-  data->download_order = g_new (EosUpdaterDownloadSource, 1);
-  data->download_order[0] = EOS_UPDATER_DOWNLOAD_MAIN;
-  data->n_download_sources = 1;
 
   data->branch_file = eos_branch_file_new_from_repo (repo, NULL, error);
   if (data->branch_file == NULL)
@@ -54,7 +51,5 @@ eos_updater_data_clear (EosUpdaterData *data)
 
   g_clear_pointer (&data->overridden_urls, g_strfreev);
   g_clear_object (&data->branch_file);
-  data->n_download_sources = 0;
-  g_clear_pointer (&data->download_order, g_free);
   g_clear_object (&data->repo);
 }

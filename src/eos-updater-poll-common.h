@@ -105,6 +105,7 @@ eos_metadata_fetch_data_new (GTask *task,
                              GMainContext *context);
 
 typedef gboolean (*MetadataFetcher) (EosMetadataFetchData *fetch_data,
+                                     GVariant *source_variant,
                                      EosUpdateInfo **info,
                                      EosMetricsInfo **metrics,
                                      GError **error);
