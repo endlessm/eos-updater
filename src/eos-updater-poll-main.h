@@ -30,6 +30,7 @@ G_BEGIN_DECLS
 
 gboolean
 metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
+                          GVariant *source_variant,
                           EosUpdateInfo **out_info,
                           EosMetricsInfo **out_metrics,
                           GError **error);

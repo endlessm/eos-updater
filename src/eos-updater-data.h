@@ -29,23 +29,11 @@
 
 G_BEGIN_DECLS
 
-typedef enum
-{
-  EOS_UPDATER_DOWNLOAD_FIRST,
-
-  EOS_UPDATER_DOWNLOAD_MAIN = EOS_UPDATER_DOWNLOAD_FIRST,
-  EOS_UPDATER_DOWNLOAD_LAN,
-
-  EOS_UPDATER_DOWNLOAD_N_SOURCES,
-} EosUpdaterDownloadSource;
-
 typedef struct EosUpdaterData EosUpdaterData;
 
 struct EosUpdaterData
 {
   OstreeRepo *repo;
-  EosUpdaterDownloadSource *download_order;
-  gsize n_download_sources;
   EosBranchFile *branch_file;
 
   /* fields below are meant to be shared between some update stages;
@@ -64,7 +52,7 @@ struct EosUpdaterData
   gchar **overridden_urls;
 };
 
-#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, 0, NULL, NULL, NULL }
+#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL, NULL }
 
 gboolean eos_updater_data_init (EosUpdaterData *data,
                                 OstreeRepo *repo,

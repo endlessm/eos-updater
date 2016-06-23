@@ -294,6 +294,7 @@ check_branch_file_validity (OstreeRepo *repo,
 
 gboolean
 metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
+                          GVariant *source_variant,
                           EosUpdateInfo **out_info,
                           EosMetricsInfo **out_metrics,
                           GError **error)
