@@ -353,7 +353,8 @@ process_single_group (GKeyFile *bkf,
     }
 
   /* The "OnHold" key is optional. */
-  if (!g_error_matches (local_error,
+  if (local_error != NULL &&
+      !g_error_matches (local_error,
                         G_KEY_FILE_ERROR,
                         G_KEY_FILE_ERROR_KEY_NOT_FOUND))
     {
