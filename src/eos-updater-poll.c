@@ -28,6 +28,7 @@
 #include "eos-updater-poll-common.h"
 #include "eos-updater-poll-lan.h"
 #include "eos-updater-poll-main.h"
+#include "eos-updater-poll-volume.h"
 #include "eos-updater-poll.h"
 
 #include "eos-util.h"
@@ -44,6 +45,7 @@ typedef enum
 
   EOS_UPDATER_DOWNLOAD_MAIN = EOS_UPDATER_DOWNLOAD_FIRST,
   EOS_UPDATER_DOWNLOAD_LAN,
+  EOS_UPDATER_DOWNLOAD_VOLUME,
 
   EOS_UPDATER_DOWNLOAD_N_SOURCES,
 } EosUpdaterDownloadSource;
@@ -59,7 +61,8 @@ static const gchar *const DOWNLOAD_GROUP = "Download";
 static const gchar *const ORDER_KEY = "Order";
 static const gchar *const order_key_str[] = {
   "main",
-  "lan"
+  "lan",
+  "volume"
 };
 
 G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_N_SOURCES);
@@ -139,9 +142,11 @@ get_config_file_path (void)
 typedef struct
 {
   GArray *download_order;
+
+  gchar *volume_path;
 } SourcesConfig;
 
-#define SOURCES_CONFIG_CLEARED { NULL }
+#define SOURCES_CONFIG_CLEARED { NULL, NULL }
 
 static void
 sources_config_clear (SourcesConfig *config)
@@ -185,6 +190,7 @@ read_config (SourcesConfig *sources_config,
   g_autofree gchar *config_file_path = get_config_file_path ();
   g_auto(GStrv) download_order_strv = NULL;
   g_autoptr(GError) local_error = NULL;
+  g_autofree gchar *group_name = NULL;
 
   if (!g_key_file_load_from_file (config, config_file_path, G_KEY_FILE_NONE, &local_error))
     {
@@ -206,6 +212,7 @@ read_config (SourcesConfig *sources_config,
                                                           sizeof (EosUpdaterDownloadSource),
                                                           1);
       g_array_append_val (sources_config->download_order, main_source);
+      sources_config->volume_path = NULL;
 
       return TRUE;
     }
@@ -222,6 +229,19 @@ read_config (SourcesConfig *sources_config,
                                &sources_config->download_order,
                                error))
     return FALSE;
+
+  if (sources_config_has_source (sources_config,
+                                 EOS_UPDATER_DOWNLOAD_VOLUME,
+                                 &group_name))
+    {
+      sources_config->volume_path = g_key_file_get_string (config,
+                                                           group_name,
+                                                           "Path",
+                                                           error);
+
+      if (sources_config->volume_path == NULL)
+        return FALSE;
+    }
 
   return TRUE;
 }
@@ -271,6 +291,13 @@ get_fetchers (SourcesConfig *config,
 
         case EOS_UPDATER_DOWNLOAD_LAN:
           add_fetcher (fetchers, metadata_fetch_from_lan);
+          break;
+
+        case EOS_UPDATER_DOWNLOAD_VOLUME:
+          add_fetcher (fetchers, metadata_fetch_from_volume);
+          g_variant_dict_insert_value (&dict_builder,
+                                       VOLUME_FETCHER_PATH_KEY,
+                                       g_variant_new_string (config->volume_path));
           break;
 
         case EOS_UPDATER_DOWNLOAD_N_SOURCES:

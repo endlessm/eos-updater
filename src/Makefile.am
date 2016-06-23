@@ -115,6 +115,8 @@ eos_updater_SOURCES = \
 	eos-updater-poll-lan.c \
 	eos-updater-poll-main.h \
 	eos-updater-poll-main.c \
+	eos-updater-poll-volume.h \
+	eos-updater-poll-volume.c \
 	eos-updater.c \
 	eos-updater.xml \
 	$(NULL)
