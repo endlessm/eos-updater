@@ -30,6 +30,7 @@ libeos_updater_test_la_SOURCES = \
 check_PROGRAMS = \
 	test-update-from-main \
 	test-update-from-lan \
+	test-update-from-volume \
 	$(NULL)
 
 TESTS = $(check_PROGRAMS)
@@ -61,3 +62,7 @@ test_update_from_main_SOURCES = test-update-from-main.c
 test_update_from_lan_CPPFLAGS = $(test_cflags)
 test_update_from_lan_LDADD = $(test_ldadd)
 test_update_from_lan_SOURCES = test-update-from-lan.c
+
+test_update_from_volume_CPPFLAGS = $(test_cflags)
+test_update_from_volume_LDADD = $(test_ldadd)
+test_update_from_volume_SOURCES = test-update-from-volume.c
