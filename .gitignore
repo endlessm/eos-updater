@@ -53,3 +53,4 @@ test-driver
 tests/services/test-eos-updater.service
 tests/test-update-from-lan
 tests/test-update-from-main
+tests/test-update-from-volume
