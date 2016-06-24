@@ -140,16 +140,26 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                 &error);
   g_assert_no_error (error);
 
+  for (idx = 0; idx < lan_server_cmds->len; ++idx)
+    {
+      EosTestClient *lan_server = g_ptr_array_index (lan_servers, idx);
+
+      eos_test_client_remove_update_server_quit_file (lan_server, &error);
+      g_assert_no_error (error);
+    }
+
   cmds = g_ptr_array_new ();
   cmds_to_free = g_ptr_array_new_with_free_func ((GDestroyNotify)cmd_result_free);
   for (idx = 0; idx < lan_server_cmds->len; ++idx)
     {
       g_autoptr(CmdResult) reaped_server = g_new0(CmdResult, 1);
+      EosTestClient *lan_server = g_ptr_array_index (lan_servers, idx);
+      CmdAsyncResult *lan_server_cmd = g_ptr_array_index (lan_server_cmds, idx);
 
-      eos_test_client_reap_update_server (g_ptr_array_index (lan_servers, idx),
-                                          g_ptr_array_index (lan_server_cmds, idx),
-                                          reaped_server,
-                                          &error);
+      eos_test_client_wait_for_update_server (lan_server,
+                                              lan_server_cmd,
+                                              reaped_server,
+                                              &error);
       g_assert_no_error (error);
       g_ptr_array_add (cmds_to_free, reaped_server);
       g_ptr_array_add (cmds, g_steal_pointer (&reaped_server));
@@ -166,7 +176,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                               &error);
   g_assert_no_error (error);
   g_assert_true (has_commit);
-
 
   eos_test_client_get_branch_file_timestamp (client,
                                              &client_timestamp,

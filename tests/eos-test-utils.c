@@ -1811,19 +1811,24 @@ eos_test_client_run_update_server (EosTestClient *client,
 }
 
 gboolean
-eos_test_client_reap_update_server (EosTestClient *client,
-                                    CmdAsyncResult *cmd,
-                                    CmdResult *reaped,
-                                    GError **error)
+eos_test_client_remove_update_server_quit_file (EosTestClient *client,
+                                                GError **error)
 {
   g_autoptr(GFile) update_server_dir = get_update_server_dir (client->root);
   g_autoptr(GFile) quit_file = get_update_server_quit_file (update_server_dir);
-  g_autofree gchar *bash_script_path_base = NULL;
 
-  if (!rm_rf (quit_file, error))
-    return FALSE;
+  return rm_rf (quit_file, error);
+}
 
-  bash_script_path_base = g_strdup (g_getenv ("EOS_CHECK_UPDATE_SERVER_GDB_BASH_PATH_BASE"));
+gboolean
+eos_test_client_wait_for_update_server (EosTestClient *client,
+                                        CmdAsyncResult *cmd,
+                                        CmdResult *reaped,
+                                        GError **error)
+{
+  const gchar *bash_script_path_base = NULL;
+
+  bash_script_path_base = g_getenv ("EOS_CHECK_UPDATE_SERVER_GDB_BASH_PATH_BASE");
   if (bash_script_path_base != NULL)
     {
       g_free (reaped->cmdline);
@@ -1832,6 +1837,21 @@ eos_test_client_reap_update_server (EosTestClient *client,
     }
 
   return reap_async_cmd (cmd, reaped, error);
+}
+
+gboolean
+eos_test_client_reap_update_server (EosTestClient *client,
+                                    CmdAsyncResult *cmd,
+                                    CmdResult *reaped,
+                                    GError **error)
+{
+  if (!eos_test_client_remove_update_server_quit_file (client, error))
+    return FALSE;
+
+  return eos_test_client_wait_for_update_server (client,
+                                                 cmd,
+                                                 reaped,
+                                                 error);
 }
 
 gboolean
