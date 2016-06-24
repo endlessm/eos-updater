@@ -811,15 +811,25 @@ get_uri_to_sig (SoupURI *uri)
 static GBytes *
 download_file (SoupURI *uri)
 {
-  g_autoptr(SoupSession) soup = soup_session_new ();
-  g_autoptr(SoupMessage) msg = soup_message_new_from_uri ("GET", uri);
-  guint status = soup_session_send_message (soup, msg);
   g_autoptr(GBytes) contents = NULL;
 
-  if (SOUP_STATUS_IS_SUCCESSFUL (status))
-    g_object_get (msg,
-                  SOUP_MESSAGE_RESPONSE_BODY_DATA, &contents,
-                  NULL);
+  if (soup_uri_get_scheme (uri) == SOUP_URI_SCHEME_FILE)
+    {
+      g_autoptr(GFile) file = g_file_new_for_path (soup_uri_get_path (uri));
+
+      eos_updater_read_file_to_bytes (file, NULL, &contents, NULL);
+    }
+  else
+    {
+      g_autoptr(SoupSession) soup = soup_session_new ();
+      g_autoptr(SoupMessage) msg = soup_message_new_from_uri ("GET", uri);
+      guint status = soup_session_send_message (soup, msg);
+
+      if (SOUP_STATUS_IS_SUCCESSFUL (status))
+        g_object_get (msg,
+                      SOUP_MESSAGE_RESPONSE_BODY_DATA, &contents,
+                      NULL);
+    }
 
   return g_steal_pointer (&contents);
 }
