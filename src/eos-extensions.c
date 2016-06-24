@@ -90,14 +90,14 @@ eos_extensions_save (EosExtensions *extensions,
     return FALSE;
   if (!eos_updater_save_or_delete (extensions->summary,
                                    ext_path,
-                                   "summary",
+                                   "eos-summary",
                                    cancellable,
                                    error))
     return FALSE;
 
   if (!eos_updater_save_or_delete (extensions->summary_sig,
                                    ext_path,
-                                   "summary.sig",
+                                   "eos-summary.sig",
                                    cancellable,
                                    error))
     return FALSE;
