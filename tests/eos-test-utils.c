@@ -1126,6 +1126,9 @@ download_source_to_string (DownloadSource source)
 
     case DOWNLOAD_LAN:
       return "lan";
+
+    case DOWNLOAD_VOLUME:
+      return "volume";
     }
 
   g_assert_not_reached ();
@@ -1149,6 +1152,14 @@ set_source_specific_config (GKeyFile *config,
     case DOWNLOAD_MAIN:
     case DOWNLOAD_LAN:
       /* no specific config for now */
+      return;
+
+    case DOWNLOAD_VOLUME:
+      g_key_file_set_string (config,
+                             group_name,
+                             "Path",
+                             g_variant_get_string (source_variant,
+                                                   NULL));
       return;
     }
 
@@ -2064,6 +2075,73 @@ eos_test_client_get_branch_file_timestamp (EosTestClient *client,
   return get_branch_file_timestamp (repo,
                                     client_timestamp,
                                     error);
+}
+
+gboolean
+eos_test_client_prepare_volume (EosTestClient *client,
+                                GFile *volume_path,
+                                GError **error)
+{
+  g_autofree gchar *eos_prepare_volume_binary = g_test_build_filename (G_TEST_BUILT,
+                                                                       "..",
+                                                                       "src",
+                                                                       "eos-prepare-volume",
+                                                                       NULL);
+  g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
+  CmdEnvVar envv[] =
+    {
+      { "EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK", "yes", NULL },
+      { "OSTREE_SYSROOT", NULL, sysroot },
+      { NULL, NULL, NULL }
+    };
+  g_autofree gchar *raw_volume_path = g_file_get_path (volume_path);
+  gchar *argv[] =
+    {
+      eos_prepare_volume_binary,
+      raw_volume_path,
+      NULL
+    };
+  g_auto(GStrv) envp = build_cmd_env (envv);
+  g_autofree gchar *bash_script_path = NULL;
+
+  if (!create_directory (volume_path, error))
+    return FALSE;
+
+  bash_script_path = g_strdup (g_getenv ("EOS_CHECK_PREPARE_VOLUME_GDB_BASH_PATH"));
+  if (bash_script_path != NULL)
+    {
+      g_autoptr(GFile) bash_script = NULL;
+      g_autofree gchar *delete_me_path = NULL;
+      g_autoptr(GFile) delete_me = NULL;
+
+      bash_script = g_file_new_for_path (bash_script_path);
+      if (!generate_bash_script (bash_script, argv, envp, error))
+        return FALSE;
+
+      delete_me_path = g_strconcat (bash_script_path, ".deleteme", NULL);
+      delete_me = g_file_new_for_path (delete_me_path);
+      g_printerr ("Bash script %s generated. Run it, make check will continue when %s is deleted\n",
+                  bash_script_path,
+                  delete_me_path);
+
+      if (!create_file (delete_me, NULL, error))
+        return FALSE;
+
+      while (g_file_query_exists (delete_me, NULL))
+        sleep (1);
+    }
+  else
+    {
+      g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+
+      if (!test_spawn (argv, envp, &cmd, error))
+        return FALSE;
+
+      if (!cmd_result_ensure_ok (&cmd, error))
+        return FALSE;
+    }
+
+  return TRUE;
 }
 
 static void

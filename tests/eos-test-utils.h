@@ -164,6 +164,7 @@ typedef enum
   {
     DOWNLOAD_MAIN,
     DOWNLOAD_LAN,
+    DOWNLOAD_VOLUME
   } DownloadSource;
 
 EosTestClient *eos_test_client_new (GFile *client_root,
@@ -219,6 +220,10 @@ gboolean eos_test_client_has_commit (EosTestClient *client,
 gboolean eos_test_client_get_branch_file_timestamp (EosTestClient *client,
                                                     GDateTime **client_timestamp,
                                                     GError **error);
+
+gboolean eos_test_client_prepare_volume (EosTestClient *client,
+                                         GFile *volume_path,
+                                         GError **error);
 
 typedef enum _UpdateStep {
   UPDATE_STEP_NONE,
