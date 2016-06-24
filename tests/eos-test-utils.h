@@ -192,6 +192,15 @@ gboolean eos_test_client_run_update_server (EosTestClient *client,
                                             GKeyFile **out_avahi_definition,
                                             GError **error);
 
+
+gboolean eos_test_client_remove_update_server_quit_file (EosTestClient *client,
+                                                         GError **error);
+
+gboolean eos_test_client_wait_for_update_server (EosTestClient *client,
+                                                 CmdAsyncResult *cmd,
+                                                 CmdResult *reaped,
+                                                 GError **error);
+
 gboolean eos_test_client_reap_update_server (EosTestClient *client,
                                              CmdAsyncResult *cmd,
                                              CmdResult *reaped,
