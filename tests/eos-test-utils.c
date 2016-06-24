@@ -1276,7 +1276,11 @@ get_bash_script_contents (gchar **argv,
     "#!/usr/bin/bash\n"
     "\n"
     "set -e\n"
-    "GDB_PATH=$(which gdb)\n";
+    "GDB_PATH=$(which gdb)\n"
+    "if [[ -f ./libtool ]] && [[ -x ./libtool ]]; then :; else\n"
+    "    echo 'the script must be executed in the directory where the libtool script is located (usually toplevel build directory)'\n"
+    "    exit 1\n"
+    "fi\n";
   g_autofree gchar *gdb_r_command = get_gdb_r_command (argv);
   g_autofree gchar *quoted_binary = g_shell_quote (argv[0]);
   g_autoptr(GString) contents = g_string_new (NULL);
@@ -1291,7 +1295,7 @@ get_bash_script_contents (gchar **argv,
     }
 
   g_string_append_printf (contents,
-                          "\"${GDB_PATH}\" -ex \"break main\" -ex %s %s\n",
+                          "./libtool --mode=execute \"${GDB_PATH}\" -ex \"break main\" -ex %s %s\n",
                           gdb_r_command,
                           quoted_binary);
 
