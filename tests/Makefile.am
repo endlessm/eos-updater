@@ -10,6 +10,7 @@ libeos_updater_test_la_CPPFLAGS = \
 	-DEOS_UPDATE_SERVER_BINARY=\""$(abs_top_builddir)/src/eos-update-server"\" \
 	-DGPG_HOME_DIRECTORY=\""$(abs_top_builddir)/tests/gpghome"\" \
 	-DGPG_BINARY=\""$(GPG)"\" \
+	-DEOS_PREPARE_VOLUME_BINARY=\""$(abs_top_builddir)/src/eos-prepare-volume"\" \
 	-I$(top_srcdir)/src \
 	-I$(top_builddir)/src \
 	$(NULL)
@@ -39,6 +40,7 @@ TESTS_ENVIRONMENT = \
 	MALLOC_PERTURB_=$$(($${RANDOM:-256} % 256)) \
 	$(if $(EOS_UPDATER_GDB),EOS_CHECK_UPDATER_GDB_BASH_PATH=$(EOS_UPDATER_GDB)) \
 	$(if $(EOS_UPDATE_SERVER_GDB_BASE),EOS_CHECK_UPDATE_SERVER_GDB_BASH_PATH_BASE=$(EOS_UPDATE_SERVER_GDB_BASE)) \
+	$(if $(EOS_PREPARE_VOLUME_GDB),EOS_CHECK_PREPARE_VOLUME_GDB_BASH_PATH=$(EOS_PREPARE_VOLUME_GDB))
 	$(NULL)
 
 test_cflags = \
