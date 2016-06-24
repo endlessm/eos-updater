@@ -1117,21 +1117,15 @@ copy_extensions (GFile *source_repo,
 }
 
 static const gchar *
-download_order_to_string (DownloadOrder order)
+download_source_to_string (DownloadSource source)
 {
-  switch (order)
+  switch (source)
     {
     case DOWNLOAD_MAIN:
       return "main";
 
     case DOWNLOAD_LAN:
       return "lan";
-
-    case DOWNLOAD_MAIN_LAN:
-      return "main,lan";
-
-    case DOWNLOAD_LAN_MAIN:
-      return "lan,main";
     }
 
   g_assert_not_reached ();
@@ -1143,12 +1137,43 @@ get_updater_dir_for_client (GFile *client_root)
   return g_file_get_child (client_root, "updater");
 }
 
+static void
+set_source_specific_config (GKeyFile *config,
+                            DownloadSource source,
+                            GVariant *source_variant)
+{
+  g_autofree gchar *group_name = g_strdup_printf ("Source \"%s\"",
+                                                  download_source_to_string (source));
+  switch (source)
+    {
+    case DOWNLOAD_MAIN:
+    case DOWNLOAD_LAN:
+      /* no specific config for now */
+      return;
+    }
+
+  g_assert_not_reached ();
+}
+
 static GKeyFile *
-get_updater_config (DownloadOrder download_order)
+get_updater_config (DownloadSource *order,
+                    GVariant **source_variants,
+                    gsize n_sources)
 {
   g_autoptr(GKeyFile) config = g_key_file_new ();
+  gsize idx;
+  g_autoptr(GPtrArray) source_strs = g_ptr_array_sized_new (n_sources);
 
-  g_key_file_set_string (config, "Download", "Order", download_order_to_string (download_order));
+  for (idx = 0; idx < n_sources; ++idx)
+    g_ptr_array_add (source_strs, (gpointer)download_source_to_string (order[idx]));
+  g_key_file_set_string_list (config,
+                              "Download",
+                              "Order",
+                              (const gchar * const*)source_strs->pdata,
+                              source_strs->len);
+
+  for (idx = 0; idx < n_sources; ++idx)
+    set_source_specific_config (config, order[idx], source_variants[idx]);
 
   return g_steal_pointer (&config);
 }
@@ -1430,7 +1455,9 @@ spawn_updater_simple (GFile *sysroot,
 
 static gboolean
 run_updater (GFile *client_root,
-             DownloadOrder order,
+             DownloadSource *order,
+             GVariant **source_variants,
+             gsize n_sources,
              const gchar *vendor,
              const gchar *product,
              const gchar *remote_name,
@@ -1443,7 +1470,9 @@ run_updater (GFile *client_root,
   g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client_root);
 
-  updater_config = get_updater_config (order);
+  updater_config = get_updater_config (order,
+                                       source_variants,
+                                       n_sources);
   hw_config = get_hw_config (vendor, product);
   if (!prepare_updater_dir (updater_dir,
                             updater_config,
@@ -1529,12 +1558,16 @@ eos_test_client_new (GFile *client_root,
 
 gboolean
 eos_test_client_run_updater (EosTestClient *client,
-                             DownloadOrder order,
+                             DownloadSource *order,
+                             GVariant **source_variants,
+                             gsize n_sources,
                              CmdAsyncResult *cmd,
                              GError **error)
 {
   if (!run_updater (client->root,
                     order,
+                    source_variants,
+                    n_sources,
                     client->vendor,
                     client->product,
                     client->remote_name,

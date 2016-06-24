@@ -51,6 +51,8 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) cmds_to_free = NULL;
   gboolean has_commit;
   g_autoptr(GDateTime) client_timestamp = NULL;
+  DownloadSource lan_source = DOWNLOAD_LAN;
+  g_autoptr(GVariant) lan_source_variant = NULL;
 
   g_test_message ("Setting up server");
 
@@ -136,7 +138,9 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_test_message ("Running updater");
 
   eos_test_client_run_updater (client,
-                               DOWNLOAD_LAN,
+                               &lan_source,
+                               &lan_source_variant,
+                               1,
                                &updater_cmd,
                                &error);
   g_assert_no_error (error);

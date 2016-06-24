@@ -164,9 +164,7 @@ typedef enum
   {
     DOWNLOAD_MAIN,
     DOWNLOAD_LAN,
-    DOWNLOAD_MAIN_LAN,
-    DOWNLOAD_LAN_MAIN
-  } DownloadOrder;
+  } DownloadSource;
 
 EosTestClient *eos_test_client_new (GFile *client_root,
                                     const gchar *remote_name,
@@ -177,7 +175,9 @@ EosTestClient *eos_test_client_new (GFile *client_root,
                                     GError **error);
 
 gboolean eos_test_client_run_updater (EosTestClient *client,
-                                      DownloadOrder order,
+                                      DownloadSource *order,
+                                      GVariant **source_variants,
+                                      gsize n_sources,
                                       CmdAsyncResult *cmd,
                                       GError **error);
 
