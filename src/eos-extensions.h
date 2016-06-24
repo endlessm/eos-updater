@@ -33,6 +33,37 @@
 
 G_BEGIN_DECLS
 
+#define EOS_TYPE_REF eos_ref_get_type ()
+EOS_DECLARE_REFCOUNTED (EosRef,
+                        eos_ref,
+                        EOS,
+                        REF)
+
+struct _EosRef
+{
+  GObject parent_instance;
+
+  GBytes *contents;
+  GBytes *signature;
+  gchar *name;
+};
+
+EosRef *eos_ref_new_empty (void);
+EosRef *eos_ref_new_from_files (GFile *ref_file,
+                                GFile *ref_sig_file,
+                                const gchar *name,
+                                GCancellable *cancellable,
+                                GError **error);
+EosRef *eos_ref_new_from_repo (OstreeRepo *repo,
+                               const gchar *name,
+                               GCancellable *cancellable,
+                               GError **error);
+
+gboolean eos_ref_save (EosRef *ref,
+                       OstreeRepo *repo,
+                       GCancellable *cancellable,
+                       GError **error);
+
 #define EOS_TYPE_EXTENSIONS eos_extensions_get_type ()
 EOS_DECLARE_REFCOUNTED (EosExtensions,
                         eos_extensions,
@@ -45,10 +76,8 @@ struct _EosExtensions
 
   GBytes *summary;
   GBytes *summary_sig;
-  GBytes *ref;
-  GBytes *ref_sig;
-  gchar *ref_name;
   EosBranchFile *branch_file;
+  GPtrArray *refs;
 };
 
 EosExtensions *eos_extensions_new_empty (void);

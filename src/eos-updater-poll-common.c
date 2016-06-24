@@ -433,6 +433,7 @@ commit_checksum_from_extensions_ref (OstreeRepo *repo,
   gconstpointer raw_data;
   gsize raw_len;
   g_autoptr(EosExtensions) extensions = NULL;
+  g_autoptr(EosRef) ext_ref = NULL;
   g_autoptr(GKeyFile) ref_keyfile = NULL;
   g_autofree gchar *actual_ref = NULL;
 
@@ -489,10 +490,13 @@ commit_checksum_from_extensions_ref (OstreeRepo *repo,
   if (!ostree_validate_structureof_checksum_string (checksum, error))
     return FALSE;
 
+  ext_ref = eos_ref_new_empty ();
+  ext_ref->contents = g_steal_pointer (&contents);
+  ext_ref->signature = g_steal_pointer (&signature);
+  ext_ref->name = g_strdup (ref);
+
   extensions = eos_extensions_new_empty ();
-  extensions->ref = g_steal_pointer (&contents);
-  extensions->ref_sig = g_steal_pointer (&signature);
-  extensions->ref_name = g_strdup (ref);
+  g_ptr_array_add (extensions->refs, g_steal_pointer (&ext_ref));
 
   *out_checksum = g_steal_pointer (&checksum);
   *out_extensions = g_steal_pointer (&extensions);
