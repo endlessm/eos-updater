@@ -139,3 +139,28 @@ $(eos_updater_dbus_if).conf: eos-updater-policy.xslt eos-updater.xml
 
 $(eos_updater_dbus_if).service: eos-updater-service.xslt eos-updater.xml
 	$(AM_V_GEN)$(XSLTPROC) $+ > $@
+
+
+
+-include $(INTROSPECTION_MAKEFILE)
+INTROSPECTION_GIRS =
+INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir) --warn-all
+INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
+
+if HAVE_INTROSPECTION
+
+EosUpdater-0.0.gir: $(preparelib)
+EosUpdater_0_0_gir_INCLUDES = Soup-2.4 OSTree-1.0
+EosUpdater_0_0_gir_LIBS = $(preparelib)
+EosUpdater_0_0_gir_FILES = $(libeos_updater_0_la_SOURCES)
+INTROSPECTION_GIRS += EosUpdater-0.0.gir
+
+girdir = $(datadir)/gir-1.0
+gir_DATA = $(INTROSPECTION_GIRS)
+
+typelibdir = $(libdir)/girepository-1.0
+typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
+
+CLEANFILES += $(gir_DATA) $(typelib_DATA)
+
+endif
