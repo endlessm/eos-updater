@@ -39,11 +39,12 @@
 typedef struct
 {
   guint16 local_port;
+  gchar *raw_port_path;
   gint timeout_seconds;
   gchar *served_remote;
 } Options;
 
-#define OPTIONS_CLEARED { 0u, 0, NULL }
+#define OPTIONS_CLEARED { 0u, NULL, 0, NULL }
 
 static gboolean
 check_option_is (const gchar *option_name,
@@ -130,6 +131,7 @@ options_init (Options *options,
     { "local-port", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, local_port_goption, "Local port number (0 < N < 65536)", "N" },
     { "timeout", 't', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &options->timeout_seconds, "Time in seconds of inactivity allowed before quitting (zero or less means no timeout), default 5 seconds", "N" },
     { "serve-remote", 'r', G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, serve_remote_goption, "Which remote should be served, default eos", "NAME" },
+    { "port-file", 'f', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &options->raw_port_path, "Where to write the port number, default NULL", "PATH" },
     { NULL }
   };
 
@@ -151,6 +153,7 @@ options_clear (Options *options)
   options->local_port = 0;
   options->timeout_seconds = 0;
   g_clear_pointer (&options->served_remote, g_free);
+  g_clear_pointer (&options->raw_port_path, g_free);
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (Options, options_clear)
@@ -842,14 +845,51 @@ server_cb (SoupServer *server,
 }
 
 static gboolean
+listen_local (SoupServer *server,
+              Options *options,
+              GError **error)
+{
+  if (!soup_server_listen_local (server,
+                                 options->local_port,
+                                 0,
+                                 error))
+    return FALSE;
+
+  if (options->raw_port_path != NULL)
+    {
+      g_autoptr(SoupURI) uri = NULL;
+      g_autoptr(GFile) file = NULL;
+      g_autofree gchar *contents = NULL;
+
+      if (!get_first_uri_from_server (server, &uri, error))
+        return FALSE;
+
+      file = g_file_new_for_path (options->raw_port_path);
+      contents = g_strdup_printf ("%u", soup_uri_get_port (uri));
+      if (!g_file_replace_contents (file,
+                                    contents,
+                                    strlen (contents),
+                                    NULL, /* no etag */
+                                    FALSE, /* no backup */
+                                    G_FILE_CREATE_NONE,
+                                    NULL, /* no new etag */
+                                    NULL, /* no cancellable */
+                                    error))
+        return FALSE;
+    }
+
+  return TRUE;
+}
+
+static gboolean
 start_listening (SoupServer *server,
                  Options *options,
                  GError **error)
 {
   int result;
 
-  if (options->local_port > 0)
-    return soup_server_listen_local (server, options->local_port, 0, error);
+  if (options->local_port > 0 || options->raw_port_path)
+    return listen_local (server, options, error);
 
   result = sd_listen_fds (1);
   if (result < 0)
