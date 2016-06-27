@@ -29,10 +29,13 @@
 
 #include "eos-refcounted.h"
 
+#include <ostree.h>
+
+#include <libsoup/soup.h>
+
 #include <glib.h>
 #include <glib-object.h>
 #include <gio/gio.h>
-#include <ostree.h>
 
 G_BEGIN_DECLS
 
@@ -106,6 +109,10 @@ gchar *eos_updater_dup_envvar_or (const gchar *envvar,
                                   const gchar *default_value);
 
 GFile *eos_updater_get_eos_extensions_dir (OstreeRepo *repo);
+
+gboolean get_first_uri_from_server (SoupServer *server,
+                                    SoupURI **out_uri,
+                                    GError **error);
 
 #define EOS_TYPE_QUIT_FILE eos_quit_file_get_type ()
 EOS_DECLARE_REFCOUNTED (EosQuitFile, eos_quit_file, EOS, QUIT_FILE)
