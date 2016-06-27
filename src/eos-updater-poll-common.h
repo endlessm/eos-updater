@@ -141,4 +141,30 @@ gboolean check_branch_file_validity (OstreeRepo *repo,
                                      EosBranchFile *branch_file,
                                      gboolean *out_valid,
                                      GError **error);
+
+typedef enum
+{
+  EOS_UPDATER_DOWNLOAD_FIRST,
+
+  EOS_UPDATER_DOWNLOAD_MAIN = EOS_UPDATER_DOWNLOAD_FIRST,
+  EOS_UPDATER_DOWNLOAD_LAN,
+  EOS_UPDATER_DOWNLOAD_VOLUME,
+
+  EOS_UPDATER_DOWNLOAD_N_SOURCES,
+} EosUpdaterDownloadSource;
+
+const gchar *download_source_to_string (EosUpdaterDownloadSource source);
+
+gboolean string_to_download_source (const gchar *str,
+                                    EosUpdaterDownloadSource *source,
+                                    GError **error);
+
+EosUpdateInfo *run_fetchers (EosMetadataFetchData *fetch_data,
+                             GPtrArray *fetchers,
+                             GPtrArray *source_variants,
+                             GArray *sources);
+
+void metadata_fetch_finished (GObject *object,
+                              GAsyncResult *res,
+                              gpointer user_data);
 G_END_DECLS
