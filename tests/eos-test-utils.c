@@ -1616,11 +1616,26 @@ eos_test_client_reap_updater (EosTestClient *client,
                             error);
 }
 
+static gchar *
+get_bash_script_descriptor_from_port_file (GFile *port_file)
+{
+  guint idx;
+  g_autoptr(GFile) parent = g_object_ref (port_file);
+
+  for (idx = 0; idx < 2; ++idx)
+    g_set_object (&parent, g_file_get_parent (parent));
+
+  /* this should return a string like "lan_server_0"
+   */
+  return g_file_get_basename (parent);
+}
+
 static gboolean
 run_update_server (GFile *repo,
                    GFile *quit_file,
-                   guint16 port,
+                   GFile *port_file,
                    const gchar *remote_name,
+                   guint16 *out_port,
                    CmdAsyncResult *cmd,
                    GError **error)
 {
@@ -1629,7 +1644,7 @@ run_update_server (GFile *repo,
                                                                       "src",
                                                                       "eos-update-server",
                                                                       NULL);
-  g_autofree gchar *port_str = g_strdup_printf ("%" G_GUINT16_FORMAT, port);
+  g_autofree gchar *raw_port_file_path = g_file_get_path (port_file);
   CmdEnvVar envv[] =
     {
       { "OSTREE_REPO", NULL, repo },
@@ -1639,7 +1654,7 @@ run_update_server (GFile *repo,
   CmdArg args[] =
     {
       { NULL, eos_update_server_binary },
-      { "local-port", port_str },
+      { "port-file", raw_port_file_path },
       { "timeout", "0" },
       { "serve-remote", remote_name },
       { NULL, NULL }
@@ -1651,19 +1666,19 @@ run_update_server (GFile *repo,
   if (bash_script_path_base != NULL)
     {
       g_autoptr(GRegex) regex = g_regex_new ("XXXXXX", 0, 0, error);
+      g_autofree gchar *descriptor = NULL;
       g_autofree gchar *bash_script_path = NULL;
       g_autoptr(GFile) bash_script = NULL;
-      g_autofree gchar *delete_me_path = NULL;
-      g_autoptr(GFile) delete_me = NULL;
 
       if (regex == NULL)
         return FALSE;
 
+      descriptor = get_bash_script_descriptor_from_port_file (port_file);
       bash_script_path = g_regex_replace_literal (regex,
                                                   bash_script_path_base,
                                                   -1,
                                                   0,
-                                                  port_str,
+                                                  descriptor,
                                                   0,
                                                   error);
       if (bash_script_path == NULL)
@@ -1673,19 +1688,19 @@ run_update_server (GFile *repo,
       if (!generate_bash_script (bash_script, argv, envp, error))
         return FALSE;
 
-      delete_me_path = g_strdup_printf ("%s.deleteme", bash_script_path);
-      delete_me = g_file_new_for_path (delete_me_path);
-      g_printerr ("Bash script %s generated. Run it, make check will continue when %s is deleted\n",
+      g_printerr ("Bash script %s generated. Run it, make check will continue when port file at %s is generated\n",
                   bash_script_path,
-                  delete_me_path);
-
-      if (!create_file (delete_me, NULL, error))
-        return FALSE;
-
-      while (g_file_query_exists (delete_me, NULL))
-        sleep (1);
+                  raw_port_file_path);
     }
   else if (!test_spawn_async (argv, envp, FALSE, cmd, error))
+    return FALSE;
+
+  while (!g_file_query_exists (port_file, NULL))
+    sleep (1);
+
+  if (!read_port_file (port_file,
+                       out_port,
+                       error))
     return FALSE;
 
   return TRUE;
@@ -1792,6 +1807,12 @@ get_update_server_quit_file (GFile *update_server_dir)
   return g_file_get_child (update_server_dir, "quit-file");
 }
 
+static GFile *
+get_update_server_port_file (GFile *update_server_dir)
+{
+  return g_file_get_child (update_server_dir, "port-file");
+}
+
 static gboolean
 prepare_update_server_dir (GFile *update_server_dir,
                            GError **error)
@@ -1816,7 +1837,6 @@ get_update_server_dir (GFile *client_root)
 
 gboolean
 eos_test_client_run_update_server (EosTestClient *client,
-                                   guint16 port,
                                    CmdAsyncResult *cmd,
                                    GKeyFile **out_avahi_definition,
                                    GError **error)
@@ -1825,7 +1845,9 @@ eos_test_client_run_update_server (EosTestClient *client,
   g_autoptr(GFile) sysroot = NULL;
   g_autoptr(GFile) repo = NULL;
   g_autoptr(GFile) quit_file = NULL;
+  g_autoptr(GFile) port_file = NULL;
   g_autoptr(GDateTime) timestamp = NULL;
+  guint16 port;
 
   if (!prepare_update_server_dir (update_server_dir, error))
     return FALSE;
@@ -1833,10 +1855,12 @@ eos_test_client_run_update_server (EosTestClient *client,
   sysroot = get_sysroot_for_client (client->root);
   repo = get_repo_for_sysroot (sysroot);
   quit_file = get_update_server_quit_file (update_server_dir);
+  port_file = get_update_server_port_file (update_server_dir);
   if (!run_update_server (repo,
                           quit_file,
-                          port,
+                          port_file,
                           client->remote_name,
+                          &port,
                           cmd,
                           error))
     return FALSE;
