@@ -27,6 +27,14 @@
 #include "eos-util.h"
 
 #include <libsoup/soup.h>
+/**
+ * SECTION:prepare-update
+ * @title: Prepare update volume
+ * @short_description: Functions for preparing update volume
+ * @include: eos-prepare-usb-update.h
+ *
+ * The following functions prepares the update on a given volume.
+ */
 
 static gboolean
 strv_contains (gchar **strv,
@@ -557,6 +565,18 @@ eos_updater_prepare_volume_internal (OstreeRepo *repo,
   return TRUE;
 }
 
+/**
+ * eos_updater_prepare_volume_from_sysroot:
+ * @sysroot: An #OstreeSysroot
+ * @usb_path: A path to the volume
+ * @progress: An #OstreeAsyncProgress for tracking the progress of preparations
+ * @cancellable: (nullable): A #GCancellable
+ * @error: A location for an error
+ *
+ * Prepares an update from the booted deployment of the @sysroot.
+ *
+ * Returns: Whether the preparations succeeded
+ */
 gboolean
 eos_updater_prepare_volume_from_sysroot (OstreeSysroot *sysroot,
                                          GFile *usb_path,
@@ -600,6 +620,20 @@ eos_updater_prepare_volume_from_sysroot (OstreeSysroot *sysroot,
                                               error);
 }
 
+/**
+ * eos_updater_prepare_volume:
+ * @repo: A repo
+ * @refspec: A refspec in @repo
+ * @commit_id: A commit id (checksum IOW) in @refspec
+ * @usb_path: A path to the volume
+ * @progress: An #OstreeAsyncProgress for tracking the progress of preparations
+ * @cancellable: (nullable): A #GCancellable
+ * @error: A location for an error
+ *
+ * Prepares an update from the booted deployment of the @sysroot.
+ *
+ * Returns: Whether the preparations succeeded
+ */
 gboolean
 eos_updater_prepare_volume (OstreeRepo *repo,
                             const gchar *refspec,

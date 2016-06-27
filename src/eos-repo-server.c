@@ -26,6 +26,22 @@
 
 #include <string.h>
 
+/**
+ * SECTION:repo-server
+ * @title: Bare repository server
+ * @short_description: Server for the EOS bare OSTree repository
+ * @include: eos-repo-server.h
+ *
+ * A server that sits on top of the bare repository and lies to
+ * clients about the repositories' mode, so it is possible to do pulls
+ * from this repository.
+ */
+
+/**
+ * EosUpdaterRepoServer:
+ *
+ * A subclass of #SoupServer.
+ */
 struct _EosUpdaterRepoServer
 {
   SoupServer parent_instance;
@@ -200,6 +216,11 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
   gobject_class->get_property = eos_updater_repo_server_get_property;
   gobject_class->set_property = eos_updater_repo_server_set_property;
 
+  /**
+   * EosUpdaterRepoServer:repo:
+   *
+   * An #OstreeRepo this server sits on.
+   */
   props[PROP_REPO] = g_param_spec_object ("repo",
                                           "Repo",
                                           "OStree repository this server serves",
@@ -208,6 +229,11 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
                                           G_PARAM_CONSTRUCT_ONLY |
                                           G_PARAM_STATIC_STRINGS);
 
+  /**
+   * EosUpdaterRepoServer:served-remote:
+   *
+   * The name of the remote this server serves.
+   */
   props[PROP_SERVED_REMOTE] = g_param_spec_string ("served-remote",
                                                    "Served remote",
                                                    "The name of the OSTree remote this server serves",
@@ -216,6 +242,12 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
                                                    G_PARAM_CONSTRUCT_ONLY |
                                                    G_PARAM_STATIC_STRINGS);
 
+  /**
+   * EosUpdaterRepoServer:pending-requests:
+   *
+   * The number of pending requests. See
+   * eos_updater_repo_server_get_pending_requests() for details.
+   */
   props[PROP_PENDING_REQUESTS] = g_param_spec_uint ("pending-requests",
                                                     "Pending requests",
                                                     "A number of pending requests this server has at the moment",
@@ -226,6 +258,12 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
                                                     G_PARAM_EXPLICIT_NOTIFY |
                                                     G_PARAM_STATIC_STRINGS);
 
+  /**
+   * EosUpdaterRepoServer:last-request-time:
+   *
+   * Time of the last served valid request. See
+   * eos_updater_repo_server_get_last_request_time() for details.
+   */
   props[PROP_LAST_REQUEST_TIME] = g_param_spec_int64 ("last-request-time",
                                                       "Last request time",
                                                       "A monotonic time in microseconds when the last valid request was handled",
@@ -801,6 +839,18 @@ eos_updater_repo_server_initable_iface_init (GInitableIface *initable_iface)
   initable_iface->init = eos_updater_repo_server_initable_init;
 }
 
+/**
+ * eos_updater_repo_server_new:
+ * @repo: A repo
+ * @served_remote: The name of the remote
+ * @cancellable: (nullable): A #GCancellable
+ * @error: A location for an error
+ *
+ * Creates an #EosUpdaterRepoServer, which will serve the contents of
+ * the @repo from the remote @served_remote.
+ *
+ * Returns: (transfer full): The server.
+ */
 EosUpdaterRepoServer *
 eos_updater_repo_server_new (OstreeRepo *repo,
                              const gchar *served_remote,
@@ -818,12 +868,36 @@ eos_updater_repo_server_new (OstreeRepo *repo,
                          NULL);
 }
 
+/**
+ * eos_updater_repo_server_get_pending_requests:
+ * @repo_server: The #EosUpdaterRepoServer
+ *
+ * Pending requests are usually requests for file objects that happen
+ * asynchronously, mostly due to their larger size. Use this function
+ * together with eos_updater_repo_server_get_last_request_time() if
+ * you want to stop the server after the timeout.
+ *
+ * Returns: (transfer full): Number of pending remotes.
+ */
 guint
 eos_updater_repo_server_get_pending_requests (EosUpdaterRepoServer *repo_server)
 {
   return repo_server->pending_requests;
 }
 
+/**
+ * eos_updater_repo_server_get_last_request_time:
+ * @repo_server: The #EosUpdaterRepoServer
+ *
+ * The result of this function is basically a result of
+ * g_get_monotonic_time() at the end request handler. Note that this
+ * property is updated only when the request was valid (returned 2xx
+ * HTTP status). Use this function together with
+ * eos_updater_repo_server_get_pending_requests() if you want to stop
+ * the server after the timeout.
+ *
+ * Returns: (transfer full): When was the last request handled
+ */
 gint64
 eos_updater_repo_server_get_last_request_time (EosUpdaterRepoServer *repo_server)
 {
