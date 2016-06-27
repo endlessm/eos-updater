@@ -104,7 +104,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
       g_assert_no_error (error);
       server_cmd = g_new0 (CmdAsyncResult, 1);
       eos_test_client_run_update_server (lan_server,
-                                         12345 + idx,
                                          server_cmd,
                                          &definition,
                                          &error);

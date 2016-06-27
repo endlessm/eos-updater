@@ -183,7 +183,6 @@ gboolean eos_test_client_reap_updater (EosTestClient *client,
                                        GError **error);
 
 gboolean eos_test_client_run_update_server (EosTestClient *client,
-                                            guint16 port,
                                             CmdAsyncResult *cmd,
                                             GKeyFile **out_avahi_definition,
                                             GError **error);
