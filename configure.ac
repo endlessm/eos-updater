@@ -8,6 +8,10 @@ LT_INIT
 
 PKG_PROG_PKG_CONFIG
 
+GTK_DOC_CHECK([1.14],[--flavour no-tmpl])
+
+GOBJECT_INTROSPECTION_CHECK([1.30.0])
+
 # systemd unit support
 AC_ARG_WITH([systemdsystemunitdir],
             AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
@@ -70,7 +74,9 @@ AC_CONFIG_FILES([
 Makefile
 src/Makefile
 data/Makefile
+docs/Makefile
 tests/Makefile
 tests/services/test-eos-updater.service
+eos-updater-0.pc
 ])
 AC_OUTPUT
