@@ -26,6 +26,12 @@
 
 #include "eos-util.h"
 
+#ifdef HAS_EOSMETRICS_0
+
+#include <eosmetrics/eosmetrics.h>
+
+#endif /* HAS_EOSMETRICS_0 */
+
 #include <ostree.h>
 
 #include <libsoup/soup.h>
@@ -55,6 +61,21 @@ static const gchar *const dmi_attributes[] =
     "sys_vendor",
     NULL,
   };
+
+static const gchar *const order_key_str[] = {
+  "main",
+  "lan",
+  "volume"
+};
+
+G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_N_SOURCES);
+
+/*
+ * Records which branch will be used by the updater. The payload is a 4-tuple
+ * of 3 strings and boolean: vendor name, product ID, selected OStree ref, and
+ * whether the machine is on hold
+ */
+static const gchar *const EOS_UPDATER_BRANCH_SELECTED = "99f48aac-b5a0-426d-95f4-18af7d081c4e";
 
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
@@ -1130,4 +1151,324 @@ check_branch_file_validity (OstreeRepo *repo,
 
   *out_valid = timestamps_valid && ostree_paths_valid;
   return TRUE;
+}
+
+static void
+maybe_send_metric (EosMetricsInfo *metrics)
+{
+#ifdef HAS_EOSMETRICS_0
+  static gboolean metric_sent = FALSE;
+
+  if (metric_sent)
+    return;
+
+  message ("Recording metric event %s: (%s, %s, %s, %d)",
+           EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
+           metrics->ref, metrics->on_hold);
+  emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
+                                         EOS_UPDATER_BRANCH_SELECTED,
+                                         g_variant_new ("(sssb)", metrics->vendor,
+                                                        metrics->product,
+                                                        metrics->ref,
+                                                        metrics->on_hold));
+  metric_sent = TRUE;
+#endif
+}
+
+typedef struct
+{
+  EosUpdateInfo *update;
+  EosMetricsInfo *metrics;
+} UpdateAndMetrics;
+
+static UpdateAndMetrics *
+update_and_metrics_new (EosUpdateInfo *update,
+                        EosMetricsInfo *metrics)
+{
+  UpdateAndMetrics *uam = g_new0 (UpdateAndMetrics, 1);
+
+  if (update != NULL)
+    uam->update = g_object_ref (update);
+
+  if (metrics != NULL)
+    uam->metrics = g_object_ref (metrics);
+
+  return uam;
+}
+
+static void
+update_and_metrics_free (UpdateAndMetrics *uam)
+{
+  if (uam == NULL)
+    return;
+
+  g_clear_object (&uam->update);
+  g_clear_object (&uam->metrics);
+  g_free (uam);
+}
+
+static UpdateAndMetrics *
+get_latest_uam (GArray *sources,
+                GHashTable *source_to_uam,
+                gboolean with_updates)
+{
+  g_autoptr(GHashTable) latest = g_hash_table_new (NULL, NULL);
+  GHashTableIter iter;
+  gpointer name_ptr;
+  gpointer uam_ptr;
+  GDateTime *latest_timestamp = NULL;
+  gsize idx;
+
+  g_hash_table_iter_init (&iter, source_to_uam);
+  while (g_hash_table_iter_next (&iter, &name_ptr, &uam_ptr))
+    {
+      UpdateAndMetrics *uam = uam_ptr;
+      EosBranchFile *branch_file = uam->metrics->branch_file;
+      gint compare_value = 1;
+
+      if (with_updates && uam->update == NULL)
+        continue;
+
+      if (latest_timestamp != NULL)
+        compare_value = g_date_time_compare (branch_file->download_time,
+                                             latest_timestamp);
+      if (compare_value > 0)
+        {
+          latest_timestamp = branch_file->download_time;
+          g_hash_table_remove_all (latest);
+          compare_value = 0;
+        }
+
+      if (compare_value == 0)
+        g_hash_table_insert (latest, name_ptr, uam_ptr);
+    }
+
+  for (idx = 0; idx < sources->len; ++idx)
+    {
+      EosUpdaterDownloadSource source = g_array_index (sources,
+                                                       EosUpdaterDownloadSource,
+                                                       idx);
+      const gchar *name = download_source_to_string (source);
+      UpdateAndMetrics *uam = g_hash_table_lookup (latest, name);
+
+      if (uam != NULL)
+        return uam;
+    }
+
+  return NULL;
+}
+
+EosUpdateInfo *
+run_fetchers (EosMetadataFetchData *fetch_data,
+              GPtrArray *fetchers,
+              GPtrArray *source_variants,
+              GArray *sources)
+{
+  guint idx;
+  g_autoptr(GHashTable) source_to_uam = g_hash_table_new_full (NULL,
+                                                               NULL,
+                                                               NULL,
+                                                               (GDestroyNotify)update_and_metrics_free);
+
+  g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), FALSE);
+  g_return_val_if_fail (fetchers != NULL, FALSE);
+  g_return_val_if_fail (source_variants != NULL, FALSE);
+  g_return_val_if_fail (sources != NULL, FALSE);
+  g_return_val_if_fail (fetchers->len == source_variants->len, FALSE);
+  g_return_val_if_fail (source_variants->len == sources->len, FALSE);
+
+  for (idx = 0; idx < fetchers->len; ++idx)
+    {
+      MetadataFetcher fetcher = g_ptr_array_index (fetchers, idx);
+      GVariant *source_variant = g_ptr_array_index (source_variants, idx);
+      g_autoptr(EosUpdateInfo) info = NULL;
+      g_autoptr(EosMetricsInfo) metrics = NULL;
+      EosUpdaterDownloadSource source = g_array_index (sources,
+                                                       EosUpdaterDownloadSource,
+                                                       idx);
+      const gchar *name = download_source_to_string (source);
+      g_autoptr(GError) local_error = NULL;
+      UpdateAndMetrics *uam;
+      const GVariantType *source_variant_type = g_variant_get_type (source_variant);
+
+      if (!g_variant_type_equal (source_variant_type, G_VARIANT_TYPE_VARDICT))
+        {
+          g_autofree gchar *expected = g_variant_type_dup_string (G_VARIANT_TYPE_VARDICT);
+          g_autofree gchar *got = g_variant_type_dup_string (source_variant_type);
+
+          message ("Wrong type of %s fetcher configuration, expected %s, got %s",
+                   name,
+                   expected,
+                   got);
+          continue;
+        }
+
+      if (!fetcher (fetch_data, source_variant, &info, &metrics, &local_error))
+        {
+          message ("Failed to poll metadata from source %s: %s",
+                   name, local_error->message);
+          continue;
+        }
+      if (metrics == NULL)
+        {
+          message ("No metadata available from source %s", name);
+          continue;
+        }
+
+      uam = update_and_metrics_new (info, metrics);
+
+      g_hash_table_insert (source_to_uam, (gpointer)name, uam);
+    }
+
+  if (g_hash_table_size (source_to_uam) > 0)
+    {
+      UpdateAndMetrics *latest_uam = NULL;
+
+      latest_uam = get_latest_uam (sources, source_to_uam, FALSE);
+      maybe_send_metric (latest_uam->metrics);
+      latest_uam = get_latest_uam (sources, source_to_uam, TRUE);
+      if (latest_uam != NULL)
+        return g_object_ref (latest_uam->update);
+    }
+
+  return NULL;
+}
+
+const gchar *
+download_source_to_string (EosUpdaterDownloadSource source)
+{
+  switch (source)
+    {
+    case EOS_UPDATER_DOWNLOAD_MAIN:
+    case EOS_UPDATER_DOWNLOAD_LAN:
+    case EOS_UPDATER_DOWNLOAD_VOLUME:
+      return order_key_str[source];
+
+    case EOS_UPDATER_DOWNLOAD_N_SOURCES:
+      break;
+    }
+
+  g_assert_not_reached ();
+}
+
+gboolean
+string_to_download_source (const gchar *str,
+                           EosUpdaterDownloadSource *source,
+                           GError **error)
+{
+  EosUpdaterDownloadSource idx;
+
+  g_return_val_if_fail (str != NULL, FALSE);
+  g_return_val_if_fail (source != NULL, FALSE);
+
+  for (idx = EOS_UPDATER_DOWNLOAD_FIRST;
+       idx < EOS_UPDATER_DOWNLOAD_N_SOURCES;
+       ++idx)
+    if (g_str_equal (str, order_key_str[idx]))
+      break;
+
+  if (idx >= EOS_UPDATER_DOWNLOAD_N_SOURCES)
+    {
+      g_set_error (error, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_CONFIGURATION, "Unknown download source %s", str);
+      return FALSE;
+    }
+  *source = idx;
+  return TRUE;
+}
+
+void
+metadata_fetch_finished (GObject *object,
+                         GAsyncResult *res,
+                         gpointer user_data)
+{
+  EosUpdater *updater = EOS_UPDATER (object);
+  GTask *task;
+  GError *error = NULL;
+  EosUpdaterData *data = user_data;
+  OstreeRepo *repo = data->repo;
+  g_autoptr(EosUpdateInfo) info = NULL;
+
+  if (!g_task_is_valid (res, object))
+    goto invalid_task;
+
+  /* get the info about the fetched update */
+  task = G_TASK (res);
+  info = g_task_propagate_pointer (task, &error);
+
+  if (info != NULL)
+    {
+      gint64 archived = -1;
+      gint64 unpacked = -1;
+      gint64 new_archived = 0;
+      gint64 new_unpacked = 0;
+      const gchar *label;
+      const gchar *message;
+
+      g_set_object (&data->extensions, info->extensions);
+      g_strfreev (data->overridden_urls);
+      data->overridden_urls = g_steal_pointer (&info->urls);
+
+      /* Everything is happy thusfar */
+      /* if we have a checksum for the remote upgrade candidate
+       * and it's ≠ what we're currently booted into, advertise it as such.
+       */
+      eos_updater_clear_error (updater, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
+      eos_updater_set_update_id (updater, info->checksum);
+      eos_updater_set_update_refspec (updater, info->refspec);
+      eos_updater_set_original_refspec (updater, info->original_refspec);
+
+      g_variant_get_child (info->commit, 3, "&s", &label);
+      g_variant_get_child (info->commit, 4, "&s", &message);
+      eos_updater_set_update_label (updater, label ? label : "");
+      eos_updater_set_update_message (updater, message ? message : "");
+
+      if (ostree_repo_get_commit_sizes (repo, info->checksum,
+                                        &new_archived, &new_unpacked,
+                                        NULL,
+                                        &archived, &unpacked,
+                                        NULL,
+                                        g_task_get_cancellable (task),
+                                        &error))
+        {
+          eos_updater_set_full_download_size (updater, archived);
+          eos_updater_set_full_unpacked_size (updater, unpacked);
+          eos_updater_set_download_size (updater, new_archived);
+          eos_updater_set_unpacked_size (updater, new_unpacked);
+          eos_updater_set_downloaded_bytes (updater, 0);
+        }
+      else /* no size data available (may or may not be an error) */
+        {
+          eos_updater_set_full_download_size (updater, -1);
+          eos_updater_set_full_unpacked_size (updater, -1);
+          eos_updater_set_download_size (updater, -1);
+          eos_updater_set_unpacked_size (updater, -1);
+          eos_updater_set_downloaded_bytes (updater, -1);
+
+          /* shouldn't actually stop us offering an update, as long
+           * as the branch itself is resolvable in the next step,
+           * but log it anyway.
+           */
+          if (error)
+            {
+              message ("No size summary data: %s", error->message);
+              g_clear_error (&error);
+            }
+        }
+    }
+  else /* info == NULL means OnHold=true, nothing to do here */
+    eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_READY);
+
+  if (error)
+    {
+      eos_updater_set_error (updater, error);
+      g_clear_error (&error);
+    }
+  return;
+
+ invalid_task:
+  /* Either the threading or the memory management is shafted. Or both.
+   * We're boned. Log an error and activate the self destruct mechanism.
+   */
+  g_error ("Invalid async task object when returning from Poll() thread!");
+  g_assert_not_reached ();
 }
