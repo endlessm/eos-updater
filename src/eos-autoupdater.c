@@ -59,6 +59,7 @@ static gboolean should_exit_failure = FALSE;
 static guint previous_state = EOS_UPDATER_STATE_NONE;
 
 static GMainLoop *main_loop;
+static gchar *volume_path;
 
 static gchar *
 dup_envvar_or (const gchar *envvar,
@@ -168,7 +169,10 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
         return FALSE;
 
       polled_already = TRUE;
-      eos_updater_call_poll (proxy, NULL, update_step_callback, step_data);
+      if (volume_path != NULL)
+        eos_updater_call_poll_volume (proxy, volume_path, NULL, update_step_callback, step_data);
+      else
+        eos_updater_call_poll (proxy, NULL, update_step_callback, step_data);
       break;
 
     case UPDATE_STEP_FETCH:
@@ -523,6 +527,7 @@ main (int argc, char **argv)
 
   GOptionEntry entries[] = {
     { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
+    { "from-volume", 0, 0, G_OPTION_ARG_STRING, &volume_path, "Poll for updates from the volume", "PATH" },
     { NULL }
   };
   GBusType bus_type = G_BUS_TYPE_SYSTEM;
@@ -536,11 +541,13 @@ main (int argc, char **argv)
   if (!read_config_file (&update_interval, &update_on_mobile))
     return EXIT_FAILURE;
 
-  if (!is_online ())
+  if (volume_path == NULL && !is_online ())
     return EXIT_SUCCESS;
 
   if (!force_update) {
-    if (!update_on_mobile && is_connected_through_mobile ()) {
+    if (volume_path == NULL &&
+        !update_on_mobile &&
+        is_connected_through_mobile ()) {
       sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
                        "PRIORITY=%d", LOG_INFO,
                        "MESSAGE=Connected to mobile network. Not updating",
