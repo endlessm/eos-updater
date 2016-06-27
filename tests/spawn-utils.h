@@ -47,6 +47,8 @@ gboolean cmd_result_ensure_ok (CmdResult *cmd,
 
 gboolean cmd_result_ensure_all_ok_verbose (GPtrArray *cmds);
 
+gchar *cmd_result_dump (CmdResult *cmd);
+
 typedef struct
 {
   gchar *cmdline;

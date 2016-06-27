@@ -49,16 +49,18 @@ cmd_result_ensure_ok (CmdResult *cmd,
                       GError **error)
 {
   g_autoptr(GError) local_error = NULL;
+  g_autofree gchar *dump = cmd_result_dump (cmd);
 
+  g_printerr ("**\n%s", dump);
+  g_test_message ("%s", dump);
   if (!g_spawn_check_exit_status (cmd->exit_status, &local_error))
     {
       g_autofree gchar *msg = local_error->message;
 
-      local_error->message = g_strdup_printf ("Program %s failed, stdout:\n%s\n\nstderr:\n%s\n\noriginal message: %s",
+      local_error->message = g_strdup_printf ("Program %s failed: %s\n\n%s",
                                               cmd->cmdline,
-                                              cmd->standard_output,
-                                              cmd->standard_error,
-                                              msg);
+                                              msg,
+                                              dump);
       g_propagate_error (error, g_steal_pointer (&local_error));
 
       return FALSE;
@@ -89,6 +91,16 @@ cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
     }
 
   return ok;
+}
+
+gchar *
+cmd_result_dump (CmdResult *cmd)
+{
+  return g_strdup_printf ("Output from %s (exit status: %d):\nStandard output:\n\n%s\n\nStandard error:\n\n%s\n\n",
+                          cmd->cmdline,
+                          cmd->exit_status,
+                          cmd->standard_output,
+                          cmd->standard_error);
 }
 
 void
