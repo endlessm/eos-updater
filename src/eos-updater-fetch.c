@@ -114,7 +114,7 @@ content_fetch (GTask *task,
   const gchar *refspec;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
-  const gchar *sum;
+  const gchar *commit_id;
   GMainContext *task_context = g_main_context_new ();
   const gchar *url_override = NULL;
 
@@ -131,15 +131,15 @@ content_fetch (GTask *task,
   if (!ostree_parse_refspec (refspec, &remote, &ref, &error))
     goto error;
 
-  sum = eos_updater_get_update_id (updater);
-  if (sum == NULL || *sum == '\0')
+  commit_id = eos_updater_get_update_id (updater);
+  if (commit_id == NULL || *commit_id == '\0')
     {
       g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
                            "fetch called with empty update commit");
       goto error;
     }
 
-  message ("Fetch: %s:%s resolved to: %s", remote, ref, sum);
+  message ("Fetch: %s:%s resolved to: %s", remote, ref, commit_id);
   progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
   if (data->overridden_urls)
@@ -154,15 +154,15 @@ content_fetch (GTask *task,
    * system hasn;t seen the download/unpack sizes for that so it cannot
    * be considered to have been approved.
    */
-  if (!repo_pull (repo, remote, sum, url_override, progress, cancel, &error))
+  if (!repo_pull (repo, remote, commit_id, url_override, progress, cancel, &error))
     goto error;
 
   message ("Fetch: pull() completed");
 
-  if (!ostree_repo_read_commit (repo, sum, NULL, NULL, cancel, &error))
+  if (!ostree_repo_read_commit (repo, commit_id, NULL, NULL, cancel, &error))
     goto error;
 
-  message ("Fetch: commit %s cached", sum);
+  message ("Fetch: commit %s cached", commit_id);
   g_task_return_boolean (task, TRUE);
   goto cleanup;
 

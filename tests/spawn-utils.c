@@ -27,7 +27,7 @@
 #include <gio/gunixoutputstream.h>
 
 void
-cmd_stuff_clear (CmdStuff *cmd)
+cmd_result_clear (CmdResult *cmd)
 {
   g_clear_pointer (&cmd->cmdline, g_free);
   g_clear_pointer (&cmd->standard_output, g_free);
@@ -36,15 +36,15 @@ cmd_stuff_clear (CmdStuff *cmd)
 }
 
 void
-cmd_stuff_free (CmdStuff *cmd)
+cmd_result_free (CmdResult *cmd)
 {
-  cmd_stuff_clear (cmd);
+  cmd_result_clear (cmd);
   g_free (cmd);
 }
 
 gboolean
-cmd_stuff_ensure_ok (CmdStuff *cmd,
-                     GError **error)
+cmd_result_ensure_ok (CmdResult *cmd,
+                      GError **error)
 {
   g_autoptr(GError) local_error = NULL;
 
@@ -52,7 +52,11 @@ cmd_stuff_ensure_ok (CmdStuff *cmd,
     {
       g_autofree gchar *msg = local_error->message;
 
-      local_error->message = g_strdup_printf ("Program %s failed, stdout:\n%s\n\nstderr:\n%s\n\noriginal message: %s", cmd->cmdline, cmd->standard_output, cmd->standard_error, msg);
+      local_error->message = g_strdup_printf ("Program %s failed, stdout:\n%s\n\nstderr:\n%s\n\noriginal message: %s",
+                                              cmd->cmdline,
+                                              cmd->standard_output,
+                                              cmd->standard_error,
+                                              msg);
       g_propagate_error (error, g_steal_pointer (&local_error));
 
       return FALSE;
@@ -62,19 +66,19 @@ cmd_stuff_ensure_ok (CmdStuff *cmd,
 }
 
 gboolean
-cmd_stuff_ensure_all_ok_verbose (GPtrArray *cmds)
+cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
 {
   guint idx;
   gboolean ok = TRUE;
 
   for (idx = 0; idx < cmds->len; ++idx)
     {
-      CmdStuff *cmd = g_ptr_array_index (cmds, idx);
+      CmdResult *cmd = g_ptr_array_index (cmds, idx);
       g_autoptr(GError) error = NULL;
       g_autofree gchar *msg = NULL;
 
-      if (cmd_stuff_ensure_ok (cmd, &error))
-	continue;
+      if (cmd_result_ensure_ok (cmd, &error))
+        continue;
 
       msg = g_strdup_printf ("%s failure:\n%s", cmd->cmdline, error->message);
       g_printerr ("**\n%s", msg);
@@ -86,7 +90,7 @@ cmd_stuff_ensure_all_ok_verbose (GPtrArray *cmds)
 }
 
 void
-cmd_async_stuff_clear (CmdAsyncStuff *cmd)
+cmd_async_result_clear (CmdAsyncResult *cmd)
 {
   g_clear_pointer (&cmd->cmdline, g_free);
   g_clear_object (&cmd->in_stream);
@@ -97,9 +101,9 @@ cmd_async_stuff_clear (CmdAsyncStuff *cmd)
 }
 
 void
-cmd_async_stuff_free (CmdAsyncStuff *cmd)
+cmd_async_result_free (CmdAsyncResult *cmd)
 {
-  cmd_async_stuff_clear (cmd);
+  cmd_async_result_clear (cmd);
   g_free (cmd);
 }
 
@@ -108,7 +112,7 @@ test_spawn_cwd_async (const gchar *cwd,
                       gchar **argv,
                       gchar **envp,
                       gboolean autoreap,
-                      CmdAsyncStuff *cmd,
+                      CmdAsyncResult *cmd,
                       GError **error)
 {
   GSpawnFlags flags = G_SPAWN_DEFAULT;
@@ -161,7 +165,7 @@ gboolean
 test_spawn_async (gchar **argv,
                   gchar **envp,
                   gboolean autoreap,
-                  CmdAsyncStuff *cmd,
+                  CmdAsyncResult *cmd,
                   GError **error)
 {
   return test_spawn_cwd_async (NULL,
@@ -177,7 +181,7 @@ test_spawn_cwd_full (const gchar *cwd,
                      gchar **argv,
                      gchar **envp,
                      gboolean to_dev_null,
-                     CmdStuff *cmd,
+                     CmdResult *cmd,
                      GError **error)
 {
   GSpawnFlags flags = G_SPAWN_DEFAULT;
@@ -217,7 +221,7 @@ gboolean
 test_spawn_cwd (const gchar *cwd,
                 gchar **argv,
                 gchar **envp,
-                CmdStuff *cmd,
+                CmdResult *cmd,
                 GError **error)
 {
   return test_spawn_cwd_full (cwd,
@@ -231,7 +235,7 @@ test_spawn_cwd (const gchar *cwd,
 gboolean
 test_spawn (gchar **argv,
             gchar **envp,
-            CmdStuff *cmd,
+            CmdResult *cmd,
             GError **error)
 {
   return test_spawn_cwd (NULL,
@@ -295,16 +299,16 @@ merge_parent_and_child_env (gchar **child_env)
 
 typedef struct
 {
-  CmdStuff *cmd;
-  CmdAsyncStuff *async_cmd;
+  CmdResult *cmd;
+  CmdAsyncResult *async_cmd;
   GMainLoop *loop;
   GError **error;
 } ReapData;
 
 static void
 collect_output (GPid pid,
-		gint status,
-		gpointer reap_data_ptr)
+                gint status,
+                gpointer reap_data_ptr)
 {
   ReapData *reap_data = reap_data_ptr;
 
@@ -322,9 +326,9 @@ collect_output (GPid pid,
 }
 
 gboolean
-reap_async_cmd (CmdAsyncStuff *cmd,
-		CmdStuff *reaped,
-		GError **error)
+reap_async_cmd (CmdAsyncResult *cmd,
+                CmdResult *reaped,
+                GError **error)
 {
   g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
   g_autoptr(GError) local_error = NULL;
@@ -342,4 +346,66 @@ reap_async_cmd (CmdAsyncStuff *cmd,
     }
 
   return TRUE;
+}
+
+gchar **
+build_cmd_args (CmdArg *args)
+{
+  gsize idx;
+  g_autoptr(GPtrArray) vec = string_array_new ();
+
+  for (idx = 0;; ++idx)
+    {
+      CmdArg *arg = &args[idx];
+      g_autofree gchar* arg_str = NULL;
+
+      if (arg->flag_name == NULL &&
+          arg->value == NULL)
+        break;
+
+      if (arg->flag_name != NULL &&
+          arg->value != NULL)
+        arg_str = flag (arg->flag_name, arg->value);
+      else if (arg->flag_name != NULL)
+        arg_str = g_strdup_printf ("--%s", arg->flag_name);
+      else
+        arg_str = g_strdup (arg->value);
+
+      g_ptr_array_add (vec, g_steal_pointer (&arg_str));
+    }
+
+  g_ptr_array_add (vec, NULL);
+
+  return (gchar **)g_ptr_array_free (g_steal_pointer (&vec), FALSE);
+}
+
+gchar **
+build_cmd_env (CmdEnvVar *vars)
+{
+  gsize idx;
+  g_autoptr(GPtrArray) vec = string_array_new ();
+
+  for (idx = 0;; ++idx)
+    {
+      CmdEnvVar *var = &vars[idx];
+      g_autofree gchar* env_str = NULL;
+
+      if (var->name == NULL)
+        break;
+
+      if (var->raw_value)
+        env_str = envvar (var->name, var->raw_value);
+      else
+        {
+          g_autofree gchar *raw_path = g_file_get_path (var->file_value);
+
+          env_str = envvar (var->name, raw_path);
+        }
+
+      g_ptr_array_add (vec, g_steal_pointer (&env_str));
+    }
+
+  g_ptr_array_add (vec, NULL);
+
+  return (gchar **)g_ptr_array_free (g_steal_pointer (&vec), FALSE);
 }

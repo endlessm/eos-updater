@@ -67,14 +67,11 @@ eos_avahi_generate_service_file (OstreeRepo *repo,
                                  EosBranchFile *branch_file,
                                  GError **error);
 
-const gchar *eos_avahi_v1_ostree_path (void);
+extern const gchar *const eos_avahi_v1_ostree_path;
+extern const gchar *const eos_avahi_v1_branch_file_dl_time;
+extern const gchar *const eos_avahi_v1_branch_file_sha512sum;
 
-const gchar *eos_avahi_v1_branch_file_dl_time (void);
-
-const gchar *eos_avahi_v1_branch_file_sha512sum (void);
-
-const gchar *eos_avahi_v2_ostree_path (void);
-
-const gchar *eos_avahi_v2_branch_file_timestamp (void);
+extern const gchar *const eos_avahi_v2_ostree_path;
+extern const gchar *const eos_avahi_v2_branch_file_timestamp;
 
 G_END_DECLS

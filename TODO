@@ -89,3 +89,6 @@
 - store ostree path in the signed branch file, next to the timestamp
 
 - add valgrind support in tests
+
+- add some sanity tests to check if setting up the server and clients
+  work

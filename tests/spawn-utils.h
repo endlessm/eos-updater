@@ -32,20 +32,20 @@ typedef struct
   gchar *standard_output;
   gchar *standard_error;
   gint exit_status;
-} CmdStuff;
+} CmdResult;
 
-#define CMD_STUFF_CLEARED { NULL, NULL, NULL, 0 }
+#define CMD_RESULT_CLEARED { NULL, NULL, NULL, 0 }
 
-void cmd_stuff_clear (CmdStuff *cmd);
-void cmd_stuff_free (CmdStuff *cmd);
+void cmd_result_clear (CmdResult *cmd);
+void cmd_result_free (CmdResult *cmd);
 
-G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (CmdStuff, cmd_stuff_clear)
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (CmdStuff, cmd_stuff_free)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (CmdResult, cmd_result_clear)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (CmdResult, cmd_result_free)
 
-gboolean cmd_stuff_ensure_ok (CmdStuff *cmd,
-			      GError **error);
+gboolean cmd_result_ensure_ok (CmdResult *cmd,
+                               GError **error);
 
-gboolean cmd_stuff_ensure_all_ok_verbose (GPtrArray *cmds);
+gboolean cmd_result_ensure_all_ok_verbose (GPtrArray *cmds);
 
 typedef struct
 {
@@ -54,46 +54,46 @@ typedef struct
   GInputStream *out_stream;
   GInputStream *err_stream;
   GPid pid;
-} CmdAsyncStuff;
+} CmdAsyncResult;
 
-#define CMD_ASYNC_STUFF_CLEARED { NULL, NULL, NULL, NULL, 0 }
+#define CMD_ASYNC_RESULT_CLEARED { NULL, NULL, NULL, NULL, 0 }
 
-void cmd_async_stuff_clear (CmdAsyncStuff *cmd);
-void cmd_async_stuff_free (CmdAsyncStuff *cmd);
+void cmd_async_result_clear (CmdAsyncResult *cmd);
+void cmd_async_result_free (CmdAsyncResult *cmd);
 
-G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (CmdAsyncStuff, cmd_async_stuff_clear)
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (CmdAsyncStuff, cmd_async_stuff_free)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (CmdAsyncResult, cmd_async_result_clear)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (CmdAsyncResult, cmd_async_result_free)
 
 gboolean test_spawn_cwd_async (const gchar *cwd,
-			       gchar **argv,
-			       gchar **envp,
-			       gboolean autoreap,
-			       CmdAsyncStuff *cmd,
-			       GError **error);
+                               gchar **argv,
+                               gchar **envp,
+                               gboolean autoreap,
+                               CmdAsyncResult *cmd,
+                               GError **error);
 
 gboolean test_spawn_async (gchar **argv,
-			   gchar **envp,
-			   gboolean autoreap,
-			   CmdAsyncStuff *cmd,
-			   GError **error);
+                           gchar **envp,
+                           gboolean autoreap,
+                           CmdAsyncResult *cmd,
+                           GError **error);
 
 gboolean test_spawn_cwd_full (const gchar *cwd,
-			      gchar **argv,
-			      gchar **envp,
-			      gboolean to_dev_null,
-			      CmdStuff *cmd,
-			      GError **error);
+                              gchar **argv,
+                              gchar **envp,
+                              gboolean to_dev_null,
+                              CmdResult *cmd,
+                              GError **error);
 
 gboolean test_spawn_cwd (const gchar *cwd,
-			 gchar **argv,
-			 gchar **envp,
-			 CmdStuff *cmd,
-			 GError **error);
+                         gchar **argv,
+                         gchar **envp,
+                         CmdResult *cmd,
+                         GError **error);
 
 gboolean test_spawn (gchar **argv,
-		     gchar **envp,
-		     CmdStuff *cmd,
-		     GError **error);
+                     gchar **envp,
+                     CmdResult *cmd,
+                     GError **error);
 
 gchar **merge_parent_and_child_env (gchar **child_env);
 
@@ -111,8 +111,28 @@ envvar (const gchar *key,
   return g_strdup_printf ("%s=%s", key, value);
 }
 
-gboolean reap_async_cmd (CmdAsyncStuff *cmd,
-			 CmdStuff *reaped,
-			 GError **error);
+gboolean reap_async_cmd (CmdAsyncResult *cmd,
+                         CmdResult *reaped,
+                         GError **error);
+
+typedef struct
+{
+  const gchar *flag_name;
+  const gchar *value;
+} CmdArg;
+
+gchar **
+build_cmd_args (CmdArg *args);
+
+typedef struct
+{
+  const gchar *name;
+  /* only one of those should be set */
+  const gchar *raw_value;
+  GFile *file_value;
+} CmdEnvVar;
+
+gchar **
+build_cmd_env (CmdEnvVar *vars);
 
 G_END_DECLS

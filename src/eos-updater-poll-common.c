@@ -374,14 +374,13 @@ get_extensions_url (OstreeRepo *repo,
                     gchar **extensions_url,
                     GError **error)
 {
-  g_autofree gchar *url = NULL;
+  g_autofree gchar *url = g_strdup (url_override);
 
-  if (url_override != NULL)
-    url = g_strdup (url_override);
-  else if (!ostree_repo_remote_get_url (repo, remote_name, &url, error))
+  if (url == NULL &&
+      !ostree_repo_remote_get_url (repo, remote_name, &url, error))
     return FALSE;
 
-  *extensions_url = g_strconcat (url, "/extensions/eos", NULL);
+  *extensions_url = g_build_path ("/", url, "extensions", "eos", NULL);
   return TRUE;
 }
 
@@ -666,6 +665,10 @@ fetch_commit_checksum (OstreeRepo *repo,
                        EosExtensions **out_extensions,
                        GError **error)
 {
+  g_autoptr(GPtrArray) failures = NULL;
+  g_autofree gchar *failures_str = NULL;
+  g_autoptr(GError) local_error = NULL;
+
   if (commit_checksum_from_extensions_ref (repo,
                                            cancellable,
                                            remote_name,
@@ -673,10 +676,12 @@ fetch_commit_checksum (OstreeRepo *repo,
                                            url_override,
                                            out_checksum,
                                            out_extensions,
-                                           error))
+                                           &local_error))
     return TRUE;
 
-  g_clear_error (error);
+  failures = g_ptr_array_new_with_free_func (g_free);
+  g_ptr_array_add (failures, g_strdup_printf ("Failed to get extensions refs: %s", local_error->message));
+  g_clear_error (&local_error);
   if (commit_checksum_from_extensions_summary (repo,
                                                cancellable,
                                                remote_name,
@@ -684,10 +689,11 @@ fetch_commit_checksum (OstreeRepo *repo,
                                                url_override,
                                                out_checksum,
                                                out_extensions,
-                                               error))
+                                               &local_error))
     return TRUE;
 
-  g_clear_error (error);
+  g_ptr_array_add (failures, g_strdup_printf ("Failed to get extensions summary: %s", local_error->message));
+  g_clear_error (&local_error);
   if (commit_checksum_from_summary (repo,
                                     cancellable,
                                     remote_name,
@@ -695,18 +701,26 @@ fetch_commit_checksum (OstreeRepo *repo,
                                     url_override,
                                     out_checksum,
                                     out_extensions,
-                                    error))
+                                    &local_error))
     return TRUE;
 
-  g_clear_error (error);
+  g_ptr_array_add (failures, g_strdup_printf ("Failed to get ostree summary: %s", local_error->message));
+  g_ptr_array_add (failures, NULL);
+  failures_str = g_strjoinv ("; ", (gchar **)failures->pdata);
+  g_clear_error (&local_error);
   if (url_override != NULL)
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                 "Failed to get the checksum of the latest commit in ref %s from remote %s with URL %s",
-                 ref, remote_name, url_override);
+                 "Failed to get the checksum of the latest commit in ref %s from remote %s with URL %s, reasons: %s",
+                 ref,
+                 remote_name,
+                 url_override,
+                 failures_str);
   else
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                 "Failed to get the checksum of the latest commit in ref %s from remote %s",
-                 ref, remote_name);
+                 "Failed to get the checksum of the latest commit in ref %s from remote %s, reasons: %s",
+                 ref,
+                 remote_name,
+                 failures_str);
   return FALSE;
 }
 
@@ -723,6 +737,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autoptr(GBytes) summary_bytes = NULL;
   g_autoptr(GVariant) summary = NULL;
   g_autofree gchar *checksum = NULL;
+  g_autoptr(GVariant) options = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
@@ -730,18 +745,14 @@ fetch_latest_commit (OstreeRepo *repo,
   g_return_val_if_fail (ref != NULL, FALSE);
   g_return_val_if_fail (out_checksum != NULL, FALSE);
 
-  {
-    g_autoptr(GVariant) options = NULL;
-
-    options = get_repo_pull_options (url_override, ref);
-    if (!ostree_repo_pull_with_options (repo,
-                                        remote_name,
-                                        options,
-                                        NULL,
-                                        cancellable,
-                                        error))
-      return FALSE;
-  }
+  options = get_repo_pull_options (url_override, ref);
+  if (!ostree_repo_pull_with_options (repo,
+                                      remote_name,
+                                      options,
+                                      NULL,
+                                      cancellable,
+                                      error))
+    return FALSE;
 
   return fetch_commit_checksum (repo,
                                 cancellable,
@@ -768,14 +779,11 @@ get_uri_to_sig (SoupURI *uri)
 static GBytes *
 download_file (SoupURI *uri)
 {
-  g_autoptr(SoupSession) soup = NULL;
-  g_autoptr(SoupMessage) msg = NULL;
+  g_autoptr(SoupSession) soup = soup_session_new ();
+  g_autoptr(SoupMessage) msg = soup_message_new_from_uri ("GET", uri);
+  guint status = soup_session_send_message (soup, msg);
   g_autoptr(GBytes) contents = NULL;
-  guint status = 0;
 
-  soup = soup_session_new ();
-  msg = soup_message_new_from_uri ("GET", uri);
-  status = soup_session_send_message (soup, msg);
   if (SOUP_STATUS_IS_SUCCESSFUL (status))
     g_object_get (msg,
                   SOUP_MESSAGE_RESPONSE_BODY_DATA, &contents,
@@ -820,11 +828,9 @@ get_origin_refspec (OstreeDeployment *booted_deployment,
   origin = ostree_deployment_get_origin (booted_deployment);
   if (origin == NULL)
     {
-      const gchar *osname;
-      const gchar *booted;
+      const gchar *osname = ostree_deployment_get_osname (booted_deployment);
+      const gchar *booted = ostree_deployment_get_csum (booted_deployment);
 
-      osname = ostree_deployment_get_osname (booted_deployment);
-      booted = ostree_deployment_get_csum (booted_deployment);
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
                    "No origin found for %s (%s), cannot upgrade",
                    osname, booted);
@@ -880,10 +886,9 @@ get_custom_hw_descriptors (GHashTable *hw_descriptors,
 static void
 get_arm_hw_descriptors (GHashTable *hw_descriptors)
 {
-  g_autoptr(GFile) fp = NULL;
+  g_autoptr(GFile) fp = g_file_new_for_path (DT_COMPATIBLE);
   g_autofree gchar *fc = NULL;
 
-  fp = g_file_new_for_path (DT_COMPATIBLE);
   if (g_file_load_contents (fp, NULL, &fc, NULL, NULL, NULL))
     {
       g_auto(GStrv) sv = g_strsplit (fc, ",", -1);

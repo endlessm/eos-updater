@@ -24,6 +24,7 @@
 #include "misc-utils.h"
 #include "ostree-spawn.h"
 
+#include <errno.h>
 #include <string.h>
 
 #ifndef EOS_UPDATER_BINARY
@@ -45,6 +46,12 @@
 #ifndef GPG_BINARY
 #error "GPG_BINARY is not defined"
 #endif
+
+const gchar *const default_vendor = "VENDOR";
+const gchar *const default_product = "PRODUCT";
+const gchar *const default_ref = "REF";
+const gchar *const default_ostree_path = "OSTREE/PATH";
+const gchar *const default_remote_name = "REMOTE";
 
 void
 eos_updater_fixture_setup (EosUpdaterFixture *fixture,
@@ -88,7 +95,7 @@ get_keyid (void)
   load_to_bytes (keyid, &bytes, &error);
   g_assert_no_error (error);
   len = g_bytes_get_size (bytes);
-  g_assert_cmpint (len, ==, 8);
+  g_assert (len == 8);
 
   return g_strndup (g_bytes_get_data (bytes, NULL), len);
 }
@@ -109,9 +116,9 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_DEVICE,
 
 EosTestDevice *
 eos_test_device_new (const gchar *vendor,
-		     const gchar *product,
-		     gboolean on_hold,
-		     const gchar *ref)
+                     const gchar *product,
+                     gboolean on_hold,
+                     const gchar *ref)
 {
   EosTestDevice *device = g_object_new (EOS_TEST_TYPE_DEVICE, NULL);
 
@@ -138,6 +145,7 @@ eos_test_subserver_finalize_impl (EosTestSubserver *subserver)
 {
   g_free (subserver->keyid);
   g_free (subserver->ostree_path);
+  g_free (subserver->url);
 }
 
 EOS_DEFINE_REFCOUNTED (EOS_TEST_SUBSERVER,
@@ -148,10 +156,10 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_SUBSERVER,
 
 EosTestSubserver *
 eos_test_subserver_new (const gchar *keyid,
-			const gchar *ostree_path,
-			GPtrArray *devices,
-			GHashTable *ref_to_commit,
-			GDateTime *timestamp)
+                        const gchar *ostree_path,
+                        GPtrArray *devices,
+                        GHashTable *ref_to_commit,
+                        GDateTime *timestamp)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
@@ -194,15 +202,88 @@ get_boot_checksum (const gchar *kernel_contents,
   return get_sha256sum_from_strv (contents);
 }
 
-static const gchar *
-os_release (void)
+static const gchar *const os_release =
+  "NAME=\"Endless\"\n"
+  "VERSION=\"2.6.1\"\n"
+  "ID=\"endless\"\n"
+  "VERSION_ID=\"2.6.1\"\n"
+  "PRETTY_NAME=\"Endless 2.6.1\"\n";
+
+typedef struct
 {
-  return
-    "NAME=\"Endless\"\n"
-    "VERSION=\"2.6.1\"\n"
-    "ID=\"endless\"\n"
-    "VERSION_ID=\"2.6.1\"\n"
-    "PRETTY_NAME=\"Endless 2.6.1\"\n";
+  gchar *rel_path;
+  gchar *contents;
+} SimpleFile;
+
+static SimpleFile *
+simple_file_new_steal (gchar *rel_path,
+                       gchar *contents)
+{
+  SimpleFile *file = g_new (SimpleFile, 1);
+
+  file->rel_path = rel_path;
+  file->contents = contents;
+
+  return file;
+}
+
+static void
+simple_file_free (gpointer file_ptr)
+{
+  SimpleFile *file = file_ptr;
+
+  g_free (file->rel_path);
+  g_free (file->contents);
+  g_free (file);
+}
+
+static GPtrArray *
+get_sysroot_files (const gchar *kernel_version)
+{
+  g_autoptr (GPtrArray) files = g_ptr_array_new_with_free_func (simple_file_free);
+  const gchar *kernel_contents = "a kernel";
+  const gchar *initramfs_contents = "an initramfs";
+  g_autofree gchar *boot_checksum = get_boot_checksum (kernel_contents,
+                                                       initramfs_contents);
+  g_autofree gchar *kernel_name = g_strdup_printf ("vmlinuz-%s-%s",
+                                                   kernel_version,
+                                                   boot_checksum);
+  g_autofree gchar *initramfs_name = g_strdup_printf ("initramfs-%s-%s",
+                                                      kernel_version,
+                                                      boot_checksum);
+
+  g_ptr_array_add (files,
+                   simple_file_new_steal (g_build_filename ("boot", kernel_name, NULL),
+                                          g_strdup (kernel_contents)));
+  g_ptr_array_add (files,
+                   simple_file_new_steal (g_build_filename ("boot", initramfs_name, NULL),
+                                          g_strdup (initramfs_contents)));
+  g_ptr_array_add (files,
+                   simple_file_new_steal (g_build_filename ("usr", "etc", "os-release", NULL),
+                                          g_strdup (os_release)));
+
+  return g_steal_pointer (&files);
+}
+
+static gchar **
+get_sysroot_dirs (const gchar *kernel_version)
+{
+  g_autoptr(GPtrArray) dirs = string_array_new ();
+  gchar *paths[] =
+    {
+      g_strdup ("boot"),
+      g_build_filename ("usr", "bin", NULL),
+      g_build_filename ("usr", "lib", "modules", kernel_version, NULL),
+      g_build_filename ("usr", "share", NULL),
+      g_build_filename ("usr", "etc", NULL),
+      NULL
+    };
+  guint idx;
+
+  for (idx = 0; idx < G_N_ELEMENTS (paths); ++idx)
+    g_ptr_array_add (dirs, paths[idx]);
+
+  return (gchar**)g_ptr_array_free (g_steal_pointer (&dirs), FALSE);
 }
 
 static gboolean
@@ -210,43 +291,13 @@ prepare_sysroot_contents (GFile *repo,
                           GFile *tree_root,
                           GError **error)
 {
-  typedef struct
-  {
-    gchar *rel_path;
-    gchar *contents;
-  } SimpleFile;
-
-  SSDEF;
-  gchar **iter;
-  const gchar *version = "4.6";
-  const gchar *kernel_contents = "a kernel";
-  const gchar *initramfs_contents = "an initramfs";
-  g_autofree gchar *boot_checksum = get_boot_checksum (kernel_contents,
-                                                       initramfs_contents);
-  g_autofree gchar *kernel_name = g_strdup_printf ("vmlinuz-%s-%s",
-                                                   version,
-                                                   boot_checksum);
-  g_autofree gchar *initramfs_name = g_strdup_printf ("initramfs-%s-%s",
-                                                      version,
-                                                      boot_checksum);
-  SimpleFile files[] =
-    {
-      { SS (g_build_filename ("boot", kernel_name, NULL)), (gchar *)kernel_contents },
-      { SS (g_build_filename ("boot", initramfs_name, NULL)), (gchar *)initramfs_contents },
-      { SS (g_build_filename ("usr", "etc", "os-release", NULL)), (gchar *)os_release () }
-    };
-  gchar *paths[] =
-    {
-      "boot",
-      SS (g_build_filename ("usr", "bin", NULL)),
-      SS (g_build_filename ("usr", "lib", "modules", version, NULL)),
-      SS (g_build_filename ("usr", "share", NULL)),
-      SS (g_build_filename ("usr", "etc", NULL)),
-      NULL
-    };
+  const gchar *kernel_version = "4.6";
+  g_autoptr(GPtrArray) files = get_sysroot_files (kernel_version);
   guint idx;
+  g_auto(GStrv) dirs = get_sysroot_dirs (kernel_version);
+  gchar **iter;
 
-  for (iter = paths; *iter != NULL; ++iter)
+  for (iter = dirs; *iter != NULL; ++iter)
     {
       g_autoptr(GFile) path = g_file_get_child (tree_root, *iter);
 
@@ -254,12 +305,13 @@ prepare_sysroot_contents (GFile *repo,
         return FALSE;
     }
 
-  for (idx = 0; idx < G_N_ELEMENTS (files); ++idx)
+  for (idx = 0; idx < files->len; ++idx)
     {
-      const gchar *contents = files[idx].contents;
+      SimpleFile *file = g_ptr_array_index (files, idx);
+      const gchar *contents = file->contents;
       gsize len = (contents != NULL) ? strlen (contents) : 0;
       g_autoptr(GBytes) bytes = g_bytes_new_static (contents, len);
-      g_autoptr(GFile) path = g_file_get_child (tree_root, files[idx].rel_path);
+      g_autoptr(GFile) path = g_file_get_child (tree_root, file->rel_path);
 
       if (!create_file (path, bytes, error))
         return FALSE;
@@ -277,11 +329,12 @@ prepare_commit (GFile *repo,
                 gchar **checksum,
                 GError **error)
 {
-  SSDEF;
+  g_autofree gchar *commit_filename = NULL;
   g_autoptr(GFile) commit_file = NULL;
-  g_auto(CmdStuff) cmd = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GDateTime) timestamp = NULL;
   const guint commit_max = 10;
+  g_autofree gchar *subject = NULL;
 
   if (commit_no > commit_max)
     {
@@ -289,8 +342,8 @@ prepare_commit (GFile *repo,
                    "exceeded commit limit %u with %u", commit_max, commit_no);
       return FALSE;
     }
-  commit_file = g_file_get_child (tree_root,
-                                  SS (get_commit_filename (commit_no)));
+  commit_filename = get_commit_filename (commit_no);
+  commit_file = g_file_get_child (tree_root, commit_filename);
 
   if (g_file_query_exists (commit_file, NULL))
     return TRUE;
@@ -315,10 +368,11 @@ prepare_commit (GFile *repo,
   if (!create_file (commit_file, NULL, error))
     return FALSE;
 
+  subject = g_strdup_printf ("Test commit %u", commit_no);
   timestamp = days_ago (commit_max - commit_no);
   if (!ostree_commit (repo,
                       tree_root,
-                      SS (g_strdup_printf ("Test commit %u", commit_no)),
+                      subject,
                       ref,
                       keyid,
                       timestamp,
@@ -326,16 +380,15 @@ prepare_commit (GFile *repo,
                       error))
     return FALSE;
 
-  if (!cmd_stuff_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
   if (checksum != NULL)
     {
-      g_autoptr(GFile) head = NULL;
+      g_autofree gchar *head_rel_path = g_build_filename ("refs", "heads", ref, NULL);
+      g_autoptr(GFile) head = g_file_get_child (repo, head_rel_path);
       g_autoptr(GBytes) bytes = NULL;
 
-      head = g_file_get_child (repo,
-                               SS (g_build_filename ("refs", "heads", ref, NULL)));
       if (!load_to_bytes (head,
                           &bytes,
                           error))
@@ -358,9 +411,9 @@ get_eos_extensions_dir (GFile *repo)
 
 static void
 get_ref_file_paths (GFile *repo,
-		    const gchar *ref,
-		    GFile **out_file,
-		    GFile **out_signature)
+                    const gchar *ref,
+                    GFile **out_file,
+                    GFile **out_signature)
 {
   g_autoptr(GFile) eos_dir = get_eos_extensions_dir (repo);
   g_autofree gchar *rel_path = g_build_filename ("refs.d", ref, NULL);
@@ -374,19 +427,22 @@ static gboolean
 gpg_sign (GFile *file,
           GFile *signature,
           const gchar *keyid,
-          CmdStuff *cmd,
+          CmdResult *cmd,
           GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) argv = NULL;
-
-  argv = generate_strv (GPG_BINARY,
-                        "--homedir=" GPG_HOME_DIRECTORY,
-                        SS (flag ("default-key", keyid)),
-                        SS (flag ("output", SS (g_file_get_path (signature)))),
-                        "--detach-sig",
-                        SS (g_file_get_path (file)),
-                        NULL);
+  g_autofree gchar *raw_signature_path = g_file_get_path (signature);
+  g_autofree gchar *raw_file_path = g_file_get_path (file);
+  CmdArg args[] =
+    {
+      { NULL, GPG_BINARY },
+      { "homedir", GPG_HOME_DIRECTORY },
+      { "default-key", keyid },
+      { "output", raw_signature_path },
+      { "detach-sig", NULL },
+      { NULL, raw_file_path },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
 
   if (!rm_rf (signature, error))
     return FALSE;
@@ -405,12 +461,12 @@ generate_ref_file (GFile *repo,
   g_autoptr(GFile) ref_file_sig = NULL;
   g_autoptr(GFile) ref_file_parent = NULL;
   g_autoptr(GBytes) bytes = NULL;
-  g_auto(CmdStuff) cmd = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   get_ref_file_paths (repo,
-		      ref,
-		      &ref_file,
-		      &ref_file_sig);
+                      ref,
+                      &ref_file,
+                      &ref_file_sig);
   ref_file_parent = g_file_get_parent (ref_file);
 
   if (!create_directory (ref_file_parent,
@@ -428,17 +484,17 @@ generate_ref_file (GFile *repo,
                  error))
     return FALSE;
 
-  return cmd_stuff_ensure_ok (&cmd, error);
+  return cmd_result_ensure_ok (&cmd, error);
 }
 
 static gboolean
 update_commits (EosTestSubserver *subserver,
-		GError **error)
+                GError **error)
 {
   GHashTableIter iter;
   gpointer ref_ptr;
   gpointer commit_ptr;
-  g_auto(CmdStuff) cmd = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   g_hash_table_iter_init (&iter, subserver->ref_to_commit);
   while (g_hash_table_iter_next (&iter, &ref_ptr, &commit_ptr))
@@ -468,16 +524,14 @@ update_commits (EosTestSubserver *subserver,
                        &cmd,
                        error))
     return FALSE;
-  if (!cmd_stuff_ensure_ok (&cmd, error))
-    return FALSE;
 
-  return TRUE;
+  return cmd_result_ensure_ok (&cmd, error);
 }
 
 static void
 get_branch_file_paths (GFile *repo,
-		       GFile **file,
-		       GFile **signature)
+                       GFile **file,
+                       GFile **signature)
 {
   g_autoptr(GFile) dir = get_eos_extensions_dir (repo);
 
@@ -498,14 +552,14 @@ generate_branch_file (GFile *repo,
   g_autoptr(GFile) ext_dir = NULL;
   g_autoptr(GFile) branch_file_path = NULL;
   g_autoptr(GFile) branch_file_sig_path = NULL;
-  g_auto(CmdStuff) cmd = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   for (idx = 0; idx < devices->len; ++idx)
     {
       EosTestDevice *device = EOS_TEST_DEVICE (g_ptr_array_index (devices, idx));
       g_autofree gchar *group_name = g_strdup_printf ("%s %s",
-						      device->vendor,
-						      device->product);
+                                                      device->vendor,
+                                                      device->product);
 
       g_assert_false (g_key_file_has_group (branch_file, group_name));
       g_key_file_set_boolean (branch_file, group_name, "OnHold", device->on_hold);
@@ -516,8 +570,8 @@ generate_branch_file (GFile *repo,
   g_key_file_set_int64 (branch_file, "main", "UnixUTCTimestamp", unix_time);
 
   get_branch_file_paths (repo,
-			 &branch_file_path,
-			 &branch_file_sig_path);
+                         &branch_file_path,
+                         &branch_file_sig_path);
   ext_dir = g_file_get_parent (branch_file_path);
 
   if (!create_directory (ext_dir, error))
@@ -533,7 +587,7 @@ generate_branch_file (GFile *repo,
                  error))
     return FALSE;
 
-  return cmd_stuff_ensure_ok (&cmd, error);
+  return cmd_result_ensure_ok (&cmd, error);
 }
 
 static gboolean
@@ -550,7 +604,7 @@ eos_test_subserver_update (EosTestSubserver *subserver,
 {
   GFile *repo = subserver->repo;
   g_autoptr(GDateTime) timestamp = NULL;
-  g_auto(CmdStuff) cmd = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   if (!create_directory (repo, error))
     return FALSE;
@@ -562,7 +616,7 @@ eos_test_subserver_update (EosTestSubserver *subserver,
                         &cmd,
                         error))
         return FALSE;
-      if (!cmd_stuff_ensure_ok (&cmd, error))
+      if (!cmd_result_ensure_ok (&cmd, error))
         return FALSE;
     }
 
@@ -602,23 +656,64 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_SERVER,
                        eos_test_server_dispose_impl,
                        eos_test_server_finalize_impl)
 
+
+static gboolean
+read_port_file (GFile *port_file,
+                guint16 *out_port,
+                GError **error)
+{
+  g_autoptr(GBytes) bytes = NULL;
+  g_autofree gchar *port_contents = NULL;
+  gchar *endptr;
+  guint64 number;
+  int saved_errno;
+
+  if (!load_to_bytes (port_file,
+                      &bytes,
+                      error))
+    return FALSE;
+
+  port_contents = g_strndup (g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes));
+  g_strstrip (port_contents);
+  errno = 0;
+  number = g_ascii_strtoull (port_contents, &endptr, 10);
+  saved_errno = errno;
+  if (saved_errno != 0 || number == 0 || *endptr != '\0' || number > G_MAXUINT16)
+    {
+      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
+                   "Invalid port number %s", port_contents);
+      return FALSE;
+    }
+
+  *out_port = number;
+  return TRUE;
+}
+
 static gboolean
 run_httpd (GFile *served_root,
-	   gchar **out_url,
-	   GError **error)
+           GFile *httpd_dir,
+           gchar **out_url,
+           GError **error)
 {
-  g_auto(CmdStuff) cmd = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+  g_autoptr(GFile) port_file = g_file_get_child (httpd_dir, "port-file");
   guint16 port;
 
   if (!ostree_httpd (served_root,
+                     port_file,
                      &port,
                      &cmd,
                      error))
     return FALSE;
-  if (!cmd_stuff_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  *out_url = g_strdup_printf ("http://127.0.0.1:%d", port);
+  if (!read_port_file (port_file,
+                       &port,
+                       error))
+    return FALSE;
+
+  *out_url = g_strdup_printf ("http://127.0.0.1:%" G_GUINT16_FORMAT, port);
   return TRUE;
 }
 
@@ -634,10 +729,16 @@ get_main_served_root (GFile *main_root)
   return g_file_get_child (main_root, "served");
 }
 
+static GFile *
+get_main_httpd_dir (GFile *main_root)
+{
+  return g_file_get_child (main_root, "httpd");
+}
+
 static gboolean
 setup_subservers (GPtrArray *subservers,
-		  GFile *main_root,
-		  GError **error)
+                  GFile *main_root,
+                  GError **error)
 {
   g_autoptr(GFile) tree_root = NULL;
   g_autoptr(GFile) served_root = NULL;
@@ -662,7 +763,7 @@ setup_subservers (GPtrArray *subservers,
 
 static void
 update_subserver_urls (GPtrArray *subservers,
-		       const gchar *server_url)
+                       const gchar *server_url)
 {
   guint idx;
 
@@ -672,8 +773,8 @@ update_subserver_urls (GPtrArray *subservers,
 
       g_free (subserver->url);
       subserver->url = g_strdup_printf ("%s/%s",
-					server_url,
-					subserver->ostree_path);
+                                        server_url,
+                                        subserver->ostree_path);
     }
 }
 
@@ -685,16 +786,22 @@ eos_test_server_new (GFile *server_root,
   g_autoptr(EosTestServer) server = NULL;
   g_autofree gchar *server_url = NULL;
   g_autoptr(GFile) served_root = NULL;
+  g_autoptr(GFile) httpd_dir = NULL;
 
   if (!setup_subservers (subservers,
-			 server_root,
-			 error))
+                         server_root,
+                         error))
+    return FALSE;
+
+  httpd_dir = get_main_httpd_dir (server_root);
+  if (!create_directory (httpd_dir, error))
     return FALSE;
 
   served_root = get_main_served_root (server_root);
   if (!run_httpd (served_root,
-		  &server_url,
-		  error))
+                  httpd_dir,
+                  &server_url,
+                  error))
     return FALSE;
 
   update_subserver_urls (subservers, server_url);
@@ -709,15 +816,15 @@ eos_test_server_new (GFile *server_root,
 
 EosTestServer *
 eos_test_server_new_quick (GFile *server_root,
-			   gint branch_file_from_days_ago,
-			   const gchar *vendor,
-			   const gchar *product,
-			   gboolean on_hold,
-			   const gchar *ref,
-			   guint commit,
-			   const gchar *keyid,
-			   const gchar *ostree_path,
-			   GError **error)
+                           gint branch_file_from_days_ago,
+                           const gchar *vendor,
+                           const gchar *product,
+                           gboolean on_hold,
+                           const gchar *ref,
+                           guint commit,
+                           const gchar *keyid,
+                           const gchar *ostree_path,
+                           GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
   g_autoptr(GPtrArray) devices = object_array_new ();
@@ -727,14 +834,14 @@ eos_test_server_new_quick (GFile *server_root,
   g_ptr_array_add (devices, eos_test_device_new (vendor, product, on_hold, ref));
   g_hash_table_insert (ref_to_commit, g_strdup (ref), GUINT_TO_POINTER (commit));
   g_ptr_array_add (subservers, eos_test_subserver_new (keyid,
-						       ostree_path,
-						       devices,
-						       ref_to_commit,
-						       old_timestamp));
+                                                       ostree_path,
+                                                       devices,
+                                                       ref_to_commit,
+                                                       old_timestamp));
 
   return eos_test_server_new (server_root,
-			      subservers,
-			      error);
+                              subservers,
+                              error);
 }
 
 static void
@@ -783,12 +890,12 @@ static gboolean
 setup_stub_uboot_config (GFile *sysroot,
                          GError **error)
 {
-  SSDEF;
   g_autoptr (GFile) boot = g_file_get_child (sysroot, "boot");
   g_autoptr (GFile) loader0 = g_file_get_child (boot, "loader.0");
   g_autoptr (GFile) loader = g_file_get_child (boot, "loader");
   g_autoptr (GFile) uenv = g_file_get_child (loader, "uEnv.txt");
   g_autoptr (GFile) uenv_compat = g_file_get_child (boot, "uEnv.txt");
+  g_autofree gchar *symlink_target = g_build_filename ("loader", "uEnv.txt", NULL);
 
   if (!create_directory (loader0, error))
     return FALSE;
@@ -799,7 +906,7 @@ setup_stub_uboot_config (GFile *sysroot,
   if (!create_file (uenv, NULL, error))
     return FALSE;
 
-  if (!create_symlink (SS (g_build_filename ("loader", "uEnv.txt", NULL)),
+  if (!create_symlink (symlink_target,
                        uenv_compat,
                        error))
     return FALSE;
@@ -809,17 +916,17 @@ setup_stub_uboot_config (GFile *sysroot,
 
 static gboolean
 prepare_client_sysroot (GFile *client_root,
-			const gchar *remote_name,
-			const gchar *url,
-			const gchar *ref,
-			const gchar *keyid,
-			GError **error)
+                        const gchar *remote_name,
+                        const gchar *url,
+                        const gchar *ref,
+                        const gchar *keyid,
+                        GError **error)
 {
-  SSDEF;
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
-  g_auto(CmdStuff) cmd = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GFile) gpg_key = NULL;
   g_autoptr(GFile) repo = NULL;
+  g_autofree gchar *refspec = NULL;
 
   if (!create_directory (sysroot,
                          error))
@@ -829,16 +936,16 @@ prepare_client_sysroot (GFile *client_root,
                        &cmd,
                        error))
     return FALSE;
-  if (!cmd_stuff_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  cmd_stuff_clear (&cmd);
+  cmd_result_clear (&cmd);
   if (!ostree_os_init (sysroot,
                        remote_name,
                        &cmd,
                        error))
     return FALSE;
-  if (!cmd_stuff_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
   if (!setup_stub_uboot_config (sysroot, error))
@@ -846,7 +953,7 @@ prepare_client_sysroot (GFile *client_root,
 
   gpg_key = get_gpg_key_file_for_keyid (keyid);
   repo = get_repo_for_sysroot (sysroot);
-  cmd_stuff_clear (&cmd);
+  cmd_result_clear (&cmd);
   if (!ostree_remote_add (repo,
                           remote_name,
                           url,
@@ -855,27 +962,28 @@ prepare_client_sysroot (GFile *client_root,
                           &cmd,
                           error))
     return FALSE;
-  if (!cmd_stuff_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  cmd_stuff_clear (&cmd);
+  cmd_result_clear (&cmd);
   if (!ostree_pull (repo,
                     remote_name,
                     ref,
                     &cmd,
                     error))
     return FALSE;
-  if (!cmd_stuff_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  cmd_stuff_clear (&cmd);
+  refspec = g_strdup_printf ("%s:%s", remote_name, ref);
+  cmd_result_clear (&cmd);
   if (!ostree_deploy (sysroot,
                       remote_name,
-                      SS (g_strdup_printf ("%s:%s", remote_name, ref)),
+                      refspec,
                       &cmd,
                       error))
     return FALSE;
-  if (!cmd_stuff_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
   return TRUE;
@@ -883,10 +991,10 @@ prepare_client_sysroot (GFile *client_root,
 
 static gboolean
 copy_file_and_signature (GFile *source_file,
-			 GFile *source_sig,
-			 GFile *target_file,
-			 GFile *target_sig,
-			 GError **error)
+                         GFile *source_sig,
+                         GFile *target_file,
+                         GFile *target_sig,
+                         GError **error)
 {
   g_autoptr(GFile) target_parent = NULL;
 
@@ -905,8 +1013,8 @@ copy_file_and_signature (GFile *source_file,
 
 static gboolean
 copy_branch_file (GFile *source_repo,
-		  GFile *target_repo,
-		  GError **error)
+                  GFile *target_repo,
+                  GError **error)
 {
   g_autoptr(GFile) source_branch_file = NULL;
   g_autoptr(GFile) source_branch_file_sig = NULL;
@@ -914,24 +1022,24 @@ copy_branch_file (GFile *source_repo,
   g_autoptr(GFile) target_branch_file_sig = NULL;
 
   get_branch_file_paths (source_repo,
-			 &source_branch_file,
-			 &source_branch_file_sig);
+                         &source_branch_file,
+                         &source_branch_file_sig);
   get_branch_file_paths (target_repo,
-			 &target_branch_file,
-			 &target_branch_file_sig);
+                         &target_branch_file,
+                         &target_branch_file_sig);
 
   return copy_file_and_signature (source_branch_file,
-				  source_branch_file_sig,
-				  target_branch_file,
-				  target_branch_file_sig,
-				  error);
+                                  source_branch_file_sig,
+                                  target_branch_file,
+                                  target_branch_file_sig,
+                                  error);
 }
 
 static gboolean
 copy_ref_file (GFile *source_repo,
-	       GFile *target_repo,
-	       const gchar *ref,
-	       GError **error)
+               GFile *target_repo,
+               const gchar *ref,
+               GError **error)
 {
   g_autoptr(GFile) source_ref_file = NULL;
   g_autoptr(GFile) source_ref_file_sig = NULL;
@@ -939,26 +1047,26 @@ copy_ref_file (GFile *source_repo,
   g_autoptr(GFile) target_ref_file_sig = NULL;
 
   get_ref_file_paths (source_repo,
-		      ref,
-		      &source_ref_file,
-		      &source_ref_file_sig);
+                      ref,
+                      &source_ref_file,
+                      &source_ref_file_sig);
   get_ref_file_paths (target_repo,
-		      ref,
-		      &target_ref_file,
-		      &target_ref_file_sig);
+                      ref,
+                      &target_ref_file,
+                      &target_ref_file_sig);
 
   return copy_file_and_signature (source_ref_file,
-				  source_ref_file_sig,
-				  target_ref_file,
-				  target_ref_file_sig,
-				  error);
+                                  source_ref_file_sig,
+                                  target_ref_file,
+                                  target_ref_file_sig,
+                                  error);
 }
 
 static gboolean
 copy_extensions (GFile *source_repo,
-		 GFile *client_root,
-		 const gchar *ref,
-		 GError **error)
+                 GFile *client_root,
+                 const gchar *ref,
+                 GError **error)
 {
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
@@ -1057,44 +1165,69 @@ prepare_updater_dir (GFile *updater_dir,
                      GKeyFile *hw_file,
                      GError **error)
 {
-  OSDEF;
+  g_autoptr(GFile) services_dir_path = updater_avahi_services_dir (updater_dir);
+  g_autoptr(GFile) definitions_dir_path = NULL;
+  g_autoptr(GFile) quit_file_path = NULL;
+  g_autoptr(GFile) config_file_path = NULL;
+  g_autoptr(GFile) hw_file_path = NULL;
 
-  if (!create_directory (OS (updater_avahi_services_dir (updater_dir)), error))
+  if (!create_directory (services_dir_path, error))
     return FALSE;
 
-  if (!create_directory (OS (updater_avahi_emulator_definitions_dir (updater_dir)), error))
+  definitions_dir_path = updater_avahi_emulator_definitions_dir (updater_dir);
+  if (!create_directory (definitions_dir_path, error))
     return FALSE;
 
-  if (!create_file (OS (updater_quit_file (updater_dir)), NULL, error))
+  quit_file_path = updater_quit_file (updater_dir);
+  if (!create_file (quit_file_path, NULL, error))
     return FALSE;
 
-  if (!save_key_file (OS (updater_config_file (updater_dir)), config_file, error))
+  config_file_path = updater_config_file (updater_dir);
+  if (!save_key_file (config_file_path, config_file, error))
     return FALSE;
 
-  if (!save_key_file (OS (updater_hw_file (updater_dir)), hw_file, error))
+  hw_file_path = updater_hw_file (updater_dir);
+  if (!save_key_file (hw_file_path, hw_file, error))
     return FALSE;
 
   return TRUE;
+}
+
+static gchar *
+get_gdb_r_command (gchar **argv)
+{
+  g_autofree gchar *joined = g_strjoinv (" ", argv + 1);
+  g_autofree gchar *r_command = g_strdup_printf ("r %s", joined);
+
+  return g_shell_quote (r_command);
 }
 
 static GBytes *
 get_bash_script_contents (gchar **argv,
                           gchar **envp)
 {
-  SSDEF;
+  const gchar *tmpl_prolog =
+    "#!/usr/bin/bash\n"
+    "\n"
+    "set -e\n"
+    "GDB_PATH=$(which gdb)\n";
+  g_autofree gchar *gdb_r_command = get_gdb_r_command (argv);
+  g_autofree gchar *quoted_binary = g_shell_quote (argv[0]);
   g_autoptr(GString) contents = g_string_new (NULL);
   gchar **iter;
 
-  g_string_append (contents, "#!/usr/bin/bash\n");
-  g_string_append (contents, "\n");
-  g_string_append (contents, "set -e\n");
-  g_string_append (contents, "GDB_PATH=$(which gdb)\n");
+  g_string_append (contents, tmpl_prolog);
   for (iter = envp; *iter != NULL; ++iter)
-    g_string_append_printf (contents, "export %s\n", SS (g_shell_quote (*iter)));
+    {
+      g_autofree gchar *quoted = g_shell_quote (*iter);
+
+      g_string_append_printf (contents, "export %s\n", quoted);
+    }
+
   g_string_append_printf (contents,
                           "\"${GDB_PATH}\" -ex \"break main\" -ex %s %s\n",
-                          SS (g_shell_quote (SS (g_strdup_printf ("r %s", SS (g_strjoinv (" ", argv + 1)))))),
-                          SS (g_shell_quote (argv[0])));
+                          gdb_r_command,
+                          quoted_binary);
 
   return g_string_free_to_bytes (g_steal_pointer (&contents));
 }
@@ -1142,12 +1275,30 @@ spawn_updater (GFile *sysroot,
                GFile *avahi_emulator_definitions_dir,
                GFile *quit_file,
                const gchar *osname,
-               CmdAsyncStuff *cmd,
+               CmdAsyncResult *cmd,
                GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) argv = NULL;
-  g_auto(GStrv) envp = NULL;
+  CmdEnvVar envv[] =
+    {
+      { "EOS_UPDATER_TEST_UPDATER_CONFIG_FILE_PATH", NULL, config_file },
+      { "EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR", NULL, avahi_services_dir },
+      { "EOS_UPDATER_TEST_UPDATER_CUSTOM_DESCRIPTORS_PATH", NULL, hw_file },
+      { "EOS_UPDATER_TEST_UPDATER_AVAHI_EMULATOR_DEFINITIONS_DIR", NULL, avahi_emulator_definitions_dir },
+      { "EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK", "yes", NULL },
+      { "EOS_UPDATER_TEST_UPDATER_QUIT_FILE", NULL, quit_file },
+      { "EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS", "yes", NULL },
+      { "EOS_UPDATER_TEST_UPDATER_USE_AVAHI_EMULATOR", "yes", NULL },
+      { "EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME", osname, NULL },
+      { "OSTREE_SYSROOT", NULL, sysroot },
+      { "OSTREE_REPO", NULL, repo },
+      { NULL, NULL, NULL }
+    };
+  gchar *argv[] =
+    {
+      EOS_UPDATER_BINARY,
+      NULL
+    };
+  g_auto(GStrv) envp = build_cmd_env (envv);
   g_autofree gchar *bash_script_path = NULL;
   g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
   WatchUpdater wu = { loop, 0u };
@@ -1160,32 +1311,6 @@ spawn_updater (GFile *sysroot,
                                NULL);
 
   wu.id = id;
-  argv = generate_strv (EOS_UPDATER_BINARY,
-                        NULL);
-  envp = generate_strv (SS (envvar ("EOS_UPDATER_TEST_UPDATER_CONFIG_FILE_PATH",
-                                    SS (g_file_get_path (config_file)))),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR",
-                                    SS (g_file_get_path (avahi_services_dir)))),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATER_CUSTOM_DESCRIPTORS_PATH",
-                                    SS (g_file_get_path (hw_file)))),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATER_AVAHI_EMULATOR_DEFINITIONS_DIR",
-                                    SS (g_file_get_path (avahi_emulator_definitions_dir)))),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK",
-                                    "yes")),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATER_QUIT_FILE",
-                                    SS (g_file_get_path (quit_file)))),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS",
-                                    "yes")),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATER_USE_AVAHI_EMULATOR",
-                                    "yes")),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME",
-                                    osname)),
-                        SS (envvar ("OSTREE_SYSROOT",
-                                    SS (g_file_get_path (sysroot)))),
-                        SS (envvar ("OSTREE_REPO",
-                                    SS (g_file_get_path (repo)))),
-                        NULL);
-
   bash_script_path = g_strdup (g_getenv ("EOS_CHECK_UPDATER_GDB_BASH_PATH"));
   if (bash_script_path != NULL)
     {
@@ -1210,31 +1335,35 @@ spawn_updater_simple (GFile *sysroot,
                       GFile *repo,
                       GFile *updater_dir,
                       const gchar *osname,
-                      CmdAsyncStuff *cmd,
+                      CmdAsyncResult *cmd,
                       GError **error)
 {
-  OSDEF;
+  g_autoptr(GFile) config_file_path = updater_config_file (updater_dir);
+  g_autoptr(GFile) services_dir_path = updater_avahi_services_dir (updater_dir);
+  g_autoptr(GFile) hw_file_path = updater_hw_file (updater_dir);
+  g_autoptr(GFile) definitions_dir_path = updater_avahi_emulator_definitions_dir (updater_dir);
+  g_autoptr(GFile) quit_file_path = updater_quit_file (updater_dir);
 
   return spawn_updater (sysroot,
                         repo,
-                        OS (updater_config_file (updater_dir)),
-                        OS (updater_avahi_services_dir (updater_dir)),
-                        OS (updater_hw_file (updater_dir)),
-                        OS (updater_avahi_emulator_definitions_dir (updater_dir)),
-                        OS (updater_quit_file (updater_dir)),
+                        config_file_path,
+                        services_dir_path,
+                        hw_file_path,
+                        definitions_dir_path,
+                        quit_file_path,
                         osname,
                         cmd,
                         error);
 }
 
 static gboolean
-setup_updater (GFile *client_root,
-	       DownloadOrder order,
-	       const gchar *vendor,
-	       const gchar *product,
-	       const gchar *remote_name,
-	       CmdAsyncStuff *updater_cmd,
-	       GError **error)
+run_updater (GFile *client_root,
+             DownloadOrder order,
+             const gchar *vendor,
+             const gchar *product,
+             const gchar *remote_name,
+             CmdAsyncResult *updater_cmd,
+             GError **error)
 {
   g_autoptr(GKeyFile) updater_config = NULL;
   g_autoptr(GKeyFile) hw_config = NULL;
@@ -1288,12 +1417,12 @@ ensure_vendor_and_product_in_subserver (const gchar *vendor,
 
 EosTestClient *
 eos_test_client_new (GFile *client_root,
-		     const gchar *remote_name,
-		     EosTestSubserver *subserver,
-		     const gchar *ref,
-		     const gchar *vendor,
-		     const gchar *product,
-		     GError **error)
+                     const gchar *remote_name,
+                     EosTestSubserver *subserver,
+                     const gchar *ref,
+                     const gchar *vendor,
+                     const gchar *product,
+                     GError **error)
 {
   g_autoptr(EosTestClient) client = NULL;
 
@@ -1303,11 +1432,11 @@ eos_test_client_new (GFile *client_root,
     return FALSE;
 
   if (!prepare_client_sysroot (client_root,
-			       remote_name,
-			       subserver->url,
-			       ref,
-			       subserver->keyid,
-			       error))
+                               remote_name,
+                               subserver->url,
+                               ref,
+                               subserver->keyid,
+                               error))
     return FALSE;
 
   if (!copy_extensions (subserver->repo,
@@ -1328,16 +1457,16 @@ eos_test_client_new (GFile *client_root,
 gboolean
 eos_test_client_run_updater (EosTestClient *client,
                              DownloadOrder order,
-                             CmdAsyncStuff *cmd,
+                             CmdAsyncResult *cmd,
                              GError **error)
 {
-  if (!setup_updater (client->root,
-		      order,
-		      client->vendor,
-		      client->product,
-		      client->remote_name,
-		      cmd,
-		      error))
+  if (!run_updater (client->root,
+                    order,
+                    client->vendor,
+                    client->product,
+                    client->remote_name,
+                    cmd,
+                    error))
     return FALSE;
 
   return TRUE;
@@ -1345,8 +1474,8 @@ eos_test_client_run_updater (EosTestClient *client,
 
 static gboolean
 simulated_reap_updater (EosTestClient *client,
-                        CmdAsyncStuff *cmd,
-                        CmdStuff *reaped,
+                        CmdAsyncResult *cmd,
+                        CmdResult *reaped,
                         GError **error)
 {
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client->root);
@@ -1372,8 +1501,8 @@ com_endlessm_updater_vanished (GDBusConnection *connection,
 
 static gboolean
 real_reap_updater (EosTestClient *client,
-                   CmdAsyncStuff *cmd,
-                   CmdStuff *reaped,
+                   CmdAsyncResult *cmd,
+                   CmdResult *reaped,
                    GError **error)
 {
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client->root);
@@ -1399,8 +1528,8 @@ real_reap_updater (EosTestClient *client,
 
 gboolean
 eos_test_client_reap_updater (EosTestClient *client,
-                              CmdAsyncStuff *cmd,
-                              CmdStuff *reaped,
+                              CmdAsyncResult *cmd,
+                              CmdResult *reaped,
                               GError **error)
 {
   g_autofree gchar *bash_script_path = g_strdup (g_getenv ("EOS_CHECK_UPDATER_GDB_BASH_PATH"));
@@ -1422,30 +1551,28 @@ run_update_server (GFile *repo,
                    GFile *quit_file,
                    guint16 port,
                    const gchar *remote_name,
-                   CmdAsyncStuff *cmd,
+                   CmdAsyncResult *cmd,
                    GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) envp = NULL;
-  g_auto(GStrv) argv = NULL;
-  g_autofree gchar *bash_script_path_base = NULL;
   g_autofree gchar *port_str = g_strdup_printf ("%" G_GUINT16_FORMAT, port);
+  CmdEnvVar envv[] =
+    {
+      { "OSTREE_REPO", NULL, repo },
+      { "EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE", NULL, quit_file },
+      { NULL, NULL, NULL }
+    };
+  CmdArg args[] =
+    {
+      { NULL, EOS_UPDATE_SERVER_BINARY },
+      { "local-port", port_str },
+      { "timeout", "0" },
+      { "serve-remote", remote_name },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) envp = build_cmd_env (envv);
+  g_auto(GStrv) argv = build_cmd_args (args);
+  g_autofree gchar *bash_script_path_base = g_strdup (g_getenv ("EOS_CHECK_UPDATE_SERVER_GDB_BASH_PATH_BASE"));
 
-  envp = generate_strv (SS (envvar ("OSTREE_REPO",
-                                    SS (g_file_get_path (repo)))),
-                        SS (envvar ("EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE",
-                                    SS (g_file_get_path (quit_file)))),
-                        NULL);
-
-  argv = generate_strv (EOS_UPDATE_SERVER_BINARY,
-                        SS (flag ("local-port",
-                                  port_str)),
-                        SS (flag ("timeout", "0")),
-                        SS (flag ("serve-remote",
-                                  remote_name)),
-                        NULL);
-
-  bash_script_path_base = g_strdup (g_getenv ("EOS_CHECK_UPDATE_SERVER_GDB_BASH_PATH_BASE"));
   if (bash_script_path_base != NULL)
     {
       g_autoptr(GRegex) regex = g_regex_new ("XXXXXX", 0, 0, error);
@@ -1524,7 +1651,8 @@ get_branch_file_timestamp (GFile *repo,
   if (timestamp == NULL)
     {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "Invalid UnixUTCTimestamp");
+                   "Invalid UnixUTCTimestamp %" G_GINT64_FORMAT,
+                   unix_utc);
       return FALSE;
     }
 
@@ -1538,22 +1666,31 @@ generate_definition (GFile *client_root,
                      GDateTime *timestamp,
                      const gchar *ostree_path)
 {
-  SSDEF;
   GKeyFile *definition = g_key_file_new ();
   g_autofree gchar *basename = g_file_get_basename (client_root);
-  g_auto(GStrv) txt = NULL;
+  g_autofree gchar *service_name = g_strdup_printf ("Test Update Server at %s",
+                                                    basename);
+  g_autofree gchar *domain_name = g_strdup_printf ("%s.local", basename);
+  g_autofree gchar *unix_utc_str = g_strdup_printf ("%" G_GINT64_FORMAT,
+                                                    g_date_time_to_unix (timestamp));
+  CmdEnvVar txt_records[] =
+    {
+      { "eos_txt_version", "2", NULL },
+      { "eos_branch_file_timestamp", unix_utc_str, NULL },
+      { "eos_ostree_path", ostree_path, NULL },
+      { NULL, NULL, NULL }
+    };
+  g_auto(GStrv) txt = build_cmd_env (txt_records);
 
   g_key_file_set_string (definition,
                          "service",
                          "name",
-                         SS (g_strdup_printf ("Test Update Server at %s",
-                                              basename)));
+                         service_name);
 
   g_key_file_set_string (definition,
                          "service",
                          "domain",
-                         SS (g_strdup_printf ("%s.local",
-                                              basename)));
+                         domain_name);
 
   g_key_file_set_string (definition,
                          "service",
@@ -1565,15 +1702,6 @@ generate_definition (GFile *client_root,
                           "port",
                           port);
 
-  txt = generate_strv (SS (envvar ("eos_txt_version",
-                                   "2")),
-                       SS (envvar ("eos_branch_file_timestamp",
-                                   SS (g_strdup_printf ("%" G_GINT64_FORMAT,
-                                                        g_date_time_to_unix (timestamp))))),
-                       SS (envvar ("eos_ostree_path",
-                                   ostree_path)),
-                       NULL);
-
   g_key_file_set_string_list (definition,
                               "service",
                               "txt",
@@ -1584,7 +1712,7 @@ generate_definition (GFile *client_root,
 }
 
 static GFile *
-update_server_quit_file (GFile *update_server_dir)
+get_update_server_quit_file (GFile *update_server_dir)
 {
   return g_file_get_child (update_server_dir, "quit-file");
 }
@@ -1598,7 +1726,7 @@ prepare_update_server_dir (GFile *update_server_dir,
   if (!create_directory (update_server_dir, error))
     return FALSE;
 
-  quit_file = update_server_quit_file (update_server_dir);
+  quit_file = get_update_server_quit_file (update_server_dir);
   if (!create_file (quit_file, NULL, error))
     return FALSE;
 
@@ -1614,7 +1742,7 @@ get_update_server_dir (GFile *client_root)
 gboolean
 eos_test_client_run_update_server (EosTestClient *client,
                                    guint16 port,
-                                   CmdAsyncStuff *cmd,
+                                   CmdAsyncResult *cmd,
                                    GKeyFile **out_avahi_definition,
                                    GError **error)
 {
@@ -1629,7 +1757,7 @@ eos_test_client_run_update_server (EosTestClient *client,
 
   sysroot = get_sysroot_for_client (client->root);
   repo = get_repo_for_sysroot (sysroot);
-  quit_file = update_server_quit_file (update_server_dir);
+  quit_file = get_update_server_quit_file (update_server_dir);
   if (!run_update_server (repo,
                           quit_file,
                           port,
@@ -1650,12 +1778,12 @@ eos_test_client_run_update_server (EosTestClient *client,
 
 gboolean
 eos_test_client_reap_update_server (EosTestClient *client,
-                                    CmdAsyncStuff *cmd,
-                                    CmdStuff *reaped,
+                                    CmdAsyncResult *cmd,
+                                    CmdResult *reaped,
                                     GError **error)
 {
   g_autoptr(GFile) update_server_dir = get_update_server_dir (client->root);
-  g_autoptr(GFile) quit_file = update_server_quit_file (update_server_dir);
+  g_autoptr(GFile) quit_file = get_update_server_quit_file (update_server_dir);
   g_autofree gchar *bash_script_path_base = NULL;
 
   if (!rm_rf (quit_file, error))
@@ -1695,7 +1823,7 @@ get_deploy_ids (GFile *sysroot,
                 gchar ***out_ids,
                 GError **error)
 {
-  g_auto(CmdStuff) cmd = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_auto(GStrv) lines = NULL;
   gchar **iter;
   gsize len;
@@ -1730,21 +1858,21 @@ get_deployment_dir (GFile *sysroot,
                     const gchar *id)
 {
   g_autofree gchar *rel_path = g_build_filename ("ostree",
-						 "deploy",
-						 osname,
-						 "deploy",
-						 id,
-						 NULL);
+                                                 "deploy",
+                                                 osname,
+                                                 "deploy",
+                                                 id,
+                                                 NULL);
 
   return g_file_get_child (sysroot, rel_path);
 }
 
 gboolean
 eos_test_client_has_commit (EosTestClient *client,
-			    const gchar *osname,
-			    guint commit_no,
-			    gboolean *out_result,
-			    GError **error)
+                            const gchar *osname,
+                            guint commit_no,
+                            gboolean *out_result,
+                            GError **error)
 {
   g_auto(GStrv) ids = NULL;
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
@@ -1760,10 +1888,10 @@ eos_test_client_has_commit (EosTestClient *client,
       g_autoptr(GFile) commit_file = g_file_get_child (dir, commit_filename);
 
       if (g_file_query_exists (commit_file, NULL))
-	{
-	  *out_result = TRUE;
-	  return TRUE;
-	}
+        {
+          *out_result = TRUE;
+          return TRUE;
+        }
     }
 
   *out_result = FALSE;
@@ -1792,7 +1920,7 @@ eos_test_autoupdater_dispose_impl (EosTestAutoupdater *autoupdater)
 static void
 eos_test_autoupdater_finalize_impl (EosTestAutoupdater *autoupdater)
 {
-  cmd_stuff_free (autoupdater->cmd);
+  cmd_result_free (autoupdater->cmd);
 }
 
 EOS_DEFINE_REFCOUNTED (EOS_TEST_AUTOUPDATER,
@@ -1832,12 +1960,14 @@ prepare_autoupdater_dir (GFile *autoupdater_dir,
                          GKeyFile *config,
                          GError **error)
 {
-  OSDEF;
+  g_autoptr(GFile) stamps_dir_path = autoupdater_stamps_dir (autoupdater_dir);
+  g_autoptr(GFile) config_file_path = NULL;
 
-  if (!create_directory (OS (autoupdater_stamps_dir (autoupdater_dir)), error))
+  if (!create_directory (stamps_dir_path, error))
     return FALSE;
 
-  if (!save_key_file (OS (autoupdater_config_file (autoupdater_dir)), config, error))
+  config_file_path = autoupdater_config_file (autoupdater_dir);
+  if (!save_key_file (config_file_path, config, error))
     return FALSE;
 
   return TRUE;
@@ -1867,47 +1997,48 @@ will_run_valgrind (void)
   return FALSE;
 }
 
-static gboolean
-spawn_autoupdater (GFile *stamps_dir,
-                   GFile *config_file,
-                   gboolean force_update,
-                   CmdStuff *cmd,
-                   GError **error)
+static gchar *
+get_dbus_timeout_value_for_autoupdater (void)
 {
-  SSDEF;
-  const gchar *force_update_flag = NULL;
-  g_auto(GStrv) argv = NULL;
-  g_auto(GStrv) envp = NULL;
-  g_autofree gchar *dbus_timeout_value = NULL;
-
-  if (force_update)
-    force_update_flag = "--force-update";
-
   if (will_run_gdb ())
     /* G_MAXINT timeout means no timeout at all.
      */
-    dbus_timeout_value = g_strdup_printf ("%d", G_MAXINT);
-  else if (will_run_valgrind ())
+    return g_strdup_printf ("%d", G_MAXINT);
+
+  if (will_run_valgrind ())
     /* let's optimistically assume that the code under valgrind runs
      * only 10 times slower, so raise the timeout from the default 25
      * seconds to 250.
      */
-    dbus_timeout_value = g_strdup_printf ("%d", 250 * 1000);
-  else
-    dbus_timeout_value = g_strdup ("");
+    return g_strdup_printf ("%d", 250 * 1000);
 
-  argv = generate_strv (EOS_AUTOUPDATER_BINARY,
-                        force_update_flag,
-                        NULL);
-  envp = generate_strv (SS (envvar ("EOS_UPDATER_TEST_AUTOUPDATER_UPDATE_STAMP_DIR",
-                                    SS (g_file_get_path (stamps_dir)))),
-                        SS (envvar ("EOS_UPDATER_TEST_AUTOUPDATER_CONFIG_FILE_PATH",
-                                    SS (g_file_get_path (config_file)))),
-                        SS (envvar ("EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS",
-                                    "yes")),
-                        SS (envvar ("EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT",
-                                    dbus_timeout_value)),
-                        NULL);
+  return g_strdup ("");
+}
+
+static gboolean
+spawn_autoupdater (GFile *stamps_dir,
+                   GFile *config_file,
+                   gboolean force_update,
+                   CmdResult *cmd,
+                   GError **error)
+{
+  const gchar *force_update_flag = force_update ? "--force-update" : NULL;
+  gchar *argv[] =
+    {
+      EOS_AUTOUPDATER_BINARY,
+      (gchar *)force_update_flag,
+      NULL
+    };
+  g_autofree gchar *dbus_timeout_value = get_dbus_timeout_value_for_autoupdater ();
+  CmdEnvVar envv[] =
+    {
+      { "EOS_UPDATER_TEST_AUTOUPDATER_UPDATE_STAMP_DIR", NULL, stamps_dir },
+      { "EOS_UPDATER_TEST_AUTOUPDATER_CONFIG_FILE_PATH", NULL, config_file },
+      { "EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS", "yes", NULL },
+      { "EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT", dbus_timeout_value, NULL },
+      { NULL, NULL, NULL }
+    };
+  g_auto(GStrv) envp = build_cmd_env (envv);
 
   return test_spawn (argv, envp, cmd, error);
 }
@@ -1915,13 +2046,14 @@ spawn_autoupdater (GFile *stamps_dir,
 static gboolean
 spawn_autoupdater_simple (GFile *autoupdater_dir,
                           gboolean force_update,
-                          CmdStuff *cmd,
+                          CmdResult *cmd,
                           GError **error)
 {
-  OSDEF;
+  g_autoptr(GFile) stamps_dir_path = autoupdater_stamps_dir (autoupdater_dir);
+  g_autoptr(GFile) config_file_path = autoupdater_config_file (autoupdater_dir);
 
-  return spawn_autoupdater (OS (autoupdater_stamps_dir (autoupdater_dir)),
-                            OS (autoupdater_config_file (autoupdater_dir)),
+  return spawn_autoupdater (stamps_dir_path,
+                            config_file_path,
                             force_update,
                             cmd,
                             error);
@@ -1929,28 +2061,28 @@ spawn_autoupdater_simple (GFile *autoupdater_dir,
 
 EosTestAutoupdater *
 eos_test_autoupdater_new (GFile *autoupdater_root,
-			  UpdateStep final_auto_step,
-			  guint interval_in_days,
-			  gboolean update_on_mobile,
-			  GError **error)
+                          UpdateStep final_auto_step,
+                          guint interval_in_days,
+                          gboolean update_on_mobile,
+                          GError **error)
 {
   g_autoptr(GKeyFile) autoupdater_config = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
-  g_autoptr(CmdStuff) cmd = NULL;
+  g_autoptr(CmdResult) cmd = NULL;
 
   autoupdater_config = get_autoupdater_config (final_auto_step,
                                                interval_in_days,
                                                update_on_mobile);
   if (!prepare_autoupdater_dir (autoupdater_root,
-				autoupdater_config,
-				error))
+                                autoupdater_config,
+                                error))
     return NULL;
 
-  cmd = g_new0 (CmdStuff, 1);
+  cmd = g_new0 (CmdResult, 1);
   if (!spawn_autoupdater_simple (autoupdater_root,
-				 TRUE,
-				 cmd,
-				 error))
+                                 TRUE,
+                                 cmd,
+                                 error))
     return NULL;
 
   autoupdater = g_object_new (EOS_TEST_TYPE_AUTOUPDATER, NULL);

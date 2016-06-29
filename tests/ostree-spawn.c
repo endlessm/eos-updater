@@ -23,15 +23,13 @@
 #include "misc-utils.h"
 #include "ostree-spawn.h"
 
-#include <errno.h>
-
 #ifndef OSTREE_BINARY
 #error OSTREE_BINARY is not defined
 #endif
 
 static void
 copy_strv_to_ptr_array (gchar **strv,
-			GPtrArray *array)
+                        GPtrArray *array)
 {
   gchar **iter;
 
@@ -43,20 +41,32 @@ copy_strv_to_ptr_array (gchar **strv,
 
 static gboolean
 spawn_ostree_in_repo (GFile *repo,
-		      gchar **args,
-		      CmdStuff *cmd,
-		      GError **error)
+                      gchar **args,
+                      CmdResult *cmd,
+                      GError **error)
 {
-  SSDEF;
   g_autoptr(GPtrArray) argv = string_array_new ();
-  g_auto(GStrv) raw_argv = NULL;
+  g_autofree gchar *raw_repo_path = g_file_get_path (repo);
 
   g_ptr_array_add (argv, g_strdup (OSTREE_BINARY));
-  g_ptr_array_add (argv, flag ("repo", SS (g_file_get_path (repo))));
+  g_ptr_array_add (argv, flag ("repo", raw_repo_path));
   copy_strv_to_ptr_array (args, argv);
-  raw_argv = (gchar**)g_ptr_array_free (g_steal_pointer (&argv), FALSE);
 
-  return test_spawn (raw_argv, NULL, cmd, error);
+  return test_spawn ((gchar **)argv->pdata, NULL, cmd, error);
+}
+
+static gboolean
+spawn_ostree_in_repo_args (GFile *repo,
+                           CmdArg *args,
+                           CmdResult *cmd,
+                           GError **error)
+{
+  g_auto(GStrv) raw_args = build_cmd_args (args);
+
+  return spawn_ostree_in_repo (repo,
+                               raw_args,
+                               cmd,
+                               error);
 }
 
 static const gchar *
@@ -77,20 +87,20 @@ repo_mode_to_string (RepoMode mode)
 gboolean
 ostree_init (GFile *repo,
              RepoMode mode,
-             CmdStuff *cmd,
+             CmdResult *cmd,
              GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) args = NULL;
+  CmdArg args[] =
+    {
+      { NULL, "init" },
+      { "mode", repo_mode_to_string (mode) },
+      { NULL, NULL }
+    };
 
-  args = generate_strv ("init",
-                        SS (flag ("mode", repo_mode_to_string (mode))),
-                        NULL);
-
-  return spawn_ostree_in_repo (repo,
-			       args,
-			       cmd,
-			       error);
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
 }
 
 gboolean
@@ -100,68 +110,69 @@ ostree_commit (GFile *repo,
                const gchar *ref,
                const gchar *keyid,
                GDateTime *timestamp,
-               CmdStuff *cmd,
+               CmdResult *cmd,
                GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) args = NULL;
+  g_autofree gchar *formatted_timestamp = g_date_time_format (timestamp, "%F");
+  g_autofree gchar *raw_tree_path = g_file_get_path (tree_root);
+  CmdArg args[] =
+    {
+      { NULL, "commit" },
+      { "subject", subject },
+      { "branch", ref },
+      { "gpg-sign", keyid },
+      { "gpg-homedir", GPG_HOME_DIRECTORY },
+      { "timestamp", formatted_timestamp },
+      { NULL, raw_tree_path },
+      { NULL, NULL }
+    };
 
-  args = generate_strv ("commit",
-                        SS (flag ("subject", subject)),
-                        SS (flag ("branch", ref)),
-                        SS (flag ("gpg-sign", keyid)),
-                        "--gpg-homedir=" GPG_HOME_DIRECTORY,
-                        SS (flag ("timestamp", SS (g_date_time_format (timestamp, "%F")))),
-                        SS (g_file_get_path (tree_root)),
-                        NULL);
-
-  return spawn_ostree_in_repo (repo,
-			       args,
-			       cmd,
-			       error);
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
 }
 
 gboolean
 ostree_summary (GFile *repo,
                 const gchar *keyid,
-                CmdStuff *cmd,
+                CmdResult *cmd,
                 GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) args = NULL;
+  CmdArg args[] =
+    {
+      { NULL, "summary" },
+      { "update", NULL },
+      { "gpg-sign", keyid },
+      { "gpg-homedir", GPG_HOME_DIRECTORY },
+      { NULL, NULL }
+    };
 
-  args = generate_strv ("summary",
-                        "--update",
-                        SS (flag ("gpg-sign", keyid)),
-                        "--gpg-homedir=" GPG_HOME_DIRECTORY,
-                        NULL);
-
-  return spawn_ostree_in_repo (repo,
-			       args,
-			       cmd,
-			       error);
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
 }
-
 
 gboolean
 ostree_pull (GFile *repo,
              const gchar *remote_name,
              const gchar *ref,
-             CmdStuff *cmd,
+             CmdResult *cmd,
              GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) args = NULL;
-
-  args = generate_strv ("pull",
-                        remote_name,
-                        ref,
-                        NULL);
+  gchar *args[] =
+    {
+      "pull",
+      (gchar *)remote_name,
+      (gchar *)ref,
+      NULL
+    };
 
   return spawn_ostree_in_repo (repo,
-			       args,
-			       cmd,
-			       error);
+                               args,
+                               cmd,
+                               error);
 }
 
 gboolean
@@ -170,144 +181,150 @@ ostree_remote_add (GFile *repo,
                    const gchar *remote_url,
                    const gchar *ref,
                    GFile *gpg_key,
-                   CmdStuff *cmd,
+                   CmdResult *cmd,
                    GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) args = NULL;
+  g_autofree gchar *raw_key_path = g_file_get_path (gpg_key);
+  CmdArg args[] =
+    {
+      { NULL, "remote" },
+      { NULL, "add" },
+      { "gpg-import", raw_key_path },
+      { NULL, remote_name },
+      { NULL, remote_url },
+      { NULL, ref },
+      { NULL, NULL }
+    };
 
-  args = generate_strv ("remote",
-                        "add",
-                        SS (flag ("gpg-import",
-                                  SS (g_file_get_path (gpg_key)))),
-                        remote_name,
-                        remote_url,
-                        ref,
-                        NULL);
-
-  return spawn_ostree_in_repo (repo,
-			       args,
-			       cmd,
-			       error);
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
 }
 
 static gboolean
 ostree_admin_spawn_in_sysroot (GFile *sysroot,
-			       const gchar *admin_subcommand,
-			       gchar **args,
-			       CmdStuff *cmd,
-			       GError **error)
+                               const gchar *admin_subcommand,
+                               gchar **args,
+                               CmdResult *cmd,
+                               GError **error)
 {
-  SSDEF;
+  g_autofree gchar *raw_sysroot_path = g_file_get_path (sysroot);
   g_autoptr(GPtrArray) argv = string_array_new ();
-  g_auto(GStrv) raw_argv = NULL;
 
   g_ptr_array_add (argv, g_strdup (OSTREE_BINARY));
   g_ptr_array_add (argv, g_strdup ("admin"));
   g_ptr_array_add (argv, g_strdup (admin_subcommand));
-  g_ptr_array_add (argv, flag ("sysroot", SS (g_file_get_path (sysroot))));
+  g_ptr_array_add (argv, flag ("sysroot", raw_sysroot_path));
   copy_strv_to_ptr_array (args, argv);
-  raw_argv = (gchar**)g_ptr_array_free (g_steal_pointer (&argv), FALSE);
 
-  return test_spawn (raw_argv, NULL, cmd, error);
+  return test_spawn ((gchar**)argv->pdata, NULL, cmd, error);
+}
+
+static gboolean
+ostree_admin_spawn_in_sysroot_args (GFile *sysroot,
+                                    const gchar *admin_subcommand,
+                                    CmdArg *args,
+                                    CmdResult *cmd,
+                                    GError **error)
+{
+  g_auto(GStrv) raw_args = build_cmd_args (args);
+
+  return ostree_admin_spawn_in_sysroot (sysroot, admin_subcommand, raw_args, cmd, error);
 }
 
 gboolean
 ostree_deploy (GFile *sysroot,
                const gchar *osname,
                const gchar *refspec,
-               CmdStuff *cmd,
+               CmdResult *cmd,
                GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) args = NULL;
+  CmdArg args[] =
+    {
+      { "os", osname },
+      { "retain", NULL },
+      { NULL, refspec },
+      { NULL, NULL }
+    };
 
-  args = generate_strv (SS (flag ("os", osname)),
-                        "--retain",
-                        refspec,
-                        NULL);
-
-  return ostree_admin_spawn_in_sysroot (sysroot,
-					"deploy",
-					args,
-					cmd,
-					error);
+  return ostree_admin_spawn_in_sysroot_args (sysroot,
+                                             "deploy",
+                                             args,
+                                             cmd,
+                                             error);
 }
 
 gboolean
 ostree_init_fs (GFile *sysroot,
-                CmdStuff *cmd,
+                CmdResult *cmd,
                 GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) args = NULL;
-
-  args = generate_strv (SS (g_file_get_path (sysroot)),
-                        NULL);
+  g_autofree gchar *raw_sysroot_path = g_file_get_path (sysroot);
+  gchar *args[] =
+    {
+      (gchar *)raw_sysroot_path,
+      NULL
+    };
 
   return ostree_admin_spawn_in_sysroot (sysroot,
-					"init-fs",
-					args,
-					cmd,
-					error);
+                                        "init-fs",
+                                        args,
+                                        cmd,
+                                        error);
 }
 
 gboolean
 ostree_os_init (GFile *sysroot,
                 const gchar *remote_name,
-                CmdStuff *cmd,
+                CmdResult *cmd,
                 GError **error)
 {
-  g_auto(GStrv) args = NULL;
-
-  args = generate_strv (remote_name,
-                        NULL);
+  gchar *args[] =
+    {
+      (gchar *)remote_name,
+      NULL
+    };
 
   return ostree_admin_spawn_in_sysroot (sysroot,
-					"os-init",
-					args,
-					cmd,
-					error);
+                                        "os-init",
+                                        args,
+                                        cmd,
+                                        error);
 }
 
 gboolean
 ostree_status (GFile *sysroot,
-               CmdStuff *cmd,
+               CmdResult *cmd,
                GError **error)
 {
   return ostree_admin_spawn_in_sysroot (sysroot,
-					"status",
-					NULL,
-					cmd,
-					error);
+                                        "status",
+                                        NULL,
+                                        cmd,
+                                        error);
 }
 
 gboolean
 ostree_httpd (GFile *served_dir,
+              GFile *port_file,
               guint16 *port,
-              CmdStuff *cmd,
+              CmdResult *cmd,
               GError **error)
 {
-  SSDEF;
-  g_auto(GStrv) argv = NULL;
-  g_autoptr(GFileIOStream) stream = NULL;
-  g_autoptr(GFile) tmp_port = g_file_new_tmp ("eos-updater-test-httpd-port-XXXXXX", &stream, error);
-  g_autoptr(GBytes) bytes = NULL;
-  g_autofree gchar *port_contents = NULL;
-  gchar *endptr;
-  guint64 number;
-  int saved_errno;
-
-  if (tmp_port == NULL)
-    return FALSE;
-
-  argv = generate_strv (OSTREE_BINARY,
-                        "trivial-httpd",
-                        "--autoexit",
-                        "--daemonize",
-                        SS (flag ("port-file", SS (g_file_get_path (tmp_port)))),
-                        SS (g_file_get_path (served_dir)),
-                        NULL);
+  g_autofree gchar *raw_port_file = g_file_get_path (port_file);
+  g_autofree gchar *raw_served_dir = g_file_get_path (served_dir);
+  CmdArg args[] =
+    {
+      { NULL, OSTREE_BINARY },
+      { NULL, "trivial-httpd" },
+      { "autoexit", NULL },
+      { "daemonize", NULL },
+      { "port-file", raw_port_file },
+      { NULL, raw_served_dir },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
 
   if (!test_spawn_cwd_full (NULL,
                             argv,
@@ -317,25 +334,5 @@ ostree_httpd (GFile *served_dir,
                             error))
     return FALSE;
 
-  if (!load_to_bytes (tmp_port,
-                      &bytes,
-                      error))
-    return FALSE;
-
-  if (!rm_rf (tmp_port, error))
-    return FALSE;
-
-  port_contents = g_strndup (g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes));
-  g_strstrip (port_contents);
-  errno = 0;
-  number = g_ascii_strtoull (port_contents, &endptr, 10);
-  saved_errno = errno;
-  if (saved_errno != 0 || number == 0 || *endptr != '\0' || number > G_MAXUINT16)
-    {
-      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
-                   "Invalid port number %s", port_contents);
-      return FALSE;
-    }
-  *port = number;
   return TRUE;
 }

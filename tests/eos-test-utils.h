@@ -46,11 +46,11 @@ void eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
 
 gchar *get_keyid (void);
 
-static const gchar *const default_vendor = "VENDOR";
-static const gchar *const default_product = "PRODUCT";
-static const gchar *const default_ref = "REF";
-static const gchar *const default_ostree_path = "OSTREE/PATH";
-static const gchar *const default_remote_name = "REMOTE";
+extern const gchar *const default_vendor;
+extern const gchar *const default_product;
+extern const gchar *const default_ref;
+extern const gchar *const default_ostree_path;
+extern const gchar *const default_remote_name;
 
 #define EOS_TEST_TYPE_DEVICE eos_test_device_get_type ()
 EOS_DECLARE_REFCOUNTED (EosTestDevice,
@@ -69,9 +69,9 @@ struct _EosTestDevice
 };
 
 EosTestDevice *eos_test_device_new (const gchar *vendor,
-				    const gchar *product,
-				    gboolean on_hold,
-				    const gchar *ref);
+                                    const gchar *product,
+                                    gboolean on_hold,
+                                    const gchar *ref);
 
 #define EOS_TEST_TYPE_SUBSERVER eos_test_subserver_get_type ()
 EOS_DECLARE_REFCOUNTED (EosTestSubserver,
@@ -101,10 +101,10 @@ eos_test_subserver_ref_to_commit_new (void)
 }
 
 EosTestSubserver *eos_test_subserver_new (const gchar *keyid,
-					  const gchar *ostree_path,
-					  GPtrArray *devices,
-					  GHashTable *ref_to_commit,
-					  GDateTime *timestamp);
+                                          const gchar *ostree_path,
+                                          GPtrArray *devices,
+                                          GHashTable *ref_to_commit,
+                                          GDateTime *timestamp);
 
 gboolean eos_test_subserver_update (EosTestSubserver *subserver,
                                     GError **error);
@@ -125,19 +125,19 @@ struct _EosTestServer
 };
 
 EosTestServer *eos_test_server_new (GFile *server_root,
-				    GPtrArray *subservers,
-				    GError **error);
+                                    GPtrArray *subservers,
+                                    GError **error);
 
 EosTestServer *eos_test_server_new_quick (GFile *server_root,
-					  gint branch_file_from_days_ago,
-					  const gchar *vendor,
-					  const gchar *product,
-					  gboolean on_hold,
-					  const gchar *ref,
-					  guint commit,
-					  const gchar *keyid,
-					  const gchar *ostree_path,
-					  GError **error);
+                                          gint branch_file_from_days_ago,
+                                          const gchar *vendor,
+                                          const gchar *product,
+                                          gboolean on_hold,
+                                          const gchar *ref,
+                                          guint commit,
+                                          const gchar *keyid,
+                                          const gchar *ostree_path,
+                                          GError **error);
 
 #define EOS_TEST_TYPE_CLIENT eos_test_client_get_type ()
 EOS_DECLARE_REFCOUNTED (EosTestClient,
@@ -157,40 +157,40 @@ struct _EosTestClient
 };
 
 typedef enum
-{
-  DOWNLOAD_MAIN,
-  DOWNLOAD_LAN,
-  DOWNLOAD_MAIN_LAN,
-  DOWNLOAD_LAN_MAIN
-} DownloadOrder;
+  {
+    DOWNLOAD_MAIN,
+    DOWNLOAD_LAN,
+    DOWNLOAD_MAIN_LAN,
+    DOWNLOAD_LAN_MAIN
+  } DownloadOrder;
 
 EosTestClient *eos_test_client_new (GFile *client_root,
-				    const gchar *remote_name,
-				    EosTestSubserver *subserver,
-				    const gchar *ref,
-				    const gchar *vendor,
-				    const gchar *product,
-				    GError **error);
+                                    const gchar *remote_name,
+                                    EosTestSubserver *subserver,
+                                    const gchar *ref,
+                                    const gchar *vendor,
+                                    const gchar *product,
+                                    GError **error);
 
 gboolean eos_test_client_run_updater (EosTestClient *client,
                                       DownloadOrder order,
-                                      CmdAsyncStuff *cmd,
+                                      CmdAsyncResult *cmd,
                                       GError **error);
 
 gboolean eos_test_client_reap_updater (EosTestClient *client,
-                                       CmdAsyncStuff *cmd,
-				       CmdStuff *reaped,
-				       GError **error);
+                                       CmdAsyncResult *cmd,
+                                       CmdResult *reaped,
+                                       GError **error);
 
 gboolean eos_test_client_run_update_server (EosTestClient *client,
                                             guint16 port,
-                                            CmdAsyncStuff *cmd,
+                                            CmdAsyncResult *cmd,
                                             GKeyFile **out_avahi_definition,
                                             GError **error);
 
 gboolean eos_test_client_reap_update_server (EosTestClient *client,
-                                             CmdAsyncStuff *cmd,
-                                             CmdStuff *reaped,
+                                             CmdAsyncResult *cmd,
+                                             CmdResult *reaped,
                                              GError **error);
 
 gboolean eos_test_client_store_definition (EosTestClient *client,
@@ -199,8 +199,8 @@ gboolean eos_test_client_store_definition (EosTestClient *client,
                                            GError **error);
 
 gboolean eos_test_client_has_commit (EosTestClient *client,
-				     const gchar *osname,
-				     guint commit_no,
+                                     const gchar *osname,
+                                     guint commit_no,
                                      gboolean *out_has_commit,
                                      GError **error);
 
@@ -226,13 +226,13 @@ struct _EosTestAutoupdater
   GObject parent_instance;
 
   GFile *root;
-  CmdStuff *cmd;
+  CmdResult *cmd;
 };
 
 EosTestAutoupdater *eos_test_autoupdater_new (GFile *autoupdater_root,
-					      UpdateStep final_auto_step,
-					      guint interval_in_days,
-					      gboolean update_on_mobile,
-					      GError **error);
+                                              UpdateStep final_auto_step,
+                                              guint interval_in_days,
+                                              gboolean update_on_mobile,
+                                              GError **error);
 
 G_END_DECLS

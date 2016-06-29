@@ -42,10 +42,10 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) lan_server_cmds = NULL;
   guint idx;
   guint lan_server_count = 4;
-  g_auto(CmdAsyncStuff) updater_cmd = CMD_ASYNC_STUFF_CLEARED;
+  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autoptr(GFile) autoupdater_root = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
-  g_auto(CmdStuff) reaped = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) reaped = CMD_RESULT_CLEARED;
   g_autoptr(GPtrArray) cmds = NULL;
   g_autoptr(GPtrArray) cmds_to_free = NULL;
   gboolean has_commit;
@@ -77,14 +77,14 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_assert_no_error (error);
 
   lan_servers = object_array_new ();
-  lan_server_cmds = g_ptr_array_new_with_free_func ((GDestroyNotify)cmd_async_stuff_free);
+  lan_server_cmds = g_ptr_array_new_with_free_func ((GDestroyNotify)cmd_async_result_free);
   for (idx = 0; idx < lan_server_count; ++idx)
     {
       g_autofree gchar *dir_name = g_strdup_printf ("lan_server_%u", idx);
       g_autoptr(GFile) lan_server_root = g_file_get_child (fixture->tmpdir, dir_name);
       g_autoptr(EosTestClient) lan_server = NULL;
       g_autoptr(GKeyFile) definition = NULL;
-      g_autoptr(CmdAsyncStuff) server_cmd = NULL;
+      g_autoptr(CmdAsyncResult) server_cmd = NULL;
 
       g_date_time_unref (subserver->branch_file_timestamp);
       subserver->branch_file_timestamp = days_ago (lan_server_count - idx);
@@ -102,7 +102,7 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                         default_product,
                                         &error);
       g_assert_no_error (error);
-      server_cmd = g_new0 (CmdAsyncStuff, 1);
+      server_cmd = g_new0 (CmdAsyncResult, 1);
       eos_test_client_run_update_server (lan_server,
                                          12345 + idx,
                                          server_cmd,
@@ -141,10 +141,10 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_assert_no_error (error);
 
   cmds = g_ptr_array_new ();
-  cmds_to_free = g_ptr_array_new_with_free_func ((GDestroyNotify)cmd_stuff_free);
+  cmds_to_free = g_ptr_array_new_with_free_func ((GDestroyNotify)cmd_result_free);
   for (idx = 0; idx < lan_server_cmds->len; ++idx)
     {
-      g_autoptr(CmdStuff) reaped_server = g_new0(CmdStuff, 1);
+      g_autoptr(CmdResult) reaped_server = g_new0(CmdResult, 1);
 
       eos_test_client_reap_update_server (g_ptr_array_index (lan_servers, idx),
                                           g_ptr_array_index (lan_server_cmds, idx),
@@ -157,7 +157,7 @@ test_update_from_lan (EosUpdaterFixture *fixture,
 
   g_ptr_array_add (cmds, &reaped);
   g_ptr_array_add (cmds, autoupdater->cmd);
-  g_assert_true (cmd_stuff_ensure_all_ok_verbose (cmds));
+  g_assert_true (cmd_result_ensure_all_ok_verbose (cmds));
 
   eos_test_client_has_commit (client,
                               default_remote_name,

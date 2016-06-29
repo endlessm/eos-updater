@@ -35,64 +35,65 @@ typedef enum
 } RepoMode;
 
 gboolean ostree_init (GFile *repo,
-		      RepoMode mode,
-		      CmdStuff *cmd,
-		      GError **error);
+                      RepoMode mode,
+                      CmdResult *cmd,
+                      GError **error);
 
 gboolean ostree_commit (GFile *repo,
-			GFile *tree_root,
-			const gchar *subject,
-			const gchar *ref,
-			const gchar *keyid,
-			GDateTime *timestamp,
-			CmdStuff *cmd,
-			GError **error);
+                        GFile *tree_root,
+                        const gchar *subject,
+                        const gchar *ref,
+                        const gchar *keyid,
+                        GDateTime *timestamp,
+                        CmdResult *cmd,
+                        GError **error);
 
 gboolean ostree_summary (GFile *repo,
-			 const gchar *keyid,
-			 CmdStuff *cmd,
-			 GError **error);
+                         const gchar *keyid,
+                         CmdResult *cmd,
+                         GError **error);
 
 gboolean ostree_pull (GFile *repo,
-		      const gchar *remote_name,
-		      const gchar *ref,
-		      CmdStuff *cmd,
-		      GError **error);
+                      const gchar *remote_name,
+                      const gchar *ref,
+                      CmdResult *cmd,
+                      GError **error);
 
 gboolean ostree_remote_add (GFile *repo,
-			    const gchar *remote_name,
-			    const gchar *remote_url,
-			    const gchar *ref,
-			    GFile *gpg_key,
-			    CmdStuff *cmd,
-			    GError **error);
+                            const gchar *remote_name,
+                            const gchar *remote_url,
+                            const gchar *ref,
+                            GFile *gpg_key,
+                            CmdResult *cmd,
+                            GError **error);
 
 gboolean ostree_deploy (GFile *sysroot,
-			const gchar *osname,
-			const gchar *refspec,
-			CmdStuff *cmd,
-			GError **error);
+                        const gchar *osname,
+                        const gchar *refspec,
+                        CmdResult *cmd,
+                        GError **error);
 
 gboolean ostree_init_fs (GFile *sysroot,
-			 CmdStuff *cmd,
-			 GError **error);
+                         CmdResult *cmd,
+                         GError **error);
 
 gboolean ostree_os_init (GFile *sysroot,
-			 const gchar *remote_name,
-			 CmdStuff *cmd,
-			 GError **error);
+                         const gchar *remote_name,
+                         CmdResult *cmd,
+                         GError **error);
 
 gboolean ostree_status (GFile *sysroot,
-			CmdStuff *cmd,
-			GError **error);
+                        CmdResult *cmd,
+                        GError **error);
 
 /* due to some bug I don't know where (either my fault, or ostree
  * trivial-httpd's in lackluster or just cursory daemonizing or
  * g_spawn_sync's in pipe handling), we get no output here at all -
  * g_spawn_sync becomes stuck on reading pipes. */
 gboolean ostree_httpd (GFile *served_dir,
-		       guint16 *port,
-		       CmdStuff *cmd,
-		       GError **error);
+                       GFile *port_file,
+                       guint16 *port,
+                       CmdResult *cmd,
+                       GError **error);
 
 G_END_DECLS
