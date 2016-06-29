@@ -116,10 +116,10 @@ is_ancestor (GFile *dir,
  * empty.
  */
 static gboolean
-delete_file_and_subdirs (GFile *dir,
-                         GFile *file,
-                         GCancellable *cancellable,
-                         GError **error)
+delete_files_and_empty_parents (GFile *dir,
+                                GFile *file,
+                                GCancellable *cancellable,
+                                GError **error)
 {
   g_autoptr(GError) local_error = NULL;
   g_autoptr(GFile) child = NULL;
@@ -173,25 +173,34 @@ delete_file_and_subdirs (GFile *dir,
 }
 
 static gboolean
+create_directories (GFile *directory,
+                    GCancellable *cancellable,
+                    GError **error)
+{
+  g_autoptr(GError) local_error = NULL;
+
+  if (g_file_make_directory_with_parents (directory, cancellable, &local_error))
+    return TRUE;
+
+  if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+    return TRUE;
+
+  g_propagate_error (error, g_steal_pointer (&local_error));
+  return FALSE;
+}
+
+static gboolean
 create_directories_and_file (GFile *target,
                              GBytes *contents,
                              GCancellable *cancellable,
                              GError **error)
 {
   g_autoptr(GFile) target_parent = g_file_get_parent (target);
-  g_autoptr(GError) local_error = NULL;
   gconstpointer raw;
   gsize len;
 
-  if (!g_file_make_directory_with_parents (target_parent, cancellable, &local_error))
-    {
-      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
-      g_clear_error (&local_error);
-    }
+  if (!create_directories (target_parent, cancellable, error))
+    return FALSE;
 
   raw = g_bytes_get_data (contents, &len);
   return g_file_replace_contents (target,
@@ -216,7 +225,7 @@ eos_updater_save_or_delete  (GBytes *contents,
   g_autoptr(GFile) target_parent = g_file_get_parent (target);
 
   if (contents == NULL)
-    return delete_file_and_subdirs (dir, target, cancellable, error);
+    return delete_files_and_empty_parents (dir, target, cancellable, error);
 
   return create_directories_and_file (target, contents, cancellable, error);
 }
@@ -235,17 +244,9 @@ eos_updater_create_extensions_dir (OstreeRepo *repo,
                                    GError **error)
 {
   g_autoptr(GFile) ext_path = get_eos_extensions_path (repo);
-  g_autoptr(GError) local_error = NULL;
 
-  if (!g_file_make_directory_with_parents (ext_path, NULL, &local_error))
-    {
-      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
-      g_clear_error (&local_error);
-    }
+  if (!create_directories (ext_path, NULL, error))
+    return FALSE;
 
   *dir = g_steal_pointer (&ext_path);
   return TRUE;

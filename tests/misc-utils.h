@@ -41,23 +41,6 @@ object_array_new (void)
   return g_ptr_array_new_with_free_func (g_object_unref);
 }
 
-static inline gpointer
-save_for_out_of_scope_gc (gpointer to_save, GPtrArray* saved)
-{
-  g_ptr_array_add (saved, to_save);
-  return to_save;
-}
-
-/* expects the out_of_scope_gc_strs GPtrArray variable to be defined
- * in scope, use SSDEF */
-#define SS(s) (gchar *)save_for_out_of_scope_gc (s, out_of_scope_gc_strs)
-#define SSDEF g_autoptr(GPtrArray) out_of_scope_gc_strs = string_array_new ()
-
-/* expects the out_of_scope_gc_objs GPtrArray variable to be defined
- * in scope, use OSDEF */
-#define OS(o) save_for_out_of_scope_gc (o, out_of_scope_gc_objs)
-#define OSDEF g_autoptr(GPtrArray) out_of_scope_gc_objs = object_array_new ()
-
 gchar **generate_strv (const gchar *str, ...) G_GNUC_NULL_TERMINATED;
 
 gboolean load_to_bytes (GFile *file,

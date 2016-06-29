@@ -34,7 +34,6 @@
 #include <systemd/sd-daemon.h>
 
 #include <errno.h>
-#include <stdio.h>
 #include <string.h>
 
 typedef struct
@@ -276,14 +275,7 @@ static EosQuitFileCheckResult
 check_and_quit (gpointer data_ptr)
 {
   Data *data = data_ptr;
-  FILE *log;
-  g_autofree gchar *str = NULL;
 
-  log = fopen ("eos-update-server.log", "a");
-  str = g_strdup_printf ("requests pending: %u\n",
-                         data->async_requests_pending);
-  fwrite (str, 1, strlen (str), log);
-  fclose (log);
   if (data->async_requests_pending > 0)
     return EOS_QUIT_FILE_KEEP_CHECKING;
 
@@ -297,10 +289,7 @@ maybe_setup_quit_file (Data *data,
 {
   g_autofree gchar *filename = quit_file_name ();
   g_autoptr(EosQuitFile) quit_file = NULL;
-  FILE *log;
 
-  log = fopen ("eos-update-server.log", "w");
-  fclose (log);
   if (filename == NULL)
     return TRUE;
 

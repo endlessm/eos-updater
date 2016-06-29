@@ -85,12 +85,10 @@ strv_to_download_order (gchar **sources,
                         gsize *n_download_sources,
                         GError **error)
 {
-  g_autoptr(GArray) array = NULL;
+  g_autoptr(GArray) array = g_array_new (FALSE, FALSE, sizeof (EosUpdaterDownloadSource));
+  g_autoptr(GHashTable) found_sources = g_hash_table_new (NULL, NULL);;
   gchar **iter;
-  g_autoptr(GHashTable) found_sources = NULL;
 
-  array = g_array_new (FALSE, FALSE, sizeof (EosUpdaterDownloadSource));
-  found_sources = g_hash_table_new (NULL, NULL);
   for (iter = sources; *iter != NULL; ++iter)
     {
       EosUpdaterDownloadSource idx;
@@ -384,24 +382,23 @@ get_latest_uam (EosUpdaterData *data,
     {
       UpdateAndMetrics *uam = uam_ptr;
       EosBranchFile *branch_file = uam->metrics->branch_file;
+      gint compare_value = 1;
 
       if (with_updates && uam->update == NULL)
         continue;
 
       if (latest_timestamp != NULL)
-        {
-          if (g_date_time_compare (branch_file->download_time,
-                                   latest_timestamp))
-            {
-              latest_timestamp = NULL;
-              g_hash_table_remove_all (latest);
-            }
-        }
-      if (latest_timestamp == NULL)
+        compare_value = g_date_time_compare (branch_file->download_time,
+                                             latest_timestamp);
+      if (compare_value > 0)
         {
           latest_timestamp = branch_file->download_time;
-          g_hash_table_insert (latest, name_ptr, uam_ptr);
+          g_hash_table_remove_all (latest);
+          compare_value = 0;
         }
+
+      if (compare_value == 0)
+        g_hash_table_insert (latest, name_ptr, uam_ptr);
     }
 
   for (idx = 0; idx < data->n_download_sources; ++idx)
@@ -450,10 +447,9 @@ metadata_fetch (GTask *task,
       MetadataFetcher fetcher = g_ptr_array_index (fetchers, idx);
       g_autoptr(EosUpdateInfo) info = NULL;
       g_autoptr(EosMetricsInfo) metrics = NULL;
-      const gchar *name;
+      const gchar *name = order_key_str[data->download_order[idx]];
       UpdateAndMetrics *uam;
 
-      name = order_key_str[data->download_order[idx]];
       if (!fetcher (fetch_data, &info, &metrics, &error))
         {
           message ("Failed to poll metadata from source %s: %s",

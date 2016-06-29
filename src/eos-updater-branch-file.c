@@ -61,7 +61,7 @@ get_download_time (GFile *file,
                             cancellable,
                             error);
   if (info == NULL)
-    return NULL;
+    return FALSE;
 
   mod_time = g_file_info_get_attribute_uint64 (info,
                                                G_FILE_ATTRIBUTE_TIME_MODIFIED);

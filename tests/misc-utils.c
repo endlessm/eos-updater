@@ -279,17 +279,11 @@ cp (GFile *source,
     GFile *target,
     GError **error)
 {
-  g_autoptr(GBytes) bytes = NULL;
-
-  if (!load_to_bytes (source,
-		      &bytes,
-		      error))
-    return FALSE;
-
-  if (!create_file (target,
-		    bytes,
-		    error))
-    return FALSE;
-
-  return TRUE;
+  return g_file_copy (source,
+                      target,
+                      G_FILE_COPY_NONE,
+                      NULL, /* no cancellable */
+                      NULL, /* no progress callback */
+                      NULL, /* no progress callback data */
+                      error);
 }

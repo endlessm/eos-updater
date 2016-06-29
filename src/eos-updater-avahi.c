@@ -100,24 +100,22 @@ struct _EosAvahiDiscoverer
 static void
 eos_avahi_discoverer_dispose_impl (EosAvahiDiscoverer *discoverer)
 {
-  guint callback_id = discoverer->callback_id;
   gpointer user_data = discoverer->user_data;
   GDestroyNotify notify = discoverer->notify;
 
-  discoverer->callback_id = 0;
-  if (callback_id > 0)
+  if (discoverer->callback_id > 0)
     {
-      GSource* source;
+      GSource* source = g_main_context_find_source_by_id (discoverer->context,
+                                                          discoverer->callback_id);
 
-      source = g_main_context_find_source_by_id (discoverer->context,
-                                                 callback_id);
+      discoverer->callback_id = 0;
       if (source != NULL)
         g_source_destroy (source);
     }
 
   discoverer->user_data = NULL;
   discoverer->notify = NULL;
-  if (user_data != NULL && notify != NULL)
+  if (notify != NULL)
     notify (user_data);
 
   g_clear_pointer (&discoverer->context, g_main_context_unref);
@@ -291,9 +289,7 @@ browse_new (EosAvahiDiscoverer *discoverer,
   AvahiServiceResolver *resolver;
 
   if (discoverer->state == EOS_AVAHI_RESOLVING_ONLY)
-    {
-      return;
-    }
+    return;
 
   if (g_hash_table_contains (discoverer->discovered_services, name))
     {
@@ -313,12 +309,10 @@ browse_new (EosAvahiDiscoverer *discoverer,
                                          discoverer);
   if (resolver == NULL)
     {
-      int failure = avahi_client_errno (discoverer->client);
-
       queue_error_callback (discoverer,
                             "Failed to resolve service %s: %s",
                             name,
-                            avahi_strerror (failure));
+                            avahi_strerror (avahi_client_errno (discoverer->client)));
       return;
     }
 
@@ -504,6 +498,11 @@ eos_avahi_discoverer_new (GMainContext *context,
   return g_steal_pointer (&discoverer);
 }
 
+/* This function does a find-and-replace on a @-delimited tokens. This
+ * works by splitting the string by the @ delimiter and replacing
+ * every even string with the appriopriate value from the values hash
+ * table. Odd strings are copied verbatim.
+ */
 static GBytes *
 generate_from_template (const gchar *tmpl,
                         GHashTable *values,
@@ -635,11 +634,11 @@ generate_v1_service_file (OstreeRepo *repo,
   txt_records = g_ptr_array_new_with_free_func (g_free);
   dl_time = g_date_time_format (branch_file->download_time, "%s");
 
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_ostree_path (),
+  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_ostree_path,
                                             ostree_path));
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_branch_file_dl_time (),
+  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_branch_file_dl_time,
                                             dl_time));
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_branch_file_sha512sum (),
+  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_branch_file_sha512sum,
                                             branch_file->contents_sha512sum));
 
   g_ptr_array_add (txt_records, NULL);
@@ -651,19 +650,30 @@ generate_v1_service_file (OstreeRepo *repo,
 
 static gboolean
 generate_v2_service_file (OstreeRepo *repo,
+                          EosBranchFile *branch_file,
                           GFile *service_file,
                           GError **error)
 {
   g_autoptr(GPtrArray) txt_records = NULL;
   g_autofree gchar *ostree_path = NULL;
+  g_autoptr(GDateTime) timestamp = NULL;
+  g_autofree gchar *timestamp_str = NULL;
 
   if (!eos_updater_get_ostree_path (repo, &ostree_path, error))
     return FALSE;
 
+  if (!eos_updater_get_timestamp_from_branch_file_keyfile (branch_file->branch_file,
+                                                           &timestamp,
+                                                           error))
+    return FALSE;
+
+  timestamp_str = g_date_time_format (timestamp, "%s");
   txt_records = g_ptr_array_new_with_free_func (g_free);
 
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v2_ostree_path (),
+  g_ptr_array_add (txt_records, txt_record (eos_avahi_v2_ostree_path,
                                             ostree_path));
+  g_ptr_array_add (txt_records, txt_record (eos_avahi_v2_branch_file_timestamp,
+                                            timestamp_str));
 
   g_ptr_array_add (txt_records, NULL);
   return generate_avahi_service_template_to_file (service_file,
@@ -696,37 +706,13 @@ eos_avahi_generate_service_file (OstreeRepo *repo,
   service_file = g_file_new_for_path (service_file_path);
 
   if (branch_file->raw_signature != NULL)
-    return generate_v2_service_file (repo, service_file, error);
+    return generate_v2_service_file (repo, branch_file, service_file, error);
 
   return generate_v1_service_file (repo, branch_file, service_file, error);
 }
 
-const gchar *
-eos_avahi_v1_ostree_path (void)
-{
-  return "eos_ostree_path";
-}
-
-const gchar *
-eos_avahi_v1_branch_file_dl_time (void)
-{
-  return "eos_branch_file_dl_time";
-}
-
-const gchar *
-eos_avahi_v1_branch_file_sha512sum (void)
-{
-  return "eos_branch_file_sha512sum";
-}
-
-const gchar *
-eos_avahi_v2_ostree_path (void)
-{
-  return "eos_ostree_path";
-}
-
-const gchar *
-eos_avahi_v2_branch_file_timestamp (void)
-{
-  return "eos_branch_file_timestamp";
-}
+const gchar *const eos_avahi_v1_ostree_path = "eos_ostree_path";
+const gchar *const eos_avahi_v1_branch_file_dl_time = "eos_branch_file_dl_time";
+const gchar *const eos_avahi_v1_branch_file_sha512sum = "eos_branch_file_sha512sum";
+const gchar *const eos_avahi_v2_ostree_path = "eos_ostree_path";
+const gchar *const eos_avahi_v2_branch_file_timestamp = "eos_branch_file_timestamp";

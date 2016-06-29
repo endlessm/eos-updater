@@ -70,31 +70,32 @@ lan_data_clear (LanData *lan_data)
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (LanData, lan_data_clear)
 
+static void
+place_fail_key_to_hash_table (GHashTable *keys,
+                              const gchar *fail_key)
+{
+  g_hash_table_steal_all (keys);
+  g_hash_table_insert (keys, (gchar *)fail_key, NULL);
+}
+
 static TxtRecordError
 fill_txt_records (gchar **txt_records,
                   GHashTable *keys)
 {
   gchar **iter;
   g_autoptr(GPtrArray) keys_to_find = g_ptr_array_new ();
-  const gchar *fail_key = NULL;
-  TxtRecordError error = TXT_RECORD_OK;
+  GHashTableIter key_iter;
+  const gchar *key;
 
-  {
-    GHashTableIter key_iter;
-    gpointer key;
-
-    g_hash_table_iter_init (&key_iter, keys);
-    while (g_hash_table_iter_next (&key_iter, &key, NULL))
-      g_ptr_array_add (keys_to_find, key);
-  }
+  g_hash_table_iter_init (&key_iter, keys);
+  while (g_hash_table_iter_next (&key_iter, (gpointer *)&key, NULL))
+    g_ptr_array_add (keys_to_find, (gpointer)key);
 
   for (iter = txt_records; *iter != NULL; ++iter)
     {
       const gchar *txt_record = *iter;
-      GHashTableIter key_iter;
-      g_hash_table_iter_init (&key_iter, keys);
-      const gchar *key;
 
+      g_hash_table_iter_init (&key_iter, keys);
       while (g_hash_table_iter_next (&key_iter, (gpointer *)&key, NULL))
         {
           gsize key_len;
@@ -106,9 +107,8 @@ fill_txt_records (gchar **txt_records,
             continue;
           if (g_hash_table_lookup (keys, key) != NULL)
             {
-              fail_key = key;
-              error = TXT_RECORD_NOT_UNIQUE;
-              goto out;
+              place_fail_key_to_hash_table (keys, key);
+              return TXT_RECORD_NOT_UNIQUE;
             }
           g_hash_table_insert (keys, (gchar *)key, (gchar *)txt_record + key_len + 1);
           g_ptr_array_remove_fast (keys_to_find, (gchar *)key);
@@ -118,17 +118,12 @@ fill_txt_records (gchar **txt_records,
 
   if (keys_to_find->len > 0)
     {
-      fail_key = g_ptr_array_index (keys_to_find, 0);
-      error = TXT_RECORD_NOT_FOUND;
+      place_fail_key_to_hash_table (keys,
+                                    g_ptr_array_index (keys_to_find, 0));
+      return TXT_RECORD_NOT_FOUND;
     }
 
- out:
-  if (fail_key != NULL)
-    {
-      g_hash_table_steal_all (keys);
-      g_hash_table_insert (keys, (gchar *)fail_key, NULL);
-    }
-  return error;
+  return TXT_RECORD_OK;
 }
 
 static TxtRecordError
@@ -223,8 +218,8 @@ eos_service_with_branch_file_new (EosAvahiService *service)
 }
 
 static void
-eos_service_with_branch_file_get_from_lan_data (EosServiceWithBranchFile *swbf,
-                                                LanData *lan_data)
+eos_service_with_branch_file_set_branch_file_from_lan_data (EosServiceWithBranchFile *swbf,
+                                                            LanData *lan_data)
 {
   g_set_object (&swbf->branch_file, lan_data->fetch_data->data->branch_file);
 }
@@ -286,7 +281,7 @@ check_dl_time (LanData *lan_data,
     return DL_TIME_INVALID;
   utc = g_date_time_new_from_unix_utc (utc_time);
   if (utc == NULL)
-    return DL_TIME_INVALID;
+    return DL_TIME_OUT_OF_RANGE;
   *utc_out = g_steal_pointer (&utc);
   if (g_date_time_compare (lan_data->fetch_data->data->branch_file->download_time, *utc_out) >= 0)
     return DL_TIME_OLD;
@@ -300,7 +295,7 @@ txt_v1_handler_risky_checks (LanData *lan_data,
                              GError **error)
 {
   if (!check_ostree_path (lan_data,
-                          g_hash_table_lookup (records, eos_avahi_v1_ostree_path ()),
+                          g_hash_table_lookup (records, eos_avahi_v1_ostree_path),
                           valid,
                           error))
     return FALSE;
@@ -311,18 +306,16 @@ txt_v1_handler_risky_checks (LanData *lan_data,
 }
 
 static ServiceValidResult
-txt_v1_handler_time_check (LanData *lan_data,
-                           EosServiceWithBranchFile *swbf,
-                           GHashTable *records)
+time_check (LanData *lan_data,
+            EosServiceWithBranchFile *swbf,
+            const gchar *dl_time)
 {
-  const gchar *dl_time;
   g_autoptr(GDateTime) txt_utc = NULL;
 
-  dl_time = g_hash_table_lookup (records, eos_avahi_v1_branch_file_dl_time ());
   switch (check_dl_time (lan_data, dl_time, &txt_utc))
     {
     case DL_TIME_OLD:
-      eos_service_with_branch_file_get_from_lan_data (swbf, lan_data);
+      eos_service_with_branch_file_set_branch_file_from_lan_data (swbf, lan_data);
       return SERVICE_VALID;
 
     case DL_TIME_NEW:
@@ -342,23 +335,30 @@ txt_v1_handler_time_check (LanData *lan_data,
   return SERVICE_INVALID;
 }
 
+static ServiceValidResult
+txt_v1_handler_time_check (LanData *lan_data,
+                           EosServiceWithBranchFile *swbf,
+                           GHashTable *records)
+{
+  const gchar *dl_time = g_hash_table_lookup (records, eos_avahi_v1_branch_file_dl_time);
+
+  return time_check (lan_data, swbf, dl_time);
+}
+
 static gboolean
 txt_v1_handler_checks (LanData *lan_data,
                        EosServiceWithBranchFile *swbf,
                        GHashTable *records)
 {
-  ServiceValidResult result;
+  ServiceValidResult result = txt_v1_handler_time_check (lan_data, swbf, records);
 
-  result = txt_v1_handler_time_check (lan_data, swbf, records);
   if (result == SERVICE_VALID_MORE_CHECKS)
     {
-      const gchar *sha512sum;
-      const gchar *sha512sum_local;
+      const gchar *sha512sum = g_hash_table_lookup (records, eos_avahi_v1_branch_file_sha512sum);
+      const gchar *sha512sum_local = lan_data->fetch_data->data->branch_file->contents_sha512sum;
 
-      sha512sum = g_hash_table_lookup (records, eos_avahi_v1_branch_file_sha512sum ());
-      sha512sum_local = lan_data->fetch_data->data->branch_file->contents_sha512sum;
       if (g_strcmp0 (sha512sum_local, sha512sum) == 0)
-        eos_service_with_branch_file_get_from_lan_data (swbf, lan_data);
+        eos_service_with_branch_file_set_branch_file_from_lan_data (swbf, lan_data);
       else
         swbf->declared_sha512sum = g_strdup (sha512sum);
       result = SERVICE_VALID;
@@ -377,9 +377,9 @@ txt_v1_handler (LanData *lan_data,
   g_autoptr(GHashTable) records = NULL;
   TxtRecordError txt_error = get_unique_txt_records (swbf->service->txt,
                                                      &records,
-                                                     eos_avahi_v1_ostree_path (),
-                                                     eos_avahi_v1_branch_file_dl_time (),
-                                                     eos_avahi_v1_branch_file_sha512sum (),
+                                                     eos_avahi_v1_ostree_path,
+                                                     eos_avahi_v1_branch_file_dl_time,
+                                                     eos_avahi_v1_branch_file_sha512sum,
                                                      NULL);
   if (txt_error != TXT_RECORD_OK)
     {
@@ -407,7 +407,7 @@ txt_v2_handler_risky_checks (LanData *lan_data,
                              GError **error)
 {
   if (!check_ostree_path (lan_data,
-                          g_hash_table_lookup (records, eos_avahi_v2_ostree_path ()),
+                          g_hash_table_lookup (records, eos_avahi_v2_ostree_path),
                           valid,
                           error))
     return FALSE;
@@ -422,32 +422,9 @@ txt_v2_handler_checks (LanData *lan_data,
                        EosServiceWithBranchFile *swbf,
                        GHashTable *records)
 {
-  const gchar *dl_time;
-  g_autoptr(GDateTime) txt_utc = NULL;
+  const gchar *dl_time = g_hash_table_lookup (records, eos_avahi_v2_branch_file_timestamp);
 
-  dl_time = g_hash_table_lookup (records, eos_avahi_v2_branch_file_timestamp ());
-  switch (check_dl_time (lan_data, dl_time, &txt_utc))
-    {
-    case DL_TIME_OLD:
-      eos_service_with_branch_file_get_from_lan_data (swbf, lan_data);
-      return TRUE;
-
-    case DL_TIME_NEW:
-      swbf->declared_download_time = g_steal_pointer (&txt_utc);
-      return TRUE;
-
-    case DL_TIME_INVALID:
-      // TODO: message
-      return FALSE;
-
-    case DL_TIME_OUT_OF_RANGE:
-      // TODO: message
-      return FALSE;
-    }
-
-  // TODO: message
-  g_assert_not_reached ();
-  return FALSE;
+  return time_check (lan_data, swbf, dl_time);
 }
 
 static gboolean
@@ -459,8 +436,8 @@ txt_v2_handler (LanData *lan_data,
   g_autoptr(GHashTable) records = NULL;
   TxtRecordError txt_error = get_unique_txt_records (swbf->service->txt,
                                                      &records,
-                                                     eos_avahi_v2_ostree_path (),
-                                                     eos_avahi_v2_branch_file_timestamp (),
+                                                     eos_avahi_v2_ostree_path,
+                                                     eos_avahi_v2_branch_file_timestamp,
                                                      NULL);
   if (txt_error != TXT_RECORD_OK)
     {
@@ -552,13 +529,16 @@ filter_services (LanData *lan_data,
 
       if (txt_version == NULL)
         {
-          // TODO: message
+          message ("service at %s has no txt records version, ignoring it",
+                   service->address);
           continue;
         }
       checker = get_txt_handler (txt_version);
       if (checker == NULL)
         {
-          // TODO: message
+          message ("unknown txt records version %s from service at %s, ignoring it",
+                   txt_version,
+                   service->address);
           continue;
         }
       swbf = eos_service_with_branch_file_new (service);
@@ -588,16 +568,15 @@ get_newest_branch_file (LanData *lan_data,
                         GPtrArray *valid_services)
 {
   guint idx;
-  GCancellable *cancellable;
+  GCancellable *cancellable = g_task_get_cancellable (lan_data->fetch_data->task);
 
-  cancellable = g_task_get_cancellable (lan_data->fetch_data->task);
   for (idx = 0; idx < valid_services->len; ++idx)
     {
       gpointer swbf_ptr = g_ptr_array_index (valid_services, idx);
       EosServiceWithBranchFile* swbf = EOS_SERVICE_WITH_BRANCH_FILE (swbf_ptr);
       g_autoptr(GBytes) branch_file_contents = NULL;
       g_autoptr(GBytes) signature_contents = NULL;
-      g_autofree gchar *uri = get_branch_file_uri (swbf->service);
+      g_autofree gchar *uri = NULL;
       g_autoptr(GError) error = NULL;
       g_autoptr(EosBranchFile) branch_file = NULL;
 
@@ -730,18 +709,16 @@ get_update_info_from_swbfs (LanData *lan_data,
       gpointer swbf_ptr = g_ptr_array_index (swbfs, idx);
       EosServiceWithBranchFile *swbf = EOS_SERVICE_WITH_BRANCH_FILE (swbf_ptr);
       EosAvahiService *service = swbf->service;
-      g_autofree gchar *url_override = NULL;
+      g_autofree gchar *url_override = g_strdup_printf ("http://%s:%d",
+                                                        service->address,
+                                                        service->port);
       g_autoptr(GError) local_error = NULL;
       g_autofree gchar *checksum = NULL;
       g_autoptr(GVariant) commit = NULL;
       guint64 timestamp;
       g_autoptr(EosExtensions) extensions = NULL;
-      GCancellable *cancellable;
+      GCancellable *cancellable = g_task_get_cancellable (lan_data->fetch_data->task);
 
-      cancellable = g_task_get_cancellable (lan_data->fetch_data->task);
-      url_override = g_strdup_printf ("http://%s:%d",
-                                      service->address,
-                                      service->port);
       if (!fetch_latest_commit (repo,
                                 cancellable,
                                 remote,
@@ -785,6 +762,14 @@ get_update_info_from_swbfs (LanData *lan_data,
               g_ptr_array_set_size (urls, 0);
               g_clear_object (&latest_extensions);
             }
+          else
+            {
+              message ("The commit from %s has either only timestamp the same as the timestamp from latest commit"
+                       " or only checksum the same as the checksum from latest commit."
+                       " This should not happen. Ignoring.",
+                       url_override);
+              continue;
+            }
         }
       if (latest_checksum == NULL)
         {
@@ -808,11 +793,15 @@ get_update_info_from_swbfs (LanData *lan_data,
                                                                    FALSE),
                                        latest_extensions);
     }
+  else
+    *out_info = NULL;
   *out_metrics = g_steal_pointer (&metrics);
 
   return TRUE;
 }
 
+/* the return value tells whether we should quit the main loop or
+ * not */
 static gboolean
 check_lan_updates (LanData *lan_data,
                    GPtrArray *found_services)
@@ -865,7 +854,7 @@ discoverer_callback (EosAvahiDiscoverer *discoverer,
                      GError *error)
 {
   LanData *lan_data = lan_data_ptr;
-  gboolean quit_loop = TRUE;
+  gboolean quit_loop;
 
   lan_data->error = g_steal_pointer (&error);
   if (lan_data->error == NULL)

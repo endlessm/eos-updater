@@ -38,10 +38,10 @@ test_update_from_main (EosUpdaterFixture *fixture,
   g_autoptr(EosTestSubserver) subserver = NULL;
   g_autoptr(GFile) client_root = NULL;
   g_autoptr(EosTestClient) client = NULL;
-  g_auto(CmdAsyncStuff) updater_cmd = CMD_ASYNC_STUFF_CLEARED;
+  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autoptr(GFile) autoupdater_root = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
-  g_auto(CmdStuff) reaped = CMD_STUFF_CLEARED;
+  g_auto(CmdResult) reaped = CMD_RESULT_CLEARED;
   g_autoptr(GPtrArray) cmds = NULL;
   gboolean has_commit;
 
@@ -100,7 +100,7 @@ test_update_from_main (EosUpdaterFixture *fixture,
   cmds = g_ptr_array_new ();
   g_ptr_array_add (cmds, &reaped);
   g_ptr_array_add (cmds, autoupdater->cmd);
-  g_assert_true (cmd_stuff_ensure_all_ok_verbose (cmds));
+  g_assert_true (cmd_result_ensure_all_ok_verbose (cmds));
 
   eos_test_client_has_commit (client,
                               default_remote_name,
