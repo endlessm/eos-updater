@@ -26,6 +26,8 @@
 #include <gio/gunixinputstream.h>
 #include <gio/gunixoutputstream.h>
 
+#include <string.h>
+
 void
 cmd_result_clear (CmdResult *cmd)
 {
@@ -205,6 +207,9 @@ test_spawn_cwd_full (const gchar *cwd,
     flags |= (G_SPAWN_STDOUT_TO_DEV_NULL |
               G_SPAWN_STDERR_TO_DEV_NULL);
 
+  if (strstr (argv[0], "/") == NULL)
+    flags |= G_SPAWN_SEARCH_PATH;
+
   return g_spawn_sync (NULL,
                        argv,
                        merged_env,
@@ -354,14 +359,12 @@ build_cmd_args (CmdArg *args)
   gsize idx;
   g_autoptr(GPtrArray) vec = string_array_new ();
 
-  for (idx = 0;; ++idx)
+  for (idx = 0;
+       args[idx].flag_name != NULL || args[idx].value != NULL;
+       ++idx)
     {
       CmdArg *arg = &args[idx];
       g_autofree gchar* arg_str = NULL;
-
-      if (arg->flag_name == NULL &&
-          arg->value == NULL)
-        break;
 
       if (arg->flag_name != NULL &&
           arg->value != NULL)
@@ -385,13 +388,10 @@ build_cmd_env (CmdEnvVar *vars)
   gsize idx;
   g_autoptr(GPtrArray) vec = string_array_new ();
 
-  for (idx = 0;; ++idx)
+  for (idx = 0; vars[idx].name != NULL; ++idx)
     {
       CmdEnvVar *var = &vars[idx];
       g_autofree gchar* env_str = NULL;
-
-      if (var->name == NULL)
-        break;
 
       if (var->raw_value)
         env_str = envvar (var->name, var->raw_value);

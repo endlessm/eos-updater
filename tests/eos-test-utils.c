@@ -1232,6 +1232,29 @@ get_bash_script_contents (gchar **argv,
   return g_string_free_to_bytes (g_steal_pointer (&contents));
 }
 
+/* shell out to call chmod a+x <file> because modifying the
+ * G_FILE_ATTRIBUTE_ACCESS_CAN_EXECUTE attribute is not possible
+ */
+static gboolean
+chmod_a_x (GFile *path,
+           GError **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_autofree gchar *raw_path = g_file_get_path (path);
+  gchar *argv[] =
+    {
+      "chmod",
+      "a+x",
+      raw_path,
+      NULL
+    };
+
+  if (!test_spawn (argv, NULL, &cmd, error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
 static gboolean
 generate_bash_script (GFile *bash_script,
                       gchar **argv,
@@ -1243,6 +1266,9 @@ generate_bash_script (GFile *bash_script,
 
   bash = get_bash_script_contents (argv, merged);
   if (!create_file (bash_script, bash, error))
+    return FALSE;
+
+  if (!chmod_a_x (bash_script, error))
     return FALSE;
 
   return TRUE;
@@ -1319,7 +1345,7 @@ spawn_updater (GFile *sysroot,
       if (!generate_bash_script (path, argv, envp, error))
         return FALSE;
 
-      g_printerr ("Bash script %s generated, chmod a+x it an run it, make check will continue when com.endlessm.Updater appears on the test session bus\n",
+      g_printerr ("Bash script %s generated. Run it, make check will continue when com.endlessm.Updater appears on the test session bus\n",
                   bash_script_path);
 
     }
@@ -1600,7 +1626,7 @@ run_update_server (GFile *repo,
 
       delete_me_path = g_strdup_printf ("%s.deleteme", bash_script_path);
       delete_me = g_file_new_for_path (delete_me_path);
-      g_printerr ("Bash script %s generated, chmod a+x it an run it, make check will continue when %s is deleted\n",
+      g_printerr ("Bash script %s generated. Run it, make check will continue when %s is deleted\n",
                   bash_script_path,
                   delete_me_path);
 

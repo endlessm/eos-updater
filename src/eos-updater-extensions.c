@@ -104,11 +104,14 @@ eos_extensions_save (EosExtensions *extensions,
 
   if (extensions->ref_name != NULL)
     {
+      g_autofree gchar *ref_filename = g_build_filename ("refs.d",
+                                                         extensions->ref_name,
+                                                         NULL);
       g_autofree gchar *ref_sig_filename = NULL;
 
       if (!eos_updater_save_or_delete (extensions->ref,
                                        ext_path,
-                                       extensions->ref_name,
+                                       ref_filename,
                                        cancellable,
                                        error))
         return FALSE;

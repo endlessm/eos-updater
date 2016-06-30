@@ -444,22 +444,11 @@ handle_refs_heads (SoupMessage *msg,
                    Data *data,
                    const gchar *requested_path)
 {
-  g_autofree gchar *raw_path = g_build_filename (data->cached_repo_root, requested_path, NULL);
+  gsize prefix_len = strlen ("/refs/heads/");
+  size_t len = strlen (requested_path);
+  g_autofree gchar *raw_path = NULL;
   gboolean served = FALSE;
-  gsize prefix_len;
-  size_t len;
   const gchar *head;
-
-  if (!serve_file_if_exists (msg, raw_path, &served))
-    return FALSE;
-
-  if (served)
-    return TRUE;
-
-  g_clear_pointer (&raw_path, g_free);
-  prefix_len = 1 + 4 + 1 + 5 + 1; /* /refs/heads/ */
-  len = strlen (requested_path);
-  head = requested_path + prefix_len; /* e.g eos2/i386 */
 
   if (len <= prefix_len)
     {
@@ -468,7 +457,22 @@ handle_refs_heads (SoupMessage *msg,
       return FALSE;
     }
 
-  raw_path = g_build_filename (data->cached_repo_root, "refs", "remotes", data->remote_name, head, NULL);
+  raw_path = g_build_filename (data->cached_repo_root, requested_path, NULL);
+  if (!serve_file_if_exists (msg, raw_path, &served))
+    return FALSE;
+
+  if (served)
+    return TRUE;
+
+  head = requested_path + prefix_len; /* e.g eos2/i386 */
+  g_clear_pointer (&raw_path, g_free);
+  raw_path = g_build_filename (data->cached_repo_root,
+                               "refs",
+                               "remotes",
+                               data->remote_name,
+                               head,
+                               NULL);
+
   return serve_file (msg, raw_path);
 }
 
