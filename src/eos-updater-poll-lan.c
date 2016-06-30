@@ -269,6 +269,8 @@ check_dl_time (LanData *lan_data,
   gchar *utc_str_end = NULL;
   g_autoptr(GDateTime) utc = NULL;
 
+  g_assert (dl_time != NULL);
+
   if (dl_time[0] == '\0')
     return DL_TIME_INVALID;
   errno = 0;
@@ -800,9 +802,13 @@ get_update_info_from_swbfs (LanData *lan_data,
   return TRUE;
 }
 
-/* the return value tells whether we should quit the main loop or
- * not */
-static gboolean
+typedef enum
+  {
+    LOOP_QUIT,
+    LOOP_KEEP_GOING
+  } LoopAction;
+
+static LoopAction
 check_lan_updates (LanData *lan_data,
                    GPtrArray *found_services)
 {
@@ -816,20 +822,20 @@ check_lan_updates (LanData *lan_data,
     {
       message ("Failed to filter services: %s",
                lan_data->error->message);
-      return TRUE;
+      return LOOP_QUIT;
     }
 
   if (valid_services->len == 0)
     {
       message ("No valid LAN servers found");
-      return TRUE;
+      return LOOP_QUIT;
     }
 
   branch_file = get_newest_branch_file (lan_data, valid_services);
   if (branch_file == NULL)
     {
       message ("No valid branch file found");
-      return TRUE;
+      return LOOP_QUIT;
     }
 
   if (!get_update_info_from_swbfs (lan_data,
@@ -841,10 +847,10 @@ check_lan_updates (LanData *lan_data,
     {
       message ("Failed to get the latest update info: %s",
                lan_data->error->message);
-      return TRUE;
+      return LOOP_QUIT;
     }
 
-  return TRUE;
+  return LOOP_QUIT;
 }
 
 static void
@@ -854,16 +860,16 @@ discoverer_callback (EosAvahiDiscoverer *discoverer,
                      GError *error)
 {
   LanData *lan_data = lan_data_ptr;
-  gboolean quit_loop;
+  LoopAction loop_action;
 
   lan_data->error = g_steal_pointer (&error);
   if (lan_data->error == NULL)
-    quit_loop = check_lan_updates (lan_data, found_services);
+    loop_action = check_lan_updates (lan_data, found_services);
 
   if (lan_data->error != NULL)
-    quit_loop = TRUE;
+    loop_action = LOOP_QUIT;
 
-  if (quit_loop)
+  if (loop_action == LOOP_QUIT)
     g_main_loop_quit (lan_data->main_loop);
 }
 

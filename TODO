@@ -92,3 +92,11 @@
 
 - add some sanity tests to check if setting up the server and clients
   work
+
+- for LAN updates, try fetching from another available URL if the
+  downloading objects from the previously chosen one failed for some
+  reason. Long term objective would be downloading from several URLs
+  in parallel, but that requires changes in OSTree.
+
+- consider either adding a --verbose flag to eos-updater or
+  integrating it with systemd journal.

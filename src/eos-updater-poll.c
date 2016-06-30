@@ -86,7 +86,7 @@ strv_to_download_order (gchar **sources,
                         GError **error)
 {
   g_autoptr(GArray) array = g_array_new (FALSE, FALSE, sizeof (EosUpdaterDownloadSource));
-  g_autoptr(GHashTable) found_sources = g_hash_table_new (NULL, NULL);;
+  g_autoptr(GHashTable) found_sources = g_hash_table_new (NULL, NULL);
   gchar **iter;
 
   for (iter = sources; *iter != NULL; ++iter)
