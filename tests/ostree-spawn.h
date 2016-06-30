@@ -92,7 +92,6 @@ gboolean ostree_status (GFile *sysroot,
  * g_spawn_sync becomes stuck on reading pipes. */
 gboolean ostree_httpd (GFile *served_dir,
                        GFile *port_file,
-                       guint16 *port,
                        CmdResult *cmd,
                        GError **error);
 

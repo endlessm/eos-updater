@@ -308,7 +308,6 @@ ostree_status (GFile *sysroot,
 gboolean
 ostree_httpd (GFile *served_dir,
               GFile *port_file,
-              guint16 *port,
               CmdResult *cmd,
               GError **error)
 {

@@ -26,9 +26,9 @@
 
 #include <unistd.h>
 
-gboolean
-rm_rf (GFile *topdir,
-       GError **error)
+static gboolean
+rm_rf_internal (GFile *topdir,
+                GError **error)
 {
   GQueue queue = G_QUEUE_INIT;
   GList *dir_stack = NULL;
@@ -98,6 +98,23 @@ rm_rf (GFile *topdir,
       g_list_free_1 (first);
       if (!g_file_delete (dir, NULL, error))
         return FALSE;
+    }
+
+  return TRUE;
+}
+
+gboolean
+rm_rf (GFile *topdir,
+       GError **error)
+{
+  if (!rm_rf_internal (topdir, error))
+    {
+      g_autofree gchar *raw_path = g_file_get_path (topdir);
+      g_prefix_error (error,
+                      "Failed to remove the file or directory in %s, this should not happen: ",
+                      raw_path);
+
+      return FALSE;
     }
 
   return TRUE;
@@ -222,7 +239,7 @@ save_key_file (GFile *file,
 }
 
 static GDateTime *
-get_now (void)
+get_timestamp_from_when_tests_started_running (void)
 {
   static GDateTime *now = NULL;
 
@@ -235,7 +252,7 @@ get_now (void)
 GDateTime *
 days_ago (gint days)
 {
-  g_autoptr(GDateTime) now = get_now ();
+  g_autoptr(GDateTime) now = get_timestamp_from_when_tests_started_running ();
   g_autoptr(GDateTime) now_fixed = g_date_time_new_utc (g_date_time_get_year (now),
                                                         g_date_time_get_month (now),
                                                         g_date_time_get_day_of_month (now),
