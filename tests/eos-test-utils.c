@@ -701,7 +701,6 @@ run_httpd (GFile *served_root,
 
   if (!ostree_httpd (served_root,
                      port_file,
-                     &port,
                      &cmd,
                      error))
     return FALSE;
