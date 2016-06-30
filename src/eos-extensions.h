@@ -22,8 +22,7 @@
 
 #pragma once
 
-#include "eos-updater-branch-file.h"
-
+#include "eos-branch-file.h"
 #include "eos-refcounted.h"
 
 #include <ostree.h>

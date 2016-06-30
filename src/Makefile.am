@@ -41,6 +41,10 @@ libeos_updater_util_la_SOURCES = \
 	eos-util.c \
 	eos-util.h \
 	eos-refcounted.h \
+	eos-branch-file.h \
+	eos-branch-file.c \
+	eos-extensions.c \
+	eos-extensions.h \
 	$(NULL)
 
 eos_autoupdater_CFLAGS = $(GIO_CFLAGS) $(EOS_AUTOUPDATER_CFLAGS)
@@ -68,12 +72,8 @@ eos_updater_SOURCES = \
 	eos-updater-avahi-emulator.h \
 	eos-updater-avahi.c \
 	eos-updater-avahi.h \
-	eos-updater-branch-file.h \
-	eos-updater-branch-file.c \
 	eos-updater-data.h \
 	eos-updater-data.c \
-	eos-updater-extensions.c \
-	eos-updater-extensions.h \
 	eos-updater-fetch.c \
 	eos-updater-fetch.h \
 	eos-updater-poll.c \

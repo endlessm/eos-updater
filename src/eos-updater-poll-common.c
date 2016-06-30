@@ -22,7 +22,6 @@
  *          Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-updater-extensions.h"
 #include "eos-updater-poll-common.h"
 
 #include "eos-util.h"

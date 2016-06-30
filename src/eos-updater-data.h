@@ -22,8 +22,8 @@
 
 #pragma once
 
-#include "eos-updater-branch-file.h"
-#include "eos-updater-extensions.h"
+#include "eos-branch-file.h"
+#include "eos-extensions.h"
 
 #include <ostree.h>
 

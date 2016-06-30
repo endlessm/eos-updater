@@ -20,7 +20,7 @@
  * Author: Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-updater-extensions.h"
+#include "eos-extensions.h"
 
 #include "eos-util.h"
 
