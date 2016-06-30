@@ -53,9 +53,9 @@ eos_extensions_new_empty (void)
 }
 
 EosExtensions *
-eos_extensions_new (OstreeRepo *repo,
-                    GCancellable *cancellable,
-                    GError **error)
+eos_extensions_new_from_repo (OstreeRepo *repo,
+                              GCancellable *cancellable,
+                              GError **error)
 {
   g_autoptr(EosBranchFile) branch_file = NULL;
   g_autoptr(EosExtensions) extensions = NULL;
