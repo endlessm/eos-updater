@@ -104,15 +104,6 @@ eos_branch_file_new_empty (void)
   return g_object_new (EOS_TYPE_BRANCH_FILE, NULL);
 };
 
-// TODO: put it in util header
-static GFile *
-get_eos_extensions_dir (OstreeRepo *repo)
-{
-  g_autofree gchar *rel_path = g_build_filename ("extensions", "eos", NULL);
-
-  return g_file_get_child (ostree_repo_get_path (repo), rel_path);
-}
-
 static void
 get_branch_file_paths (GFile *ext_path,
                        GFile **branch_file,
@@ -127,7 +118,7 @@ eos_branch_file_new_from_repo (OstreeRepo *repo,
                                GCancellable *cancellable,
                                GError **error)
 {
-  g_autoptr(GFile) ext_dir = get_eos_extensions_dir (repo);
+  g_autoptr(GFile) ext_dir = eos_updater_get_eos_extensions_dir (repo);
   g_autoptr(GFile) branch_file = NULL;
   g_autoptr(GFile) signature = NULL;
 
@@ -235,7 +226,7 @@ eos_branch_file_save_to_repo (EosBranchFile *branch_file,
                               GCancellable *cancellable,
                               GError **error)
 {
-  g_autoptr(GFile) ext_dir = get_eos_extensions_dir (repo);
+  g_autoptr(GFile) ext_dir = eos_updater_get_eos_extensions_dir (repo);
   g_autoptr(GFile) branch_file_path = NULL;
   g_autoptr(GFile) signature_path = NULL;
 
