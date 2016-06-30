@@ -20,7 +20,7 @@
  * Author: Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-updater-branch-file.h"
+#include "eos-branch-file.h"
 
 #include "eos-util.h"
 
