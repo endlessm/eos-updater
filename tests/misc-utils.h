@@ -76,4 +76,8 @@ gboolean cp (GFile *source,
 	     GFile *target,
 	     GError **error);
 
+gboolean read_port_file (GFile *port_file,
+                         guint16 *out_port,
+                         GError **error);
+
 G_END_DECLS

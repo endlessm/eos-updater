@@ -304,3 +304,35 @@ cp (GFile *source,
                       NULL, /* no progress callback data */
                       error);
 }
+
+gboolean
+read_port_file (GFile *port_file,
+                guint16 *out_port,
+                GError **error)
+{
+  g_autoptr(GBytes) bytes = NULL;
+  g_autofree gchar *port_contents = NULL;
+  gchar *endptr;
+  guint64 number;
+  int saved_errno;
+
+  if (!load_to_bytes (port_file,
+                      &bytes,
+                      error))
+    return FALSE;
+
+  port_contents = g_strndup (g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes));
+  g_strstrip (port_contents);
+  errno = 0;
+  number = g_ascii_strtoull (port_contents, &endptr, 10);
+  saved_errno = errno;
+  if (saved_errno != 0 || number == 0 || *endptr != '\0' || number > G_MAXUINT16)
+    {
+      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
+                   "Invalid port number %s", port_contents);
+      return FALSE;
+    }
+
+  *out_port = number;
+  return TRUE;
+}

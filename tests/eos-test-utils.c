@@ -661,39 +661,6 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_SERVER,
                        eos_test_server_dispose_impl,
                        eos_test_server_finalize_impl)
 
-
-static gboolean
-read_port_file (GFile *port_file,
-                guint16 *out_port,
-                GError **error)
-{
-  g_autoptr(GBytes) bytes = NULL;
-  g_autofree gchar *port_contents = NULL;
-  gchar *endptr;
-  guint64 number;
-  int saved_errno;
-
-  if (!load_to_bytes (port_file,
-                      &bytes,
-                      error))
-    return FALSE;
-
-  port_contents = g_strndup (g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes));
-  g_strstrip (port_contents);
-  errno = 0;
-  number = g_ascii_strtoull (port_contents, &endptr, 10);
-  saved_errno = errno;
-  if (saved_errno != 0 || number == 0 || *endptr != '\0' || number > G_MAXUINT16)
-    {
-      g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
-                   "Invalid port number %s", port_contents);
-      return FALSE;
-    }
-
-  *out_port = number;
-  return TRUE;
-}
-
 static gboolean
 run_httpd (GFile *served_root,
            GFile *httpd_dir,
