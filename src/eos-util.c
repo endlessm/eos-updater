@@ -536,6 +536,27 @@ get_first_uri_from_server (SoupServer *server,
   return FALSE;
 }
 
+gboolean
+eos_updater_read_file_to_bytes (GFile *file,
+                                GCancellable *cancellable,
+                                GBytes **out_bytes,
+                                GError **error)
+{
+  g_autofree gchar *contents = NULL;
+  gsize len = 0;
+
+  if (!g_file_load_contents (file,
+                             cancellable,
+                             &contents,
+                             &len,
+                             NULL,
+                             error))
+    return FALSE;
+
+  *out_bytes = g_bytes_new_take (g_steal_pointer (&contents), len);
+  return TRUE;
+}
+
 struct _EosQuitFile
 {
   GObject parent_instance;

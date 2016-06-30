@@ -114,6 +114,11 @@ gboolean get_first_uri_from_server (SoupServer *server,
                                     SoupURI **out_uri,
                                     GError **error);
 
+gboolean eos_updater_read_file_to_bytes (GFile *file,
+                                         GCancellable *cancellable,
+                                         GBytes **out_bytes,
+                                         GError **error);
+
 #define EOS_TYPE_QUIT_FILE eos_quit_file_get_type ()
 EOS_DECLARE_REFCOUNTED (EosQuitFile, eos_quit_file, EOS, QUIT_FILE)
 

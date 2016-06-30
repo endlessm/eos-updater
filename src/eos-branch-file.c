@@ -77,27 +77,6 @@ get_download_time (GFile *file,
   return TRUE;
 }
 
-static gboolean
-read_file_to_bytes (GFile *file,
-                    GCancellable *cancellable,
-                    GBytes **out_bytes,
-                    GError **error)
-{
-  g_autofree gchar *contents = NULL;
-  gsize len = 0;
-
-  if (!g_file_load_contents (file,
-                             cancellable,
-                             &contents,
-                             &len,
-                             NULL,
-                             error))
-    return FALSE;
-
-  *out_bytes = g_bytes_new_take (g_steal_pointer (&contents), len);
-  return TRUE;
-}
-
 EosBranchFile *
 eos_branch_file_new_empty (void)
 {
@@ -140,16 +119,16 @@ eos_branch_file_new_from_files (GFile *branch_file,
   g_return_val_if_fail (G_IS_FILE (branch_file), NULL);
   g_return_val_if_fail (G_IS_FILE (signature), NULL);
 
-  if (!read_file_to_bytes (branch_file,
-                           cancellable,
-                           &branch_file_bytes,
-                           error))
+  if (!eos_updater_read_file_to_bytes (branch_file,
+                                       cancellable,
+                                       &branch_file_bytes,
+                                       error))
     return NULL;
 
-  if (!read_file_to_bytes (signature,
-                           cancellable,
-                           &signature_bytes,
-                           &local_error))
+  if (!eos_updater_read_file_to_bytes (signature,
+                                       cancellable,
+                                       &signature_bytes,
+                                       &local_error))
     {
       if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
