@@ -422,8 +422,8 @@ metadata_fetch (GTask *task,
                 GCancellable *cancel)
 {
   EosUpdaterData *data = task_data;
-  GError *error = NULL;
-  GMainContext *task_context = g_main_context_new ();
+  g_autoptr(GError) error = NULL;
+  g_autoptr(GMainContext) task_context = g_main_context_new ();
   g_autoptr(EosMetadataFetchData) fetch_data = NULL;
   g_autoptr(GPtrArray) fetchers = NULL;
   guint idx;
@@ -431,11 +431,10 @@ metadata_fetch (GTask *task,
   g_autoptr(GHashTable) source_to_uam = NULL;
 
   fetch_data = eos_metadata_fetch_data_new (task, data, task_context);
-  g_main_context_unref (task_context);
 
   if (!read_config (data, &error))
     {
-      g_task_return_error (task, error);
+      g_task_return_error (task, g_steal_pointer (&error));
       return;
     }
 
