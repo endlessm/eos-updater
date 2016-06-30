@@ -230,20 +230,12 @@ eos_updater_save_or_delete  (GBytes *contents,
   return create_directories_and_file (target, contents, cancellable, error);
 }
 
-static GFile *
-get_eos_extensions_path (OstreeRepo *repo)
-{
-  g_autofree gchar *rel_path = g_build_filename ("extensions", "eos", NULL);
-
-  return g_file_get_child (ostree_repo_get_path (repo), rel_path);
-}
-
 gboolean
 eos_updater_create_extensions_dir (OstreeRepo *repo,
                                    GFile **dir,
                                    GError **error)
 {
-  g_autoptr(GFile) ext_path = get_eos_extensions_path (repo);
+  g_autoptr(GFile) ext_path = eos_updater_get_eos_extensions_dir (repo);
 
   if (!create_directories (ext_path, NULL, error))
     return FALSE;
@@ -499,6 +491,14 @@ eos_updater_dup_envvar_or (const gchar *envvar,
     return g_strdup (value);
 
   return g_strdup (default_value);
+}
+
+GFile *
+eos_updater_get_eos_extensions_dir (OstreeRepo *repo)
+{
+  g_autofree gchar *rel_path = g_build_filename ("extensions", "eos", NULL);
+
+  return g_file_get_child (ostree_repo_get_path (repo), rel_path);
 }
 
 struct _EosQuitFile

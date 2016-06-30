@@ -105,6 +105,8 @@ gboolean eos_updater_get_ostree_paths_from_branch_file_keyfile (GKeyFile *branch
 gchar *eos_updater_dup_envvar_or (const gchar *envvar,
                                   const gchar *default_value);
 
+GFile *eos_updater_get_eos_extensions_dir (OstreeRepo *repo);
+
 #define EOS_TYPE_QUIT_FILE eos_quit_file_get_type ()
 EOS_DECLARE_REFCOUNTED (EosQuitFile, eos_quit_file, EOS, QUIT_FILE)
 
