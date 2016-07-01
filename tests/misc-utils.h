@@ -41,8 +41,6 @@ object_array_new (void)
   return g_ptr_array_new_with_free_func (g_object_unref);
 }
 
-gchar **generate_strv (const gchar *str, ...) G_GNUC_NULL_TERMINATED;
-
 gboolean load_to_bytes (GFile *file,
 			GBytes **bytes,
 			GError **error);

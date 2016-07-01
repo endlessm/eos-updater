@@ -223,9 +223,12 @@ static gchar *
 get_boot_checksum (const gchar *kernel_contents,
                    const gchar *initramfs_contents)
 {
-  g_auto(GStrv) contents = generate_strv (kernel_contents,
-                                          initramfs_contents,
-                                          NULL);
+  gchar *contents[] =
+    {
+      (gchar *)kernel_contents,
+      (gchar *)initramfs_contents,
+      NULL
+    };
 
   return get_sha256sum_from_strv (contents);
 }
