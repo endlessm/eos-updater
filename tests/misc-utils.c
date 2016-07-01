@@ -120,24 +120,6 @@ rm_rf (GFile *topdir,
   return TRUE;
 }
 
-gchar **
-generate_strv (const gchar *str, ...)
-{
-  g_autoptr(GPtrArray) vec = string_array_new ();
-  va_list args;
-
-  va_start (args, str);
-  while (str != NULL)
-    {
-      g_ptr_array_add (vec, g_strdup (str));
-      str = va_arg (args, const gchar *);
-    }
-  va_end (args);
-  g_ptr_array_add (vec, NULL);
-
-  return (gchar**)g_ptr_array_free (g_steal_pointer (&vec), FALSE);
-}
-
 gboolean
 load_to_bytes (GFile *file,
                GBytes **bytes,
