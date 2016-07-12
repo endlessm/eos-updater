@@ -18,8 +18,11 @@ Build-Depends: debhelper (>= 9.0.0),
 Package: eos-updater
 Section: misc
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	systemd (>= 200)
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         systemd (>= 200),
+         python3-gi,
+         gir1.2-glib-2.0
 Description: Updater for EndlessOS
  This package contains the components for keeping Endless OS up to date.
 
