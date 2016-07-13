@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=com.endlessm.Updater
+Exec=@abs_top_builddir@/src/eos-updater
