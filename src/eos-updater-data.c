@@ -22,17 +22,26 @@
 
 #include "eos-updater-data.h"
 
+#include "eos-util.h"
+
 #include <string.h>
 
-void
+gboolean
 eos_updater_data_init (EosUpdaterData *data,
-                       OstreeRepo *repo)
+                       OstreeRepo *repo,
+                       GError **error)
 {
-  g_return_if_fail (data != NULL);
-  g_return_if_fail (OSTREE_IS_REPO (repo));
+  g_return_val_if_fail (data != NULL, FALSE);
+  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
 
   memset (data, 0, sizeof *data);
   data->repo = g_object_ref (repo);
+
+  data->branch_file = eos_branch_file_new_from_repo (repo, NULL, error);
+  if (data->branch_file == NULL)
+    return FALSE;
+
+  return TRUE;
 }
 
 void
@@ -40,5 +49,7 @@ eos_updater_data_clear (EosUpdaterData *data)
 {
   g_return_if_fail (data != NULL);
 
+  g_clear_pointer (&data->overridden_urls, g_strfreev);
+  g_clear_object (&data->branch_file);
   g_clear_object (&data->repo);
 }

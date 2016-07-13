@@ -1,0 +1,15 @@
+<SECTION>
+<FILE>prepare-update</FILE>
+eos_updater_prepare_volume_from_sysroot
+eos_updater_prepare_volume
+</SECTION>
+
+<SECTION>
+<FILE>repo-server</FILE>
+eos_updater_repo_server_new
+eos_updater_repo_server_get_pending_requests
+eos_updater_repo_server_get_last_request_time
+EosUpdaterRepoServer
+<SUBSECTION Standard>
+EOS_UPDATER_TYPE_REPO_SERVER
+</SECTION>

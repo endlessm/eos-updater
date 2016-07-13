@@ -1,13 +1,15 @@
-eos_autoupdater_in = eos-autoupdater.service.in eos-autoupdater.timer.in
+eos_autoupdater_in = \
+	eos-autoupdater.service.in \
+	eos-autoupdater.timer.in \
+	eos-update-server.socket.in \
+	eos-update-server.service.in \
+	$(NULL)
 
 systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
 
 sysconf_DATA = eos-updater.conf
 
-eos-autoupdater.service: eos-autoupdater.service.in
-	$(AM_V_GEN)$(edit) $< >$@
-
-eos-autoupdater.timer: eos-autoupdater.timer.in
+%: %.in
 	$(AM_V_GEN)$(edit) $< >$@
 
 edit = sed \
@@ -15,7 +17,9 @@ edit = sed \
 	-e 's|@sbindir[@]|$(sbindir)|g' \
 	-e 's|@sysconfdir[@]|$(sysconfdir)|g' \
 	-e 's|@localstatedir[@]|$(localstatedir)|g' \
-	-e 's|@libexecdir[@]|$(libexecdir)|g'
+	-e 's|@libexecdir[@]|$(libexecdir)|g' \
+	-e 's|@server_port[@]|$(server_port)|g' \
+	$(NULL)
 
 EXTRA_DIST = $(eos_autoupdater_in) \
 	$(sysconf_DATA) \

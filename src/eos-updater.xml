@@ -1,9 +1,12 @@
 <node>
   <interface name="com.endlessm.Updater">
-    <method name="Poll" ></method>
+    <method name="Poll"></method>
+    <method name="PollVolume">
+      <arg name="path" type="s" direction="in"/>
+    </method>
     <method name="Fetch"></method>
     <method name="Apply"></method>
-    
+
     <property name="State"            type="u" access="read"/>
     <property name="UpdateID"         type="s" access="read"/>
     <property name="UpdateRefspec"    type="s" access="read"/>
@@ -18,7 +21,7 @@
     <property name="FullUnpackedSize" type="x" access="read"/>
     <property name="ErrorCode"        type="u" access="read"/>
     <property name="ErrorMessage"     type="s" access="read"/>
-    
+
     <signal name="StateChanged">
       <arg type="u" name="state"/>
     </signal>
@@ -30,5 +33,3 @@
 
   </interface>
 </node>
-
-

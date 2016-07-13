@@ -22,6 +22,9 @@
 
 #pragma once
 
+#include "eos-branch-file.h"
+#include "eos-extensions.h"
+
 #include <ostree.h>
 
 G_BEGIN_DECLS
@@ -31,12 +34,29 @@ typedef struct EosUpdaterData EosUpdaterData;
 struct EosUpdaterData
 {
   OstreeRepo *repo;
+  EosBranchFile *branch_file;
+
+  /* fields below are meant to be shared between some update stages;
+   * when adding a new one, document it.
+   */
+
+  /* extensions field is filled with some of the results of the
+   * polling stage and it is saved to disk in apply stage when
+   * deploying an update succeeds.
+   */
+  EosExtensions *extensions;
+  /* overridden_urls field is filled with some of the results of the
+   * polling stage and it is used during fetch stage to select a
+   * server to download the data from.
+   */
+  gchar **overridden_urls;
 };
 
-#define EOS_UPDATER_DATA_INIT { NULL }
+#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL, NULL }
 
-void eos_updater_data_init (EosUpdaterData *data,
-                            OstreeRepo *repo);
+gboolean eos_updater_data_init (EosUpdaterData *data,
+                                OstreeRepo *repo,
+                                GError **error);
 
 void eos_updater_data_clear (EosUpdaterData *data);
 

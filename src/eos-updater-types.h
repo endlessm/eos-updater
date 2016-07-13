@@ -22,10 +22,14 @@
 
 #pragma once
 
+#include <glib.h>
+
 G_BEGIN_DECLS
 
 typedef enum {
   EOS_UPDATER_ERROR_WRONG_STATE,
+  EOS_UPDATER_ERROR_LAN_DISCOVERY_ERROR,
+  EOS_UPDATER_ERROR_WRONG_CONFIGURATION,
   EOS_UPDATER_N_ERRORS /*< skip >*/
 } EosUpdaterError;
 
