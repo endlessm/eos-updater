@@ -1,6 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
  * Copyright © 2013 Collabora Ltd.
+ * Copyright © 2016 Endless Mobile
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,6 +27,7 @@
 #include "eos-updater-poll.h"
 #include "eos-updater-fetch.h"
 #include "eos-updater-apply.h"
+#include "eos-updater-live-boot.h"
 #include <ostree.h>
 #include <gio/gio.h>
 #include <glib.h>
@@ -59,10 +61,20 @@ on_bus_acquired (GDBusConnection *connection,
   eos_object_skeleton_set_updater (object, updater);
   g_object_unref (updater);
 
-  /* Handle the various DBus methods: */
-  g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), data);
-  g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), data);
-  g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), data);
+  if (is_live_boot ())
+    {
+      /* Disable updates on live USBs: */
+      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_on_live_boot), data);
+      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_on_live_boot), data);
+      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), data);
+    }
+  else
+    {
+      /* Handle the various DBus methods: */
+      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), data);
+      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), data);
+      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), data);
+    }
 
   sum = eos_updater_get_booted_checksum (&error);
   if (sum != NULL)
