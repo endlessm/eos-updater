@@ -39,6 +39,8 @@ eos_updater_SOURCES = \
 	eos-updater-apply.h \
 	eos-updater-fetch.c \
 	eos-updater-fetch.h \
+	eos-updater-live-boot.c \
+	eos-updater-live-boot.h \
 	eos-updater-poll.c \
 	eos-updater-poll.h \
 	eos-updater-util.c \

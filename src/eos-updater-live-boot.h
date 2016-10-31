@@ -1,6 +1,6 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
- * Copyright © 2013 Collabora Ltd.
+ * Copyright © 2016 Endless Mobile
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -17,30 +17,20 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * Author: Vivek Dasmohapatra <vivek@etla.org>
+ * Author: Will Thompson <wjt@endlessm.com>
  */
 
 #pragma once
 
+#include "eos-updater-generated.h"
+#include "eos-updater-util.h"
+#include <ostree.h>
+
 G_BEGIN_DECLS
 
-typedef enum {
-  EOS_UPDATER_ERROR_WRONG_STATE,
-  EOS_UPDATER_ERROR_LIVE_BOOT,
-  EOS_UPDATER_N_ERRORS /*< skip >*/
-} EosUpdaterError;
-
-typedef enum {
-  EOS_UPDATER_STATE_NONE = 0,
-  EOS_UPDATER_STATE_READY,
-  EOS_UPDATER_STATE_ERROR,
-  EOS_UPDATER_STATE_POLLING,
-  EOS_UPDATER_STATE_UPDATE_AVAILABLE,
-  EOS_UPDATER_STATE_FETCHING,
-  EOS_UPDATER_STATE_UPDATE_READY,
-  EOS_UPDATER_STATE_APPLYING_UPDATE,
-  EOS_UPDATER_STATE_UPDATE_APPLIED,
-  EOS_UPDATER_N_STATES,
-} EosUpdaterState;
+gboolean is_live_boot (void);
+gboolean handle_on_live_boot (EosUpdater            *updater,
+                              GDBusMethodInvocation *call,
+                              gpointer               user_data);
 
 G_END_DECLS

@@ -34,7 +34,8 @@
 #define EOS_UPDATER_BRANCH_SELECTED "99f48aac-b5a0-426d-95f4-18af7d081c4e"
 
 static const GDBusErrorEntry eos_updater_error_entries[] = {
-  { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" }
+  { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" },
+  { EOS_UPDATER_ERROR_LIVE_BOOT, "com.endlessm.Updater.Error.LiveBoot" },
 };
 
 /* Ensure that every error code has an associated D-Bus error name */
