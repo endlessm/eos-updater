@@ -50,7 +50,9 @@ void eos_updater_set_state_changed (EosUpdater *updater,
                                     EosUpdaterState state);
 
 void eos_updater_set_error (EosUpdater *updater,
-                            GError *error);
+                            const GError *error);
+void eos_updater_clear_error (EosUpdater *updater,
+                              EosUpdaterState state);
 
 OstreeRepo *eos_updater_local_repo (void);
 

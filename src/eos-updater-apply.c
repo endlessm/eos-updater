@@ -50,9 +50,7 @@ apply_finished (GObject *object,
     }
   else
     {
-      eos_updater_set_error_code (updater, 0);
-      eos_updater_set_error_message (updater, "");
-      eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_UPDATE_APPLIED);
+      eos_updater_clear_error (updater, EOS_UPDATER_STATE_UPDATE_APPLIED);
     }
 
   return;
