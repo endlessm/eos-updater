@@ -165,15 +165,14 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
 static void
 report_error_status (EosUpdater *proxy)
 {
-  const gchar *error_message;
-  guint error_code;
+  const gchar *name, *error_message;
 
-  error_code = eos_updater_get_error_code (proxy);
+  name = eos_updater_get_error_name (proxy);
   error_message = eos_updater_get_error_message (proxy);
 
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_DAEMON_ERROR_MSGID,
                    "PRIORITY=%d", LOG_ERR,
-                   "MESSAGE=EOS updater error (code:%u): %s", error_code, error_message,
+                   "MESSAGE=EOS updater error (%s): %s", name, error_message,
                    NULL);
 }
 

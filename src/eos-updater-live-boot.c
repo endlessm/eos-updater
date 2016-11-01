@@ -22,26 +22,32 @@
 
 #include "eos-updater-live-boot.h"
 
+#define LIVE_BOOT_MESSAGE "Updater disabled on live systems"
+
 gboolean
-is_live_boot (void)
+is_installed_system (GError **error_out)
 {
   const gchar *force = g_getenv ("EU_FORCE_LIVE_BOOT");
   GError *error = NULL;
   g_autofree gchar *cmdline = NULL;
 
-  if (force != NULL && *force != '\0')
-    {
-      return TRUE;
-    }
-
   if (!g_file_get_contents ("/proc/cmdline", &cmdline, NULL, &error))
     {
       g_printerr ("unable to read /proc/cmdline: %s\n", error->message);
       g_error_free (error);
+      return TRUE;
+    }
+
+  if (g_regex_match_simple ("\\bendless\\.live_boot\\b", cmdline, 0, 0) ||
+      (force != NULL && *force != '\0'))
+    {
+      g_set_error_literal (error_out,
+        EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_LIVE_BOOT,
+        LIVE_BOOT_MESSAGE);
       return FALSE;
     }
 
-  return g_regex_match_simple ("\\bendless\\.live_boot\\b", cmdline, 0, 0);
+  return TRUE;
 }
 
 gboolean
@@ -49,8 +55,7 @@ handle_on_live_boot (EosUpdater            *updater,
                      GDBusMethodInvocation *call,
                      gpointer               user_data)
 {
-  g_dbus_method_invocation_return_error (call,
-    EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_LIVE_BOOT,
-    "Updater disabled on live systems");
+  g_dbus_method_invocation_return_error_literal (call,
+    EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_LIVE_BOOT, LIVE_BOOT_MESSAGE);
   return TRUE;
 }

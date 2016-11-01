@@ -60,21 +60,6 @@ on_bus_acquired (GDBusConnection *connection,
   eos_object_skeleton_set_updater (object, updater);
   g_object_unref (updater);
 
-  if (is_live_boot ())
-    {
-      /* Disable updates on live USBs: */
-      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_on_live_boot), data);
-      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_on_live_boot), data);
-      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), data);
-    }
-  else
-    {
-      /* Handle the various DBus methods: */
-      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), data);
-      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), data);
-      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), data);
-    }
-
   sum = eos_updater_get_booted_checksum (&error);
   if (sum != NULL)
     {
@@ -89,6 +74,24 @@ on_bus_acquired (GDBusConnection *connection,
     {
       eos_updater_set_error (updater, error);
       g_clear_error (&error);
+    }
+
+  if (!is_installed_system (&error))
+    {
+      /* Disable updates on live USBs: */
+      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_on_live_boot), data);
+      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_on_live_boot), data);
+      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), data);
+
+      eos_updater_set_error (updater, error);
+      g_clear_error (&error);
+    }
+  else
+    {
+      /* Handle the various DBus methods: */
+      g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), data);
+      g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), data);
+      g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), data);
     }
 
   /* Export the object (@manager takes its own reference to @object) */

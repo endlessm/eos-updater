@@ -3,7 +3,7 @@
     <method name="Poll" ></method>
     <method name="Fetch"></method>
     <method name="Apply"></method>
-    
+
     <property name="State"            type="u" access="read"/>
     <property name="UpdateID"         type="s" access="read"/>
     <property name="UpdateRefspec"    type="s" access="read"/>
@@ -16,9 +16,16 @@
     <property name="UnpackedSize"     type="x" access="read"/>
     <property name="FullDownloadSize" type="x" access="read"/>
     <property name="FullUnpackedSize" type="x" access="read"/>
+    <!-- An error code, in an unspecified error domain! See ErrorName. -->
     <property name="ErrorCode"        type="u" access="read"/>
+    <!-- a fully-qualified D-Bus error name, as might be returned from a D-Bus
+         method. "com.endlessm.Updater.Error.LiveBoot" when the system is a
+         read-only live USB, where updates are not supported.
+      -->
+    <property name="ErrorName"        type="s" access="read"/>
+    <!-- a human-readable, albeit unlocalized, error message -->
     <property name="ErrorMessage"     type="s" access="read"/>
-    
+
     <signal name="StateChanged">
       <arg type="u" name="state"/>
     </signal>
@@ -30,5 +37,3 @@
 
   </interface>
 </node>
-
-
