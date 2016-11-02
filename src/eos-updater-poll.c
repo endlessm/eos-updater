@@ -78,18 +78,16 @@ metadata_fetch_finished (GObject *object,
       is_newer = ostree_commit_get_timestamp (commit) > ostree_commit_get_timestamp (current_commit);
 
       /* Everything is happy thusfar */
-      eos_updater_set_error_code (updater, 0);
-      eos_updater_set_error_message (updater, "");
       /* if we have a checksum for the remote upgrade candidate
        * and it's ≠ what we're currently booted into, advertise it as such.
        */
       if (is_newer && g_strcmp0 (cur, csum) != 0)
         {
-          eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
+          eos_updater_clear_error (updater, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
         }
       else
         {
-          eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_READY);
+          eos_updater_clear_error (updater, EOS_UPDATER_STATE_READY);
           goto out;
         }
 

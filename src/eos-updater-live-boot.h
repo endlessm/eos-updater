@@ -28,7 +28,7 @@
 
 G_BEGIN_DECLS
 
-gboolean is_live_boot (void);
+gboolean is_installed_system (GError **error);
 gboolean handle_on_live_boot (EosUpdater            *updater,
                               GDBusMethodInvocation *call,
                               gpointer               user_data);

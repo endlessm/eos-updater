@@ -81,14 +81,28 @@ eos_updater_set_state_changed (EosUpdater *updater, EosUpdaterState state)
 }
 
 void
-eos_updater_set_error (EosUpdater *updater, GError *error)
+eos_updater_set_error (EosUpdater *updater,
+                       const GError *error)
 {
   gint code = error ? error->code : -1;
   const gchar *msg = (error && error->message) ? error->message : "Unspecified";
+  g_autofree gchar *error_name = g_dbus_error_encode_gerror (error);
 
+  g_warn_if_fail (error != NULL);
+
+  eos_updater_set_error_name (updater, error_name);
   eos_updater_set_error_code (updater, code);
   eos_updater_set_error_message (updater, msg);
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
+}
+
+void
+eos_updater_clear_error (EosUpdater *updater,
+                         EosUpdaterState state)
+{
+  eos_updater_set_error_code (updater, 0);
+  eos_updater_set_error_message (updater, "");
+  eos_updater_set_state_changed (updater, state);
 }
 
 OstreeRepo *

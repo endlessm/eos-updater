@@ -43,7 +43,6 @@ on_bus_acquired (GDBusConnection *connection,
   EosUpdater *updater = NULL;
   EosUpdaterData *data = user_data;
   GError *error = NULL;
-  EosUpdaterState state;
 
   g_autofree gchar *src = NULL;
   g_autofree gchar *ref = NULL;
@@ -61,12 +60,31 @@ on_bus_acquired (GDBusConnection *connection,
   eos_object_skeleton_set_updater (object, updater);
   g_object_unref (updater);
 
-  if (is_live_boot ())
+  sum = eos_updater_get_booted_checksum (&error);
+  if (sum != NULL)
+    {
+      eos_updater_set_current_id (updater, sum);
+      eos_updater_set_download_size (updater, 0);
+      eos_updater_set_downloaded_bytes (updater, 0);
+      eos_updater_set_unpacked_size (updater, 0);
+      eos_updater_set_update_id (updater, "");
+      eos_updater_clear_error (updater, EOS_UPDATER_STATE_READY);
+    }
+  else
+    {
+      eos_updater_set_error (updater, error);
+      g_clear_error (&error);
+    }
+
+  if (!is_installed_system (&error))
     {
       /* Disable updates on live USBs: */
       g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_on_live_boot), data);
       g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_on_live_boot), data);
       g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), data);
+
+      eos_updater_set_error (updater, error);
+      g_clear_error (&error);
     }
   else
     {
@@ -75,31 +93,6 @@ on_bus_acquired (GDBusConnection *connection,
       g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), data);
       g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), data);
     }
-
-  sum = eos_updater_get_booted_checksum (&error);
-  if (sum != NULL)
-    {
-      eos_updater_set_current_id (updater, sum);
-      eos_updater_set_download_size (updater, 0);
-      eos_updater_set_downloaded_bytes (updater, 0);
-      eos_updater_set_unpacked_size (updater, 0);
-      eos_updater_set_error_code (updater, 0);
-      eos_updater_set_error_message (updater, "");
-      eos_updater_set_update_id (updater, "");
-      state = EOS_UPDATER_STATE_READY;
-    }
-  else
-    {
-      eos_updater_set_error_code (updater, error->code);
-      eos_updater_set_error_message (updater, error->message);
-      state = EOS_UPDATER_STATE_ERROR;
-    }
-
-  /* We are deliberately not emitting a signal here. This
-   * isn't a state change, it's our initial state.
-   * krnowak: ORLY? It calls eos_updater_emit_state_changed…
-   */
-  eos_updater_set_state_changed (updater, state);
 
   /* Export the object (@manager takes its own reference to @object) */
   g_dbus_object_manager_server_export (manager, G_DBUS_OBJECT_SKELETON (object));

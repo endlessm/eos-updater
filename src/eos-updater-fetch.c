@@ -41,12 +41,11 @@ content_fetch_finished (GObject *object,
   if (error)
     {
       eos_updater_set_error (updater, error);
+      g_clear_error (&error);
     }
   else
     {
-      eos_updater_set_error_code (updater, 0);
-      eos_updater_set_error_message (updater, "");
-      eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_UPDATE_READY);
+      eos_updater_clear_error (updater, EOS_UPDATER_STATE_UPDATE_READY);
     }
 
   return;
