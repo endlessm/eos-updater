@@ -16,7 +16,7 @@ AS_IF([test "x$with_systemdsystemunitdir" != "xno"], [
 ])
 
 GLIB_REQUIRED_VERSION=2.44.0
-OSTREE_REQUIRED_VERSION=2015.6
+OSTREE_REQUIRED_VERSION=2016.15
 
 PKG_CHECK_MODULES([EOS_AUTOUPDATER],
                   [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION
