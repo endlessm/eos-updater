@@ -16,6 +16,7 @@ config
 configure
 compile
 depcomp
+m4/
 missing
 install-sh
 stamp-h1
