@@ -1331,6 +1331,7 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME", osname, NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
+      { "EOS_DISABLE_METRICS", "1", NULL },
       { NULL, NULL, NULL }
     };
   gchar *argv[] =
