@@ -26,6 +26,7 @@
 #include "eos-test-utils.h"
 
 #include <gio/gio.h>
+#include <locale.h>
 
 static void
 test_update_from_main (EosUpdaterFixture *fixture,
@@ -115,6 +116,8 @@ int
 main (int argc,
       char **argv)
 {
+  setlocale (LC_ALL, "");
+
   g_test_init (&argc, &argv, NULL);
 
   eos_test_add ("/updater/update-from-main", NULL, test_update_from_main);
