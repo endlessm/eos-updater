@@ -224,7 +224,7 @@ test_spawn_cwd_full (const gchar *cwd,
                   cwd,
                   envp_joined);
 
-  return g_spawn_sync (NULL,
+  return g_spawn_sync (cwd,
                        argv,
                        merged_env,
                        flags,
