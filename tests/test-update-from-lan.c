@@ -51,6 +51,8 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   gboolean has_commit;
   g_autoptr(GDateTime) client_timestamp = NULL;
 
+  g_test_message ("Setting up server");
+
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
                                       lan_server_count + 1,
@@ -64,6 +66,8 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                       &error);
   g_assert_no_error (error);
   g_assert_cmpuint (server->subservers->len, ==, 1u);
+
+  g_test_message ("Setting up client");
 
   subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
   client_root = g_file_get_child (fixture->tmpdir, "client");
@@ -86,6 +90,8 @@ test_update_from_lan (EosUpdaterFixture *fixture,
       g_autoptr(GKeyFile) definition = NULL;
       g_autoptr(CmdAsyncResult) server_cmd = NULL;
 
+      g_test_message ("Updating subserver %u", idx);
+
       g_date_time_unref (subserver->branch_file_timestamp);
       subserver->branch_file_timestamp = days_ago (lan_server_count - idx);
       g_hash_table_insert (subserver->ref_to_commit,
@@ -94,6 +100,9 @@ test_update_from_lan (EosUpdaterFixture *fixture,
       eos_test_subserver_update (subserver,
                                  &error);
       g_assert_no_error (error);
+
+      g_test_message ("Setting up subserver client %u", idx);
+
       lan_server = eos_test_client_new (lan_server_root,
                                         default_remote_name,
                                         subserver,
@@ -102,6 +111,9 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                         default_product,
                                         &error);
       g_assert_no_error (error);
+
+      g_test_message ("Updating eos-update-server for client %u", idx);
+
       server_cmd = g_new0 (CmdAsyncResult, 1);
       eos_test_client_run_update_server (lan_server,
                                          12345 + idx,
@@ -120,11 +132,15 @@ test_update_from_lan (EosUpdaterFixture *fixture,
       g_ptr_array_add (lan_server_cmds, g_steal_pointer (&server_cmd));
     }
 
+  g_test_message ("Running updater");
+
   eos_test_client_run_updater (client,
                                DOWNLOAD_LAN,
                                &updater_cmd,
                                &error);
   g_assert_no_error (error);
+
+  g_test_message ("Running autoupdater apply step");
 
   autoupdater_root = g_file_get_child (fixture->tmpdir, "autoupdater");
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
@@ -134,11 +150,15 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                           &error);
   g_assert_no_error (error);
 
+  g_test_message ("Reaping autoupdater");
+
   eos_test_client_reap_updater (client,
                                 &updater_cmd,
                                 &reaped,
                                 &error);
   g_assert_no_error (error);
+
+  g_test_message ("Reaping servers");
 
   cmds = g_ptr_array_new ();
   cmds_to_free = g_ptr_array_new_with_free_func ((GDestroyNotify)cmd_result_free);

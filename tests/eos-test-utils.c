@@ -54,6 +54,8 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
   tmpdir_path = g_dir_make_tmp ("eos-updater-test-XXXXXX", &error);
   g_assert_no_error (error);
   fixture->tmpdir = g_file_new_for_path (tmpdir_path);
+
+  g_test_message ("Using fixture directory ‘%s’", tmpdir_path);
 }
 
 void
@@ -639,6 +641,14 @@ eos_test_server_finalize_impl (EosTestServer *server)
   g_free (server->url);
 }
 
+/**
+ * EosTestServer:
+ *
+ * #EosTestServer is a mock server implementation which uses one or more
+ * *subservers* to serve ostree branches over HTTP. The content is served from
+ * the `main` directory of a given httpd root, or from ostree paths below the
+ * root.
+ */
 EOS_DEFINE_REFCOUNTED (EOS_TEST_SERVER,
                        EosTestServer,
                        eos_test_server,
@@ -847,6 +857,16 @@ eos_test_client_finalize_impl (EosTestClient *client)
   g_free (client->ostree_path);
 }
 
+/**
+ * EosTestClient:
+ *
+ * #EosTestClient is a mock client implementation. It points to a specific
+ * subserver of a given ostree remote, and is set up with an initial
+ * ref from that subserver.
+ *
+ * The client sets up a sysroot which is an ostree pull and deploy of the
+ * content from the given ref on the subserver.
+ */
 EOS_DEFINE_REFCOUNTED (EOS_TEST_CLIENT,
                        EosTestClient,
                        eos_test_client,

@@ -119,9 +119,16 @@ test_spawn_cwd_async (const gchar *cwd,
 {
   GSpawnFlags flags = G_SPAWN_DEFAULT;
   g_auto(GStrv) merged_env = merge_parent_and_child_env (envp);
+  g_autofree gchar *argv_joined = g_strjoinv (" ", argv);
+  g_autofree gchar *envp_joined = g_strjoinv ("\n - ", merged_env);
 
   if (!autoreap && cmd != NULL)
     flags |= G_SPAWN_DO_NOT_REAP_CHILD;
+
+  g_test_message ("Spawning ‘%s’ in ‘%s’ with environment:\n%s",
+                  argv_joined,
+                  cwd,
+                  envp_joined);
 
   if (cmd != NULL)
     {
@@ -129,7 +136,7 @@ test_spawn_cwd_async (const gchar *cwd,
       gint output_fd;
       gint error_fd;
 
-      cmd->cmdline = g_strjoinv (" ", argv);
+      cmd->cmdline = g_strdup (argv_joined);
       if (!g_spawn_async_with_pipes (cwd,
                                      argv,
                                      merged_env,
@@ -188,6 +195,8 @@ test_spawn_cwd_full (const gchar *cwd,
 {
   GSpawnFlags flags = G_SPAWN_DEFAULT;
   g_auto(GStrv) merged_env = merge_parent_and_child_env (envp);
+  g_autofree gchar *argv_joined = g_strjoinv (" ", argv);
+  g_autofree gchar *envp_joined = g_strjoinv ("\n - ", merged_env);
   gchar **out = NULL;
   gchar **err = NULL;
   gint *status = NULL;
@@ -209,6 +218,11 @@ test_spawn_cwd_full (const gchar *cwd,
 
   if (strstr (argv[0], "/") == NULL)
     flags |= G_SPAWN_SEARCH_PATH;
+
+  g_test_message ("Spawning ‘%s’ in ‘%s’ with environment:\n%s",
+                  argv_joined,
+                  cwd,
+                  envp_joined);
 
   return g_spawn_sync (NULL,
                        argv,
