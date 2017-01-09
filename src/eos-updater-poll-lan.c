@@ -784,6 +784,9 @@ get_update_info_from_swbfs (LanData *lan_data,
         }
     }
 
+  /* NULL-terminate the urls array. */
+  g_ptr_array_add (urls, NULL);
+
   if (latest_checksum != NULL)
     {
       g_set_object (&latest_extensions->branch_file, newest);
