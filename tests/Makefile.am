@@ -3,12 +3,7 @@ noinst_LTLIBRARIES = $(testlib)
 
 libeos_updater_test_la_CPPFLAGS = \
 	$(GIO_CFLAGS) \
-	-DTEST_SERVICES_DIRECTORY=\""$(abs_top_builddir)/tests/services"\" \
 	-DOSTREE_BINARY=\""$(OSTREE)"\" \
-	-DEOS_AUTOUPDATER_BINARY=\""$(abs_top_builddir)/src/eos-autoupdater"\" \
-	-DEOS_UPDATER_BINARY=\""$(abs_top_builddir)/src/eos-updater"\" \
-	-DEOS_UPDATE_SERVER_BINARY=\""$(abs_top_builddir)/src/eos-update-server"\" \
-	-DGPG_HOME_DIRECTORY=\""$(abs_top_builddir)/tests/gpghome"\" \
 	-DGPG_BINARY=\""$(GPG)"\" \
 	-I$(top_srcdir)/src \
 	-I$(top_builddir)/src \
@@ -34,6 +29,8 @@ check_PROGRAMS = \
 TESTS = $(check_PROGRAMS)
 
 TESTS_ENVIRONMENT = \
+	G_TEST_SRCDIR="$(abs_srcdir)" \
+	G_TEST_BUILDDIR="$(abs_builddir)" \
 	G_DEBUG=gc-friendly,fatal-criticals,fatal-warnings \
 	MALLOC_CHECK_=3 \
 	MALLOC_PERTURB_=$$(($${RANDOM:-256} % 256)) \

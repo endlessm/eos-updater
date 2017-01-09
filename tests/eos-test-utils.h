@@ -235,4 +235,12 @@ EosTestAutoupdater *eos_test_autoupdater_new (GFile *autoupdater_root,
                                               gboolean update_on_mobile,
                                               GError **error);
 
+static inline gchar *
+eos_test_get_gpg_home_directory (void)
+{
+  return g_test_build_filename (G_TEST_DIST,
+                                "gpghome",
+                                NULL);
+}
+
 G_END_DECLS

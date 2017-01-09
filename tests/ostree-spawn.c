@@ -20,6 +20,7 @@
  * Author: Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
+#include "eos-test-utils.h"
 #include "misc-utils.h"
 #include "ostree-spawn.h"
 
@@ -113,6 +114,7 @@ ostree_commit (GFile *repo,
                CmdResult *cmd,
                GError **error)
 {
+  g_autofree gchar *gpg_home_path = eos_test_get_gpg_home_directory ();
   g_autofree gchar *formatted_timestamp = g_date_time_format (timestamp, "%F");
   g_autofree gchar *raw_tree_path = g_file_get_path (tree_root);
   CmdArg args[] =
@@ -121,7 +123,7 @@ ostree_commit (GFile *repo,
       { "subject", subject },
       { "branch", ref },
       { "gpg-sign", keyid },
-      { "gpg-homedir", GPG_HOME_DIRECTORY },
+      { "gpg-homedir", gpg_home_path },
       { "timestamp", formatted_timestamp },
       { NULL, raw_tree_path },
       { NULL, NULL }
@@ -139,12 +141,13 @@ ostree_summary (GFile *repo,
                 CmdResult *cmd,
                 GError **error)
 {
+  g_autofree gchar *gpg_home_path = eos_test_get_gpg_home_directory ();
   CmdArg args[] =
     {
       { NULL, "summary" },
       { "update", NULL },
       { "gpg-sign", keyid },
-      { "gpg-homedir", GPG_HOME_DIRECTORY },
+      { "gpg-homedir", gpg_home_path },
       { NULL, NULL }
     };
 

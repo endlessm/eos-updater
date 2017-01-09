@@ -27,22 +27,6 @@
 #include <errno.h>
 #include <string.h>
 
-#ifndef EOS_UPDATER_BINARY
-#error "EOS_UPDATER_BINARY is not defined"
-#endif
-
-#ifndef EOS_UPDATE_SERVER_BINARY
-#error "EOS_UPDATE_SERVER_BINARY is not defined"
-#endif
-
-#ifndef EOS_AUTOUPDATER_BINARY
-#error "EOS_AUTOUPDATER_BINARY is not defined"
-#endif
-
-#ifndef GPG_HOME_DIRECTORY
-#error "GPG_HOME_DIRECTORY is not defined"
-#endif
-
 #ifndef GPG_BINARY
 #error "GPG_BINARY is not defined"
 #endif
@@ -59,9 +43,12 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
 {
   g_autoptr(GError) error = NULL;
   g_autofree gchar *tmpdir_path = NULL;
+  g_autofree gchar *test_services_directory = g_test_build_filename (G_TEST_DIST,
+                                                                     "services",
+                                                                     NULL);
 
   fixture->dbus = g_test_dbus_new (G_TEST_DBUS_NONE);
-  g_test_dbus_add_service_dir (fixture->dbus, TEST_SERVICES_DIRECTORY);
+  g_test_dbus_add_service_dir (fixture->dbus, test_services_directory);
   g_test_dbus_up (fixture->dbus);
 
   tmpdir_path = g_dir_make_tmp ("eos-updater-test-XXXXXX", &error);
@@ -86,7 +73,8 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
 gchar *
 get_keyid (void)
 {
-  g_autoptr(GFile) gpg_home = g_file_new_for_path (GPG_HOME_DIRECTORY);
+  g_autofree gchar *gpg_home_path = eos_test_get_gpg_home_directory ();
+  g_autoptr(GFile) gpg_home = g_file_new_for_path (gpg_home_path);
   g_autoptr(GFile) keyid = g_file_get_child (gpg_home, "keyid");
   g_autoptr(GBytes) bytes = NULL;
   g_autoptr(GError) error = NULL;
@@ -430,12 +418,13 @@ gpg_sign (GFile *file,
           CmdResult *cmd,
           GError **error)
 {
+  g_autofree gchar *gpg_home_path = eos_test_get_gpg_home_directory ();
   g_autofree gchar *raw_signature_path = g_file_get_path (signature);
   g_autofree gchar *raw_file_path = g_file_get_path (file);
   CmdArg args[] =
     {
       { NULL, GPG_BINARY },
-      { "homedir", GPG_HOME_DIRECTORY },
+      { "homedir", gpg_home_path },
       { "default-key", keyid },
       { "output", raw_signature_path },
       { "detach-sig", NULL },
@@ -868,7 +857,8 @@ static GFile *
 get_gpg_key_file_for_keyid (const gchar *keyid)
 {
   g_autofree gchar *filename = g_strdup_printf ("%s.asc", keyid);
-  g_autofree gchar *path = g_build_filename (GPG_HOME_DIRECTORY, filename, NULL);
+  g_autofree gchar *gpg_home = eos_test_get_gpg_home_directory ();
+  g_autofree gchar *path = g_build_filename (gpg_home, filename, NULL);
 
   return g_file_new_for_path (path);
 }
@@ -1303,6 +1293,11 @@ spawn_updater (GFile *sysroot,
                CmdAsyncResult *cmd,
                GError **error)
 {
+  g_autofree gchar *eos_updater_binary = g_test_build_filename (G_TEST_BUILT,
+                                                                "..",
+                                                                "src",
+                                                                "eos-updater",
+                                                                NULL);
   CmdEnvVar envv[] =
     {
       { "EOS_UPDATER_TEST_UPDATER_CONFIG_FILE_PATH", NULL, config_file },
@@ -1320,7 +1315,7 @@ spawn_updater (GFile *sysroot,
     };
   gchar *argv[] =
     {
-      EOS_UPDATER_BINARY,
+      eos_updater_binary,
       NULL
     };
   g_auto(GStrv) envp = build_cmd_env (envv);
@@ -1579,6 +1574,11 @@ run_update_server (GFile *repo,
                    CmdAsyncResult *cmd,
                    GError **error)
 {
+  g_autofree gchar *eos_update_server_binary = g_test_build_filename (G_TEST_BUILT,
+                                                                      "..",
+                                                                      "src",
+                                                                      "eos-update-server",
+                                                                      NULL);
   g_autofree gchar *port_str = g_strdup_printf ("%" G_GUINT16_FORMAT, port);
   CmdEnvVar envv[] =
     {
@@ -1588,7 +1588,7 @@ run_update_server (GFile *repo,
     };
   CmdArg args[] =
     {
-      { NULL, EOS_UPDATE_SERVER_BINARY },
+      { NULL, eos_update_server_binary },
       { "local-port", port_str },
       { "timeout", "0" },
       { "serve-remote", remote_name },
@@ -2047,10 +2047,15 @@ spawn_autoupdater (GFile *stamps_dir,
                    CmdResult *cmd,
                    GError **error)
 {
+  g_autofree gchar *eos_autoupdater_binary = g_test_build_filename (G_TEST_BUILT,
+                                                                    "..",
+                                                                    "src",
+                                                                    "eos-autoupdater",
+                                                                    NULL);
   const gchar *force_update_flag = force_update ? "--force-update" : NULL;
   gchar *argv[] =
     {
-      EOS_AUTOUPDATER_BINARY,
+      eos_autoupdater_binary,
       (gchar *)force_update_flag,
       NULL
     };
