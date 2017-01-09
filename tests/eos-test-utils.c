@@ -46,6 +46,15 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
   g_autofree gchar *test_services_directory = g_test_build_filename (G_TEST_DIST,
                                                                      "services",
                                                                      NULL);
+  gsize i;
+  const gchar * const gpg_home_files[] =
+    {
+      "C1EB8F4E.asc",
+      "keyid",
+      "pubring.gpg",
+      "random_seed",
+      "secring.gpg",
+    };
 
   fixture->dbus = g_test_dbus_new (G_TEST_DBUS_NONE);
   g_test_dbus_add_service_dir (fixture->dbus, test_services_directory);
@@ -56,6 +65,30 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
   fixture->tmpdir = g_file_new_for_path (tmpdir_path);
 
   g_test_message ("Using fixture directory ‘%s’", tmpdir_path);
+
+  /* Copy the GPG files from the source directory into the fixture directory,
+   * as running GPG with them as its homedir might alter them; we don’t want
+   * that to happen in the source directory, which might be read-only (and in
+   * any case, we want determinism). */
+  fixture->gpg_home = g_file_get_child (fixture->tmpdir, "gpghome");
+  g_file_make_directory (fixture->gpg_home, NULL, &error);
+  g_assert_no_error (error);
+
+  for (i = 0; i < G_N_ELEMENTS (gpg_home_files); i++)
+    {
+      g_autofree gchar *source_path = NULL;
+      g_autoptr (GFile) source = NULL, destination = NULL;
+
+      source_path = g_test_build_filename (G_TEST_DIST, "gpghome",
+                                           gpg_home_files[i], NULL);
+      source = g_file_new_for_path (source_path);
+      destination = g_file_get_child (fixture->gpg_home, gpg_home_files[i]);
+
+      g_file_copy (source, destination,
+                   G_FILE_COPY_NONE, NULL, NULL, NULL,
+                   &error);
+      g_assert_no_error (error);
+    }
 }
 
 void
@@ -63,6 +96,10 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
                               gconstpointer user_data)
 {
   g_autoptr (GError) error = NULL;
+
+  rm_rf (fixture->gpg_home, &error);
+  g_assert_no_error (error);
+  g_object_unref (fixture->gpg_home);
 
   rm_rf (fixture->tmpdir, &error);
   g_assert_no_error (error);
@@ -73,10 +110,8 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
 }
 
 gchar *
-get_keyid (void)
+get_keyid (GFile *gpg_home)
 {
-  g_autofree gchar *gpg_home_path = eos_test_get_gpg_home_directory ();
-  g_autoptr(GFile) gpg_home = g_file_new_for_path (gpg_home_path);
   g_autoptr(GFile) keyid = g_file_get_child (gpg_home, "keyid");
   g_autoptr(GBytes) bytes = NULL;
   g_autoptr(GError) error = NULL;
@@ -128,6 +163,7 @@ eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
   g_clear_pointer (&subserver->branch_file_timestamp, g_date_time_unref);
   g_clear_object (&subserver->repo);
   g_clear_object (&subserver->tree);
+  g_clear_object (&subserver->gpg_home);
 }
 
 static void
@@ -145,7 +181,8 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_SUBSERVER,
                        eos_test_subserver_finalize_impl)
 
 EosTestSubserver *
-eos_test_subserver_new (const gchar *keyid,
+eos_test_subserver_new (GFile *gpg_home,
+                        const gchar *keyid,
                         const gchar *ostree_path,
                         GPtrArray *devices,
                         GHashTable *ref_to_commit,
@@ -153,6 +190,7 @@ eos_test_subserver_new (const gchar *keyid,
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
+  subserver->gpg_home = g_object_ref (gpg_home);
   subserver->keyid = g_strdup (keyid);
   subserver->ostree_path = g_strdup (ostree_path);
   subserver->devices = g_ptr_array_ref (devices);
@@ -315,6 +353,7 @@ prepare_commit (GFile *repo,
                 GFile *tree_root,
                 guint commit_no,
                 const gchar *ref,
+                GFile *gpg_home,
                 const gchar *keyid,
                 gchar **checksum,
                 GError **error)
@@ -344,6 +383,7 @@ prepare_commit (GFile *repo,
                            tree_root,
                            commit_no - 1,
                            ref,
+                           gpg_home,
                            keyid,
                            NULL,
                            error))
@@ -364,6 +404,7 @@ prepare_commit (GFile *repo,
                       tree_root,
                       subject,
                       ref,
+                      gpg_home,
                       keyid,
                       timestamp,
                       &cmd,
@@ -414,13 +455,14 @@ get_ref_file_paths (GFile *repo,
 }
 
 static gboolean
-gpg_sign (GFile *file,
+gpg_sign (GFile *gpg_home,
+          GFile *file,
           GFile *signature,
           const gchar *keyid,
           CmdResult *cmd,
           GError **error)
 {
-  g_autofree gchar *gpg_home_path = eos_test_get_gpg_home_directory ();
+  g_autofree gchar *gpg_home_path = g_file_get_path (gpg_home);
   g_autofree gchar *raw_signature_path = g_file_get_path (signature);
   g_autofree gchar *raw_file_path = g_file_get_path (file);
   CmdArg args[] =
@@ -445,6 +487,7 @@ static gboolean
 generate_ref_file (GFile *repo,
                    const gchar *ref,
                    const gchar *commit,
+                   GFile *gpg_home,
                    const gchar *keyid,
                    GError **error)
 {
@@ -468,7 +511,8 @@ generate_ref_file (GFile *repo,
   if (!create_file (ref_file, bytes, error))
     return FALSE;
 
-  if (!gpg_sign (ref_file,
+  if (!gpg_sign (gpg_home,
+                 ref_file,
                  ref_file_sig,
                  keyid,
                  &cmd,
@@ -497,6 +541,7 @@ update_commits (EosTestSubserver *subserver,
                            subserver->tree,
                            commit,
                            ref_ptr,
+                           subserver->gpg_home,
                            subserver->keyid,
                            &checksum,
                            error))
@@ -505,12 +550,14 @@ update_commits (EosTestSubserver *subserver,
       if (!generate_ref_file (subserver->repo,
                               ref_ptr,
                               checksum,
+                              subserver->gpg_home,
                               subserver->keyid,
                               error))
         return FALSE;
     }
 
   if (!ostree_summary (subserver->repo,
+                       subserver->gpg_home,
                        subserver->keyid,
                        &cmd,
                        error))
@@ -533,6 +580,7 @@ get_branch_file_paths (GFile *repo,
 static gboolean
 generate_branch_file (GFile *repo,
                       GPtrArray *devices,
+                      GFile *gpg_home,
                       const gchar *keyid,
                       GDateTime *timestamp,
                       GError **error)
@@ -571,7 +619,8 @@ generate_branch_file (GFile *repo,
   if (!save_key_file (branch_file_path, branch_file, error))
     return FALSE;
 
-  if (!gpg_sign (branch_file_path,
+  if (!gpg_sign (gpg_home,
+                 branch_file_path,
                  branch_file_sig_path,
                  keyid,
                  &cmd,
@@ -620,6 +669,7 @@ eos_test_subserver_update (EosTestSubserver *subserver,
     timestamp = g_date_time_new_now_utc ();
   if (!generate_branch_file (repo,
                              subserver->devices,
+                             subserver->gpg_home,
                              subserver->keyid,
                              timestamp,
                              error))
@@ -820,6 +870,7 @@ eos_test_server_new_quick (GFile *server_root,
                            gboolean on_hold,
                            const gchar *ref,
                            guint commit,
+                           GFile *gpg_home,
                            const gchar *keyid,
                            const gchar *ostree_path,
                            GError **error)
@@ -831,7 +882,8 @@ eos_test_server_new_quick (GFile *server_root,
 
   g_ptr_array_add (devices, eos_test_device_new (vendor, product, on_hold, ref));
   g_hash_table_insert (ref_to_commit, g_strdup (ref), GUINT_TO_POINTER (commit));
-  g_ptr_array_add (subservers, eos_test_subserver_new (keyid,
+  g_ptr_array_add (subservers, eos_test_subserver_new (gpg_home,
+                                                       keyid,
                                                        ostree_path,
                                                        devices,
                                                        ref_to_commit,
@@ -874,13 +926,12 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_CLIENT,
                        eos_test_client_finalize_impl)
 
 static GFile *
-get_gpg_key_file_for_keyid (const gchar *keyid)
+get_gpg_key_file_for_keyid (GFile *gpg_home,
+                            const gchar *keyid)
 {
   g_autofree gchar *filename = g_strdup_printf ("%s.asc", keyid);
-  g_autofree gchar *gpg_home = eos_test_get_gpg_home_directory ();
-  g_autofree gchar *path = g_build_filename (gpg_home, filename, NULL);
 
-  return g_file_new_for_path (path);
+  return g_file_get_child (gpg_home, filename);
 }
 
 static GFile *get_sysroot_for_client (GFile *client_root)
@@ -928,6 +979,7 @@ prepare_client_sysroot (GFile *client_root,
                         const gchar *remote_name,
                         const gchar *url,
                         const gchar *ref,
+                        GFile *gpg_home,
                         const gchar *keyid,
                         GError **error)
 {
@@ -960,7 +1012,7 @@ prepare_client_sysroot (GFile *client_root,
   if (!setup_stub_uboot_config (sysroot, error))
     return FALSE;
 
-  gpg_key = get_gpg_key_file_for_keyid (keyid);
+  gpg_key = get_gpg_key_file_for_keyid (gpg_home, keyid);
   repo = get_repo_for_sysroot (sysroot);
   cmd_result_clear (&cmd);
   if (!ostree_remote_add (repo,
@@ -1476,6 +1528,7 @@ eos_test_client_new (GFile *client_root,
                                remote_name,
                                subserver->url,
                                ref,
+                               subserver->gpg_home,
                                subserver->keyid,
                                error))
     return FALSE;

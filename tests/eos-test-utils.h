@@ -34,6 +34,7 @@ typedef struct
 {
   GTestDBus *dbus;
   GFile *tmpdir;
+  GFile *gpg_home;
 } EosUpdaterFixture;
 
 void eos_updater_fixture_setup (EosUpdaterFixture *fixture,
@@ -44,7 +45,7 @@ void eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
 
 #define eos_test_add(testpath, tdata, ftest) g_test_add (testpath, EosUpdaterFixture, tdata, eos_updater_fixture_setup, ftest, eos_updater_fixture_teardown)
 
-gchar *get_keyid (void);
+gchar *get_keyid (GFile *gpg_home);
 
 extern const gchar *const default_vendor;
 extern const gchar *const default_product;
@@ -92,6 +93,7 @@ struct _EosTestSubserver
   GFile *repo;
   GFile *tree;
   gchar *url;
+  GFile *gpg_home;
 };
 
 static inline GHashTable *
@@ -100,7 +102,8 @@ eos_test_subserver_ref_to_commit_new (void)
   return g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 }
 
-EosTestSubserver *eos_test_subserver_new (const gchar *keyid,
+EosTestSubserver *eos_test_subserver_new (GFile *gpg_home,
+                                          const gchar *keyid,
                                           const gchar *ostree_path,
                                           GPtrArray *devices,
                                           GHashTable *ref_to_commit,
@@ -135,6 +138,7 @@ EosTestServer *eos_test_server_new_quick (GFile *server_root,
                                           gboolean on_hold,
                                           const gchar *ref,
                                           guint commit,
+                                          GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
                                           GError **error);
@@ -234,13 +238,5 @@ EosTestAutoupdater *eos_test_autoupdater_new (GFile *autoupdater_root,
                                               guint interval_in_days,
                                               gboolean update_on_mobile,
                                               GError **error);
-
-static inline gchar *
-eos_test_get_gpg_home_directory (void)
-{
-  return g_test_build_filename (G_TEST_DIST,
-                                "gpghome",
-                                NULL);
-}
 
 G_END_DECLS

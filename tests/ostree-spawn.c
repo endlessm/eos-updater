@@ -109,12 +109,13 @@ ostree_commit (GFile *repo,
                GFile *tree_root,
                const gchar *subject,
                const gchar *ref,
+               GFile *gpg_home,
                const gchar *keyid,
                GDateTime *timestamp,
                CmdResult *cmd,
                GError **error)
 {
-  g_autofree gchar *gpg_home_path = eos_test_get_gpg_home_directory ();
+  g_autofree gchar *gpg_home_path = g_file_get_path (gpg_home);
   g_autofree gchar *formatted_timestamp = g_date_time_format (timestamp, "%F");
   g_autofree gchar *raw_tree_path = g_file_get_path (tree_root);
   CmdArg args[] =
@@ -137,11 +138,12 @@ ostree_commit (GFile *repo,
 
 gboolean
 ostree_summary (GFile *repo,
+                GFile *gpg_home,
                 const gchar *keyid,
                 CmdResult *cmd,
                 GError **error)
 {
-  g_autofree gchar *gpg_home_path = eos_test_get_gpg_home_directory ();
+  g_autofree gchar *gpg_home_path = g_file_get_path (gpg_home);
   CmdArg args[] =
     {
       { NULL, "summary" },

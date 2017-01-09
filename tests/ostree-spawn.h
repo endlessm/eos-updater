@@ -43,12 +43,14 @@ gboolean ostree_commit (GFile *repo,
                         GFile *tree_root,
                         const gchar *subject,
                         const gchar *ref,
+                        GFile *gpg_home,
                         const gchar *keyid,
                         GDateTime *timestamp,
                         CmdResult *cmd,
                         GError **error);
 
 gboolean ostree_summary (GFile *repo,
+                         GFile *gpg_home,
                          const gchar *keyid,
                          CmdResult *cmd,
                          GError **error);

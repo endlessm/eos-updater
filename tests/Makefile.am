@@ -56,3 +56,11 @@ test_update_from_main_SOURCES = test-update-from-main.c
 test_update_from_lan_CPPFLAGS = $(test_cflags)
 test_update_from_lan_LDADD = $(test_ldadd)
 test_update_from_lan_SOURCES = test-update-from-lan.c
+
+EXTRA_DIST = \
+	gpghome/C1EB8F4E.asc \
+	gpghome/keyid \
+	gpghome/pubring.gpg \
+	gpghome/random_seed \
+	gpghome/secring.gpg \
+	$(NULL)

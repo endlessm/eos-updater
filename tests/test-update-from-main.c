@@ -34,7 +34,7 @@ test_update_from_main (EosUpdaterFixture *fixture,
 {
   g_autoptr(GFile) server_root = NULL;
   g_autoptr(EosTestServer) server = NULL;
-  g_autofree gchar *keyid = get_keyid ();
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GError) error = NULL;
   g_autoptr(EosTestSubserver) subserver = NULL;
   g_autoptr(GFile) client_root = NULL;
@@ -54,6 +54,7 @@ test_update_from_main (EosUpdaterFixture *fixture,
                                       FALSE,
                                       default_ref,
                                       0,
+                                      fixture->gpg_home,
                                       keyid,
                                       default_ostree_path,
                                       &error);
