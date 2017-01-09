@@ -56,6 +56,7 @@ IGNORE_HFILES=\
 	eos-extensions.h \
 	eos-updater-apply.h \
 	eos-updater-fetch.h \
+	eos-updater-live-boot.h \
 	eos-updater-poll-lan.h \
 	eos-updater-types.h \
 	eos-updater-avahi-emulator.h \
