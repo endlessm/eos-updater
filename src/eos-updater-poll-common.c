@@ -135,7 +135,7 @@ eos_update_info_new (const gchar *checksum,
                      GVariant *commit,
                      const gchar *refspec,
                      const gchar *original_refspec,
-                     gchar **urls,
+                     const gchar * const *urls,
                      EosExtensions *extensions)
 {
   EosUpdateInfo *info;
@@ -151,7 +151,7 @@ eos_update_info_new (const gchar *checksum,
   info->commit = g_variant_ref (commit);
   info->refspec = g_strdup (refspec);
   info->original_refspec = g_strdup (original_refspec);
-  info->urls = g_strdupv (urls);
+  info->urls = g_strdupv ((gchar **) urls);
   info->extensions = g_object_ref (extensions);
 
   return info;

@@ -791,8 +791,8 @@ get_update_info_from_swbfs (LanData *lan_data,
                                        latest_commit,
                                        refspec,
                                        original_refspec,
-                                       (gchar **)g_ptr_array_free (g_steal_pointer (&urls),
-                                                                   FALSE),
+                                       (const gchar * const *)g_ptr_array_free (g_steal_pointer (&urls),
+                                                                                FALSE),
                                        latest_extensions);
     }
   else

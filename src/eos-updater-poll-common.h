@@ -81,7 +81,7 @@ eos_update_info_new (const gchar *csum,
                      GVariant *commit,
                      const gchar *refspec,
                      const gchar *original_refspec,
-                     gchar **urls,
+                     const gchar * const *urls,
                      EosExtensions *extensions);
 
 #define EOS_TYPE_METADATA_FETCH_DATA eos_metadata_fetch_data_get_type ()
