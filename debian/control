@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: John Hiesey <john@endlessm.com>
 Standards-Version: 3.9.6
 Build-Depends:
+ autoconf-archive,
  debhelper (>= 9.0.0),
  dh-autoreconf,
  dh-systemd,
