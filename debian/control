@@ -8,8 +8,11 @@ Build-Depends:
  dh-autoreconf,
  dh-systemd,
  eos-metrics-0-dev,
+ gobject-introspection (>= 1.30.0),
+ gtk-doc-tools (>= 1.14),
  libavahi-client-dev (>= 0.6.31),
  libavahi-glib-dev (>= 0.6.31),
+ libgirepository1.0-dev (>= 1.30.0),
  libglib2.0-dev (>= 2.44.0),
  libgsystem-dev,
  libnm-glib-dev,
@@ -41,3 +44,17 @@ Description: Updater for EndlessOS - debugging symbols
  This package contains the components for keeping Endless OS up to date.
  .
  This package provides the eos-updater debugging symbols.
+
+Package: gir1.2-eos-updater-0
+Section: introspection
+Architecture: any
+Multi-arch: same
+Depends:
+ ${gir:Depends},
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Updater for EndlessOS - introspection bindings
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains a machine-readable API description for the shared
+ library for use by the updater.
