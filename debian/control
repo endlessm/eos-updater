@@ -34,6 +34,19 @@ Depends:
 Description: Updater for EndlessOS
  This package contains the components for keeping Endless OS up to date.
 
+Package: eos-updater-tools
+Section: misc
+Architecture: any
+Depends:
+ eos-updater (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Updater for EndlessOS - tools
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains tools for preparing updates for distribution
+ using USB sticks.
+
 Package: gir1.2-eos-updater-0
 Section: introspection
 Architecture: any
@@ -46,4 +59,36 @@ Description: Updater for EndlessOS - introspection bindings
  This package contains the components for keeping Endless OS up to date.
  .
  This package contains a machine-readable API description for the shared
- library for use by the updater.
+ library for use by the updater and other update packaging tools.
+
+Package: libeos-updater-0-dev
+Section: libdevel
+Architecture: any
+Multi-arch: same
+Depends:
+ eos-updater (= ${binary:Version}),
+ gir1.2-eos-updater-0 (= ${binary:Version}),
+ libglib2.0-dev,
+ libostree-dev,
+ libsoup2.4-dev,
+ ${misc:Depends},
+ ${shlibs:Depends},
+Suggests:
+ libeos-updater-0-doc,
+Description: Updater for EndlessOS - development library
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains the development files for use by the updater and
+ other update packaging tools.
+
+Package: libeos-updater-0-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends:
+ ${misc:Depends},
+Description: Updater for EndlessOS - documentation
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains reference documentation for the APIs used
+ by the updater and other update packaging tools.
