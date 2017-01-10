@@ -139,7 +139,7 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
       g_autofree gchar *remote = NULL;
       g_autofree gchar *ref = NULL;
       g_autoptr(EosExtensions) extensions = NULL;
-      gchar *urls[] = { repo_url, NULL };
+      const gchar *urls[] = { repo_url, NULL };
 
       if (!ostree_parse_refspec (refspec, &remote, &ref, error))
         return FALSE;
