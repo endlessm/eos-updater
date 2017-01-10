@@ -9,10 +9,13 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-confflags = --with-systemdsystemunitdir=/lib/systemd/system --enable-gtk-doc
 
 override_dh_auto_configure:
-	dh_auto_configure -- $(confflags)
+	dh_auto_configure \
+		-- \
+		--with-systemdsystemunitdir=/lib/systemd/system \
+		--enable-gtk-doc \
+		$(NULL)
 
 override_dh_autoreconf:
 	dh_autoreconf ./autogen.sh
