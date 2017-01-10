@@ -1,5 +1,5 @@
 [Unit]
-Description=Socket for EndlessOS Automatic Updater
+Description=Socket for Endless OS Automatic Updater
 
 [Socket]
 ListenStream=@server_port@

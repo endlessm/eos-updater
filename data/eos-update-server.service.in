@@ -1,5 +1,5 @@
 [Unit]
-Description=EndlessOS Local Update Server
+Description=Endless OS Local Update Server
 Wants=network.target
 
 [Service]

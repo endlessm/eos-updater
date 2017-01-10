@@ -1,5 +1,5 @@
 [Unit]
-Description=EndlessOS Automatic Update Timer
+Description=Endless OS Automatic Update Timer
 Wants=network.target
 
 [Timer]
