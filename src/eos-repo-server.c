@@ -757,30 +757,15 @@ handle_path (EosUpdaterRepoServer *server,
     }
 
   if (g_str_has_prefix (path, "/objects/") && g_str_has_suffix (path, ".filez"))
-    {
-      handle_objects_filez (server, msg, path);
-      return;
-    }
-
-  if (path_is_handled_as_is (path))
-    {
-      handle_as_is (server, msg, path);
-      return;
-    }
-
-  if (g_strcmp0 (path, "/config") == 0)
-    {
-      handle_config (server, msg);
-      return;
-    }
-
-  if (g_str_has_prefix (path, "/refs/heads/"))
-    {
-      handle_refs_heads (server, msg, path);
-      return;
-    }
-
-  soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+    handle_objects_filez (server, msg, path);
+  else if (path_is_handled_as_is (path))
+    handle_as_is (server, msg, path);
+  else if (g_strcmp0 (path, "/config") == 0)
+    handle_config (server, msg);
+  else if (g_str_has_prefix (path, "/refs/heads/"))
+    handle_refs_heads (server, msg, path);
+  else
+    soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
 }
 
 static void
