@@ -255,7 +255,7 @@ process_single_group (GKeyFile *bkf,
                         G_KEY_FILE_ERROR,
                         G_KEY_FILE_ERROR_KEY_NOT_FOUND))
     {
-      g_propagate_error (error, local_error);
+      g_propagate_error (error, g_steal_pointer (&local_error));
       return FALSE;
     }
 
