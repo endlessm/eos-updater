@@ -1,8 +1,8 @@
-etc/eos-updater.conf
 etc/dbus-1/system.d/com.endlessm.Updater.conf
-usr/share/dbus-1/system-services/com.endlessm.Updater.service
-usr/lib/*/eos-autoupdater
-usr/bin/eos-updater-ctl
-usr/bin/eos-updater
+etc/eos-updater.conf
 lib/systemd/system/eos-autoupdater.service
 lib/systemd/system/eos-autoupdater.timer
+usr/bin/eos-updater
+usr/bin/eos-updater-ctl
+usr/lib/*/eos-autoupdater
+usr/share/dbus-1/system-services/com.endlessm.Updater.service

@@ -3,26 +3,28 @@ Section: misc
 Priority: optional
 Maintainer: John Hiesey <john@endlessm.com>
 Standards-Version: 3.9.6
-Build-Depends: debhelper (>= 9.0.0),
-	eos-metrics-0-dev,
-	libglib2.0-dev (>= 2.36.0),
-	libnm-glib-dev,
-	libsystemd-dev,
-	libostree-dev (>= 2015.6),
-	libgsystem-dev,
-	libsoup2.4-dev,
-	xsltproc,
-	dh-autoreconf,
-	dh-systemd
+Build-Depends:
+ debhelper (>= 9.0.0),
+ dh-autoreconf,
+ dh-systemd,
+ eos-metrics-0-dev,
+ libglib2.0-dev (>= 2.36.0),
+ libgsystem-dev,
+ libnm-glib-dev,
+ libostree-dev (>= 2015.6),
+ libsoup2.4-dev,
+ libsystemd-dev,
+ xsltproc,
 
 Package: eos-updater
 Section: misc
 Architecture: any
-Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         systemd (>= 200),
-         python3-gi,
-         gir1.2-glib-2.0
+Depends:
+ gir1.2-glib-2.0,
+ python3-gi,
+ systemd (>= 200),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: Updater for EndlessOS
  This package contains the components for keeping Endless OS up to date.
 
@@ -30,7 +32,9 @@ Package: eos-updater-dbg
 Section: debug
 Priority: extra
 Architecture: any
-Depends: ${misc:Depends}, eos-updater (= ${binary:Version})
+Depends:
+ eos-updater (= ${binary:Version}),
+ ${misc:Depends},
 Description: Updater for EndlessOS - debugging symbols
  This package contains the components for keeping Endless OS up to date.
  .
