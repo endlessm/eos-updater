@@ -8,7 +8,7 @@ Build-Depends:
  dh-autoreconf,
  dh-systemd,
  eos-metrics-0-dev,
- libglib2.0-dev (>= 2.36.0),
+ libglib2.0-dev (>= 2.44.0),
  libgsystem-dev,
  libnm-glib-dev,
  libostree-dev (>= 2016.15),
