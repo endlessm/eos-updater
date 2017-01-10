@@ -21,6 +21,15 @@ libeos_updater_test_la_SOURCES = \
 	eos-test-utils.h \
 	$(NULL)
 
+# make check-code-coverage rule
+@CODE_COVERAGE_RULES@
+CODE_COVERAGE_IGNORE_PATTERN = \
+	eos-updater-generated.c \
+	"*-autocleanups.h" \
+	gmem.h \
+	gobject.h \
+	$(NULL)
+
 check_PROGRAMS = \
 	test-update-from-main \
 	test-update-from-lan \

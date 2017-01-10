@@ -69,6 +69,9 @@ AC_PATH_PROG([GDBUS_CODEGEN], [gdbus-codegen], [AC_MSG_ERROR([gdbus-codegen is r
 AC_PATH_PROG([OSTREE], [ostree], [AC_MSG_ERROR([ostree is required for tests])])
 AC_PATH_PROG([GPG], [gpg], [AC_MSG_ERROR([gpg is required for tests])])
 
+# Code coverage
+AX_CODE_COVERAGE
+
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 Makefile

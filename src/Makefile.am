@@ -32,15 +32,15 @@ BUILT_SOURCES = \
 	eos-updater-generated.c \
 	$(NULL)
 
-libeos_updater_dbus_la_CFLAGS = $(GIO_CFLAGS)
-libeos_updater_dbus_la_LIBADD = $(GIO_LIBS)
+libeos_updater_dbus_la_CFLAGS = $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
+libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
 libeos_updater_dbus_la_SOURCES = eos-updater-types.h
 nodist_libeos_updater_dbus_la_SOURCES = $(BUILT_SOURCES)
 
-common_cflags = $(GIO_CFLAGS) $(SOUP_CFLAGS) $(OSTREE_CFLAGS) -DOSTREE_WITH_AUTOCLEANUPS
+common_cflags = $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS) $(SOUP_CFLAGS) $(OSTREE_CFLAGS) -DOSTREE_WITH_AUTOCLEANUPS
 
 libeos_updater_util_la_CFLAGS = $(common_cflags)
-libeos_updater_util_la_LIBADD = $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(dbuslib)
+libeos_updater_util_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(dbuslib)
 libeos_updater_util_la_SOURCES = \
 	eos-util.c \
 	eos-util.h \
@@ -51,11 +51,11 @@ libeos_updater_util_la_SOURCES = \
 	eos-extensions.h \
 	$(NULL)
 
-eos_autoupdater_CFLAGS = $(GIO_CFLAGS) $(EOS_AUTOUPDATER_CFLAGS)
-eos_autoupdater_LDADD = $(GIO_LIBS) $(dbuslib) $(EOS_AUTOUPDATER_LIBS)
+eos_autoupdater_CFLAGS = $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS) $(EOS_AUTOUPDATER_CFLAGS)
+eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
 
-common_ldadd = $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(utillib)
+common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(utillib)
 
 libeos_updater_0_la_CFLAGS = $(common_cflags)
 libeos_updater_0_la_LIBADD = $(common_ldadd)
