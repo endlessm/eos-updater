@@ -33,7 +33,7 @@ Depends:
  systemd (>= 200),
  ${misc:Depends},
  ${shlibs:Depends},
-Description: Updater for EndlessOS
+Description: Updater for Endless OS
  This package contains the components for keeping Endless OS up to date.
 
 Package: eos-updater-tools
@@ -45,7 +45,7 @@ Depends:
  ${misc:Depends},
  ${python3:Depends},
  ${shlibs:Depends},
-Description: Updater for EndlessOS - tools
+Description: Updater for Endless OS - tools
  This package contains the components for keeping Endless OS up to date.
  .
  This package contains tools for preparing updates for distribution
@@ -59,7 +59,7 @@ Depends:
  ${gir:Depends},
  ${misc:Depends},
  ${shlibs:Depends},
-Description: Updater for EndlessOS - introspection bindings
+Description: Updater for Endless OS - introspection bindings
  This package contains the components for keeping Endless OS up to date.
  .
  This package contains a machine-readable API description for the shared
@@ -79,7 +79,7 @@ Depends:
  ${shlibs:Depends},
 Suggests:
  libeos-updater-0-doc,
-Description: Updater for EndlessOS - development library
+Description: Updater for Endless OS - development library
  This package contains the components for keeping Endless OS up to date.
  .
  This package contains the development files for use by the updater and
@@ -91,7 +91,7 @@ Architecture: all
 Multi-Arch: foreign
 Depends:
  ${misc:Depends},
-Description: Updater for EndlessOS - documentation
+Description: Updater for Endless OS - documentation
  This package contains the components for keeping Endless OS up to date.
  .
  This package contains reference documentation for the APIs used
