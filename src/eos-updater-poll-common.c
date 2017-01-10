@@ -70,12 +70,14 @@ static const gchar *const order_key_str[] = {
 
 G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_N_SOURCES);
 
+#ifdef HAS_EOSMETRICS_0
 /*
  * Records which branch will be used by the updater. The payload is a 4-tuple
  * of 3 strings and boolean: vendor name, product ID, selected OStree ref, and
  * whether the machine is on hold
  */
 static const gchar *const EOS_UPDATER_BRANCH_SELECTED = "99f48aac-b5a0-426d-95f4-18af7d081c4e";
+#endif
 
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
