@@ -877,7 +877,7 @@ eos_updater_repo_server_new (OstreeRepo *repo,
  * together with eos_updater_repo_server_get_last_request_time() if
  * you want to stop the server after the timeout.
  *
- * Returns: (transfer full): Number of pending remotes.
+ * Returns: Number of pending remotes.
  */
 guint
 eos_updater_repo_server_get_pending_requests (EosUpdaterRepoServer *repo_server)
@@ -896,7 +896,7 @@ eos_updater_repo_server_get_pending_requests (EosUpdaterRepoServer *repo_server)
  * eos_updater_repo_server_get_pending_requests() if you want to stop
  * the server after the timeout.
  *
- * Returns: (transfer full): When was the last request handled
+ * Returns: When was the last request handled
  */
 gint64
 eos_updater_repo_server_get_last_request_time (EosUpdaterRepoServer *repo_server)
