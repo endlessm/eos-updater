@@ -21,6 +21,9 @@
             <xsl:attribute name="send_interface">
               <xsl:value-of select="$if"/>
             </xsl:attribute>
+            <xsl:attribute name="send_destination">
+              <xsl:value-of select="$dest"/>
+            </xsl:attribute>
           </allow>
         </xsl:for-each>
         <xsl:comment> And the standard introspection interfaces </xsl:comment>
@@ -39,6 +42,9 @@
         <xsl:comment> Console user can send to the main interface </xsl:comment>
         <allow>
           <xsl:attribute name="send_interface">
+            <xsl:value-of select="$if"/>
+          </xsl:attribute>
+          <xsl:attribute name="send_destination">
             <xsl:value-of select="$dest"/>
           </xsl:attribute>
         </allow>
