@@ -60,6 +60,7 @@ IGNORE_HFILES=\
 	eos-updater-poll-lan.h \
 	eos-updater-types.h \
 	eos-updater-avahi-emulator.h \
+	eos-updater-generated.c \
 	eos-updater-generated.h \
 	eos-updater-poll-main.h \
 	eos-util.h \
