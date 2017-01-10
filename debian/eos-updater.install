@@ -2,7 +2,11 @@ etc/dbus-1/system.d/com.endlessm.Updater.conf
 etc/eos-updater.conf
 lib/systemd/system/eos-autoupdater.service
 lib/systemd/system/eos-autoupdater.timer
+lib/systemd/system/eos-update-server.service
+lib/systemd/system/eos-update-server.socket
 usr/bin/eos-updater
-usr/bin/eos-updater-ctl
 usr/lib/*/eos-autoupdater
+usr/lib/*/eos-update-server
+usr/lib/*/libeos-updater-0.so.0
+usr/lib/*/libeos-updater-0.so.0.*
 usr/share/dbus-1/system-services/com.endlessm.Updater.service
