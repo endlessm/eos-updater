@@ -33,4 +33,4 @@ override_dh_install:
 	dh_install --fail-missing
 
 %:
-	dh $@ --with autoreconf,gir,systemd --parallel
+	dh $@ --with autoreconf,gir,python3,systemd --parallel

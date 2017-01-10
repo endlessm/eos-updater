@@ -7,6 +7,7 @@ Build-Depends:
  autoconf-archive,
  debhelper (>= 9.20160114),
  dh-autoreconf,
+ dh-python,
  dh-systemd,
  eos-metrics-0-dev,
  gobject-introspection (>= 1.30.0),
@@ -42,6 +43,7 @@ Multi-arch: no
 Depends:
  eos-updater (= ${binary:Version}),
  ${misc:Depends},
+ ${python3:Depends},
  ${shlibs:Depends},
 Description: Updater for EndlessOS - tools
  This package contains the components for keeping Endless OS up to date.
