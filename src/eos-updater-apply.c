@@ -99,7 +99,7 @@ apply_internal (EosUpdater *updater,
    * The lock will be unlocked automatically when sysroot is deallocated.
    */
   if (!ostree_sysroot_lock (sysroot, error))
-    return FALSE;;
+    return FALSE;
   if (!ostree_sysroot_load (sysroot, cancel, error))
     return FALSE;
 
