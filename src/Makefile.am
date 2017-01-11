@@ -37,7 +37,13 @@ libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
 libeos_updater_dbus_la_SOURCES = eos-updater-types.h
 nodist_libeos_updater_dbus_la_SOURCES = $(BUILT_SOURCES)
 
-common_cflags = $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS) $(SOUP_CFLAGS) $(OSTREE_CFLAGS) -DOSTREE_WITH_AUTOCLEANUPS
+common_cflags = \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(GIO_CFLAGS) \
+	$(SOUP_CFLAGS) \
+	$(OSTREE_CFLAGS) \
+	-DOSTREE_WITH_AUTOCLEANUPS \
+	$(NULL)
 
 libeos_updater_util_la_CFLAGS = $(common_cflags)
 libeos_updater_util_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(dbuslib)
