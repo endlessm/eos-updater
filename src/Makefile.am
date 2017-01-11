@@ -32,6 +32,7 @@ BUILT_SOURCES = \
 	eos-updater-generated.c \
 	$(NULL)
 
+libeos_updater_dbus_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_dbus_la_CFLAGS = $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
 libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
 libeos_updater_dbus_la_SOURCES = eos-updater-types.h
@@ -42,9 +43,12 @@ common_cflags = \
 	$(GIO_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	$(OSTREE_CFLAGS) \
+	$(NULL)
+common_cppflags = \
 	-DOSTREE_WITH_AUTOCLEANUPS \
 	$(NULL)
 
+libeos_updater_util_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_util_la_CFLAGS = $(common_cflags)
 libeos_updater_util_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(dbuslib)
 libeos_updater_util_la_SOURCES = \
@@ -57,12 +61,14 @@ libeos_updater_util_la_SOURCES = \
 	eos-extensions.h \
 	$(NULL)
 
+eos_autoupdater_CPPFLAGS = $(common_cppflags)
 eos_autoupdater_CFLAGS = $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS) $(EOS_AUTOUPDATER_CFLAGS)
 eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
 
 common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(utillib)
 
+libeos_updater_0_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_0_la_CFLAGS = $(common_cflags)
 libeos_updater_0_la_LIBADD = $(common_ldadd)
 libeos_updater_0_la_SOURCES = \
@@ -78,12 +84,16 @@ eosinclude_HEADERS = \
 	eos-repo-server.h \
 	$(NULL)
 
+eos_update_server_CPPFLAGS = $(common_cppflags)
 eos_update_server_CFLAGS = $(common_cflags) $(EOS_UPDATE_SERVER_CFLAGS)
 eos_update_server_LDADD = $(common_ldadd) $(preparelib) $(EOS_UPDATE_SERVER_LIBS)
 eos_update_server_SOURCES = eos-update-server.c
 
 bin_PROGRAMS = eos-updater eos-prepare-volume
 
+eos_prepare_volume_CPPFLAGS = \
+	$(common_cppflags) \
+	$(NULL)
 eos_prepare_volume_CFLAGS = \
 	$(common_cflags) \
 	$(NULL)
@@ -95,6 +105,9 @@ eos_prepare_volume_SOURCES = \
 	eos-prepare-volume.c \
 	$(NULL)
 
+eos_updater_CPPFLAGS = \
+	$(common_cppflags) \
+	$(NULL)
 eos_updater_CFLAGS = \
 	$(common_cflags) \
 	$(EOS_UPDATER_CFLAGS) \
