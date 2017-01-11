@@ -499,8 +499,11 @@ txt_records_to_string (const gchar **txt_records)
   str = g_string_new ("");
 
   for (idx = 0; txt_records[idx] != NULL; idx++)
-    g_string_append_printf (str, "    <txt-record>%s</txt-record>\n",
-                            txt_records[idx]);
+    {
+      g_autofree gchar *record_escaped = g_markup_escape_text (txt_records[idx], -1);
+      g_string_append_printf (str, "    <txt-record>%s</txt-record>\n",
+                              record_escaped);
+    }
 
   return g_string_free (g_steal_pointer (&str), FALSE);
 }
@@ -514,6 +517,8 @@ generate_from_avahi_service_template (const gchar *type,
   g_autofree gchar *service_group = NULL;
   gsize service_group_len;  /* bytes, not including trailing nul */
   g_autofree gchar *txt_records_str = txt_records_to_string (txt_records);
+  g_autofree gchar *type_escaped = g_markup_escape_text (type, -1);
+  g_autofree gchar *txt_version_escaped = g_markup_escape_text (txt_version, -1);
 
   service_group = g_strdup_printf (
       "<service-group>\n"
@@ -525,7 +530,7 @@ generate_from_avahi_service_template (const gchar *type,
       "%s"
       "  </service>\n"
       "</service-group>\n",
-      type, port, txt_version, txt_records_str);
+      type_escaped, port, txt_version_escaped, txt_records_str);
   service_group_len = strlen (service_group);
 
   return g_bytes_new_take (g_steal_pointer (&service_group), service_group_len);
