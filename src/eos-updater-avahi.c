@@ -509,8 +509,7 @@ static GBytes *
 generate_from_avahi_service_template (const gchar *type,
                                       guint16 port,
                                       const gchar *txt_version,
-                                      const gchar **txt_records,
-                                      GError **error)
+                                      const gchar **txt_records)
 {
   g_autofree gchar *service_group = NULL;
   gsize service_group_len;  /* bytes, not including trailing nul */
@@ -545,12 +544,7 @@ generate_avahi_service_template_to_file (GFile *path,
   contents = generate_from_avahi_service_template (EOS_UPDATER_AVAHI_SERVICE_TYPE,
                                                    EOS_AVAHI_PORT,
                                                    txt_version,
-                                                   txt_records,
-                                                   error);
-
-  if (contents == NULL)
-    return FALSE;
-
+                                                   txt_records);
   raw = g_bytes_get_data (contents, &raw_len);
   return g_file_replace_contents (path,
                                   raw,
