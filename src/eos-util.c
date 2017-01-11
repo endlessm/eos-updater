@@ -437,6 +437,7 @@ eos_updater_get_timestamp_from_branch_file_keyfile (GKeyFile *branch_file,
 
   g_return_val_if_fail (branch_file != NULL, FALSE);
   g_return_val_if_fail (out_timestamp != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   unix_utc = g_key_file_get_int64 (branch_file,
                                    "main",

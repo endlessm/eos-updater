@@ -53,7 +53,9 @@ lan_data_init (LanData *lan_data,
                EosMetadataFetchData *fetch_data,
                GError **error)
 {
+  g_return_val_if_fail (lan_data != NULL, FALSE);
   g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   memset (lan_data, 0, sizeof (*lan_data));
   lan_data->fetch_data = g_object_ref (fetch_data);
@@ -870,6 +872,7 @@ metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
   g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), FALSE);
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (out_metrics != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!lan_data_init (&lan_data, fetch_data, error))
     return FALSE;

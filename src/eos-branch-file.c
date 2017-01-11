@@ -118,6 +118,9 @@ eos_branch_file_new_from_files (GFile *branch_file,
 
   g_return_val_if_fail (G_IS_FILE (branch_file), NULL);
   g_return_val_if_fail (G_IS_FILE (signature), NULL);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   if (!eos_updater_read_file_to_bytes (branch_file,
                                        cancellable,
@@ -165,6 +168,7 @@ eos_branch_file_new_from_raw (GBytes *contents,
 
   g_return_val_if_fail (contents != NULL, NULL);
   g_return_val_if_fail (signature != NULL || download_time != NULL, NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   bf = eos_branch_file_new_empty ();
 
@@ -228,6 +232,11 @@ eos_branch_file_save (EosBranchFile *branch_file,
   gsize len;
 
   g_return_val_if_fail (EOS_IS_BRANCH_FILE (branch_file), FALSE);
+  g_return_val_if_fail (G_IS_FILE (target), FALSE);
+  g_return_val_if_fail (G_IS_FILE (target_signature), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   contents = g_bytes_get_data (branch_file->raw_contents,
                                &len);

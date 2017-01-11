@@ -593,6 +593,9 @@ eos_updater_prepare_volume_from_sysroot (OstreeSysroot *sysroot,
   g_return_val_if_fail (OSTREE_IS_SYSROOT (sysroot), FALSE);
   g_return_val_if_fail (G_IS_FILE (usb_path), FALSE);
   g_return_val_if_fail (progress == NULL || OSTREE_IS_ASYNC_PROGRESS (progress), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!ostree_sysroot_get_repo (sysroot,
                                 &repo,
@@ -648,6 +651,9 @@ eos_updater_prepare_volume (OstreeRepo *repo,
   g_return_val_if_fail (commit_id != NULL, FALSE);
   g_return_val_if_fail (G_IS_FILE (usb_path), FALSE);
   g_return_val_if_fail (progress == NULL || OSTREE_IS_ASYNC_PROGRESS (progress), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   return eos_updater_prepare_volume_internal (repo,
                                               refspec,

@@ -93,6 +93,7 @@ is_checksum_an_update (OstreeRepo *repo,
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (checksum != NULL, FALSE);
   g_return_val_if_fail (commit != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   cur = eos_updater_get_booted_checksum (error);
   if (cur == NULL)
@@ -322,6 +323,7 @@ get_upgrade_info_from_branch_file (EosBranchFile *branch_file,
   g_return_val_if_fail (EOS_IS_BRANCH_FILE (branch_file), FALSE);
   g_return_val_if_fail (upgrade_refspec != NULL, FALSE);
   g_return_val_if_fail (original_refspec != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   booted_deployment = eos_updater_get_booted_deployment (error);
 
@@ -799,6 +801,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_return_val_if_fail (remote_name != NULL, FALSE);
   g_return_val_if_fail (ref != NULL, FALSE);
   g_return_val_if_fail (out_checksum != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   options = get_repo_pull_options (url_override, ref);
   if (!ostree_repo_pull_with_options (repo,
@@ -889,6 +892,7 @@ get_origin_refspec (OstreeDeployment *booted_deployment,
 
   g_return_val_if_fail (OSTREE_IS_DEPLOYMENT (booted_deployment), FALSE);
   g_return_val_if_fail (out_refspec != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   origin = ostree_deployment_get_origin (booted_deployment);
   if (origin == NULL)
@@ -1362,6 +1366,7 @@ string_to_download_source (const gchar *str,
 
   g_return_val_if_fail (str != NULL, FALSE);
   g_return_val_if_fail (source != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   for (idx = EOS_UPDATER_DOWNLOAD_FIRST;
        idx < EOS_UPDATER_DOWNLOAD_N_SOURCES;

@@ -98,6 +98,9 @@ eos_ref_new_from_files (GFile *ref_file,
   g_return_val_if_fail (G_IS_FILE (ref_file), NULL);
   g_return_val_if_fail (G_IS_FILE (ref_sig_file), NULL);
   /* name can be NULL */
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   if (!eos_updater_read_file_to_bytes (ref_file,
                                        cancellable,
@@ -146,6 +149,9 @@ eos_ref_new_from_repo (OstreeRepo *repo,
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), NULL);
   g_return_val_if_fail (name != NULL, NULL);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   ext_dir = eos_updater_get_eos_extensions_dir (repo);
   get_ref_file_paths (ext_dir, name, &ref_file, &ref_sig_file);
@@ -170,6 +176,9 @@ eos_ref_save (EosRef *ref,
 
   g_return_val_if_fail (EOS_IS_REF (ref), FALSE);
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   ext_dir = eos_updater_get_eos_extensions_dir (repo);
   get_ref_file_paths (ext_dir, ref->name, &ref_file, &ref_sig_file);
@@ -425,6 +434,9 @@ eos_extensions_new_from_repo (OstreeRepo *repo,
   g_autoptr(GPtrArray) refs = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), NULL);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   extensions = eos_extensions_new_empty ();
   if (!get_branch_file (extensions,
@@ -461,6 +473,9 @@ eos_extensions_save (EosExtensions *extensions,
 
   g_return_val_if_fail (EOS_IS_EXTENSIONS (extensions), FALSE);
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!eos_updater_create_extensions_dir (repo, &ext_path, error))
     return FALSE;

@@ -96,6 +96,7 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
   g_return_val_if_fail (source_variant != NULL, FALSE);
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (out_metrics != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!get_volume_options_from_variant (source_variant,
                                         &raw_volume_path,

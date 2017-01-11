@@ -472,6 +472,7 @@ eos_avahi_discoverer_new (GMainContext *context,
   g_autoptr(EosAvahiDiscoverer) discoverer = NULL;
 
   g_return_val_if_fail (callback != NULL, NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   discoverer = g_object_new (EOS_TYPE_AVAHI_DISCOVERER, NULL);
   discoverer->callback = callback;
@@ -700,6 +701,7 @@ eos_avahi_generate_service_file (OstreeRepo *repo,
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (EOS_IS_BRANCH_FILE (branch_file), FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   services_dir = get_avahi_services_dir ();
   service_file_path = g_build_filename (services_dir, "eos-updater.service", NULL);

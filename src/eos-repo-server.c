@@ -861,6 +861,9 @@ eos_updater_repo_server_new (OstreeRepo *repo,
 {
   g_return_val_if_fail (OSTREE_IS_REPO (repo), NULL);
   g_return_val_if_fail (served_remote != NULL, NULL);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   return g_initable_new (EOS_UPDATER_TYPE_REPO_SERVER,
                          cancellable,

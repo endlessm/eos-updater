@@ -122,6 +122,7 @@ download_branch_file (OstreeRepo *repo,
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (out_branch_file != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   booted_deployment = eos_updater_get_booted_deployment (error);
   if (booted_deployment == NULL)
@@ -178,6 +179,7 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
 
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (out_metrics != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!download_branch_file (repo,
                              &branch_file,
