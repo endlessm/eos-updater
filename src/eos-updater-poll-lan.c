@@ -788,13 +788,7 @@ get_update_info_from_swbfs (LanData *lan_data,
   return TRUE;
 }
 
-typedef enum
-  {
-    LOOP_QUIT,
-    LOOP_KEEP_GOING
-  } LoopAction;
-
-static LoopAction
+static void
 check_lan_updates (LanData *lan_data,
                    GPtrArray *found_services)
 {
@@ -808,20 +802,20 @@ check_lan_updates (LanData *lan_data,
     {
       message ("Failed to filter services: %s",
                lan_data->error->message);
-      return LOOP_QUIT;
+      return;
     }
 
   if (valid_services->len == 0)
     {
       message ("No valid LAN servers found");
-      return LOOP_QUIT;
+      return;
     }
 
   branch_file = get_newest_branch_file (lan_data, valid_services);
   if (branch_file == NULL)
     {
       message ("No valid branch file found");
-      return LOOP_QUIT;
+      return;
     }
 
   if (!get_update_info_from_swbfs (lan_data,
@@ -833,10 +827,8 @@ check_lan_updates (LanData *lan_data,
     {
       message ("Failed to get the latest update info: %s",
                lan_data->error->message);
-      return LOOP_QUIT;
+      return;
     }
-
-  return LOOP_QUIT;
 }
 
 static void
@@ -846,17 +838,12 @@ discoverer_callback (EosAvahiDiscoverer *discoverer,
                      GError *error)
 {
   LanData *lan_data = lan_data_ptr;
-  LoopAction loop_action;
 
   lan_data->error = g_steal_pointer (&error);
   if (lan_data->error == NULL)
-    loop_action = check_lan_updates (lan_data, found_services);
+    check_lan_updates (lan_data, found_services);
 
-  if (lan_data->error != NULL)
-    loop_action = LOOP_QUIT;
-
-  if (loop_action == LOOP_QUIT)
-    g_main_loop_quit (lan_data->main_loop);
+  g_main_loop_quit (lan_data->main_loop);
 }
 
 gboolean
