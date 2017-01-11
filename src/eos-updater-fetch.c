@@ -141,7 +141,7 @@ content_fetch (GTask *task,
   message ("Fetch: %s:%s resolved to: %s", remote, ref, commit_id);
   progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
-  if (data->overridden_urls)
+  if (data->overridden_urls != NULL && data->overridden_urls[0] != NULL)
     {
       guint idx = g_random_int_range (0, g_strv_length (data->overridden_urls));
 
