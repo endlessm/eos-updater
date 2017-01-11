@@ -16,6 +16,8 @@ override_dh_auto_configure:
 		-- \
 		--with-systemdsystemunitdir=/lib/systemd/system \
 		--enable-gtk-doc \
+		--sysconfdir=/etc \
+		--localstatedir=/var/lib \
 		$(NULL)
 
 override_dh_autoreconf:
