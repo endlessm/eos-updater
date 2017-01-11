@@ -37,10 +37,10 @@ typedef enum _UpdateStep {
 #define SEC_PER_DAY (3600ll * 24)
 
 /* This file is touched whenever the updater starts */
-#define UPDATE_STAMP_DIR        "/var/lib/eos-updater"
+#define UPDATE_STAMP_DIR        LOCALSTATEDIR "/eos-updater"
 #define UPDATE_STAMP_NAME       "eos-updater-stamp"
 
-static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
+static const char *CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";

@@ -33,7 +33,7 @@
 
 #include "eos-util.h"
 
-static const gchar *const CONFIG_FILE_PATH = "/etc/eos-updater-daemon.conf";
+static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater-daemon.conf";
 static const gchar *const DOWNLOAD_GROUP = "Download";
 static const gchar *const ORDER_KEY = "Order";
 

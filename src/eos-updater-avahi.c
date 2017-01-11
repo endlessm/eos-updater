@@ -686,7 +686,7 @@ static gchar *
 get_avahi_services_dir (void)
 {
   return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR",
-                                    "/etc/avahi/services");
+                                    SYSCONFDIR "/avahi/services");
 }
 
 gboolean

@@ -46,6 +46,8 @@ common_cflags = \
 	$(NULL)
 common_cppflags = \
 	-DOSTREE_WITH_AUTOCLEANUPS \
+	-DSYSCONFDIR=\""$(sysconfdir)"\" \
+	-DLOCALSTATEDIR=\""$(localstatedir)"\" \
 	$(NULL)
 
 libeos_updater_util_la_CPPFLAGS = $(common_cppflags)
