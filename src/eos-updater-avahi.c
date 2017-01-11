@@ -38,22 +38,13 @@
 #include <avahi-common/strlst.h>
 #include <avahi-glib/glib-malloc.h>
 #include <avahi-glib/glib-watch.h>
+#include <string.h>
 
 #ifndef EOS_AVAHI_PORT
 #error "EOS_AVAHI_PORT is not defined"
 #endif
 
 static const gchar *const EOS_UPDATER_AVAHI_SERVICE_TYPE = "_eos_updater._tcp";
-static const gchar *const EOS_AVAHI_SERVICE_FILE_TEMPLATE =
-  "<service-group>\n"
-  "  <name replace-wildcards=\"yes\">EOS update service on %h</name>\n"
-  "  <service>\n"
-  "    <type>@TYPE@</type>\n"
-  "    <port>@PORT@</port>\n"
-  "    <txt-record>eos_txt_version=@TXT_VERSION@</txt-record>\n"
-  "    @MORE_TXT_RECORDS@\n"
-  "  </service>\n"
-  "</service-group>\n";
 
 static void
 eos_avahi_service_finalize_impl (EosAvahiService *service)
@@ -499,65 +490,19 @@ eos_avahi_discoverer_new (GMainContext *context,
   return g_steal_pointer (&discoverer);
 }
 
-/* This function does a find-and-replace on a @-delimited tokens. This
- * works by splitting the string by the @ delimiter and replacing
- * every even string with the appriopriate value from the values hash
- * table. Odd strings are copied verbatim.
- */
-static GBytes *
-generate_from_template (const gchar *tmpl,
-                        GHashTable *values,
-                        GError **error)
-{
-  g_auto(GStrv) splitted = g_strsplit (tmpl, "@", -1);
-  gchar **iter;
-  gboolean special = FALSE;
-  g_autoptr(GString) xml = g_string_new (NULL);
-
-  for (iter = splitted; *iter != NULL; ++iter)
-    {
-      if (special)
-        {
-          const gchar *value = g_hash_table_lookup (values, *iter);
-
-          if (value == NULL)
-            {
-              g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                           "No value provided for token %s", *iter);
-              return NULL;
-            }
-          g_string_append (xml, value);
-        }
-      else
-        g_string_append (xml, *iter);
-
-      special = !special;
-    }
-
-  /* if special is false then it means that the last token was special
-   * and the next one would be a normal token, but it never came */
-  if (!special)
-    {
-      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                           "Badly formed template, uneven number of @s");
-      return NULL;
-    }
-
-  return g_string_free_to_bytes (g_steal_pointer (&xml));
-}
-
 static gchar *
 txt_records_to_string (const gchar **txt_records)
 {
-  guint len = g_strv_length ((gchar **)txt_records);
-  guint idx;
-  g_auto(GStrv) xmled_txt_records = g_new0 (gchar *, len + 1);
+  g_autoptr(GString) str = NULL;
+  gsize idx;
 
-  for (idx = 0; idx < len; ++idx)
-    xmled_txt_records[idx] = g_strdup_printf ("<txt-record>%s</txt-record>",
-                                                txt_records[idx]);
+  str = g_string_new ("");
 
-  return g_strjoinv ("\n    ", xmled_txt_records);
+  for (idx = 0; txt_records[idx] != NULL; idx++)
+    g_string_append_printf (str, "    <txt-record>%s</txt-record>\n",
+                            txt_records[idx]);
+
+  return g_string_free (g_steal_pointer (&str), FALSE);
 }
 
 static GBytes *
@@ -567,18 +512,24 @@ generate_from_avahi_service_template (const gchar *type,
                                       const gchar **txt_records,
                                       GError **error)
 {
-  g_autoptr(GHashTable) values = g_hash_table_new (g_str_hash, g_str_equal);
-  g_autofree gchar *port_str = g_strdup_printf ("%" G_GUINT16_FORMAT, port);
+  g_autofree gchar *service_group = NULL;
+  gsize service_group_len;  /* bytes, not including trailing nul */
   g_autofree gchar *txt_records_str = txt_records_to_string (txt_records);
 
-  g_hash_table_insert (values, "TYPE", (gpointer)type);
-  g_hash_table_insert (values, "PORT", port_str);
-  g_hash_table_insert (values, "TXT_VERSION", (gpointer)txt_version);
-  g_hash_table_insert (values, "MORE_TXT_RECORDS", txt_records_str);
+  service_group = g_strdup_printf (
+      "<service-group>\n"
+      "  <name replace-wildcards=\"yes\">EOS update service on %%h</name>\n"
+      "  <service>\n"
+      "    <type>%s</type>\n"
+      "    <port>%" G_GUINT16_FORMAT "</port>\n"
+      "    <txt-record>eos_txt_version=%s</txt-record>\n"
+      "%s"
+      "  </service>\n"
+      "</service-group>\n",
+      type, port, txt_version, txt_records_str);
+  service_group_len = strlen (service_group);
 
-  return generate_from_template (EOS_AVAHI_SERVICE_FILE_TEMPLATE,
-                                 values,
-                                 error);
+  return g_bytes_new_take (g_steal_pointer (&service_group), service_group_len);
 }
 
 static gboolean
