@@ -790,18 +790,20 @@ get_update_info_from_swbfs (LanData *lan_data,
 
 static void
 check_lan_updates (LanData *lan_data,
-                   GPtrArray *found_services)
+                   GPtrArray *found_services,
+                   GError **error)
 {
   g_autoptr(GPtrArray) valid_services = NULL;
   g_autoptr(EosBranchFile) branch_file = NULL;
+  g_autoptr(GError) child_error = NULL;
 
   if (!filter_services (lan_data,
                         found_services,
                         &valid_services,
-                        &lan_data->error))
+                        &child_error))
     {
-      message ("Failed to filter services: %s",
-               lan_data->error->message);
+      message ("Failed to filter services: %s", child_error->message);
+      g_propagate_error (error, g_steal_pointer (&child_error));
       return;
     }
 
@@ -823,10 +825,11 @@ check_lan_updates (LanData *lan_data,
                                    branch_file,
                                    &lan_data->info,
                                    &lan_data->metrics,
-                                   &lan_data->error))
+                                   &child_error))
     {
       message ("Failed to get the latest update info: %s",
-               lan_data->error->message);
+               child_error->message);
+      g_propagate_error (error, g_steal_pointer (&child_error));
       return;
     }
 }
@@ -841,7 +844,7 @@ discoverer_callback (EosAvahiDiscoverer *discoverer,
 
   lan_data->error = g_steal_pointer (&error);
   if (lan_data->error == NULL)
-    check_lan_updates (lan_data, found_services);
+    check_lan_updates (lan_data, found_services, &lan_data->error);
 
   g_main_loop_quit (lan_data->main_loop);
 }
