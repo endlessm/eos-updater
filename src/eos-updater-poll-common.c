@@ -1272,12 +1272,12 @@ run_fetchers (EosMetadataFetchData *fetch_data,
                                                                NULL,
                                                                (GDestroyNotify)update_and_metrics_free);
 
-  g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), FALSE);
-  g_return_val_if_fail (fetchers != NULL, FALSE);
-  g_return_val_if_fail (source_variants != NULL, FALSE);
-  g_return_val_if_fail (sources != NULL, FALSE);
-  g_return_val_if_fail (fetchers->len == source_variants->len, FALSE);
-  g_return_val_if_fail (source_variants->len == sources->len, FALSE);
+  g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), NULL);
+  g_return_val_if_fail (fetchers != NULL, NULL);
+  g_return_val_if_fail (source_variants != NULL, NULL);
+  g_return_val_if_fail (sources != NULL, NULL);
+  g_return_val_if_fail (fetchers->len == source_variants->len, NULL);
+  g_return_val_if_fail (source_variants->len == sources->len, NULL);
 
   for (idx = 0; idx < fetchers->len; ++idx)
     {
