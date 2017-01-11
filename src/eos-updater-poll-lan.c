@@ -544,6 +544,8 @@ get_newest_branch_file (LanData *lan_data,
       g_autoptr(GError) error = NULL;
       g_autoptr(EosBranchFile) branch_file = NULL;
 
+      /* @valid_services is already ordered with newest first, so if a swbf
+       * already has a branch file, we can use it straight away. */
       if (swbf->branch_file->branch_file != NULL)
         return g_object_ref (swbf->branch_file);
 
