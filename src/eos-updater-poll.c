@@ -221,6 +221,8 @@ get_fetchers (SourcesConfig *config,
                                                                (GDestroyNotify)g_variant_unref);
   gsize idx;
 
+  g_assert (config->download_order->len > 0);
+
   for (idx = 0; idx < config->download_order->len; ++idx)
     {
       g_auto(GVariantDict) dict_builder;
