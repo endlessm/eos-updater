@@ -609,14 +609,30 @@ path_is_handled_as_is (const gchar *requested_path)
 
 static gboolean
 serve_file_if_exists (SoupMessage *msg,
+                      const gchar *root,
                       const gchar *raw_path,
                       GCancellable *cancellable,
                       gboolean *served)
 {
   g_autoptr(GFile) path = g_file_new_for_path (raw_path);
+  g_autoptr(GFile) root_path = g_file_new_for_path (root);
   g_autoptr(GMappedFile) mapping = NULL;
   g_autoptr(GError) error = NULL;
   g_autoptr(SoupBuffer) buffer = NULL;
+
+  /* Security check to ensure we don’t get tricked into serving files which
+   * are outside the document root. This canonicalises the paths but does not
+   * follow symlinks.
+   *
+   * FIXME: Do we also want to resolve symlinks to ensure a malicious symlink
+   * inside the root can’t cause us to serve a file from outside the root
+   * (for example, /etc/shadow)? */
+  if (!g_file_has_prefix (path, root_path))
+    {
+      message ("File ‘%s’ not within root ‘%s’", raw_path, root);
+      *served = FALSE;
+      return TRUE;
+    }
 
   if (!g_file_query_exists (path, cancellable))
     {
@@ -646,12 +662,13 @@ serve_file_if_exists (SoupMessage *msg,
 
 static void
 serve_file (SoupMessage *msg,
+            const gchar *root,
             const gchar *raw_path,
             GCancellable *cancellable)
 {
   gboolean served = FALSE;
 
-  if (!serve_file_if_exists (msg, raw_path, cancellable, &served))
+  if (!serve_file_if_exists (msg, root, raw_path, cancellable, &served))
     return;
 
   if (!served)
@@ -668,7 +685,7 @@ handle_as_is (EosUpdaterRepoServer *server,
 {
   g_autofree gchar *raw_path = g_build_filename (server->cached_repo_root, requested_path, NULL);
 
-  serve_file (msg, raw_path, server->cancellable);
+  serve_file (msg, server->cached_repo_root, raw_path, server->cancellable);
 }
 
 static SoupBuffer *
@@ -720,7 +737,7 @@ handle_refs_heads (EosUpdaterRepoServer *server,
     }
 
   raw_path = g_build_filename (server->cached_repo_root, requested_path, NULL);
-  if (!serve_file_if_exists (msg, raw_path, server->cancellable, &served))
+  if (!serve_file_if_exists (msg, server->cached_repo_root, raw_path, server->cancellable, &served))
     return;
 
   if (served)
@@ -735,7 +752,7 @@ handle_refs_heads (EosUpdaterRepoServer *server,
                                head,
                                NULL);
 
-  serve_file (msg, raw_path, server->cancellable);
+  serve_file (msg, server->cached_repo_root, raw_path, server->cancellable);
 }
 
 static void
