@@ -89,7 +89,7 @@ apply_internal (EosUpdater *updater,
   gint newbootver = 0;
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_autoptr(OstreeDeployment) new_deployment = NULL;
-  GKeyFile *origin = NULL;
+  g_autoptr(GKeyFile) origin = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
   g_autofree gchar *osname = get_test_osname ();
 
