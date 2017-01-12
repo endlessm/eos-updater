@@ -21,6 +21,7 @@
  */
 
 #include <glib.h>
+#include <locale.h>
 #include <ostree.h>
 
 #include "eos-prepare-usb-update.h"
@@ -91,6 +92,8 @@ main (int argc,
   g_autoptr(GFile) usb_path = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
   g_autoptr(OstreeAsyncProgress) progress = NULL;
+
+  setlocale (LC_ALL, "");
 
   g_option_context_add_main_entries (context, entries, NULL);
   if (!g_option_context_parse (context,
