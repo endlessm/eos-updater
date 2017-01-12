@@ -22,6 +22,53 @@
 
 #include "eos-prepare-usb-update.h"
 
+static int
+fail (gboolean     quiet,
+      const gchar *error_message,
+      ...)
+{
+  va_list ap;
+  g_autofree gchar *formatted_message = NULL;
+
+  if (quiet)
+    return 1;
+
+  /* Format the arguments. */
+  va_start (ap, error_message);
+  formatted_message = g_strdup_vprintf (error_message, ap);
+  va_end (ap);
+
+  /* Include the usage. */
+  g_printerr ("%s: %s\n", g_get_prgname (), formatted_message);
+
+  return 1;
+}
+
+static int
+usage (GOptionContext *context,
+       gboolean        quiet,
+       const gchar    *error_message,
+       ...)
+{
+  va_list ap;
+  g_autofree gchar *formatted_message = NULL;
+  g_autofree gchar *help = NULL;
+
+  if (quiet)
+    return 1;
+
+  /* Format the arguments. */
+  va_start (ap, error_message);
+  formatted_message = g_strdup_vprintf (error_message, ap);
+  va_end (ap);
+
+  /* Include the usage. */
+  help = g_option_context_get_help (context, TRUE, NULL);
+  g_printerr ("%s: %s\n\n%s\n", g_get_prgname (), formatted_message, help);
+
+  return 1;
+}
+
 int
 main (int argc,
       char **argv)
@@ -48,34 +95,27 @@ main (int argc,
                                &argv,
                                &error))
     {
-      g_message ("Failed to parse options: %s",
-                 error->message);
-      return 1;
+      return usage (context, quiet, "Failed to parse options: %s",
+                    error->message);
     }
 
   if (argc != 1 || remaining == NULL || g_strv_length (remaining) != 1)
     {
-      if (!quiet)
-        g_message ("Expected exactly one path to the pendrive");
-      return 1;
+      return usage (context, quiet,
+                    "Expected exactly one path to the pendrive");
     }
 
   raw_usb_path = remaining[0];
   usb_path = g_file_new_for_commandline_arg (raw_usb_path);
   if (!g_file_query_exists (usb_path, NULL))
     {
-      if (!quiet)
-        g_message ("Path %s does not exist", raw_usb_path);
-      return 1;
+      return fail (quiet, "Path ‘%s’ does not exist", raw_usb_path);
     }
 
   sysroot = ostree_sysroot_new_default ();
   if (!ostree_sysroot_load (sysroot, NULL, &error))
     {
-      if (!quiet)
-        g_message ("Failed to load sysroot: %s",
-                   error->message);
-      return 1;
+      return fail (quiet, "Failed to load sysroot: %s", error->message);
     }
 
   if (!quiet)
@@ -91,10 +131,7 @@ main (int argc,
                                                 NULL,
                                                 &error))
     {
-      if (!quiet)
-        g_message ("Failed to prepare the update: %s",
-                   error->message);
-      return 1;
+      return fail (quiet, "Failed to prepare the update: %s", error->message);
     }
 
   return 0;
