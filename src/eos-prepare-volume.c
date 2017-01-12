@@ -27,10 +27,13 @@ main (int argc,
       char **argv)
 {
   gboolean quiet = FALSE;
-  g_autoptr(GOptionContext) context = g_option_context_new ("Endless Pendrive Prepare Tool");
+  g_auto(GStrv) remaining = NULL;
+  g_autoptr(GOptionContext) context = g_option_context_new ("— Endless Pendrive Prepare Tool");
   GOptionEntry entries[] =
     {
       { "quiet", 'q', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &quiet, "Do not print anything, check exit status for success", NULL },
+      { G_OPTION_REMAINING, 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME_ARRAY,
+        &remaining, "Path to the pendrive to prepare", "VOLUME-PATH" },
       { NULL }
     };
   g_autoptr(GError) error = NULL;
@@ -50,15 +53,15 @@ main (int argc,
       return 1;
     }
 
-  if (argc != 2)
+  if (argc != 1 || remaining == NULL || g_strv_length (remaining) != 1)
     {
       if (!quiet)
         g_message ("Expected exactly one path to the pendrive");
       return 1;
     }
 
-  raw_usb_path = argv[1];
-  usb_path = g_file_new_for_path (raw_usb_path);
+  raw_usb_path = remaining[0];
+  usb_path = g_file_new_for_commandline_arg (raw_usb_path);
   if (!g_file_query_exists (usb_path, NULL))
     {
       if (!quiet)
