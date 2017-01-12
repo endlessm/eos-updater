@@ -20,6 +20,9 @@
  * Author: Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
+#include <glib.h>
+#include <ostree.h>
+
 #include "eos-prepare-usb-update.h"
 
 static int
