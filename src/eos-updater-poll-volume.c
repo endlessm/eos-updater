@@ -40,15 +40,12 @@ get_repo_from_volume (const gchar *raw_volume_path,
   g_autoptr(GFile) volume_path = g_file_new_for_path (raw_volume_path);
   g_autoptr(GFile) repo_path = g_file_get_child (volume_path, "eos-update");
   g_autoptr(OstreeRepo) volume_repo = ostree_repo_new (repo_path);
-  g_autofree gchar *raw_volume_repo_path = NULL;
 
   if (!ostree_repo_open (volume_repo, NULL, error))
     return FALSE;
 
-  raw_volume_repo_path = g_file_get_path (ostree_repo_get_path (volume_repo));
+  *out_repo_url = g_file_get_uri (ostree_repo_get_path (volume_repo));
   *out_volume_repo = g_steal_pointer (&volume_repo);
-  *out_repo_url = g_strdup_printf ("file://%s",
-                                   raw_volume_repo_path);
   return TRUE;
 }
 
