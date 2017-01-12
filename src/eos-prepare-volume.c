@@ -96,6 +96,14 @@ main (int argc,
   setlocale (LC_ALL, "");
 
   g_option_context_add_main_entries (context, entries, NULL);
+  g_option_context_set_summary (context,
+                                "Prepare a USB drive with a copy of the local "
+                                "ostree repository, so it can be used to "
+                                "update other machines offline. The repository "
+                                "copy will be put in the eos-update directory "
+                                "on the USB drive; other files will not be "
+                                "affected.");
+
   if (!g_option_context_parse (context,
                                &argc,
                                &argv,
