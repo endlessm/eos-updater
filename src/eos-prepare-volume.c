@@ -79,12 +79,12 @@ main (int argc,
 {
   gboolean quiet = FALSE;
   g_auto(GStrv) remaining = NULL;
-  g_autoptr(GOptionContext) context = g_option_context_new ("— Endless Pendrive Prepare Tool");
+  g_autoptr(GOptionContext) context = g_option_context_new ("— Endless USB Drive Preparation Tool");
   GOptionEntry entries[] =
     {
       { "quiet", 'q', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &quiet, "Do not print anything, check exit status for success", NULL },
       { G_OPTION_REMAINING, 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME_ARRAY,
-        &remaining, "Path to the pendrive to prepare", "VOLUME-PATH" },
+        &remaining, "Path to the USB drive to prepare", "VOLUME-PATH" },
       { NULL }
     };
   g_autoptr(GError) error = NULL;
@@ -116,7 +116,7 @@ main (int argc,
   if (argc != 1 || remaining == NULL || g_strv_length (remaining) != 1)
     {
       return usage (context, quiet,
-                    "Expected exactly one path to the pendrive");
+                    "Expected exactly one path to the USB drive");
     }
 
   raw_usb_path = remaining[0];
