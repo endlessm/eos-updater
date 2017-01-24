@@ -50,7 +50,7 @@ static const char *ON_MOBILE_KEY = "UpdateOnMobile";
 static gboolean polled_already = FALSE;
 
 /* Read from config file */
-static UpdateStep last_automatic_step;
+static UpdateStep last_automatic_step = UPDATE_STEP_NONE;
 
 /* Set when main should return failure */
 static gboolean should_exit_failure = FALSE;
@@ -58,8 +58,8 @@ static gboolean should_exit_failure = FALSE;
 /* Avoid erroneous additional state transitions */
 static guint previous_state = EOS_UPDATER_STATE_NONE;
 
-static GMainLoop *main_loop;
-static gchar *volume_path;
+static GMainLoop *main_loop = NULL;
+static gchar *volume_path = NULL;
 
 static gchar *
 dup_envvar_or (const gchar *envvar,
