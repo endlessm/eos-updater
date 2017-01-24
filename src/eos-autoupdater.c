@@ -398,7 +398,7 @@ is_time_to_update (guint update_interval_days)
   guint64 last_update_time_secs;
   gint64 current_time_usec;
   GError *error = NULL;
-  gboolean time_to_update = FALSE;
+  gboolean is_time_to_update = FALSE;
 
   stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
   stamp_file = g_file_new_for_path (stamp_path);
@@ -416,7 +416,7 @@ is_time_to_update (guint update_interval_days)
                        NULL);
     }
 
-    time_to_update = TRUE;
+    is_time_to_update = TRUE;
     g_clear_error (&error);
   } else {
     /* Determine whether sufficient time has elapsed */
@@ -425,15 +425,15 @@ is_time_to_update (guint update_interval_days)
       g_file_info_get_attribute_uint64 (stamp_file_info,
                                         G_FILE_ATTRIBUTE_TIME_MODIFIED);
 
-    time_to_update = (last_update_time_secs + update_interval_days * SEC_PER_DAY) *
-                      G_USEC_PER_SEC < current_time_usec;
+    is_time_to_update = (last_update_time_secs + update_interval_days * SEC_PER_DAY) *
+                         G_USEC_PER_SEC < current_time_usec;
 
     g_object_unref (stamp_file_info);
   }
 
   g_object_unref (stamp_file);
 
-  return time_to_update;
+  return is_time_to_update;
 }
 
 static gboolean
