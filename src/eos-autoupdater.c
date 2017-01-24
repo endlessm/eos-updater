@@ -508,13 +508,13 @@ is_connected_through_mobile (void)
   }
 
   devices = nm_active_connection_get_devices (connection);
-  for (i = 0; i < devices->len; i++) {
+  for (i = 0; !is_mobile && i < devices->len; i++) {
     device = (NMDevice *) g_ptr_array_index (devices, i);
     switch (nm_device_get_device_type (device)) {
     case NM_DEVICE_TYPE_MODEM:
     case NM_DEVICE_TYPE_BT:
     case NM_DEVICE_TYPE_WIMAX:
-      is_mobile |= TRUE;
+      is_mobile = TRUE;
       break;
     default:
       break;
