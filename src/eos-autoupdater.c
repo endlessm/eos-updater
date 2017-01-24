@@ -61,29 +61,29 @@ static guint previous_state = EOS_UPDATER_STATE_NONE;
 static GMainLoop *main_loop = NULL;
 static gchar *volume_path = NULL;
 
-static gchar *
-dup_envvar_or (const gchar *envvar,
+static const gchar *
+get_envvar_or (const gchar *envvar,
                const gchar *default_value)
 {
   const gchar *value = g_getenv (envvar);
 
   if (value != NULL)
-    return g_strdup (value);
+    return value;
 
-  return g_strdup (default_value);
+  return default_value;
 }
 
-static gchar *
+static const gchar *
 get_stamp_dir (void)
 {
-  return dup_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_UPDATE_STAMP_DIR",
+  return get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_UPDATE_STAMP_DIR",
                         UPDATE_STAMP_DIR);
 }
 
 static void
 update_stamp_file (void)
 {
-  g_autofree gchar *stamp_dir = get_stamp_dir ();
+  const gchar *stamp_dir = get_stamp_dir ();
   g_autofree gchar *stamp_path = NULL;
   g_autoptr(GFile) stamp_file = NULL;
   g_autoptr(GError) error = NULL;
@@ -275,10 +275,10 @@ on_state_changed_notify (EosUpdater *proxy,
   on_state_changed (proxy, state);
 }
 
-static gchar *
+static const gchar *
 get_config_file_path (void)
 {
-  return dup_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_CONFIG_FILE_PATH",
+  return get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_CONFIG_FILE_PATH",
                         CONFIG_FILE_PATH);
 }
 
@@ -286,7 +286,7 @@ static gboolean
 read_config_file (gint *update_interval,
                   gboolean *update_on_mobile)
 {
-  g_autofree gchar *config_path = get_config_file_path ();
+  const gchar *config_path = get_config_file_path ();
   g_autoptr(GKeyFile) config = g_key_file_new ();
   g_autoptr(GError) error = NULL;
 
@@ -493,11 +493,11 @@ listen_on_session_bus (void)
 static gint
 get_dbus_timeout (void)
 {
-  g_autofree gchar *value = NULL;
+  const gchar *value = NULL;
   gint64 timeout;
   gchar *str_end = NULL;
 
-  value = dup_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT",
+  value = get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT",
                          NULL);
 
   if (value == NULL || value[0] == '\0')
