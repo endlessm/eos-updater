@@ -39,6 +39,7 @@ AC_DEFINE_UNQUOTED([EOS_AVAHI_PORT], [$port], [Socket activation port to be used
 GLIB_REQUIRED_VERSION=2.44.0
 OSTREE_REQUIRED_VERSION=2016.15
 AVAHI_REQUIRED_VERSION=0.6.31
+NM_REQUIRED_VERSION=0.9.8.6
 
 PKG_CHECK_MODULES([GIO],
                   [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION])
@@ -50,7 +51,7 @@ PKG_CHECK_MODULES([SOUP],
                   [libsoup-2.4])
 
 PKG_CHECK_MODULES([EOS_AUTOUPDATER],
-                  [libnm-glib
+                  [libnm-glib >= $NM_REQUIRED_VERSION
                    libsystemd])
 
 PKG_CHECK_MODULES([EOS_UPDATE_SERVER],

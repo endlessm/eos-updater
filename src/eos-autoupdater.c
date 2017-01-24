@@ -501,7 +501,7 @@ is_connected_through_mobile (void)
     return FALSE;
   }
 
-  g_object_get (client, "primary-connection", &connection, NULL);
+  connection = nm_client_get_primary_connection (client);
   if (!connection) {
     g_object_unref (client);
     return FALSE;
@@ -521,7 +521,6 @@ is_connected_through_mobile (void)
     }
   }
 
-  g_object_unref (connection);
   g_object_unref (client);
 
   return is_mobile;
