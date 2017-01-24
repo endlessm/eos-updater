@@ -80,6 +80,9 @@ get_stamp_dir (void)
                         UPDATE_STAMP_DIR);
 }
 
+/* Note: This function does not report errors as a GError because there’s no
+ * harm in the stamp file not being updated: it just means we’re going to check
+ * again for updates sooner than otherwise. */
 static void
 update_stamp_file (void)
 {
