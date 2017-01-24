@@ -395,7 +395,7 @@ is_time_to_update (guint update_interval_days)
   g_autofree gchar *stamp_path = NULL;
   GFile *stamp_file;
   GFileInfo *stamp_file_info;
-  guint64 last_update_time;
+  guint64 last_update_time_secs;
   gint64 current_time_usec;
   GError *error = NULL;
   gboolean time_to_update = FALSE;
@@ -421,11 +421,11 @@ is_time_to_update (guint update_interval_days)
   } else {
     /* Determine whether sufficient time has elapsed */
     current_time_usec = g_get_real_time ();
-    last_update_time =
+    last_update_time_secs =
       g_file_info_get_attribute_uint64 (stamp_file_info,
-                                       G_FILE_ATTRIBUTE_TIME_MODIFIED);
+                                        G_FILE_ATTRIBUTE_TIME_MODIFIED);
 
-    time_to_update = (last_update_time + update_interval_days * SEC_PER_DAY) *
+    time_to_update = (last_update_time_secs + update_interval_days * SEC_PER_DAY) *
                       G_USEC_PER_SEC < current_time_usec;
 
     g_object_unref (stamp_file_info);
