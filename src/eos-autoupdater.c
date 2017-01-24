@@ -622,7 +622,7 @@ main (int argc, char **argv)
     if (!is_time_to_update (update_interval_days)) {
       sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_TIME_MSGID,
                        "PRIORITY=%d", LOG_INFO,
-                       "MESSAGE=Less than IntervalDays since last update. Exiting",
+                       "MESSAGE=Less than %s since last update. Exiting", INTERVAL_KEY,
                        NULL);
       return EXIT_SUCCESS;
     }
