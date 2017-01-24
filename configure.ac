@@ -45,7 +45,7 @@ PKG_CHECK_MODULES([GIO],
                   [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION])
 
 PKG_CHECK_MODULES([OSTREE],
-                  [ostree-1 >= OSTREE_REQUIRED_VERSION])
+                  [ostree-1 >= $OSTREE_REQUIRED_VERSION])
 
 PKG_CHECK_MODULES([SOUP],
                   [libsoup-2.4])
