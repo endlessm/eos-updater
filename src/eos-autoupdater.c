@@ -351,6 +351,12 @@ read_config_file (guint *update_interval_days,
     return FALSE;
   }
 
+  /* This should always be true, as the RHS is out of range for a guint (it’s
+   * around 10^14 days, which should be a long enough update period for anyone).
+   * We use G_MAXUINT64 rather than G_MAXUINT because the time calculation in
+   * is_time_to_update() uses guint64 variables. */
+  g_assert (_update_interval_days <= G_MAXUINT64 / SEC_PER_DAY);
+
   *update_interval_days = (guint) _update_interval_days;
 
   *update_on_mobile = g_key_file_get_boolean (config, AUTOMATIC_GROUP,
@@ -418,14 +424,24 @@ is_time_to_update (guint update_interval_days)
 
     is_time_to_update = TRUE;
   } else {
+    guint64 next_update_time_secs, update_interval_secs;
+
     /* Determine whether sufficient time has elapsed */
     current_time_usec = g_get_real_time ();
     last_update_time_secs =
       g_file_info_get_attribute_uint64 (stamp_file_info,
                                         G_FILE_ATTRIBUTE_TIME_MODIFIED);
 
-    is_time_to_update = (last_update_time_secs + update_interval_days * SEC_PER_DAY) *
-                         G_USEC_PER_SEC < current_time_usec;
+    /* Guaranteed not to overflow, as we check update_interval_days when
+     * loading it. */
+    update_interval_secs = update_interval_days * SEC_PER_DAY;
+
+    /* next_update_time_secs = last_update_time_secs + update_interval_secs */
+    if (!g_uint64_checked_add (&next_update_time_secs, last_update_time_secs,
+                               update_interval_secs))
+      next_update_time_secs = G_MAXUINT64;
+
+    is_time_to_update = (next_update_time_secs < current_time_usec / G_USEC_PER_SEC);
   }
 
   return is_time_to_update;
