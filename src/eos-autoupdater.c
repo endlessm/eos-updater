@@ -37,8 +37,8 @@ typedef enum _UpdateStep {
 #define SEC_PER_DAY (3600ll * 24)
 
 /* This file is touched whenever the updater starts */
-#define UPDATE_STAMP_DIR        LOCALSTATEDIR "/eos-updater"
-#define UPDATE_STAMP_NAME       "eos-updater-stamp"
+static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/eos-updater";
+static const char *UPDATE_STAMP_NAME = "eos-updater-stamp";
 
 static const char *CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
@@ -366,6 +366,8 @@ initial_poll_idle_func (gpointer pointer)
 static gboolean
 is_time_to_update (gint update_interval)
 {
+  const gchar *stamp_dir = get_stamp_dir ();
+  g_autofree gchar *stamp_path = NULL;
   GFile *stamp_file;
   GFileInfo *stamp_file_info;
   guint64 last_update_time;
@@ -373,7 +375,8 @@ is_time_to_update (gint update_interval)
   GError *error = NULL;
   gboolean time_to_update = FALSE;
 
-  stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
+  stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
+  stamp_file = g_file_new_for_path (stamp_path);
   stamp_file_info = g_file_query_info (stamp_file,
                                        G_FILE_ATTRIBUTE_TIME_MODIFIED,
                                        G_FILE_QUERY_INFO_NONE, NULL,
