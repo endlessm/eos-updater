@@ -458,9 +458,12 @@ is_online (void)
     return FALSE;
 
   /* Assume that the ostree server is remote and only consider to be
-   * online if we have global connectivity.
+   * online for ostree updates if we have global connectivity.
+   * For Avahi updates, local or site connectivity is adequate.
    */
   switch (nm_client_get_state (client)) {
+  case NM_STATE_CONNECTED_LOCAL:
+  case NM_STATE_CONNECTED_SITE:
   case NM_STATE_CONNECTED_GLOBAL:
     online = TRUE;
     break;
