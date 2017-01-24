@@ -516,6 +516,24 @@ is_connected_through_mobile (void)
     case NM_DEVICE_TYPE_WIMAX:
       is_mobile = TRUE;
       break;
+    case NM_DEVICE_TYPE_UNKNOWN:
+    case NM_DEVICE_TYPE_ETHERNET:
+    case NM_DEVICE_TYPE_WIFI:
+    case NM_DEVICE_TYPE_UNUSED1:
+    case NM_DEVICE_TYPE_UNUSED2:
+    case NM_DEVICE_TYPE_OLPC_MESH:
+    case NM_DEVICE_TYPE_INFINIBAND:
+    case NM_DEVICE_TYPE_BOND:
+    case NM_DEVICE_TYPE_VLAN:
+    case NM_DEVICE_TYPE_ADSL:
+    case NM_DEVICE_TYPE_BRIDGE:
+    case NM_DEVICE_TYPE_GENERIC:
+    case NM_DEVICE_TYPE_TEAM:
+    case NM_DEVICE_TYPE_TUN:
+    case NM_DEVICE_TYPE_IP_TUNNEL:
+    case NM_DEVICE_TYPE_MACVLAN:
+    case NM_DEVICE_TYPE_VXLAN:
+    case NM_DEVICE_TYPE_VETH:
     default:
       break;
     }
