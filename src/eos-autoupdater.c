@@ -467,6 +467,11 @@ is_online (void)
   case NM_STATE_CONNECTED_GLOBAL:
     online = TRUE;
     break;
+  case NM_STATE_UNKNOWN:
+  case NM_STATE_ASLEEP:
+  case NM_STATE_DISCONNECTED:
+  case NM_STATE_DISCONNECTING:
+  case NM_STATE_CONNECTING:
   default:
     online = FALSE;
     break;
