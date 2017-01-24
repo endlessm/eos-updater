@@ -385,7 +385,7 @@ initial_poll_idle_func (gpointer pointer)
   on_state_changed (proxy, initial_state);
 
   /* Disable this function after the first run */
-  return FALSE;
+  return G_SOURCE_REMOVE;
 }
 
 static gboolean
