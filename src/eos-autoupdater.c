@@ -393,11 +393,11 @@ is_time_to_update (guint update_interval_days)
 {
   const gchar *stamp_dir = get_stamp_dir ();
   g_autofree gchar *stamp_path = NULL;
-  GFile *stamp_file;
-  GFileInfo *stamp_file_info;
+  g_autoptr (GFile) stamp_file = NULL;
+  g_autoptr (GFileInfo) stamp_file_info = NULL;
   guint64 last_update_time_secs;
   gint64 current_time_usec;
-  GError *error = NULL;
+  g_autoptr (GError) error = NULL;
   gboolean is_time_to_update = FALSE;
 
   stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
@@ -417,7 +417,6 @@ is_time_to_update (guint update_interval_days)
     }
 
     is_time_to_update = TRUE;
-    g_clear_error (&error);
   } else {
     /* Determine whether sufficient time has elapsed */
     current_time_usec = g_get_real_time ();
@@ -427,11 +426,7 @@ is_time_to_update (guint update_interval_days)
 
     is_time_to_update = (last_update_time_secs + update_interval_days * SEC_PER_DAY) *
                          G_USEC_PER_SEC < current_time_usec;
-
-    g_object_unref (stamp_file_info);
   }
-
-  g_object_unref (stamp_file);
 
   return is_time_to_update;
 }
