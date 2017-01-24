@@ -286,12 +286,16 @@ get_config_file_path (void)
 }
 
 static gboolean
-read_config_file (gint *update_interval,
+read_config_file (guint *update_interval_days,
                   gboolean *update_on_mobile)
 {
   const gchar *config_path = get_config_file_path ();
   g_autoptr(GKeyFile) config = g_key_file_new ();
   g_autoptr(GError) error = NULL;
+  gint _update_interval_days;
+
+  g_return_val_if_fail (update_interval_days != NULL, FALSE);
+  g_return_val_if_fail (update_on_mobile != NULL, FALSE);
 
   g_key_file_load_from_file (config, config_path, G_KEY_FILE_NONE, &error);
   if (error) {
@@ -312,8 +316,8 @@ read_config_file (gint *update_interval,
     return FALSE;
   }
 
-  *update_interval = g_key_file_get_integer (config, AUTOMATIC_GROUP,
-                                             INTERVAL_KEY, &error);
+  _update_interval_days = g_key_file_get_integer (config, AUTOMATIC_GROUP,
+                                                  INTERVAL_KEY, &error);
 
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
@@ -323,13 +327,15 @@ read_config_file (gint *update_interval,
     return FALSE;
   }
 
-  if (*update_interval < 0) {
+  if (_update_interval_days < 0) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Specified update interval is less than zero",
                      NULL);
     return FALSE;
   }
+
+  *update_interval_days = (guint) _update_interval_days;
 
   *update_on_mobile = g_key_file_get_boolean (config, AUTOMATIC_GROUP,
                                               ON_MOBILE_KEY, &error);
@@ -367,7 +373,7 @@ initial_poll_idle_func (gpointer pointer)
 }
 
 static gboolean
-is_time_to_update (gint update_interval)
+is_time_to_update (guint update_interval_days)
 {
   const gchar *stamp_dir = get_stamp_dir ();
   g_autofree gchar *stamp_path = NULL;
@@ -403,7 +409,7 @@ is_time_to_update (gint update_interval)
       g_file_info_get_attribute_uint64 (stamp_file_info,
                                        G_FILE_ATTRIBUTE_TIME_MODIFIED);
 
-    time_to_update = (last_update_time + update_interval * SEC_PER_DAY) *
+    time_to_update = (last_update_time + update_interval_days * SEC_PER_DAY) *
                       G_USEC_PER_SEC < current_time_usec;
 
     g_object_unref (stamp_file_info);
@@ -526,7 +532,7 @@ main (int argc, char **argv)
 {
   EosUpdater *proxy;
   GError *error = NULL;
-  gint update_interval;
+  guint update_interval_days;
   gboolean update_on_mobile;
   gboolean force_update = FALSE;
   GOptionContext *context;
@@ -544,7 +550,7 @@ main (int argc, char **argv)
   g_option_context_parse (context, &argc, &argv, NULL);
   g_option_context_free (context);
 
-  if (!read_config_file (&update_interval, &update_on_mobile))
+  if (!read_config_file (&update_interval_days, &update_on_mobile))
     return EXIT_FAILURE;
 
   if (volume_path == NULL && !is_online ())
@@ -561,7 +567,7 @@ main (int argc, char **argv)
       return EXIT_SUCCESS;
     }
 
-    if (!is_time_to_update (update_interval)) {
+    if (!is_time_to_update (update_interval_days)) {
       sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_TIME_MSGID,
                        "PRIORITY=%d", LOG_INFO,
                        "MESSAGE=Less than IntervalDays since last update. Exiting",
