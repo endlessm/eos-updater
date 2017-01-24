@@ -1,0 +1,5 @@
+eos-updater (0-1) UNRELEASED; urgency=low
+
+  * Initial release (Closes: #1144)
+
+ -- John Hiesey <john@endlessm.com>  Fri, 04 Oct 2013 11:44:06 -0700
