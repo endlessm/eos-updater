@@ -545,7 +545,7 @@ is_connected_through_mobile (void)
 }
 
 static gboolean
-listen_on_session_bus (void)
+should_listen_on_session_bus (void)
 {
   const gchar *value = NULL;
 
@@ -630,7 +630,7 @@ main (int argc, char **argv)
 
   main_loop = g_main_loop_new (NULL, FALSE);
 
-  if (listen_on_session_bus ())
+  if (should_listen_on_session_bus ())
     bus_type = G_BUS_TYPE_SESSION;
   proxy = eos_updater_proxy_new_for_bus_sync (bus_type,
                      G_DBUS_PROXY_FLAGS_NONE,
