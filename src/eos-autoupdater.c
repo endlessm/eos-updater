@@ -34,6 +34,10 @@ typedef enum _UpdateStep {
   UPDATE_STEP_APPLY
 } UpdateStep;
 
+/* These must be kept in sync with #UpdateStep. */
+#define UPDATE_STEP_FIRST UPDATE_STEP_NONE
+#define UPDATE_STEP_LAST UPDATE_STEP_APPLY
+
 #define SEC_PER_DAY (3600ll * 24)
 
 /* This file is touched whenever the updater starts */
@@ -293,6 +297,7 @@ read_config_file (guint *update_interval_days,
   g_autoptr(GKeyFile) config = g_key_file_new ();
   g_autoptr(GError) error = NULL;
   gint _update_interval_days;
+  gint _last_automatic_step;
 
   g_return_val_if_fail (update_interval_days != NULL, FALSE);
   g_return_val_if_fail (update_on_mobile != NULL, FALSE);
@@ -306,8 +311,8 @@ read_config_file (guint *update_interval_days,
     return FALSE;
   }
 
-  last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
-                                                LAST_STEP_KEY, &error);
+  _last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
+                                                 LAST_STEP_KEY, &error);
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
@@ -315,6 +320,17 @@ read_config_file (guint *update_interval_days,
                      NULL);
     return FALSE;
   }
+
+  if (_last_automatic_step < UPDATE_STEP_FIRST ||
+      _last_automatic_step > UPDATE_STEP_LAST) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_ERR,
+                     "MESSAGE=Specified last automatic step is not a valid step",
+                     NULL);
+    return FALSE;
+  }
+
+  last_automatic_step = (UpdateStep) _last_automatic_step;
 
   _update_interval_days = g_key_file_get_integer (config, AUTOMATIC_GROUP,
                                                   INTERVAL_KEY, &error);
