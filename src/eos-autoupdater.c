@@ -661,6 +661,7 @@ main (int argc, char **argv)
 out:
   g_main_loop_unref (main_loop);
   g_object_unref (proxy);
+  g_free (volume_path);
 
   if (should_exit_failure) /* All paths setting this print an error message */
     return EXIT_FAILURE;
