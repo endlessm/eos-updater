@@ -7,7 +7,10 @@ eos_autoupdater_in = \
 
 systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
 
-sysconf_DATA = eos-updater.conf
+sysconf_DATA = \
+	eos-updater.conf \
+	eos-updater-daemon.conf \
+	$(NULL)
 
 %: %.in
 	$(AM_V_GEN)$(edit) $< >$@

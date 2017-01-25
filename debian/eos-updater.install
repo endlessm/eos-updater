@@ -1,5 +1,6 @@
 etc/dbus-1/system.d/com.endlessm.Updater.conf
 etc/eos-updater.conf
+etc/eos-updater-daemon.conf
 lib/systemd/system/eos-autoupdater.service
 lib/systemd/system/eos-autoupdater.timer
 lib/systemd/system/eos-update-server.service
