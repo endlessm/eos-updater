@@ -522,9 +522,15 @@ filter_services (LanData *lan_data,
 static gchar *
 get_branch_file_uri (EosAvahiService *service)
 {
-  return g_strdup_printf ("http://%s:%" G_GUINT16_FORMAT "/extensions/eos/branch_file",
-                          service->address,
-                          service->port);
+  g_autoptr (SoupURI) uri = NULL;
+
+  uri = soup_uri_new (NULL);
+  soup_uri_set_scheme (uri, "http");
+  soup_uri_set_host (uri, service->address);
+  soup_uri_set_port (uri, service->port);
+  soup_uri_set_path (uri, "/extensions/eos/branch_file");
+
+  return soup_uri_to_string (uri, FALSE);
 }
 
 static EosBranchFile *
@@ -696,15 +702,22 @@ get_update_info_from_swbfs (LanData *lan_data,
       gpointer swbf_ptr = g_ptr_array_index (swbfs, idx);
       EosServiceWithBranchFile *swbf = EOS_SERVICE_WITH_BRANCH_FILE (swbf_ptr);
       EosAvahiService *service = swbf->service;
-      g_autofree gchar *url_override = g_strdup_printf ("http://%s:%d",
-                                                        service->address,
-                                                        service->port);
+      g_autoptr(SoupURI) _url_override = NULL;
+      g_autofree gchar *url_override = NULL;
       g_autoptr(GError) local_error = NULL;
       g_autofree gchar *checksum = NULL;
       g_autoptr(GVariant) commit = NULL;
       guint64 timestamp;
       g_autoptr(EosExtensions) extensions = NULL;
       GCancellable *cancellable = g_task_get_cancellable (lan_data->fetch_data->task);
+
+      /* Build the URI. */
+      _url_override = soup_uri_new (NULL);
+      soup_uri_set_scheme (_url_override, "http");
+      soup_uri_set_host (_url_override, service->address);
+      soup_uri_set_port (_url_override, service->port);
+      soup_uri_set_path (_url_override, "");
+      url_override = soup_uri_to_string (_url_override, FALSE);
 
       if (!fetch_latest_commit (repo,
                                 cancellable,
