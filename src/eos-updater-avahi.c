@@ -284,7 +284,7 @@ browse_new (EosAvahiDiscoverer *discoverer,
 
   if (g_hash_table_contains (discoverer->discovered_services, name))
     {
-      message("name service %s was already found on the network", name);
+      g_debug ("Name service %s was already found on the network", name);
       return;
     }
 
@@ -307,6 +307,9 @@ browse_new (EosAvahiDiscoverer *discoverer,
       return;
     }
 
+  message ("Found name service %s on the network; type: %s, domain: %s, "
+           "protocol: %u, interface: %u", name, type, domain, protocol,
+           interface);
   g_hash_table_add (discoverer->discovered_services, g_strdup (name));
 }
 
