@@ -405,6 +405,8 @@ eos_updater_get_ostree_path (OstreeRepo *repo,
       return FALSE;
     }
 
+  /* Take the path from the URI from `ostree remote show-url eos` and strip all
+   * leading slashes from it. */
   path = g_strdup (soup_uri_get_path (uri));
   while (path[to_move] == '/')
     ++to_move;
