@@ -81,7 +81,12 @@ struct _EosAvahiDiscoverer
   GDestroyNotify notify;
   GMainContext *context;
 
-  GHashTable *discovered_services;
+  /* Map of service name (typically human readable) to the number of
+   * #AvahiServiceResolver instances we have running against that name. We
+   * could end up with more than one resolver if the same name is advertised to
+   * us over multiple interfaces or protocols (for example, IPv4 and IPv6).
+   * Resolve all of them just in case one doesn’t work. */
+  GHashTable *discovered_services;  /* (element-type (owned) utf8 uint) */
   GPtrArray *found_services;
   GError *error;
   EosAvahiState state;
@@ -238,14 +243,30 @@ resolve_cb (AvahiServiceResolver *r,
   GPtrArray *gtxt;
   EosAvahiService *service;
   AvahiStringList* iter;
+  guint n_resolvers;
 
   if (discoverer->state == EOS_AVAHI_FINISHED)
     return;
 
-  if (!g_hash_table_remove (discoverer->discovered_services, name))
+  /* Track the number of resolvers active for this @name. There may be several,
+   * as @name might appear to us over several interfaces or protocols. Most
+   * commonly this happens when both hosts are connected via IPv4 and IPv6. */
+  n_resolvers = GPOINTER_TO_UINT (g_hash_table_lookup (discoverer->discovered_services,
+                                                       name));
+  if (n_resolvers == 0)
     {
       /* maybe it was removed in the meantime */
+      g_hash_table_remove (discoverer->discovered_services, name);
       return;
+    }
+  else if (n_resolvers == 1)
+    {
+      g_hash_table_remove (discoverer->discovered_services, name);
+    }
+  else
+    {
+      g_hash_table_insert (discoverer->discovered_services, g_strdup (name),
+                           GUINT_TO_POINTER (n_resolvers - 1));
     }
 
   gtxt = g_ptr_array_new ();
@@ -278,15 +299,10 @@ browse_new (EosAvahiDiscoverer *discoverer,
             const char *domain)
 {
   AvahiServiceResolver *resolver;
+  guint n_resolvers;
 
   if (discoverer->state == EOS_AVAHI_RESOLVING_ONLY)
     return;
-
-  if (g_hash_table_contains (discoverer->discovered_services, name))
-    {
-      g_debug ("Name service %s was already found on the network", name);
-      return;
-    }
 
   resolver = avahi_service_resolver_new (discoverer->client,
                                          interface,
@@ -310,7 +326,13 @@ browse_new (EosAvahiDiscoverer *discoverer,
   message ("Found name service %s on the network; type: %s, domain: %s, "
            "protocol: %u, interface: %u", name, type, domain, protocol,
            interface);
-  g_hash_table_add (discoverer->discovered_services, g_strdup (name));
+
+  /* Increment (or start) the counter for the number of resolvers for this
+   * @name. */
+  n_resolvers = GPOINTER_TO_UINT (g_hash_table_lookup (discoverer->discovered_services,
+                                                       name));
+  g_hash_table_insert (discoverer->discovered_services, g_strdup (name),
+                       GUINT_TO_POINTER (n_resolvers + 1));
 }
 
 static void
