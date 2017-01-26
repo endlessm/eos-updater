@@ -983,7 +983,7 @@ get_x86_hw_descriptors (GHashTable *hw_descriptors)
       g_autofree gchar *fc = NULL;
       gsize len;
 
-      path = g_strconcat (DMI_PATH, dmi_attributes[i], NULL);
+      path = g_build_filename (DMI_PATH, dmi_attributes[i], NULL);
       fp = g_file_new_for_path (path);
       if (g_file_load_contents (fp, NULL, &fc, &len, NULL, NULL))
         {
