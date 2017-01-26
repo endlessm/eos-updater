@@ -51,8 +51,15 @@ try_all_branch_file_sources (OstreeRepo *repo,
       g_autoptr(GError) local_error = NULL;
       g_autoptr(GBytes) branch_file_contents = NULL;
       g_autoptr(GBytes) signature_contents = NULL;
+      g_autoptr(SoupURI) _uri = NULL;
+      g_autofree gchar *new_path = NULL;
 
-      uri = g_strconcat (baseurl, "/", paths[idx], "?", query, NULL);
+      _uri = soup_uri_new (baseurl);
+      new_path = g_build_path ("/", soup_uri_get_path (_uri), paths[idx], NULL);
+      soup_uri_set_path (_uri, new_path);
+      soup_uri_set_query (_uri, query);
+      uri = soup_uri_to_string (_uri, FALSE);
+
       if (!download_file_and_signature (uri,
                                         &branch_file_contents,
                                         &signature_contents,

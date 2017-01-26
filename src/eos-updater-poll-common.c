@@ -465,7 +465,7 @@ commit_checksum_from_extensions_ref (OstreeRepo *repo,
   if (!get_extensions_url (repo, remote_name, url_override, &extensions_url, error))
     return FALSE;
 
-  eos_ref_url = g_strconcat (extensions_url, "/refs.d/", ref, NULL);
+  eos_ref_url = g_build_path ("/", extensions_url, "refs.d", ref, NULL);
   if (!must_download_file_and_signature (eos_ref_url, &contents, &signature, error))
     return FALSE;
 
@@ -672,7 +672,7 @@ commit_checksum_from_extensions_summary (OstreeRepo *repo,
   if (!get_extensions_url (repo, remote_name, url_override, &extensions_url, error))
     return FALSE;
 
-  eos_summary_url = g_strconcat (extensions_url, "/eos-summary", NULL);
+  eos_summary_url = g_build_path ("/", extensions_url, "eos-summary", NULL);
   return commit_checksum_from_any_summary (repo,
                                            remote_name,
                                            ref,
@@ -701,7 +701,7 @@ commit_checksum_from_summary (OstreeRepo *repo,
   else if (!ostree_repo_remote_get_url (repo, remote_name, &url, error))
     return FALSE;
 
-  summary_url = g_strconcat (url, "/summary", NULL);
+  summary_url = g_build_path ("/", url, "summary", NULL);
   return commit_checksum_from_any_summary (repo,
                                            remote_name,
                                            ref,
