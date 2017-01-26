@@ -278,6 +278,7 @@ eos_updater_clear_error (EosUpdater *updater,
   else
     message ("Changing to state %d", state);
 
+  eos_updater_set_error_name (updater, "");
   eos_updater_set_error_code (updater, 0);
   eos_updater_set_error_message (updater, "");
   eos_updater_set_state_changed (updater, state);
