@@ -247,7 +247,7 @@ get_fetchers (SourcesConfig *config,
                                        g_variant_new_string (config->volume_path));
           break;
 
-        case EOS_UPDATER_DOWNLOAD_N_SOURCES:
+        default:
           g_assert_not_reached ();
         }
 

@@ -68,7 +68,7 @@ static const gchar *const order_key_str[] = {
   "volume"
 };
 
-G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_N_SOURCES);
+G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_LAST + 1);
 
 #ifdef HAS_EOSMETRICS_0
 /*
@@ -1350,11 +1350,9 @@ download_source_to_string (EosUpdaterDownloadSource source)
     case EOS_UPDATER_DOWNLOAD_VOLUME:
       return order_key_str[source];
 
-    case EOS_UPDATER_DOWNLOAD_N_SOURCES:
-      break;
+    default:
+      g_assert_not_reached ();
     }
-
-  g_assert_not_reached ();
 }
 
 gboolean
@@ -1369,12 +1367,12 @@ string_to_download_source (const gchar *str,
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   for (idx = EOS_UPDATER_DOWNLOAD_FIRST;
-       idx < EOS_UPDATER_DOWNLOAD_N_SOURCES;
+       idx <= EOS_UPDATER_DOWNLOAD_LAST;
        ++idx)
     if (g_str_equal (str, order_key_str[idx]))
       break;
 
-  if (idx >= EOS_UPDATER_DOWNLOAD_N_SOURCES)
+  if (idx > EOS_UPDATER_DOWNLOAD_LAST)
     {
       g_set_error (error, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_CONFIGURATION, "Unknown download source %s", str);
       return FALSE;
