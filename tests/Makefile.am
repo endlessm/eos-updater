@@ -2,13 +2,14 @@ testlib = libeos-updater-test.la
 noinst_LTLIBRARIES = $(testlib)
 
 libeos_updater_test_la_CPPFLAGS = \
-	$(GIO_CFLAGS) \
 	-DOSTREE_BINARY=\""$(OSTREE)"\" \
 	-DGPG_BINARY=\""$(GPG)"\" \
 	-I$(top_srcdir)/src \
 	-I$(top_builddir)/src \
 	$(NULL)
-
+libeos_updater_test_la_CFLAGS = \
+	$(GIO_CFLAGS) \
+	$(NULL)
 libeos_updater_test_la_LIBADD = $(GIO_LIBS)
 libeos_updater_test_la_SOURCES = \
 	spawn-utils.c \
