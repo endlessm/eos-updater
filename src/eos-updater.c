@@ -181,11 +181,9 @@ check_and_quit (gpointer local_data_ptr)
     case EOS_UPDATER_STATE_APPLYING_UPDATE:
       return EOS_QUIT_FILE_KEEP_CHECKING;
 
-    case EOS_UPDATER_N_STATES:
+    default:
       g_assert_not_reached ();
     }
-
-  g_assert_not_reached ();
 }
 
 static gboolean

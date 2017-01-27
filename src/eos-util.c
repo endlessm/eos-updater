@@ -61,12 +61,12 @@ static const gchar * state_str[] = {
    "UpdateApplied"
 };
 
-G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_UPDATER_N_STATES);
+G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_UPDATER_STATE_LAST + 1);
 
 const gchar *
 eos_updater_state_to_string (EosUpdaterState state)
 {
-  g_assert (state < EOS_UPDATER_N_STATES);
+  g_assert (state <= EOS_UPDATER_STATE_LAST);
 
   return state_str[state];
 };
