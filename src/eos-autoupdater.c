@@ -373,7 +373,7 @@ read_config_file (guint *update_interval_days,
    * around 10^14 days, which should be a long enough update period for anyone).
    * We use G_MAXUINT64 rather than G_MAXUINT because the time calculation in
    * is_time_to_update() uses guint64 variables. */
-  g_assert (_update_interval_days <= G_MAXUINT64 / SEC_PER_DAY);
+  g_assert ((guint64) _update_interval_days <= G_MAXUINT64 / SEC_PER_DAY);
 
   *update_interval_days = (guint) _update_interval_days;
 
@@ -459,7 +459,7 @@ is_time_to_update (guint update_interval_days)
                                update_interval_secs))
       next_update_time_secs = G_MAXUINT64;
 
-    is_time_to_update = (next_update_time_secs < current_time_usec / G_USEC_PER_SEC);
+    is_time_to_update = (next_update_time_secs < (guint64) current_time_usec / G_USEC_PER_SEC);
   }
 
   return is_time_to_update;
@@ -512,7 +512,7 @@ is_connected_through_mobile (void)
   NMDevice *device;
   const GPtrArray *devices;
   gboolean is_mobile = FALSE;
-  gint i;
+  guint i;
 
   client = nm_client_new ();
   if (!client) {
