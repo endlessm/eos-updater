@@ -36,7 +36,7 @@ static const GDBusErrorEntry eos_updater_error_entries[] = {
 };
 
 /* Ensure that every error code has an associated D-Bus error name */
-G_STATIC_ASSERT (G_N_ELEMENTS (eos_updater_error_entries) == EOS_UPDATER_N_ERRORS);
+G_STATIC_ASSERT (G_N_ELEMENTS (eos_updater_error_entries) == EOS_UPDATER_ERROR_LAST + 1);
 
 GQuark
 eos_updater_error_quark (void)
