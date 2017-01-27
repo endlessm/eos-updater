@@ -33,12 +33,13 @@ BUILT_SOURCES = \
 	$(NULL)
 
 libeos_updater_dbus_la_CPPFLAGS = $(common_cppflags)
-libeos_updater_dbus_la_CFLAGS = $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
+libeos_updater_dbus_la_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
 libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
 libeos_updater_dbus_la_SOURCES = eos-updater-types.h
 nodist_libeos_updater_dbus_la_SOURCES = $(BUILT_SOURCES)
 
 common_cflags = \
+	$(WARN_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(SOUP_CFLAGS) \
@@ -52,6 +53,7 @@ common_cppflags = \
 
 libeos_updater_util_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_util_la_CFLAGS = $(common_cflags)
+libeos_updater_util_la_LDFLAGS = $(WARN_LDFLAGS)
 libeos_updater_util_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(dbuslib)
 libeos_updater_util_la_SOURCES = \
 	eos-util.c \
@@ -64,7 +66,8 @@ libeos_updater_util_la_SOURCES = \
 	$(NULL)
 
 eos_autoupdater_CPPFLAGS = $(common_cppflags)
-eos_autoupdater_CFLAGS = $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS) $(EOS_AUTOUPDATER_CFLAGS)
+eos_autoupdater_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS) $(EOS_AUTOUPDATER_CFLAGS)
+eos_autoupdater_LDFLAGS = $(WARN_LDFLAGS)
 eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
 
@@ -72,6 +75,7 @@ common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(u
 
 libeos_updater_0_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_0_la_CFLAGS = $(common_cflags)
+libeos_updater_0_la_LDFLAGS = $(WARN_LDFLAGS)
 libeos_updater_0_la_LIBADD = $(common_ldadd)
 libeos_updater_0_la_SOURCES = \
 	eos-prepare-usb-update.c \
@@ -88,6 +92,7 @@ eosinclude_HEADERS = \
 
 eos_update_server_CPPFLAGS = $(common_cppflags)
 eos_update_server_CFLAGS = $(common_cflags) $(EOS_UPDATE_SERVER_CFLAGS)
+eos_update_server_LDFLAGS = $(WARN_LDFLAGS)
 eos_update_server_LDADD = $(common_ldadd) $(preparelib) $(EOS_UPDATE_SERVER_LIBS)
 eos_update_server_SOURCES = eos-update-server.c
 
@@ -99,6 +104,7 @@ eos_prepare_volume_CPPFLAGS = \
 eos_prepare_volume_CFLAGS = \
 	$(common_cflags) \
 	$(NULL)
+eos_prepare_volume_LDFLAGS = $(WARN_LDFLAGS)
 eos_prepare_volume_LDADD = \
 	$(common_ldadd) \
 	$(preparelib) \
@@ -114,6 +120,7 @@ eos_updater_CFLAGS = \
 	$(common_cflags) \
 	$(EOS_UPDATER_CFLAGS) \
 	$(NULL)
+eos_updater_LDFLAGS = $(WARN_LDFLAGS)
 eos_updater_LDADD  = $(common_ldadd) $(EOS_UPDATER_LIBS)
 eos_updater_SOURCES = \
 	eos-updater-apply.c \
@@ -191,6 +198,7 @@ EosUpdater-0.0.gir: $(preparelib)
 EosUpdater_0_0_gir_INCLUDES = Soup-2.4 OSTree-1.0
 EosUpdater_0_0_gir_LIBS = $(preparelib)
 EosUpdater_0_0_gir_FILES = $(libeos_updater_0_la_SOURCES)
+EosUpdater_0_0_gir_SCANNERFLAGS = $(WARN_SCANNERFLAGS)
 INTROSPECTION_GIRS += EosUpdater-0.0.gir
 
 girdir = $(datadir)/gir-1.0

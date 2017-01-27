@@ -5,12 +5,16 @@ AM_SILENT_RULES([yes])
 AC_PROG_CC
 AC_CONFIG_MACRO_DIR([m4])
 LT_INIT
+AX_IS_RELEASE([git-directory])
 
 PKG_PROG_PKG_CONFIG
 
 GTK_DOC_CHECK([1.14],[--flavour no-tmpl])
 
 GOBJECT_INTROSPECTION_CHECK([1.30.0])
+
+# Compiler warnings and --disable-Werror
+AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])
 
 # systemd unit support
 AC_ARG_WITH([systemdsystemunitdir],

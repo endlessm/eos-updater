@@ -8,8 +8,10 @@ libeos_updater_test_la_CPPFLAGS = \
 	-I$(top_builddir)/src \
 	$(NULL)
 libeos_updater_test_la_CFLAGS = \
+	$(WARN_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(NULL)
+libeos_updater_test_la_LDFLAGS = $(WARN_LDFLAGS)
 libeos_updater_test_la_LIBADD = $(GIO_LIBS)
 libeos_updater_test_la_SOURCES = \
 	spawn-utils.c \
@@ -50,26 +52,37 @@ TESTS_ENVIRONMENT = \
 	$(if $(EOS_PREPARE_VOLUME_GDB),EOS_CHECK_PREPARE_VOLUME_GDB_BASH_PATH=$(EOS_PREPARE_VOLUME_GDB))
 	$(NULL)
 
-test_cflags = \
-	$(GIO_CFLAGS) \
+test_cppflags = \
 	-I$(top_srcdir)/src \
 	-I$(top_builddir)/src \
 	$(NULL)
-
+test_cflags = \
+	$(WARN_CFLAGS) \
+	$(GIO_CFLAGS) \
+	$(NULL)
+test_ldflags = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
 test_ldadd = \
 	$(GIO_LIBS) \
 	$(testlib) \
 	$(NULL)
 
-test_update_from_main_CPPFLAGS = $(test_cflags)
+test_update_from_main_CPPFLAGS = $(test_cppflags)
+test_update_from_main_CFLAGS = $(test_cflags)
+test_update_from_main_LDFLAGS = $(test_ldflags)
 test_update_from_main_LDADD = $(test_ldadd)
 test_update_from_main_SOURCES = test-update-from-main.c
 
-test_update_from_lan_CPPFLAGS = $(test_cflags)
+test_update_from_lan_CPPFLAGS = $(test_cppflags)
+test_update_from_lan_CFLAGS = $(test_cflags)
+test_update_from_lan_LDFLAGS = $(test_ldflags)
 test_update_from_lan_LDADD = $(test_ldadd)
 test_update_from_lan_SOURCES = test-update-from-lan.c
 
-test_update_from_volume_CPPFLAGS = $(test_cflags)
+test_update_from_volume_CPPFLAGS = $(test_cppflags)
+test_update_from_volume_CFLAGS = $(test_cflags)
+test_update_from_volume_LDFLAGS = $(test_ldflags)
 test_update_from_volume_LDADD = $(test_ldadd)
 test_update_from_volume_SOURCES = test-update-from-volume.c
 

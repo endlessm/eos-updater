@@ -1,5 +1,4 @@
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
-AM_CFLAGS = ${WARN_CFLAGS}
 
 SUBDIRS = src data tests docs
 
