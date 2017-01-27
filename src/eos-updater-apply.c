@@ -207,16 +207,13 @@ handle_apply (EosUpdater            *updater,
   g_autoptr(GTask) task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
 
-  switch (state)
+  if (state != EOS_UPDATER_STATE_UPDATE_READY)
     {
-    case EOS_UPDATER_STATE_UPDATE_READY:
-      break;
-    default:
       g_dbus_method_invocation_return_error (call,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_STATE,
         "Can't call Apply() while in state %s",
         eos_updater_state_to_string (state));
-      goto bail;
+      return TRUE;
     }
 
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_APPLYING_UPDATE);
@@ -226,6 +223,5 @@ handle_apply (EosUpdater            *updater,
 
   eos_updater_complete_apply (updater, call);
 
-bail:
   return TRUE;
 }

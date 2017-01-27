@@ -205,6 +205,9 @@ client_cb (AvahiClient *client,
                             "Avahi client error: %s",
                             avahi_strerror (avahi_client_errno (client)));
       break;
+
+    default:
+      g_assert_not_reached ();
     }
 }
 
@@ -404,6 +407,9 @@ browse_cb (AvahiServiceBrowser *browser,
                             "Avahi browser error: %s",
                             avahi_strerror (avahi_client_errno (discoverer->client)));
       break;
+
+    default:
+      g_assert_not_reached ();
     }
 }
 

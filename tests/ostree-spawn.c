@@ -80,9 +80,10 @@ repo_mode_to_string (RepoMode mode)
 
     case REPO_BARE:
       return "bare";
-    }
 
-  g_assert_not_reached ();
+    default:
+      g_assert_not_reached ();
+    }
 }
 
 gboolean

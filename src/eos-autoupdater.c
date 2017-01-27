@@ -161,6 +161,7 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
       eos_updater_call_apply_finish (proxy, res, &error);
       break;
 
+    case UPDATE_STEP_NONE:
     default:
       g_assert_not_reached ();
   }
@@ -206,6 +207,7 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
       eos_updater_call_apply (proxy, NULL, update_step_callback, step_data);
       break;
 
+    case UPDATE_STEP_NONE:
     default:
       g_assert_not_reached ();
   }

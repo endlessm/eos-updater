@@ -381,6 +381,11 @@ gather_refs (EosExtensions *extensions,
                 return FALSE;
               break;
 
+            case G_FILE_TYPE_UNKNOWN:
+            case G_FILE_TYPE_SYMBOLIC_LINK:
+            case G_FILE_TYPE_SPECIAL:
+            case G_FILE_TYPE_SHORTCUT:
+            case G_FILE_TYPE_MOUNTABLE:
             default:
               break;
             }

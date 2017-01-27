@@ -308,6 +308,11 @@ handle_poll (EosUpdater            *updater,
       case EOS_UPDATER_STATE_UPDATE_READY:
       case EOS_UPDATER_STATE_ERROR:
         break;
+      case EOS_UPDATER_STATE_NONE:
+      case EOS_UPDATER_STATE_POLLING:
+      case EOS_UPDATER_STATE_FETCHING:
+      case EOS_UPDATER_STATE_APPLYING_UPDATE:
+      case EOS_UPDATER_STATE_UPDATE_APPLIED:
       default:
         g_dbus_method_invocation_return_error (call,
           EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_STATE,

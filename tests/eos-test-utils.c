@@ -1129,9 +1129,10 @@ download_source_to_string (DownloadSource source)
 
     case DOWNLOAD_VOLUME:
       return "volume";
-    }
 
-  g_assert_not_reached ();
+    default:
+      g_assert_not_reached ();
+    }
 }
 
 static GFile *
@@ -1161,9 +1162,10 @@ set_source_specific_config (GKeyFile *config,
                              g_variant_get_string (source_variant,
                                                    NULL));
       return;
-    }
 
-  g_assert_not_reached ();
+    default:
+      g_assert_not_reached ();
+    }
 }
 
 static GKeyFile *

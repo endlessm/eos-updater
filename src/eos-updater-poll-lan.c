@@ -317,10 +317,12 @@ time_check (LanData *lan_data,
     case DL_TIME_OUT_OF_RANGE:
       // TODO: message
       return SERVICE_INVALID;
+
+    default:
+      // TODO: message
+      g_assert_not_reached ();
+      return SERVICE_INVALID;
     }
-  // TODO: message
-  g_assert_not_reached ();
-  return SERVICE_INVALID;
 }
 
 static gboolean
