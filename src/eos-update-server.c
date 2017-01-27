@@ -387,7 +387,7 @@ main (int argc, char **argv)
   g_auto(Options) options = OPTIONS_CLEARED;
   g_autoptr(EosUpdaterRepoServer) server = NULL;
   g_auto(TimeoutData) data = TIMEOUT_DATA_CLEARED;
-  g_autoptr(OstreeRepo) repo;
+  g_autoptr(OstreeRepo) repo = NULL;
 
   if (!options_init (&options, &argc, &argv, &error))
     {
