@@ -109,7 +109,7 @@ generate_faked_config (OstreeRepo *repo,
 
   if (config == NULL)
     {
-      message ("Failed to copy repository config");
+      g_debug ("Failed to copy repository config");
       return FALSE;
     }
 
@@ -117,7 +117,7 @@ generate_faked_config (OstreeRepo *repo,
   raw = g_key_file_to_data (config, &len, error);
   if (raw == NULL)
     {
-      message ("Failed to get raw contents of modified repository config");
+      g_debug ("Failed to get raw contents of modified repository config");
       return FALSE;
     }
 
@@ -427,7 +427,7 @@ filez_read_data_finished_cb (SoupMessage *msg,
 {
   EosFilezReadData *read_data = EOS_FILEZ_READ_DATA (read_data_ptr);
 
-  message ("Downloading %s cancelled by client", read_data->filez_path);
+  g_debug ("Downloading %s cancelled by client", read_data->filez_path);
   eos_filez_read_data_disconnect_and_clear_msg (read_data);
 }
 
@@ -481,7 +481,7 @@ filez_stream_read_chunk_cb (GObject *stream_object,
   server = SOUP_SERVER (read_data->server);
   if (bytes_read < 0)
     {
-      message ("Failed to read the file %s: %s", read_data->filez_path, error->message);
+      g_debug ("Failed to read the file %s: %s", read_data->filez_path, error->message);
       soup_message_set_status (read_data->msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
       soup_message_body_complete (read_data->msg->response_body);
       soup_server_unpause_message (server, read_data->msg);
@@ -493,7 +493,7 @@ filez_stream_read_chunk_cb (GObject *stream_object,
       gsize buflen;
       GCancellable *cancellable;
 
-      message ("Read %" G_GSSIZE_FORMAT " bytes of the file %s", bytes_read, read_data->filez_path);
+      g_debug ("Read %" G_GSSIZE_FORMAT " bytes of the file %s", bytes_read, read_data->filez_path);
       soup_message_body_append (read_data->msg->response_body,
                                 SOUP_MEMORY_COPY,
                                 read_data->buffer,
@@ -512,7 +512,7 @@ filez_stream_read_chunk_cb (GObject *stream_object,
                                  g_steal_pointer (&read_data));
       return;
     }
-  message ("Finished reading file %s", read_data->filez_path);
+  g_debug ("Finished reading file %s", read_data->filez_path);
   soup_message_body_complete (read_data->msg->response_body);
   soup_server_unpause_message (server, read_data->msg);
 }
@@ -534,7 +534,7 @@ handle_objects_filez (EosUpdaterRepoServer *server,
                                       &error);
   if (checksum == NULL)
     {
-      message ("Failed to get checksum of the filez object %s: %s", requested_path, error->message);
+      g_debug ("Failed to get checksum of the filez object %s: %s", requested_path, error->message);
       soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
       return;
     }
@@ -547,12 +547,12 @@ handle_objects_filez (EosUpdaterRepoServer *server,
                                     &uncompressed_size,
                                     &error))
     {
-      message ("Failed to get stream to the filez object %s: %s", requested_path, error->message);
+      g_debug ("Failed to get stream to the filez object %s: %s", requested_path, error->message);
       soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
       return;
     }
 
-  message ("Sending %s", requested_path);
+  g_debug ("Sending %s", requested_path);
   soup_message_headers_set_encoding (msg->response_headers,
                                      SOUP_ENCODING_CHUNKED);
   soup_message_set_status (msg, SOUP_STATUS_OK);
@@ -629,7 +629,7 @@ serve_file_if_exists (SoupMessage *msg,
    * (for example, /etc/shadow)? */
   if (!g_file_has_prefix (path, root_path))
     {
-      message ("File ‘%s’ not within root ‘%s’", raw_path, root);
+      g_debug ("File ‘%s’ not within root ‘%s’", raw_path, root);
       *served = FALSE;
       return TRUE;
     }
@@ -643,12 +643,12 @@ serve_file_if_exists (SoupMessage *msg,
   mapping = g_mapped_file_new (raw_path, FALSE, &error);
   if (mapping == NULL)
     {
-      message ("Failed to map %s: %s", raw_path, error->message);
+      g_debug ("Failed to map %s: %s", raw_path, error->message);
       soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
       return FALSE;
     }
 
-  message ("Serving %s", raw_path);
+  g_debug ("Serving %s", raw_path);
   buffer = soup_buffer_new_with_owner (g_mapped_file_get_contents (mapping),
                                        g_mapped_file_get_length (mapping),
                                        g_mapped_file_ref (mapping),
@@ -673,7 +673,7 @@ serve_file (SoupMessage *msg,
 
   if (!served)
     {
-      message ("File %s not found", raw_path);
+      g_debug ("File %s not found", raw_path);
       soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
     }
 }
@@ -731,7 +731,7 @@ handle_refs_heads (EosUpdaterRepoServer *server,
 
   if (len <= prefix_len)
     {
-      message ("Invalid request for /refs/heads/");
+      g_debug ("Invalid request for /refs/heads/");
       soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
       return;
     }
@@ -766,7 +766,7 @@ handle_path (EosUpdaterRepoServer *server,
       return;
     }
 
-  message ("Requested %s", path);
+  g_debug ("Requested %s", path);
   if (strstr (path, "..") != NULL)
     {
       soup_message_set_status (msg, SOUP_STATUS_FORBIDDEN);
