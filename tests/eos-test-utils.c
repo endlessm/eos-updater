@@ -75,6 +75,10 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
   g_file_make_directory (fixture->gpg_home, NULL, &error);
   g_assert_no_error (error);
 
+  g_file_set_attribute_uint32 (fixture->gpg_home, G_FILE_ATTRIBUTE_UNIX_MODE,
+                               0700, G_FILE_QUERY_INFO_NONE, NULL, &error);
+  g_assert_no_error (error);
+
   for (i = 0; i < G_N_ELEMENTS (gpg_home_files); i++)
     {
       g_autofree gchar *source_path = NULL;
@@ -88,6 +92,10 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
       g_file_copy (source, destination,
                    G_FILE_COPY_NONE, NULL, NULL, NULL,
                    &error);
+      g_assert_no_error (error);
+
+      g_file_set_attribute_uint32 (destination, G_FILE_ATTRIBUTE_UNIX_MODE,
+                                   0600, G_FILE_QUERY_INFO_NONE, NULL, &error);
       g_assert_no_error (error);
     }
 }
