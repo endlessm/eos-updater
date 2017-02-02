@@ -254,7 +254,7 @@ eos_branch_file_save (EosBranchFile *branch_file,
   if (branch_file->raw_signature == NULL)
     {
       gint64 unix_time = g_date_time_to_unix (branch_file->download_time);
-      g_autoptr(GError) local_error;
+      g_autoptr(GError) local_error = NULL;
 
       if (unix_time < 0)
         {
