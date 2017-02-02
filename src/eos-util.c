@@ -244,7 +244,7 @@ eos_updater_create_extensions_dir (OstreeRepo *repo,
   return TRUE;
 }
 
-void
+static void
 eos_updater_set_state_changed (EosUpdater *updater, EosUpdaterState state)
 {
   eos_updater_set_state (updater, state);

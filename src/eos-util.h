@@ -69,9 +69,6 @@ gboolean eos_updater_create_extensions_dir (OstreeRepo *repo,
                                             GFile **dir,
                                             GError **error);
 
-void eos_updater_set_state_changed (EosUpdater *updater,
-                                    EosUpdaterState state);
-
 void eos_updater_set_error (EosUpdater *updater,
                             const GError *error);
 void eos_updater_clear_error (EosUpdater *updater,
