@@ -120,7 +120,7 @@ handle_poll_volume (EosUpdater            *updater,
         return TRUE;
     }
 
-  eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_POLLING);
+  eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
   task = g_task_new (updater, NULL, metadata_fetch_finished, user_data);
   g_task_set_task_data (task,
                         volume_metadata_fetch_data_new (user_data, call),

@@ -216,7 +216,7 @@ handle_apply (EosUpdater            *updater,
       return TRUE;
     }
 
-  eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_APPLYING_UPDATE);
+  eos_updater_clear_error (updater, EOS_UPDATER_STATE_APPLYING_UPDATE);
   task = g_task_new (updater, NULL, apply_finished, user_data);
   g_task_set_task_data (task, user_data, NULL);
   g_task_run_in_thread (task, apply);

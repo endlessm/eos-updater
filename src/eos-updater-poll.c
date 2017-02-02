@@ -321,7 +321,7 @@ handle_poll (EosUpdater            *updater,
         goto bail;
     }
 
-  eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_POLLING);
+  eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
   task = g_task_new (updater, NULL, metadata_fetch_finished, user_data);
   g_task_set_task_data (task, user_data, NULL);
   g_task_run_in_thread (task, metadata_fetch);

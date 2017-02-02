@@ -1461,7 +1461,7 @@ metadata_fetch_finished (GObject *object,
         }
     }
   else /* info == NULL means OnHold=true, nothing to do here */
-    eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_READY);
+    eos_updater_clear_error (updater, EOS_UPDATER_STATE_READY);
 
   if (error)
     {
