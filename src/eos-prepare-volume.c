@@ -23,6 +23,8 @@
 #include <glib.h>
 #include <locale.h>
 #include <ostree.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "eos-prepare-usb-update.h"
 
@@ -111,6 +113,14 @@ main (int argc,
     {
       return usage (context, quiet, "Failed to parse options: %s",
                     error->message);
+    }
+
+  /* We need to be root in order to read all the files in the OSTree repo
+   * (unless we’re running the unit tests). */
+  if (geteuid () != 0 &&
+      g_getenv ("EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK") == NULL)
+    {
+      return fail (quiet, "Must be run as root");
     }
 
   if (argc != 1 || remaining == NULL || g_strv_length (remaining) != 1)
