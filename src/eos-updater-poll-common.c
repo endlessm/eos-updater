@@ -89,6 +89,7 @@ is_checksum_an_update (OstreeRepo *repo,
   g_autoptr(GVariant) current_commit = NULL;
   g_autoptr(GVariant) update_commit = NULL;
   gboolean is_newer;
+  guint64 update_timestamp, current_timestamp;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (checksum != NULL, FALSE);
@@ -99,6 +100,8 @@ is_checksum_an_update (OstreeRepo *repo,
   if (cur == NULL)
     return FALSE;
 
+  g_debug ("%s: current: %s, update: %s", G_STRFUNC, cur, checksum);
+
   if (!ostree_repo_load_commit (repo, cur, &current_commit, NULL, error))
     return FALSE;
 
@@ -108,7 +111,14 @@ is_checksum_an_update (OstreeRepo *repo,
   /* Determine if the new commit is newer than the old commit to prevent
    * inadvertent (or malicious) attempts to downgrade the system.
    */
-  is_newer = ostree_commit_get_timestamp (update_commit) > ostree_commit_get_timestamp (current_commit);
+  update_timestamp = ostree_commit_get_timestamp (update_commit);
+  current_timestamp = ostree_commit_get_timestamp (current_commit);
+
+  g_debug ("%s: current_timestamp: %" G_GUINT64_FORMAT ", "
+           "update_timestamp: %" G_GUINT64_FORMAT,
+           G_STRFUNC, update_timestamp, current_timestamp);
+
+  is_newer = update_timestamp > current_timestamp;
   /* if we have a checksum for the remote upgrade candidate
    * and it's ≠ what we're currently booted into, advertise it as such.
    */
@@ -1213,6 +1223,58 @@ update_and_metrics_free (UpdateAndMetrics *uam)
   g_free (uam);
 }
 
+static gchar *
+update_and_metrics_to_string (UpdateAndMetrics *uam)
+{
+  g_autofree gchar *update_urls = NULL;
+  g_autofree gchar *update_part = NULL, *metrics_part = NULL;
+
+  if (uam->update != NULL)
+    {
+      if (uam->update->urls != NULL)
+        update_urls = g_strjoinv ("\n   ", uam->update->urls);
+      else
+        update_urls = g_strdup ("");
+
+      update_part = g_strdup_printf ("%s, %s, %s",
+                                     uam->update->checksum,
+                                     uam->update->refspec,
+                                     uam->update->original_refspec);
+    }
+  else
+    {
+      update_urls = g_strdup ("(no update URIs)");
+      update_part = g_strdup ("(no update info)");
+    }
+
+  if (uam->metrics != NULL)
+    {
+      g_autofree gchar *branch_file_download_time = NULL;
+
+      if (uam->metrics->branch_file != NULL)
+        branch_file_download_time = g_date_time_format (uam->metrics->branch_file->download_time,
+                                                        "%FT%T%Z");
+      else
+        branch_file_download_time = g_strdup ("(no branch file)");
+
+      metrics_part = g_strdup_printf ("%s, %s, %s, %u, %s",
+                                      uam->metrics->vendor,
+                                      uam->metrics->product,
+                                      uam->metrics->ref,
+                                      uam->metrics->on_hold,
+                                      branch_file_download_time);
+    }
+  else
+    {
+      metrics_part = g_strdup ("(no branch info)");
+    }
+
+  return g_strdup_printf ("%s, %s\n   %s",
+                          update_part,
+                          metrics_part,
+                          update_urls);
+}
+
 static UpdateAndMetrics *
 get_latest_uam (GArray *sources,
                 GHashTable *source_to_uam,
@@ -1225,12 +1287,18 @@ get_latest_uam (GArray *sources,
   GDateTime *latest_timestamp = NULL;
   gsize idx;
 
+  g_debug ("%s: with_updates: %u, source_to_uam mapping:",
+           G_STRFUNC, with_updates);
+
   g_hash_table_iter_init (&iter, source_to_uam);
   while (g_hash_table_iter_next (&iter, &name_ptr, &uam_ptr))
     {
       UpdateAndMetrics *uam = uam_ptr;
+      g_autofree gchar *uam_string = update_and_metrics_to_string (uam);
       EosBranchFile *branch_file = uam->metrics->branch_file;
       gint compare_value = 1;
+
+      g_debug ("%s: - %s: %s", G_STRFUNC, (const gchar *) name_ptr, uam_string);
 
       if (with_updates && uam->update == NULL)
         continue;
@@ -1249,6 +1317,8 @@ get_latest_uam (GArray *sources,
         g_hash_table_insert (latest, name_ptr, uam_ptr);
     }
 
+  g_debug ("%s: sources list:", G_STRFUNC);
+
   for (idx = 0; idx < sources->len; ++idx)
     {
       EosUpdaterDownloadSource source = g_array_index (sources,
@@ -1258,7 +1328,14 @@ get_latest_uam (GArray *sources,
       UpdateAndMetrics *uam = g_hash_table_lookup (latest, name);
 
       if (uam != NULL)
-        return uam;
+        {
+          g_debug ("%s: - %s (matched)", G_STRFUNC, name);
+          return uam;
+        }
+      else
+        {
+          g_debug ("%s: - %s", G_STRFUNC, name);
+        }
     }
 
   return NULL;
