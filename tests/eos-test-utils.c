@@ -1708,8 +1708,7 @@ generate_definition (GFile *client_root,
   g_autofree gchar *service_name = g_strdup_printf ("Test Update Server at %s",
                                                     basename);
   g_autofree gchar *domain_name = g_strdup_printf ("%s.local", basename);
-  g_autofree gchar *unix_utc_str = g_strdup_printf ("%" G_GINT64_FORMAT,
-                                                    g_date_time_to_unix (timestamp));
+  g_autofree gchar *unix_utc_str = g_date_time_format (timestamp, "%s");
   CmdEnvVar txt_records[] =
     {
       { "eos_txt_version", "2", NULL },
