@@ -23,6 +23,7 @@
  */
 
 #include "eos-updater-poll-main.h"
+#include "eos-updater-poll-volume.h"
 
 #include "eos-util.h"
 
