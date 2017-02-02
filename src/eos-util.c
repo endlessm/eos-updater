@@ -274,9 +274,10 @@ eos_updater_clear_error (EosUpdater *updater,
                          EosUpdaterState state)
 {
   if (eos_updater_get_error_code (updater) != 0)
-    message ("Clearing error state and changing to state %d", state);
+    message ("Clearing error state and changing to state %s",
+             eos_updater_state_to_string (state));
   else
-    message ("Changing to state %d", state);
+    message ("Changing to state %s", eos_updater_state_to_string (state));
 
   eos_updater_set_error_name (updater, "");
   eos_updater_set_error_code (updater, 0);
