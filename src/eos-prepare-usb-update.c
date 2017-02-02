@@ -126,7 +126,7 @@ ensure_coherency (OstreeRepo *repo,
                                            error))
     return FALSE;
 
-  if (!strv_contains (refs, refspec->ref))
+  if (refs == NULL || !strv_contains (refs, refspec->ref))
     {
       g_autofree gchar *raw_path = repo_get_raw_path (repo);
 
