@@ -22,7 +22,6 @@
 
 #pragma once
 
-#include "eos-branch-file.h"
 #include "eos-refcounted.h"
 
 #include <ostree.h>
@@ -76,7 +75,6 @@ struct _EosExtensions
 
   GBytes *summary;
   GBytes *summary_sig;
-  EosBranchFile *branch_file;
   GPtrArray *refs;
 };
 

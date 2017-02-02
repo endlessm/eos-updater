@@ -22,7 +22,6 @@
 
 #pragma once
 
-#include "eos-branch-file.h"
 #include "eos-extensions.h"
 
 #include <ostree.h>
@@ -34,7 +33,6 @@ typedef struct EosUpdaterData EosUpdaterData;
 struct EosUpdaterData
 {
   OstreeRepo *repo;
-  EosBranchFile *branch_file;
 
   /* fields below are meant to be shared between some update stages;
    * when adding a new one, document it.
@@ -52,7 +50,7 @@ struct EosUpdaterData
   gchar **overridden_urls;
 };
 
-#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL, NULL }
+#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL }
 
 gboolean eos_updater_data_init (EosUpdaterData *data,
                                 OstreeRepo *repo,

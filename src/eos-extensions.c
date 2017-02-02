@@ -207,7 +207,6 @@ eos_extensions_dispose_impl (EosExtensions *extensions)
 {
   g_clear_pointer (&extensions->summary, g_bytes_unref);
   g_clear_pointer (&extensions->summary_sig, g_bytes_unref);
-  g_clear_object (&extensions->branch_file);
   g_clear_pointer (&extensions->refs, g_ptr_array_unref);
 }
 
@@ -225,18 +224,6 @@ eos_extensions_new_empty (void)
   extensions->refs = object_array_new ();
 
   return extensions;
-}
-
-static gboolean
-get_branch_file (EosExtensions *extensions,
-                 OstreeRepo *repo,
-                 GCancellable *cancellable,
-                 GError **error)
-{
-  extensions->branch_file = eos_branch_file_new_from_repo (repo,
-                                                           cancellable,
-                                                           error);
-  return extensions->branch_file != NULL;
 }
 
 static gboolean
@@ -444,11 +431,6 @@ eos_extensions_new_from_repo (OstreeRepo *repo,
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   extensions = eos_extensions_new_empty ();
-  if (!get_branch_file (extensions,
-                        repo,
-                        cancellable,
-                        error))
-    return NULL;
 
   if (!gather_refs (extensions,
                     repo,
@@ -472,8 +454,6 @@ eos_extensions_save (EosExtensions *extensions,
                      GError **error)
 {
   g_autoptr(GFile) ext_path = NULL;
-  g_autoptr(GFile) branch_file_path = NULL;
-  g_autoptr(GFile) branch_file_sig_path = NULL;
   guint idx;
 
   g_return_val_if_fail (EOS_IS_EXTENSIONS (extensions), FALSE);
@@ -506,8 +486,5 @@ eos_extensions_save (EosExtensions *extensions,
         return FALSE;
     }
 
-  return eos_branch_file_save_to_repo (extensions->branch_file,
-                                       repo,
-                                       cancellable,
-                                       error);
+  return TRUE;
 }

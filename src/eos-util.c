@@ -433,62 +433,6 @@ eos_updater_queue_callback (GMainContext *context,
   return g_source_attach (source, context);
 }
 
-gboolean
-eos_updater_get_timestamp_from_branch_file_keyfile (GKeyFile *branch_file,
-                                                    GDateTime **out_timestamp,
-                                                    GError **error)
-{
-  gint64 unix_utc;
-  g_autoptr(GError) local_error = NULL;
-  g_autoptr(GDateTime) timestamp = NULL;
-
-  g_return_val_if_fail (branch_file != NULL, FALSE);
-  g_return_val_if_fail (out_timestamp != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  unix_utc = g_key_file_get_int64 (branch_file,
-                                   "main",
-                                   "UnixUTCTimestamp",
-                                   &local_error);
-  if (local_error != NULL)
-    {
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
-    }
-
-  timestamp = g_date_time_new_from_unix_utc (unix_utc);
-  if (timestamp == NULL)
-    {
-      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                           "Invalid branch file timestamp");
-      return FALSE;
-    }
-
-  if (out_timestamp != NULL)
-    *out_timestamp = g_steal_pointer (&timestamp);
-  return TRUE;
-}
-
-gboolean
-eos_updater_get_ostree_paths_from_branch_file_keyfile (GKeyFile *branch_file,
-                                                       gchar ***out_ostree_paths,
-                                                       GError **error)
-{
-  g_auto(GStrv) ostree_paths = NULL;
-
-  ostree_paths = g_key_file_get_string_list (branch_file,
-                                             "main",
-                                             "OstreePaths",
-                                             NULL,
-                                             error);
-  if (ostree_paths == NULL)
-    return FALSE;
-
-  if (out_ostree_paths != NULL)
-    *out_ostree_paths = g_steal_pointer (&ostree_paths);
-  return TRUE;
-}
-
 gchar *
 eos_updater_dup_envvar_or (const gchar *envvar,
                            const gchar *default_value)

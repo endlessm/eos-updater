@@ -22,7 +22,6 @@
 
 #pragma once
 
-#include "eos-branch-file.h"
 #include "eos-refcounted.h"
 
 #include <ostree.h>
@@ -63,14 +62,13 @@ eos_avahi_discoverer_new (GMainContext *context,
 
 gboolean
 eos_avahi_generate_service_file (OstreeRepo *repo,
-                                 EosBranchFile *branch_file,
+                                 GDateTime *head_commit_timestamp,
                                  GError **error);
 
 extern const gchar *const eos_avahi_v1_ostree_path;
-extern const gchar *const eos_avahi_v1_branch_file_dl_time;
-extern const gchar *const eos_avahi_v1_branch_file_sha512sum;
+extern const gchar *const eos_avahi_v1_head_commit_timestamp;
 
 extern const gchar *const eos_avahi_v2_ostree_path;
-extern const gchar *const eos_avahi_v2_branch_file_timestamp;
+extern const gchar *const eos_avahi_v2_head_commit_timestamp;
 
 G_END_DECLS

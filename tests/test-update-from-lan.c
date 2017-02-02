@@ -50,7 +50,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) cmds = NULL;
   g_autoptr(GPtrArray) cmds_to_free = NULL;
   gboolean has_commit;
-  g_autoptr(GDateTime) client_timestamp = NULL;
   DownloadSource lan_source = DOWNLOAD_LAN;
   g_autoptr(GVariant) lan_source_variant = NULL;
 
@@ -96,8 +95,8 @@ test_update_from_lan (EosUpdaterFixture *fixture,
 
       g_test_message ("Updating subserver %u", idx);
 
-      g_date_time_unref (subserver->branch_file_timestamp);
-      subserver->branch_file_timestamp = days_ago (lan_server_count - idx);
+      g_date_time_unref (subserver->head_commit_timestamp);
+      subserver->head_commit_timestamp = days_ago (lan_server_count - idx);
       g_hash_table_insert (subserver->ref_to_commit,
                            g_strdup (default_ref),
                            GUINT_TO_POINTER (1 + idx));
@@ -203,12 +202,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                               &error);
   g_assert_no_error (error);
   g_assert_true (has_commit);
-
-  eos_test_client_get_branch_file_timestamp (client,
-                                             &client_timestamp,
-                                             &error);
-  g_assert_no_error (error);
-  g_assert_cmpint (g_date_time_difference (client_timestamp, subserver->branch_file_timestamp), ==, 0);
 }
 
 int

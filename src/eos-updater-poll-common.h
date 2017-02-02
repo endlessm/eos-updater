@@ -24,7 +24,6 @@
 
 #include "eos-updater-data.h"
 
-#include "eos-branch-file.h"
 #include "eos-extensions.h"
 #include "eos-refcounted.h"
 
@@ -47,6 +46,7 @@ EOS_DECLARE_REFCOUNTED (EosMetricsInfo,
                         EOS,
                         METRICS_INFO)
 
+/* TODO: Drop this? */
 struct _EosMetricsInfo
 {
   GObject parent_instance;
@@ -54,8 +54,8 @@ struct _EosMetricsInfo
   gchar *vendor;
   gchar *product;
   gchar *ref;
-  gboolean on_hold;
-  EosBranchFile *branch_file;
+  gboolean on_hold;  /* TODO: drop this? */
+  GDateTime *head_commit_timestamp;  /* FIXME: needed? */
 };
 
 #define EOS_TYPE_UPDATE_INFO eos_update_info_get_type ()
@@ -110,8 +110,7 @@ typedef gboolean (*MetadataFetcher) (EosMetadataFetchData *fetch_data,
                                      EosMetricsInfo **metrics,
                                      GError **error);
 
-gboolean get_upgrade_info_from_branch_file (EosBranchFile *branch_file,
-                                            gchar **upgrade_refspec,
+gboolean get_upgrade_info_from_branch_file (gchar **upgrade_refspec,
                                             gchar **original_refspec,
                                             EosMetricsInfo **metrics,
                                             GError **error);
@@ -135,12 +134,6 @@ gboolean get_origin_refspec (OstreeDeployment *booted_deployment,
                              GError **error);
 
 GHashTable *get_hw_descriptors (void);
-
-gboolean check_branch_file_validity (OstreeRepo *repo,
-                                     EosBranchFile *cached_branch_file,
-                                     EosBranchFile *branch_file,
-                                     gboolean *out_valid,
-                                     GError **error);
 
 typedef enum
 {

@@ -600,61 +600,26 @@ txt_record (const gchar *key,
   return g_strdup_printf ("%s=%s", key, value);
 }
 
-static gboolean
-generate_v1_service_file (OstreeRepo *repo,
-                          EosBranchFile *branch_file,
-                          GFile *service_file,
-                          GError **error)
-{
-  g_autoptr(GPtrArray) txt_records = NULL;
-  g_autofree gchar *ostree_path = NULL;
-  g_autofree gchar *dl_time = NULL;
-
-  if (!eos_updater_get_ostree_path (repo, &ostree_path, error))
-    return FALSE;
-
-  txt_records = g_ptr_array_new_with_free_func (g_free);
-  dl_time = g_date_time_format (branch_file->download_time, "%s");
-
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_ostree_path,
-                                            ostree_path));
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_branch_file_dl_time,
-                                            dl_time));
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_branch_file_sha512sum,
-                                            branch_file->contents_sha512sum));
-
-  g_ptr_array_add (txt_records, NULL);
-  return generate_avahi_service_template_to_file (service_file,
-                                                  "1",
-                                                  (const gchar **)txt_records->pdata,
-                                                  error);
-}
-
+/* FIXME: Collapse the v1 and v2 formats. */
 static gboolean
 generate_v2_service_file (OstreeRepo *repo,
-                          EosBranchFile *branch_file,
+                          GDateTime *head_commit_timestamp,
                           GFile *service_file,
                           GError **error)
 {
   g_autoptr(GPtrArray) txt_records = NULL;
   g_autofree gchar *ostree_path = NULL;
-  g_autoptr(GDateTime) timestamp = NULL;
   g_autofree gchar *timestamp_str = NULL;
 
   if (!eos_updater_get_ostree_path (repo, &ostree_path, error))
     return FALSE;
 
-  if (!eos_updater_get_timestamp_from_branch_file_keyfile (branch_file->branch_file,
-                                                           &timestamp,
-                                                           error))
-    return FALSE;
-
-  timestamp_str = g_date_time_format (timestamp, "%s");
+  timestamp_str = g_date_time_format (head_commit_timestamp, "%s");
   txt_records = g_ptr_array_new_with_free_func (g_free);
 
   g_ptr_array_add (txt_records, txt_record (eos_avahi_v2_ostree_path,
                                             ostree_path));
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v2_branch_file_timestamp,
+  g_ptr_array_add (txt_records, txt_record (eos_avahi_v2_head_commit_timestamp,
                                             timestamp_str));
 
   g_ptr_array_add (txt_records, NULL);
@@ -673,7 +638,7 @@ get_avahi_services_dir (void)
 
 gboolean
 eos_avahi_generate_service_file (OstreeRepo *repo,
-                                 EosBranchFile *branch_file,
+                                 GDateTime *head_commit_timestamp,
                                  GError **error)
 {
   g_autoptr(GFile) service_file = NULL;
@@ -681,21 +646,17 @@ eos_avahi_generate_service_file (OstreeRepo *repo,
   g_autofree gchar *service_file_path = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
-  g_return_val_if_fail (EOS_IS_BRANCH_FILE (branch_file), FALSE);
+  g_return_val_if_fail (head_commit_timestamp != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   services_dir = get_avahi_services_dir ();
   service_file_path = g_build_filename (services_dir, "eos-updater.service", NULL);
   service_file = g_file_new_for_path (service_file_path);
 
-  if (branch_file->raw_signature != NULL)
-    return generate_v2_service_file (repo, branch_file, service_file, error);
-
-  return generate_v1_service_file (repo, branch_file, service_file, error);
+  return generate_v2_service_file (repo, head_commit_timestamp, service_file, error);
 }
 
 const gchar *const eos_avahi_v1_ostree_path = "eos_ostree_path";
-const gchar *const eos_avahi_v1_branch_file_dl_time = "eos_branch_file_dl_time";
-const gchar *const eos_avahi_v1_branch_file_sha512sum = "eos_branch_file_sha512sum";
+const gchar *const eos_avahi_v1_head_commit_timestamp = "eos_head_commit_timestamp";
 const gchar *const eos_avahi_v2_ostree_path = "eos_ostree_path";
-const gchar *const eos_avahi_v2_branch_file_timestamp = "eos_branch_file_timestamp";
+const gchar *const eos_avahi_v2_head_commit_timestamp = "eos_head_commit_timestamp";

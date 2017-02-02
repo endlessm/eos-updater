@@ -49,7 +49,6 @@ EXTRA_HFILES=
 # Header files or dirs to ignore when scanning. Use base file/dir names
 # e.g. IGNORE_HFILES=gtkdebug.h gtkintl.h private_code
 IGNORE_HFILES=\
-	eos-branch-file.h \
 	eos-updater-data.h \
 	eos-updater-poll.h \
 	eos-updater-poll-volume.h \

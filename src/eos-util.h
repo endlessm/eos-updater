@@ -94,14 +94,6 @@ guint eos_updater_queue_callback (GMainContext *context,
                                   gpointer user_data,
                                   const gchar *name);
 
-gboolean eos_updater_get_timestamp_from_branch_file_keyfile (GKeyFile *branch_file,
-                                                             GDateTime **out_timestamp,
-                                                             GError **error);
-
-gboolean eos_updater_get_ostree_paths_from_branch_file_keyfile (GKeyFile *branch_file,
-                                                                gchar ***out_ostree_paths,
-                                                                GError **error);
-
 gchar *eos_updater_dup_envvar_or (const gchar *envvar,
                                   const gchar *default_value);
 

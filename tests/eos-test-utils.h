@@ -88,7 +88,7 @@ struct _EosTestSubserver
   gchar *ostree_path;
   GPtrArray *devices;
   GHashTable *ref_to_commit;
-  GDateTime *branch_file_timestamp;
+  GDateTime *head_commit_timestamp;
 
   GFile *repo;
   GFile *tree;
@@ -132,7 +132,7 @@ EosTestServer *eos_test_server_new (GFile *server_root,
                                     GError **error);
 
 EosTestServer *eos_test_server_new_quick (GFile *server_root,
-                                          gint branch_file_from_days_ago,
+                                          gint head_commit_from_days_ago,
                                           const gchar *vendor,
                                           const gchar *product,
                                           gboolean on_hold,
@@ -216,10 +216,6 @@ gboolean eos_test_client_has_commit (EosTestClient *client,
                                      guint commit_no,
                                      gboolean *out_has_commit,
                                      GError **error);
-
-gboolean eos_test_client_get_branch_file_timestamp (EosTestClient *client,
-                                                    GDateTime **client_timestamp,
-                                                    GError **error);
 
 gboolean eos_test_client_prepare_volume (EosTestClient *client,
                                          GFile *volume_path,

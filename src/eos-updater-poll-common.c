@@ -38,10 +38,6 @@
 
 #include <string.h>
 
-static const gchar *const DEFAULT_GROUP = "Default";
-static const gchar *const OSTREE_REF_KEY = "OstreeRef";
-static const gchar *const ON_HOLD_KEY = "OnHold";
-
 static const gchar *const VENDOR_KEY = "sys_vendor";
 static const gchar *const PRODUCT_KEY = "product_name";
 static const gchar *const DT_COMPATIBLE = "/proc/device-tree/compatible";
@@ -246,75 +242,9 @@ cleanstr (gchar *s)
   return s;
 }
 
-static gboolean
-process_single_group (GKeyFile *bkf,
-                      const gchar *group_name,
-                      gboolean *out_on_hold,
-                      gchar **out_ref,
-                      GError **error)
-{
-  g_autoptr(GError) local_error = NULL;
-  g_autofree gchar *ref = NULL;
-  gboolean on_hold;
-
-  ref = g_key_file_get_string (bkf, group_name, OSTREE_REF_KEY, error);
-  if (ref == NULL)
-    return FALSE;
-
-  on_hold = g_key_file_get_boolean (bkf, group_name, ON_HOLD_KEY, &local_error);
-  /* The "OnHold" key is optional. */
-  if (local_error != NULL &&
-      !g_error_matches (local_error,
-                        G_KEY_FILE_ERROR,
-                        G_KEY_FILE_ERROR_KEY_NOT_FOUND))
-    {
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
-    }
-
-  *out_on_hold = on_hold;
-  *out_ref = g_steal_pointer (&ref);
-  return TRUE;
-}
-
-static gboolean
-process_branch_file (GKeyFile *bkf,
-                     const gchar *group_name,
-                     gboolean *out_on_hold,
-                     gchar **out_ref,
-                     GError **error)
-{
-  /* Check for product-specific entry */
-  if (g_key_file_has_group (bkf, group_name))
-    {
-      message ("Product-specific branch configuration found");
-      if (!process_single_group (bkf, group_name, out_on_hold, out_ref, error))
-        return FALSE;
-      if (*out_on_hold)
-        message ("Product is on hold, nothing to upgrade here");
-      return TRUE;
-    }
-  /* Check for a DEFAULT_GROUP entry */
-  if (g_key_file_has_group (bkf, DEFAULT_GROUP))
-    {
-      message ("No product-specific branch configuration found, following %s",
-               DEFAULT_GROUP);
-      if (!process_single_group (bkf, DEFAULT_GROUP, out_on_hold, out_ref, error))
-        return FALSE;
-      if (*out_on_hold)
-        message ("No product-specific configuration and %s is on hold, "
-                 "nothing to upgrade here", DEFAULT_GROUP);
-      return TRUE;
-    }
-
-  *out_on_hold = FALSE;
-  *out_ref = NULL;
-  return TRUE;
-}
-
+/* FIXME: Collapse this function. */
 gboolean
-get_upgrade_info_from_branch_file (EosBranchFile *branch_file,
-                                   gchar **upgrade_refspec,
+get_upgrade_info_from_branch_file (gchar **upgrade_refspec,
                                    gchar **original_refspec,
                                    EosMetricsInfo **metrics,
                                    GError **error)
@@ -326,11 +256,8 @@ get_upgrade_info_from_branch_file (EosBranchFile *branch_file,
   g_autoptr(GHashTable) hw_descriptors = NULL;
   g_autofree gchar *vendor = NULL;
   g_autofree gchar *product = NULL;
-  g_autofree gchar *product_group = NULL;
   g_autofree gchar *upgrade_ref = NULL;
-  gboolean on_hold = FALSE;
 
-  g_return_val_if_fail (EOS_IS_BRANCH_FILE (branch_file), FALSE);
   g_return_val_if_fail (upgrade_refspec != NULL, FALSE);
   g_return_val_if_fail (original_refspec != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -347,25 +274,11 @@ get_upgrade_info_from_branch_file (EosBranchFile *branch_file,
   vendor = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, VENDOR_KEY)));
   product = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, PRODUCT_KEY)));
 
-  product_group = g_strdup_printf ("%s %s", vendor, product);
-  if (!process_branch_file (branch_file->branch_file, product_group, &on_hold, &upgrade_ref, error))
-    return FALSE;
+  upgrade_ref = g_strdup (booted_ref);
 
-  if (on_hold)
-    upgrade_ref = g_strdup (booted_ref);
-  else
-    {
-      if (upgrade_ref == NULL)
-        {
-          message ("No product-specific branch configuration or %s found, "
-                   "following the origin file", DEFAULT_GROUP);
-          upgrade_ref = g_strdup (booted_ref);
-        }
-
-      message ("Using product branch %s", upgrade_ref);
-      *upgrade_refspec = g_strdup_printf ("%s:%s", booted_remote, upgrade_ref);
-      *original_refspec = g_strdup (booted_refspec);
-    }
+  message ("Using product branch %s", upgrade_ref);
+  *upgrade_refspec = g_strdup_printf ("%s:%s", booted_remote, upgrade_ref);
+  *original_refspec = g_strdup (booted_refspec);
 
   if (metrics != NULL)
     {
@@ -375,8 +288,7 @@ get_upgrade_info_from_branch_file (EosBranchFile *branch_file,
       info->vendor = g_steal_pointer (&vendor);
       info->product = g_steal_pointer (&product);
       info->ref = g_steal_pointer (&upgrade_ref);
-      info->on_hold = on_hold;
-      info->branch_file = g_object_ref (branch_file);
+      info->on_hold = FALSE;
       *metrics = g_steal_pointer (&info);
     }
 
@@ -1038,137 +950,6 @@ get_hw_descriptors (void)
   return hw_descriptors;
 }
 
-static gboolean
-get_timestamp_from_branch_file (EosBranchFile *branch_file,
-                                GDateTime **out_timestamp,
-                                GError **error)
-{
-  if (branch_file->raw_signature != NULL)
-    return eos_updater_get_timestamp_from_branch_file_keyfile (branch_file->branch_file,
-                                                               out_timestamp,
-                                                               error);
-
-  if (branch_file->download_time != NULL)
-    {
-      *out_timestamp = g_date_time_ref (branch_file->download_time);
-      return TRUE;
-    }
-
-  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                       "No timestamp found in the branch file");
-
-  return FALSE;
-}
-
-static gboolean
-timestamps_check (EosBranchFile *cached_branch_file,
-                  EosBranchFile *branch_file,
-                  gboolean *valid,
-                  GError **error)
-{
-  g_autoptr(GDateTime) cached_stamp = NULL;
-  g_autoptr(GDateTime) stamp = NULL;
-
-  if (!get_timestamp_from_branch_file (cached_branch_file,
-                                       &cached_stamp,
-                                       error))
-    return FALSE;
-
-  if (!get_timestamp_from_branch_file (branch_file,
-                                       &stamp,
-                                       NULL))
-    {
-      *valid = FALSE;
-      return TRUE;
-    }
-
-  *valid = (g_date_time_compare (stamp, cached_stamp) >= 0);
-  return TRUE;
-}
-
-static gboolean
-ostree_paths_check (OstreeRepo *repo,
-                    EosBranchFile *branch_file,
-                    gboolean *valid,
-                    GError **error)
-{
-  g_auto(GStrv) ostree_paths = NULL;
-  g_autofree gchar *ostree_path = NULL;
-
-  if (!eos_updater_get_ostree_paths_from_branch_file_keyfile (branch_file->branch_file,
-                                                              &ostree_paths,
-                                                              NULL))
-    {
-      *valid = FALSE;
-      return TRUE;
-    }
-
-  if (!eos_updater_get_ostree_path (repo,
-                                    &ostree_path,
-                                    error))
-    return FALSE;
-
-  *valid = g_strv_contains ((const gchar *const *)ostree_paths,
-                            ostree_path);
-  return TRUE;
-}
-
-gboolean
-check_branch_file_validity (OstreeRepo *repo,
-                            EosBranchFile *cached_branch_file,
-                            EosBranchFile *branch_file,
-                            gboolean *out_valid,
-                            GError **error)
-{
-  gboolean do_timestamps_check = TRUE;
-  gboolean do_ostree_paths_check = TRUE;
-  gboolean timestamps_valid = TRUE;
-  gboolean ostree_paths_valid = TRUE;
-
-  if (cached_branch_file->raw_signature != NULL &&
-      branch_file->raw_signature == NULL)
-    {
-      /* main server reverted to unsigned branch files? fishy.
-       */
-      *out_valid = FALSE;
-      return TRUE;
-    }
-
-  if (cached_branch_file->raw_signature == NULL &&
-      branch_file->raw_signature != NULL)
-    {
-      /* main server switched to signed branch files, skip timestamp
-       * comparison, but check if the field exists.
-       */
-      timestamps_valid = eos_updater_get_timestamp_from_branch_file_keyfile (branch_file->branch_file,
-                                                                             NULL,
-                                                                             error);
-      do_timestamps_check = FALSE;
-    }
-
-  if (branch_file->raw_signature == NULL)
-    /* old and unsigned branch file format, skip ostree paths check
-     */
-    do_ostree_paths_check = FALSE;
-
-  if (do_timestamps_check &&
-      !timestamps_check (cached_branch_file,
-                         branch_file,
-                         &timestamps_valid,
-                         error))
-    return FALSE;
-
-  if (do_ostree_paths_check &&
-      !ostree_paths_check (repo,
-                           branch_file,
-                           &ostree_paths_valid,
-                           error))
-    return FALSE;
-
-  *out_valid = timestamps_valid && ostree_paths_valid;
-  return TRUE;
-}
-
 static void
 maybe_send_metric (EosMetricsInfo *metrics)
 {
@@ -1249,20 +1030,20 @@ update_and_metrics_to_string (UpdateAndMetrics *uam)
 
   if (uam->metrics != NULL)
     {
-      g_autofree gchar *branch_file_download_time = NULL;
+      g_autofree gchar *head_commit_timestamp = NULL;
 
-      if (uam->metrics->branch_file != NULL)
-        branch_file_download_time = g_date_time_format (uam->metrics->branch_file->download_time,
-                                                        "%FT%T%Z");
+      if (uam->metrics->head_commit_timestamp != NULL)
+        head_commit_timestamp = g_date_time_format (uam->metrics->head_commit_timestamp,
+                                                    "%FT%T%Z");
       else
-        branch_file_download_time = g_strdup ("(no branch file)");
+        head_commit_timestamp = g_strdup ("(no head commit timestamp)");
 
       metrics_part = g_strdup_printf ("%s, %s, %s, %u, %s",
                                       uam->metrics->vendor,
                                       uam->metrics->product,
                                       uam->metrics->ref,
                                       uam->metrics->on_hold,
-                                      branch_file_download_time);
+                                      head_commit_timestamp);
     }
   else
     {
@@ -1295,7 +1076,6 @@ get_latest_uam (GArray *sources,
     {
       UpdateAndMetrics *uam = uam_ptr;
       g_autofree gchar *uam_string = update_and_metrics_to_string (uam);
-      EosBranchFile *branch_file = uam->metrics->branch_file;
       gint compare_value = 1;
 
       g_debug ("%s: - %s: %s", G_STRFUNC, (const gchar *) name_ptr, uam_string);
@@ -1304,11 +1084,11 @@ get_latest_uam (GArray *sources,
         continue;
 
       if (latest_timestamp != NULL)
-        compare_value = g_date_time_compare (branch_file->download_time,
+        compare_value = g_date_time_compare (uam->metrics->head_commit_timestamp,
                                              latest_timestamp);
       if (compare_value > 0)
         {
-          latest_timestamp = branch_file->download_time;
+          latest_timestamp = uam->metrics->head_commit_timestamp;
           g_hash_table_remove_all (latest);
           compare_value = 0;
         }

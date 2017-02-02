@@ -59,8 +59,6 @@ libeos_updater_util_la_SOURCES = \
 	eos-util.c \
 	eos-util.h \
 	eos-refcounted.h \
-	eos-branch-file.h \
-	eos-branch-file.c \
 	eos-extensions.c \
 	eos-extensions.h \
 	$(NULL)

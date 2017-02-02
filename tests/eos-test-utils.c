@@ -25,6 +25,7 @@
 #include "ostree-spawn.h"
 
 #include <errno.h>
+#include <ostree.h>
 #include <string.h>
 
 #ifndef GPG_BINARY
@@ -160,7 +161,7 @@ eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 {
   g_clear_pointer (&subserver->devices, g_ptr_array_unref);
   g_clear_pointer (&subserver->ref_to_commit, g_hash_table_unref);
-  g_clear_pointer (&subserver->branch_file_timestamp, g_date_time_unref);
+  g_clear_pointer (&subserver->head_commit_timestamp, g_date_time_unref);
   g_clear_object (&subserver->repo);
   g_clear_object (&subserver->tree);
   g_clear_object (&subserver->gpg_home);
@@ -196,7 +197,7 @@ eos_test_subserver_new (GFile *gpg_home,
   subserver->devices = g_ptr_array_ref (devices);
   subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
   if (timestamp != NULL)
-    subserver->branch_file_timestamp = g_date_time_ref (timestamp);
+    subserver->head_commit_timestamp = g_date_time_ref (timestamp);
 
   return subserver;
 }
@@ -571,72 +572,6 @@ update_commits (EosTestSubserver *subserver,
   return cmd_result_ensure_ok (&cmd, error);
 }
 
-static void
-get_branch_file_paths (GFile *repo,
-                       GFile **file,
-                       GFile **signature)
-{
-  g_autoptr(GFile) dir = get_eos_extensions_dir (repo);
-
-  *file = g_file_get_child (dir, "branch_file");
-  *signature = g_file_get_child (dir, "branch_file.sig");
-}
-
-static gboolean
-generate_branch_file (GFile *repo,
-                      GPtrArray *devices,
-                      GFile *gpg_home,
-                      const gchar *keyid,
-                      GDateTime *timestamp,
-                      const gchar *ostree_path,
-                      GError **error)
-{
-  g_autoptr(GKeyFile) branch_file = g_key_file_new ();
-  guint idx;
-  gint64 unix_time;
-  g_autoptr(GFile) ext_dir = NULL;
-  g_autoptr(GFile) branch_file_path = NULL;
-  g_autoptr(GFile) branch_file_sig_path = NULL;
-  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
-
-  for (idx = 0; idx < devices->len; ++idx)
-    {
-      EosTestDevice *device = EOS_TEST_DEVICE (g_ptr_array_index (devices, idx));
-      g_autofree gchar *group_name = g_strdup_printf ("%s %s",
-                                                      device->vendor,
-                                                      device->product);
-
-      g_assert_false (g_key_file_has_group (branch_file, group_name));
-      g_key_file_set_boolean (branch_file, group_name, "OnHold", device->on_hold);
-      g_key_file_set_string (branch_file, group_name, "OstreeRef", device->ref);
-    }
-
-  unix_time = g_date_time_to_unix (timestamp);
-  g_key_file_set_int64 (branch_file, "main", "UnixUTCTimestamp", unix_time);
-  g_key_file_set_string_list (branch_file, "main", "OstreePaths", &ostree_path, 1);
-
-  get_branch_file_paths (repo,
-                         &branch_file_path,
-                         &branch_file_sig_path);
-  ext_dir = g_file_get_parent (branch_file_path);
-
-  if (!create_directory (ext_dir, error))
-    return FALSE;
-
-  if (!save_key_file (branch_file_path, branch_file, error))
-    return FALSE;
-
-  if (!gpg_sign (gpg_home,
-                 branch_file_path,
-                 branch_file_sig_path,
-                 keyid,
-                 &cmd,
-                 error))
-    return FALSE;
-
-  return cmd_result_ensure_ok (&cmd, error);
-}
-
 static gboolean
 repo_config_exists (GFile *repo)
 {
@@ -650,7 +585,6 @@ eos_test_subserver_update (EosTestSubserver *subserver,
                            GError **error)
 {
   GFile *repo = subserver->repo;
-  g_autoptr(GDateTime) timestamp = NULL;
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   if (!create_directory (repo, error))
@@ -667,23 +601,7 @@ eos_test_subserver_update (EosTestSubserver *subserver,
         return FALSE;
     }
 
-  if (!update_commits (subserver, error))
-    return FALSE;
-
-  if (subserver->branch_file_timestamp != NULL)
-    timestamp = g_date_time_ref (subserver->branch_file_timestamp);
-  else
-    timestamp = g_date_time_new_now_utc ();
-  if (!generate_branch_file (repo,
-                             subserver->devices,
-                             subserver->gpg_home,
-                             subserver->keyid,
-                             timestamp,
-                             subserver->ostree_path,
-                             error))
-    return FALSE;
-
-  return TRUE;
+  return update_commits (subserver, error);
 }
 
 static void
@@ -839,7 +757,7 @@ eos_test_server_new (GFile *server_root,
 
 EosTestServer *
 eos_test_server_new_quick (GFile *server_root,
-                           gint branch_file_from_days_ago,
+                           gint head_commit_from_days_ago,
                            const gchar *vendor,
                            const gchar *product,
                            gboolean on_hold,
@@ -853,7 +771,7 @@ eos_test_server_new_quick (GFile *server_root,
   g_autoptr(GPtrArray) subservers = object_array_new ();
   g_autoptr(GPtrArray) devices = object_array_new ();
   g_autoptr(GHashTable) ref_to_commit = eos_test_subserver_ref_to_commit_new ();
-  g_autoptr(GDateTime) old_timestamp = days_ago (branch_file_from_days_ago);
+  g_autoptr(GDateTime) old_timestamp = days_ago (head_commit_from_days_ago);
 
   g_ptr_array_add (devices, eos_test_device_new (vendor, product, on_hold, ref));
   g_hash_table_insert (ref_to_commit, g_strdup (ref), GUINT_TO_POINTER (commit));
@@ -1048,30 +966,6 @@ copy_file_and_signature (GFile *source_file,
 }
 
 static gboolean
-copy_branch_file (GFile *source_repo,
-                  GFile *target_repo,
-                  GError **error)
-{
-  g_autoptr(GFile) source_branch_file = NULL;
-  g_autoptr(GFile) source_branch_file_sig = NULL;
-  g_autoptr(GFile) target_branch_file = NULL;
-  g_autoptr(GFile) target_branch_file_sig = NULL;
-
-  get_branch_file_paths (source_repo,
-                         &source_branch_file,
-                         &source_branch_file_sig);
-  get_branch_file_paths (target_repo,
-                         &target_branch_file,
-                         &target_branch_file_sig);
-
-  return copy_file_and_signature (source_branch_file,
-                                  source_branch_file_sig,
-                                  target_branch_file,
-                                  target_branch_file_sig,
-                                  error);
-}
-
-static gboolean
 copy_ref_file (GFile *source_repo,
                GFile *target_repo,
                const gchar *ref,
@@ -1107,8 +1001,6 @@ copy_extensions (GFile *source_repo,
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
 
-  if (!copy_branch_file (source_repo, repo, error))
-    return FALSE;
 
   if (!copy_ref_file (source_repo, repo, ref, error))
     return FALSE;
@@ -1759,46 +1651,36 @@ run_update_server (GFile *repo,
 }
 
 static gboolean
-get_branch_file_timestamp (GFile *repo,
+get_head_commit_timestamp (GFile *sysroot_path,
                            GDateTime **out_timestamp,
                            GError **error)
 {
-  g_autoptr(GFile) file = NULL;
-  g_autoptr(GFile) signature = NULL;
-  g_autoptr(GKeyFile) keyfile = NULL;
-  g_autoptr(GError) local_error = NULL;
-  g_autoptr(GDateTime) timestamp = NULL;
-  gint64 unix_utc;
+  g_autoptr(OstreeRepo) repo = NULL;
+  g_autoptr(OstreeSysroot) sysroot = NULL;
+  OstreeDeployment *deployment;
+  const gchar *checksum;
+  g_autoptr(GVariant) commit = NULL;
+  g_autoptr(GPtrArray) deployments = NULL;
 
-  get_branch_file_paths (repo,
-                         &file,
-                         &signature);
+  sysroot = ostree_sysroot_new (sysroot_path);
 
-  if (!load_key_file (file,
-                      &keyfile,
-                      error))
+  if (!ostree_sysroot_load (sysroot, NULL, error))
     return FALSE;
 
-  unix_utc = g_key_file_get_int64 (keyfile,
-                                   "main",
-                                   "UnixUTCTimestamp",
-                                   &local_error);
-  if (local_error != NULL)
-    {
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
-    }
+  deployments = ostree_sysroot_get_deployments (sysroot);
+  g_assert (deployments != NULL && deployments->len > 0);
 
-  timestamp = g_date_time_new_from_unix_utc (unix_utc);
-  if (timestamp == NULL)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "Invalid UnixUTCTimestamp %" G_GINT64_FORMAT,
-                   unix_utc);
-      return FALSE;
-    }
+  deployment = OSTREE_DEPLOYMENT (deployments->pdata[0]);
+  checksum = ostree_deployment_get_csum (deployment);
 
-  *out_timestamp = g_steal_pointer (&timestamp);
+  if (!ostree_sysroot_get_repo (sysroot, &repo, NULL, error))
+    return FALSE;
+
+  if (!ostree_repo_load_commit (repo, checksum, &commit, NULL, error))
+    return FALSE;
+
+  *out_timestamp = g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (commit));
+
   return TRUE;
 }
 
@@ -1818,7 +1700,7 @@ generate_definition (GFile *client_root,
   CmdEnvVar txt_records[] =
     {
       { "eos_txt_version", "2", NULL },
-      { "eos_branch_file_timestamp", unix_utc_str, NULL },
+      { "eos_head_commit_timestamp", unix_utc_str, NULL },
       { "eos_ostree_path", ostree_path, NULL },
       { NULL, NULL, NULL }
     };
@@ -1917,7 +1799,7 @@ eos_test_client_run_update_server (EosTestClient *client,
                           error))
     return FALSE;
 
-  if (!get_branch_file_timestamp (repo, &timestamp, error))
+  if (!get_head_commit_timestamp (sysroot, &timestamp, error))
     return FALSE;
 
   *out_avahi_definition = generate_definition (client->root,
@@ -2067,19 +1949,6 @@ eos_test_client_has_commit (EosTestClient *client,
 
   *out_result = FALSE;
   return TRUE;
-}
-
-gboolean
-eos_test_client_get_branch_file_timestamp (EosTestClient *client,
-                                           GDateTime **client_timestamp,
-                                           GError **error)
-{
-  g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
-  g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
-
-  return get_branch_file_timestamp (repo,
-                                    client_timestamp,
-                                    error);
 }
 
 gboolean

@@ -85,9 +85,7 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
   g_autoptr(OstreeRepo) volume_repo = NULL;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *orig_refspec = NULL;
-  g_autoptr(EosBranchFile) branch_file = NULL;
   g_autoptr(EosMetricsInfo) metrics = NULL;
-  gboolean valid;
   g_autofree gchar *raw_volume_path = NULL;
   g_autofree gchar *repo_url = NULL;
 
@@ -108,24 +106,7 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
                              error))
     return FALSE;
 
-  branch_file = eos_branch_file_new_from_repo (volume_repo,
-                                               cancellable,
-                                               error);
-  if (branch_file == NULL)
-    return FALSE;
-
-  if (!check_branch_file_validity (repo,
-                                   fetch_data->data->branch_file,
-                                   branch_file,
-                                   &valid,
-                                   error))
-    return FALSE;
-
-  if (!valid)
-    g_set_object (&branch_file, fetch_data->data->branch_file);
-
-  if (!get_upgrade_info_from_branch_file (branch_file,
-                                          &refspec,
+  if (!get_upgrade_info_from_branch_file (&refspec,
                                           &orig_refspec,
                                           &metrics,
                                           error))
@@ -156,7 +137,6 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
       if (!is_checksum_an_update (repo, checksum, &commit, error))
         return FALSE;
 
-      g_set_object (&extensions->branch_file, branch_file);
       if (commit != NULL)
         *out_info = eos_update_info_new (checksum,
                                          commit,
