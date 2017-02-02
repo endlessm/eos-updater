@@ -1199,6 +1199,11 @@ get_bash_script_contents (const gchar * const *argv,
     {
       g_autofree gchar *quoted = g_shell_quote (*iter);
 
+      /* We don’t need to propagate these, and they don’t get quoted
+       * properly. */
+      if (g_str_has_prefix (*iter, "BASH_FUNC_"))
+        continue;
+
       g_string_append_printf (contents, "export %s\n", quoted);
     }
 
