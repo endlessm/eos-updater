@@ -498,7 +498,7 @@ generate_ref_file (GFile *repo,
   g_autoptr(GFile) ref_file_sig = NULL;
   g_autoptr(GFile) ref_file_parent = NULL;
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
-  g_autoptr(GKeyFile) keyfile;
+  g_autoptr(GKeyFile) keyfile = NULL;
 
   get_ref_file_paths (repo,
                       ref,

@@ -33,7 +33,7 @@ rm_rf_internal (GFile *topdir,
   GQueue queue = G_QUEUE_INIT;
   GList *dir_stack = NULL;
   g_autoptr(GError) local_error = NULL;
-  g_autoptr(GFileInfo) top_info;
+  g_autoptr(GFileInfo) top_info = NULL;
 
   top_info = g_file_query_info (topdir,
                                 G_FILE_ATTRIBUTE_STANDARD_TYPE,
