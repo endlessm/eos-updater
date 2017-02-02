@@ -77,6 +77,8 @@ try_all_branch_file_sources (OstreeRepo *repo,
           continue;
         }
 
+      message ("Downloaded branch config data and signature from %s", uri);
+
       if (signature_contents == NULL)
         message ("No signature for the branch config data available");
       else
