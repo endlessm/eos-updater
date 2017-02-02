@@ -67,37 +67,37 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (CmdAsyncResult, cmd_async_result_clear)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (CmdAsyncResult, cmd_async_result_free)
 
 gboolean test_spawn_cwd_async (const gchar *cwd,
-                               gchar **argv,
-                               gchar **envp,
+                               const gchar * const *argv,
+                               const gchar * const *envp,
                                gboolean autoreap,
                                CmdAsyncResult *cmd,
                                GError **error);
 
-gboolean test_spawn_async (gchar **argv,
-                           gchar **envp,
+gboolean test_spawn_async (const gchar * const *argv,
+                           const gchar * const *envp,
                            gboolean autoreap,
                            CmdAsyncResult *cmd,
                            GError **error);
 
 gboolean test_spawn_cwd_full (const gchar *cwd,
-                              gchar **argv,
-                              gchar **envp,
+                              const gchar * const *argv,
+                              const gchar * const *envp,
                               gboolean to_dev_null,
                               CmdResult *cmd,
                               GError **error);
 
 gboolean test_spawn_cwd (const gchar *cwd,
-                         gchar **argv,
-                         gchar **envp,
+                         const gchar * const *argv,
+                         const gchar * const *envp,
                          CmdResult *cmd,
                          GError **error);
 
-gboolean test_spawn (gchar **argv,
-                     gchar **envp,
+gboolean test_spawn (const gchar * const *argv,
+                     const gchar * const *envp,
                      CmdResult *cmd,
                      GError **error);
 
-gchar **merge_parent_and_child_env (gchar **child_env);
+gchar **merge_parent_and_child_env (const gchar * const *child_env);
 
 static inline gchar *
 flag (const gchar *name,

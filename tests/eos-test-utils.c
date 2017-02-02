@@ -208,10 +208,10 @@ get_commit_filename (guint commit_no)
 }
 
 static gchar *
-get_sha256sum_from_strv (gchar **strv)
+get_sha256sum_from_strv (const gchar * const *strv)
 {
   g_autoptr(GChecksum) sum = g_checksum_new (G_CHECKSUM_SHA256);
-  gchar **iter;
+  const gchar * const *iter;
 
   for (iter = strv; *iter != NULL; ++iter)
     g_checksum_update (sum, (const guchar *)*iter, strlen (*iter));
@@ -223,10 +223,10 @@ static gchar *
 get_boot_checksum (const gchar *kernel_contents,
                    const gchar *initramfs_contents)
 {
-  gchar *contents[] =
+  const gchar *contents[] =
     {
-      (gchar *)kernel_contents,
-      (gchar *)initramfs_contents,
+      kernel_contents,
+      initramfs_contents,
       NULL
     };
 
@@ -483,7 +483,7 @@ gpg_sign (GFile *gpg_home,
   if (!rm_rf (signature, error))
     return FALSE;
 
-  return test_spawn (argv, NULL, cmd, error);
+  return test_spawn ((const gchar * const *) argv, NULL, cmd, error);
 }
 
 static gboolean
@@ -1268,17 +1268,17 @@ prepare_updater_dir (GFile *updater_dir,
 }
 
 static gchar *
-get_gdb_r_command (gchar **argv)
+get_gdb_r_command (const gchar * const *argv)
 {
-  g_autofree gchar *joined = g_strjoinv (" ", argv + 1);
+  g_autofree gchar *joined = g_strjoinv (" ", (gchar **) argv + 1);
   g_autofree gchar *r_command = g_strdup_printf ("r %s", joined);
 
   return g_shell_quote (r_command);
 }
 
 static GBytes *
-get_bash_script_contents (gchar **argv,
-                          gchar **envp)
+get_bash_script_contents (const gchar * const *argv,
+                          const gchar * const *envp)
 {
   const gchar *tmpl_prolog =
     "#!/usr/bin/bash\n"
@@ -1292,7 +1292,7 @@ get_bash_script_contents (gchar **argv,
   g_autofree gchar *gdb_r_command = get_gdb_r_command (argv);
   g_autofree gchar *quoted_binary = g_shell_quote (argv[0]);
   g_autoptr(GString) contents = g_string_new (NULL);
-  gchar **iter;
+  const gchar * const *iter;
 
   g_string_append (contents, tmpl_prolog);
   for (iter = envp; *iter != NULL; ++iter)
@@ -1319,7 +1319,7 @@ chmod_a_x (GFile *path,
 {
   CmdResult cmd = CMD_RESULT_CLEARED;
   g_autofree gchar *raw_path = g_file_get_path (path);
-  gchar *argv[] =
+  const gchar *argv[] =
     {
       "chmod",
       "a+x",
@@ -1327,7 +1327,7 @@ chmod_a_x (GFile *path,
       NULL
     };
 
-  if (!test_spawn (argv, NULL, &cmd, error))
+  if (!test_spawn ((const gchar * const *) argv, NULL, &cmd, error))
     return FALSE;
 
   return cmd_result_ensure_ok (&cmd, error);
@@ -1335,14 +1335,14 @@ chmod_a_x (GFile *path,
 
 static gboolean
 generate_bash_script (GFile *bash_script,
-                      gchar **argv,
-                      gchar **envp,
+                      const gchar * const *argv,
+                      const gchar * const *envp,
                       GError **error)
 {
   g_autoptr(GBytes) bash = NULL;
   g_auto(GStrv) merged = merge_parent_and_child_env (envp);
 
-  bash = get_bash_script_contents (argv, merged);
+  bash = get_bash_script_contents (argv, (const gchar * const *) merged);
   if (!create_file (bash_script, bash, error))
     return FALSE;
 
@@ -1403,7 +1403,7 @@ spawn_updater (GFile *sysroot,
       { "EOS_DISABLE_METRICS", "1", NULL },
       { NULL, NULL, NULL }
     };
-  gchar *argv[] =
+  const gchar *argv[] =
     {
       eos_updater_binary,
       NULL
@@ -1426,14 +1426,15 @@ spawn_updater (GFile *sysroot,
     {
       g_autoptr(GFile) path = g_file_new_for_path (bash_script_path);
 
-      if (!generate_bash_script (path, argv, envp, error))
+      if (!generate_bash_script (path, argv, (const gchar * const *) envp, error))
         return FALSE;
 
       g_printerr ("Bash script %s generated. Run it, make check will continue when com.endlessm.Updater appears on the test session bus\n",
                   bash_script_path);
 
     }
-  else if (!test_spawn_async (argv, envp, FALSE, cmd, error))
+  else if (!test_spawn_async ((const gchar * const *) argv,
+                              (const gchar * const *) envp, FALSE, cmd, error))
     return FALSE;
 
   g_main_loop_run (loop);
@@ -1734,14 +1735,16 @@ run_update_server (GFile *repo,
         return FALSE;
 
       bash_script = g_file_new_for_path (bash_script_path);
-      if (!generate_bash_script (bash_script, argv, envp, error))
+      if (!generate_bash_script (bash_script, (const gchar * const *) argv,
+                                 (const gchar * const *) envp, error))
         return FALSE;
 
       g_printerr ("Bash script %s generated. Run it, make check will continue when port file at %s is generated\n",
                   bash_script_path,
                   raw_port_file_path);
     }
-  else if (!test_spawn_async (argv, envp, FALSE, cmd, error))
+  else if (!test_spawn_async ((const gchar * const *) argv,
+                              (const gchar * const *) envp, FALSE, cmd, error))
     return FALSE;
 
   while (!g_file_query_exists (port_file, NULL))
@@ -2097,7 +2100,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
       { NULL, NULL, NULL }
     };
   g_autofree gchar *raw_volume_path = g_file_get_path (volume_path);
-  gchar *argv[] =
+  const gchar *argv[] =
     {
       eos_prepare_volume_binary,
       raw_volume_path,
@@ -2117,7 +2120,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
       g_autoptr(GFile) delete_me = NULL;
 
       bash_script = g_file_new_for_path (bash_script_path);
-      if (!generate_bash_script (bash_script, argv, envp, error))
+      if (!generate_bash_script (bash_script, argv, (const gchar * const *) envp, error))
         return FALSE;
 
       delete_me_path = g_strconcat (bash_script_path, ".deleteme", NULL);
@@ -2136,7 +2139,8 @@ eos_test_client_prepare_volume (EosTestClient *client,
     {
       g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
-      if (!test_spawn (argv, envp, &cmd, error))
+      if (!test_spawn ((const gchar * const *) argv,
+                       (const gchar * const *) envp, &cmd, error))
         return FALSE;
 
       if (!cmd_result_ensure_ok (&cmd, error))
@@ -2263,10 +2267,10 @@ spawn_autoupdater (GFile *stamps_dir,
                                                                     "eos-autoupdater",
                                                                     NULL);
   const gchar *force_update_flag = force_update ? "--force-update" : NULL;
-  gchar *argv[] =
+  const gchar *argv[] =
     {
       eos_autoupdater_binary,
-      (gchar *)force_update_flag,
+      force_update_flag,
       NULL
     };
   g_autofree gchar *dbus_timeout_value = get_dbus_timeout_value_for_autoupdater ();
@@ -2280,7 +2284,8 @@ spawn_autoupdater (GFile *stamps_dir,
     };
   g_auto(GStrv) envp = build_cmd_env (envv);
 
-  return test_spawn (argv, envp, cmd, error);
+  return test_spawn ((const gchar * const *) argv,
+                     (const gchar * const *) envp, cmd, error);
 }
 
 static gboolean

@@ -123,15 +123,15 @@ cmd_async_result_free (CmdAsyncResult *cmd)
 
 gboolean
 test_spawn_cwd_async (const gchar *cwd,
-                      gchar **argv,
-                      gchar **envp,
+                      const gchar * const *argv,
+                      const gchar * const *envp,
                       gboolean autoreap,
                       CmdAsyncResult *cmd,
                       GError **error)
 {
   GSpawnFlags flags = G_SPAWN_DEFAULT;
   g_auto(GStrv) merged_env = merge_parent_and_child_env (envp);
-  g_autofree gchar *argv_joined = g_strjoinv (" ", argv);
+  g_autofree gchar *argv_joined = g_strjoinv (" ", (gchar **) argv);
   g_autofree gchar *envp_joined = g_strjoinv ("\n - ", merged_env);
 
   if (!autoreap && cmd != NULL)
@@ -150,7 +150,7 @@ test_spawn_cwd_async (const gchar *cwd,
 
       cmd->cmdline = g_strdup (argv_joined);
       if (!g_spawn_async_with_pipes (cwd,
-                                     argv,
+                                     (gchar **) argv,
                                      merged_env,
                                      flags,
                                      NULL,
@@ -170,7 +170,7 @@ test_spawn_cwd_async (const gchar *cwd,
     }
 
   return g_spawn_async_with_pipes (cwd,
-                                   argv,
+                                   (gchar **) argv,
                                    merged_env,
                                    flags,
                                    NULL,
@@ -183,8 +183,8 @@ test_spawn_cwd_async (const gchar *cwd,
 }
 
 gboolean
-test_spawn_async (gchar **argv,
-                  gchar **envp,
+test_spawn_async (const gchar * const *argv,
+                  const gchar * const *envp,
                   gboolean autoreap,
                   CmdAsyncResult *cmd,
                   GError **error)
@@ -199,15 +199,15 @@ test_spawn_async (gchar **argv,
 
 gboolean
 test_spawn_cwd_full (const gchar *cwd,
-                     gchar **argv,
-                     gchar **envp,
+                     const gchar * const *argv,
+                     const gchar * const *envp,
                      gboolean to_dev_null,
                      CmdResult *cmd,
                      GError **error)
 {
   GSpawnFlags flags = G_SPAWN_DEFAULT;
   g_auto(GStrv) merged_env = merge_parent_and_child_env (envp);
-  g_autofree gchar *argv_joined = g_strjoinv (" ", argv);
+  g_autofree gchar *argv_joined = g_strjoinv (" ", (gchar **) argv);
   g_autofree gchar *envp_joined = g_strjoinv ("\n - ", merged_env);
   gchar **out = NULL;
   gchar **err = NULL;
@@ -216,7 +216,7 @@ test_spawn_cwd_full (const gchar *cwd,
   if (cmd != NULL)
     {
       status = &cmd->exit_status;
-      cmd->cmdline = g_strjoinv (" ", argv);
+      cmd->cmdline = g_strjoinv (" ", (gchar **) argv);
     }
 
   if (cmd != NULL && !to_dev_null)
@@ -237,7 +237,7 @@ test_spawn_cwd_full (const gchar *cwd,
                   envp_joined);
 
   return g_spawn_sync (cwd,
-                       argv,
+                       (gchar **) argv,
                        merged_env,
                        flags,
                        NULL,
@@ -250,8 +250,8 @@ test_spawn_cwd_full (const gchar *cwd,
 
 gboolean
 test_spawn_cwd (const gchar *cwd,
-                gchar **argv,
-                gchar **envp,
+                const gchar * const *argv,
+                const gchar * const *envp,
                 CmdResult *cmd,
                 GError **error)
 {
@@ -264,8 +264,8 @@ test_spawn_cwd (const gchar *cwd,
 }
 
 gboolean
-test_spawn (gchar **argv,
-            gchar **envp,
+test_spawn (const gchar * const *argv,
+            const gchar * const *envp,
             CmdResult *cmd,
             GError **error)
 {
@@ -277,11 +277,11 @@ test_spawn (gchar **argv,
 }
 
 static void
-env_to_hash_table (gchar **envp,
+env_to_hash_table (const gchar * const *envp,
                    GHashTable *hash_table,
                    const gchar *desc)
 {
-  gchar **iter;
+  const gchar * const *iter;
 
   for (iter = envp; *iter != NULL; ++iter)
     {
@@ -313,7 +313,7 @@ hash_table_to_env (GHashTable *hash_table)
 }
 
 gchar **
-merge_parent_and_child_env (gchar **child_env)
+merge_parent_and_child_env (const gchar * const *child_env)
 {
   g_auto(GStrv) parent = g_get_environ ();
   g_autoptr(GHashTable) henv = NULL;
@@ -322,7 +322,7 @@ merge_parent_and_child_env (gchar **child_env)
     return g_steal_pointer (&parent);
 
   henv = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
-  env_to_hash_table (parent, henv, "parent");
+  env_to_hash_table ((const gchar * const *) parent, henv, "parent");
   env_to_hash_table (child_env, henv, "child");
 
   return hash_table_to_env (henv);

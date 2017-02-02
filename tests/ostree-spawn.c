@@ -29,10 +29,10 @@
 #endif
 
 static void
-copy_strv_to_ptr_array (gchar **strv,
+copy_strv_to_ptr_array (const gchar * const *strv,
                         GPtrArray *array)
 {
-  gchar **iter;
+  const gchar * const *iter;
 
   if (strv != NULL)
     for (iter = strv; *iter != NULL; ++iter)
@@ -42,7 +42,7 @@ copy_strv_to_ptr_array (gchar **strv,
 
 static gboolean
 spawn_ostree_in_repo (GFile *repo,
-                      gchar **args,
+                      const gchar * const *args,
                       CmdResult *cmd,
                       GError **error)
 {
@@ -53,7 +53,7 @@ spawn_ostree_in_repo (GFile *repo,
   g_ptr_array_add (argv, flag ("repo", raw_repo_path));
   copy_strv_to_ptr_array (args, argv);
 
-  return test_spawn ((gchar **)argv->pdata, NULL, cmd, error);
+  return test_spawn ((const gchar * const *) argv->pdata, NULL, cmd, error);
 }
 
 static gboolean
@@ -65,7 +65,7 @@ spawn_ostree_in_repo_args (GFile *repo,
   g_auto(GStrv) raw_args = build_cmd_args (args);
 
   return spawn_ostree_in_repo (repo,
-                               raw_args,
+                               (const gchar * const *) raw_args,
                                cmd,
                                error);
 }
@@ -167,11 +167,11 @@ ostree_pull (GFile *repo,
              CmdResult *cmd,
              GError **error)
 {
-  gchar *args[] =
+  const gchar *args[] =
     {
       "pull",
-      (gchar *)remote_name,
-      (gchar *)ref,
+      remote_name,
+      ref,
       NULL
     };
 
@@ -211,7 +211,7 @@ ostree_remote_add (GFile *repo,
 static gboolean
 ostree_admin_spawn_in_sysroot (GFile *sysroot,
                                const gchar *admin_subcommand,
-                               gchar **args,
+                               const gchar * const *args,
                                CmdResult *cmd,
                                GError **error)
 {
@@ -224,7 +224,7 @@ ostree_admin_spawn_in_sysroot (GFile *sysroot,
   g_ptr_array_add (argv, flag ("sysroot", raw_sysroot_path));
   copy_strv_to_ptr_array (args, argv);
 
-  return test_spawn ((gchar**)argv->pdata, NULL, cmd, error);
+  return test_spawn ((const gchar * const *) argv->pdata, NULL, cmd, error);
 }
 
 static gboolean
@@ -236,7 +236,9 @@ ostree_admin_spawn_in_sysroot_args (GFile *sysroot,
 {
   g_auto(GStrv) raw_args = build_cmd_args (args);
 
-  return ostree_admin_spawn_in_sysroot (sysroot, admin_subcommand, raw_args, cmd, error);
+  return ostree_admin_spawn_in_sysroot (sysroot, admin_subcommand,
+                                        (const gchar * const *) raw_args,
+                                        cmd, error);
 }
 
 gboolean
@@ -267,9 +269,9 @@ ostree_init_fs (GFile *sysroot,
                 GError **error)
 {
   g_autofree gchar *raw_sysroot_path = g_file_get_path (sysroot);
-  gchar *args[] =
+  const gchar *args[] =
     {
-      (gchar *)raw_sysroot_path,
+      raw_sysroot_path,
       NULL
     };
 
@@ -286,9 +288,9 @@ ostree_os_init (GFile *sysroot,
                 CmdResult *cmd,
                 GError **error)
 {
-  gchar *args[] =
+  const gchar *args[] =
     {
-      (gchar *)remote_name,
+      remote_name,
       NULL
     };
 
@@ -332,7 +334,7 @@ ostree_httpd (GFile *served_dir,
   g_auto(GStrv) argv = build_cmd_args (args);
 
   if (!test_spawn_cwd_full (NULL,
-                            argv,
+                            (const gchar * const *) argv,
                             NULL,
                             TRUE,
                             cmd,
