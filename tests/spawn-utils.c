@@ -96,7 +96,7 @@ cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
 gchar *
 cmd_result_dump (CmdResult *cmd)
 {
-  return g_strdup_printf ("Output from %s (exit status: %d):\nStandard output:\n\n%s\n\nStandard error:\n\n%s\n\n",
+  return g_strdup_printf ("Output from %s (exit status: %d):\nstdout:\n\n%s\n\nstderr:\n\n%s\n\n",
                           cmd->cmdline,
                           cmd->exit_status,
                           cmd->standard_output,
