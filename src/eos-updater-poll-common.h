@@ -54,7 +54,6 @@ struct _EosMetricsInfo
   gchar *vendor;
   gchar *product;
   gchar *ref;
-  GDateTime *head_commit_timestamp;  /* FIXME: needed? */
 };
 
 #define EOS_TYPE_UPDATE_INFO eos_update_info_get_type ()
@@ -82,6 +81,9 @@ eos_update_info_new (const gchar *csum,
                      const gchar *original_refspec,
                      const gchar * const *urls,
                      EosExtensions *extensions);
+
+GDateTime *
+eos_update_info_get_commit_timestamp (EosUpdateInfo *info);
 
 #define EOS_TYPE_METADATA_FETCH_DATA eos_metadata_fetch_data_get_type ()
 EOS_DECLARE_REFCOUNTED (EosMetadataFetchData,

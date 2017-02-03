@@ -186,6 +186,14 @@ eos_update_info_new (const gchar *checksum,
   return info;
 }
 
+GDateTime *
+eos_update_info_get_commit_timestamp (EosUpdateInfo *info)
+{
+  g_return_val_if_fail (EOS_IS_UPDATE_INFO (info), NULL);
+
+  return g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (info->commit));
+}
+
 static void
 eos_metadata_fetch_data_dispose_impl (EosMetadataFetchData *fetch_data)
 {
@@ -1011,15 +1019,22 @@ update_and_metrics_to_string (UpdateAndMetrics *uam)
 
   if (uam->update != NULL)
     {
+      g_autoptr(GDateTime) timestamp = NULL;
+      g_autofree gchar *timestamp_str = NULL;
+
       if (uam->update->urls != NULL)
         update_urls = g_strjoinv ("\n   ", uam->update->urls);
       else
         update_urls = g_strdup ("");
 
-      update_part = g_strdup_printf ("%s, %s, %s",
+      timestamp = eos_update_info_get_commit_timestamp (uam->update);
+      timestamp_str = g_date_time_format (timestamp, "%FT%T%:z");
+
+      update_part = g_strdup_printf ("%s, %s, %s, %s",
                                      uam->update->checksum,
                                      uam->update->refspec,
-                                     uam->update->original_refspec);
+                                     uam->update->original_refspec,
+                                     timestamp_str);
     }
   else
     {
@@ -1029,19 +1044,10 @@ update_and_metrics_to_string (UpdateAndMetrics *uam)
 
   if (uam->metrics != NULL)
     {
-      g_autofree gchar *head_commit_timestamp = NULL;
-
-      if (uam->metrics->head_commit_timestamp != NULL)
-        head_commit_timestamp = g_date_time_format (uam->metrics->head_commit_timestamp,
-                                                    "%FT%T%Z");
-      else
-        head_commit_timestamp = g_strdup ("(no head commit timestamp)");
-
-      metrics_part = g_strdup_printf ("%s, %s, %s, %s",
+      metrics_part = g_strdup_printf ("%s, %s, %s",
                                       uam->metrics->vendor,
                                       uam->metrics->product,
-                                      uam->metrics->ref,
-                                      head_commit_timestamp);
+                                      uam->metrics->ref);
     }
   else
     {
@@ -1063,7 +1069,7 @@ get_latest_uam (GArray *sources,
   GHashTableIter iter;
   gpointer name_ptr;
   gpointer uam_ptr;
-  GDateTime *latest_timestamp = NULL;
+  g_autoptr(GDateTime) latest_timestamp = NULL;
   gsize idx;
 
   g_debug ("%s: with_updates: %u, source_to_uam mapping:",
@@ -1075,18 +1081,22 @@ get_latest_uam (GArray *sources,
       UpdateAndMetrics *uam = uam_ptr;
       g_autofree gchar *uam_string = update_and_metrics_to_string (uam);
       gint compare_value = 1;
+      g_autoptr(GDateTime) update_timestamp = NULL;
 
       g_debug ("%s: - %s: %s", G_STRFUNC, (const gchar *) name_ptr, uam_string);
 
       if (with_updates && uam->update == NULL)
         continue;
 
+      update_timestamp = eos_update_info_get_commit_timestamp (uam->update);
+
       if (latest_timestamp != NULL)
-        compare_value = g_date_time_compare (uam->metrics->head_commit_timestamp,
+        compare_value = g_date_time_compare (update_timestamp,
                                              latest_timestamp);
       if (compare_value > 0)
         {
-          latest_timestamp = uam->metrics->head_commit_timestamp;
+          g_clear_pointer (&latest_timestamp, g_date_time_unref);
+          latest_timestamp = g_date_time_ref (update_timestamp);
           g_hash_table_remove_all (latest);
           compare_value = 0;
         }
