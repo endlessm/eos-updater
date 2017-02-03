@@ -75,13 +75,6 @@
 - branch files are remote specific so they should be checked against a
   remote specific key
 
-- test if branch files are preferred from the servers with signed
-  branch data over the unsigned ones. Basically means to prefer v2 of
-  the txt protocol over v1.
-
-  - or simply drop the possibility of having the unsigned branch file,
-    that would simplify the code
-
 - add valgrind support in tests
 
 - add some sanity tests to check if setting up the server and clients

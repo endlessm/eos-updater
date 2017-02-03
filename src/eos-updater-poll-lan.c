@@ -309,7 +309,6 @@ time_check (LanData *lan_data,
     }
 }
 
-/* FIXME: Squash the v1 and v2 formats. */
 static gboolean
 txt_v1_handler_checks (LanData *lan_data,
                        EosServiceWithBranchFile *swbf,
@@ -351,47 +350,6 @@ txt_v1_handler (LanData *lan_data,
   return TRUE;
 }
 
-static gboolean
-txt_v2_handler_checks (LanData *lan_data,
-                       EosServiceWithBranchFile *swbf,
-                       GHashTable *records)
-{
-  const gchar *ostree_path = g_hash_table_lookup (records,
-                                                  eos_avahi_v2_ostree_path);
-  const gchar *dl_time;
-
-  if (!check_ostree_path (lan_data, ostree_path))
-    return FALSE;
-
-  dl_time = g_hash_table_lookup (records, eos_avahi_v2_head_commit_timestamp);
-
-  return time_check (lan_data, swbf, dl_time) != SERVICE_INVALID;
-}
-
-static gboolean
-txt_v2_handler (LanData *lan_data,
-                EosServiceWithBranchFile *swbf,
-                gboolean *valid,
-                GError **error)
-{
-  g_autoptr(GHashTable) records = NULL;
-  TxtRecordError txt_error = get_unique_txt_records (swbf->service->txt,
-                                                     &records,
-                                                     eos_avahi_v2_ostree_path,
-                                                     eos_avahi_v2_head_commit_timestamp,
-                                                     NULL);
-  if (txt_error != TXT_RECORD_OK)
-    {
-      // TODO: message
-      *valid = FALSE;
-      return TRUE;
-    }
-  *valid = txt_v2_handler_checks (lan_data,
-                                  swbf,
-                                  records);
-  return TRUE;
-}
-
 static ServiceCheck
 get_txt_handler (const gchar *txt_version)
 {
@@ -406,8 +364,6 @@ get_txt_handler (const gchar *txt_version)
 
   if (v == 1 && *end == '\0')
     return txt_v1_handler;
-  if (v == 2 && *end == '\0')
-    return txt_v2_handler;
 
   return NULL;
 }

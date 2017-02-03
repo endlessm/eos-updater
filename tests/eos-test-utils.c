@@ -1711,7 +1711,7 @@ generate_definition (GFile *client_root,
   g_autofree gchar *unix_utc_str = g_date_time_format (timestamp, "%s");
   CmdEnvVar txt_records[] =
     {
-      { "eos_txt_version", "2", NULL },
+      { "eos_txt_version", "1", NULL },
       { "eos_head_commit_timestamp", unix_utc_str, NULL },
       { "eos_ostree_path", ostree_path, NULL },
       { NULL, NULL, NULL }

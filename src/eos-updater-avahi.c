@@ -600,9 +600,8 @@ txt_record (const gchar *key,
   return g_strdup_printf ("%s=%s", key, value);
 }
 
-/* FIXME: Collapse the v1 and v2 formats. */
 static gboolean
-generate_v2_service_file (OstreeRepo *repo,
+generate_v1_service_file (OstreeRepo *repo,
                           GDateTime *head_commit_timestamp,
                           GFile *service_file,
                           GError **error)
@@ -617,14 +616,14 @@ generate_v2_service_file (OstreeRepo *repo,
   timestamp_str = g_date_time_format (head_commit_timestamp, "%s");
   txt_records = g_ptr_array_new_with_free_func (g_free);
 
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v2_ostree_path,
+  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_ostree_path,
                                             ostree_path));
-  g_ptr_array_add (txt_records, txt_record (eos_avahi_v2_head_commit_timestamp,
+  g_ptr_array_add (txt_records, txt_record (eos_avahi_v1_head_commit_timestamp,
                                             timestamp_str));
 
   g_ptr_array_add (txt_records, NULL);
   return generate_avahi_service_template_to_file (service_file,
-                                                  "2",
+                                                  "1",
                                                   (const gchar **)txt_records->pdata,
                                                   error);
 }
@@ -653,10 +652,8 @@ eos_avahi_generate_service_file (OstreeRepo *repo,
   service_file_path = g_build_filename (services_dir, "eos-updater.service", NULL);
   service_file = g_file_new_for_path (service_file_path);
 
-  return generate_v2_service_file (repo, head_commit_timestamp, service_file, error);
+  return generate_v1_service_file (repo, head_commit_timestamp, service_file, error);
 }
 
 const gchar *const eos_avahi_v1_ostree_path = "eos_ostree_path";
 const gchar *const eos_avahi_v1_head_commit_timestamp = "eos_head_commit_timestamp";
-const gchar *const eos_avahi_v2_ostree_path = "eos_ostree_path";
-const gchar *const eos_avahi_v2_head_commit_timestamp = "eos_head_commit_timestamp";

@@ -68,7 +68,4 @@ eos_avahi_generate_service_file (OstreeRepo *repo,
 extern const gchar *const eos_avahi_v1_ostree_path;
 extern const gchar *const eos_avahi_v1_head_commit_timestamp;
 
-extern const gchar *const eos_avahi_v2_ostree_path;
-extern const gchar *const eos_avahi_v2_head_commit_timestamp;
-
 G_END_DECLS
