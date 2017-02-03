@@ -412,7 +412,6 @@ get_update_info_from_swbfs (LanData *lan_data,
 {
   guint idx;
   g_autofree gchar *refspec = NULL;
-  g_autofree gchar *original_refspec = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
   g_autofree gchar *latest_checksum = NULL;
@@ -423,12 +422,7 @@ get_update_info_from_swbfs (LanData *lan_data,
   g_autoptr(EosExtensions) latest_extensions = NULL;
   OstreeRepo *repo = lan_data->fetch_data->data->repo;
 
-  if (!get_upgrade_info_from_branch_file (&refspec,
-                                          &original_refspec,
-                                          error))
-    return FALSE;
-
-  if (!ostree_parse_refspec (refspec, &remote, &ref, error))
+  if (!get_booted_refspec (&refspec, &remote, &ref, error))
     return FALSE;
 
   swbfs_with_latest_commit = object_array_new ();
@@ -544,8 +538,8 @@ get_update_info_from_swbfs (LanData *lan_data,
     {
       *out_info = eos_update_info_new (latest_checksum,
                                        latest_commit,
-                                       refspec,
-                                       original_refspec,
+                                       refspec,  /* for upgrade */
+                                       refspec,  /* original */
                                        (const gchar * const *)g_ptr_array_free (g_steal_pointer (&urls),
                                                                                 FALSE),
                                        latest_extensions);

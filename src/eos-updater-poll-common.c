@@ -266,32 +266,35 @@ eos_metrics_info_new (const gchar *booted_ref)
   return g_steal_pointer (&info);
 }
 
-/* FIXME: Collapse this function. */
 gboolean
-get_upgrade_info_from_branch_file (gchar **upgrade_refspec,
-                                   gchar **original_refspec,
-                                   GError **error)
+get_booted_refspec (gchar **booted_refspec,
+                    gchar **booted_remote,
+                    gchar **booted_ref,
+                    GError **error)
 {
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
-  g_autofree gchar *booted_refspec = NULL;
-  g_autofree gchar *booted_remote = NULL;
-  g_autofree gchar *booted_ref = NULL;
+  g_autofree gchar *refspec = NULL;
+  g_autofree gchar *remote = NULL;
+  g_autofree gchar *ref = NULL;
 
-  g_return_val_if_fail (upgrade_refspec != NULL, FALSE);
-  g_return_val_if_fail (original_refspec != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   booted_deployment = eos_updater_get_booted_deployment (error);
 
-  if (!get_origin_refspec (booted_deployment, &booted_refspec, error))
+  if (!get_origin_refspec (booted_deployment, &refspec, error))
     return FALSE;
 
-  if (!ostree_parse_refspec (booted_refspec, &booted_remote, &booted_ref, error))
+  if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
 
-  message ("Using product branch %s", booted_ref);
-  *upgrade_refspec = g_strdup (booted_refspec);
-  *original_refspec = g_strdup (booted_refspec);
+  message ("Using product branch %s", ref);
+
+  if (booted_refspec != NULL)
+    *booted_refspec = g_steal_pointer (&refspec);
+  if (booted_remote != NULL)
+    *booted_remote = g_steal_pointer (&remote);
+  if (booted_ref != NULL)
+    *booted_ref = g_steal_pointer (&ref);
 
   return TRUE;
 }
