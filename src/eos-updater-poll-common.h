@@ -46,7 +46,6 @@ EOS_DECLARE_REFCOUNTED (EosMetricsInfo,
                         EOS,
                         METRICS_INFO)
 
-/* TODO: Drop this? */
 struct _EosMetricsInfo
 {
   GObject parent_instance;
@@ -111,7 +110,6 @@ eos_metadata_fetch_data_new (GTask *task,
 typedef gboolean (*MetadataFetcher) (EosMetadataFetchData *fetch_data,
                                      GVariant *source_variant,
                                      EosUpdateInfo **info,
-                                     EosMetricsInfo **metrics,
                                      GError **error);
 
 gboolean get_booted_refspec (gchar **booted_refspec,

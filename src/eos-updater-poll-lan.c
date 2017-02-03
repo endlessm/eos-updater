@@ -42,7 +42,6 @@ typedef struct
   GMainLoop *main_loop;
   GError *error;
   EosUpdateInfo *info;
-  EosMetricsInfo *metrics;
   gchar *cached_ostree_path;
 } LanData;
 
@@ -73,7 +72,6 @@ static void
 lan_data_clear (LanData *lan_data)
 {
   g_clear_pointer (&lan_data->cached_ostree_path, g_free);
-  g_clear_object (&lan_data->metrics);
   g_clear_object (&lan_data->info);
   g_clear_error (&lan_data->error);
   g_clear_pointer (&lan_data->main_loop, g_main_loop_unref);
@@ -406,7 +404,6 @@ static gboolean
 get_update_info_from_swms (LanData *lan_data,
                            GPtrArray *swms,
                            EosUpdateInfo **out_info,
-                           EosMetricsInfo **out_metrics,
                            GError **error)
 {
   guint idx;
@@ -546,8 +543,6 @@ get_update_info_from_swms (LanData *lan_data,
   else
     *out_info = NULL;
 
-  *out_metrics = eos_metrics_info_new (ref);
-
   return TRUE;
 }
 
@@ -578,7 +573,6 @@ check_lan_updates (LanData *lan_data,
   if (!get_update_info_from_swms (lan_data,
                                    valid_services,
                                    &lan_data->info,
-                                   &lan_data->metrics,
                                    &child_error))
     {
       message ("Failed to get the latest update info: %s",
@@ -607,7 +601,6 @@ gboolean
 metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
                          GVariant *source_variant,
                          EosUpdateInfo **out_info,
-                         EosMetricsInfo **out_metrics,
                          GError **error)
 {
   g_autoptr(EosAvahiDiscoverer) discoverer = NULL;
@@ -615,7 +608,6 @@ metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
 
   g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), FALSE);
   g_return_val_if_fail (out_info != NULL, FALSE);
-  g_return_val_if_fail (out_metrics != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!lan_data_init (&lan_data, fetch_data, error))
@@ -637,6 +629,6 @@ metadata_fetch_from_lan (EosMetadataFetchData *fetch_data,
       return FALSE;
     }
   *out_info = g_steal_pointer (&lan_data.info);
-  *out_metrics = g_steal_pointer (&lan_data.metrics);
+
   return TRUE;
 }

@@ -77,7 +77,6 @@ gboolean
 metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
                             GVariant *source_variant,
                             EosUpdateInfo **out_info,
-                            EosMetricsInfo **out_metrics,
                             GError **error)
 {
   OstreeRepo *repo = fetch_data->data->repo;
@@ -95,7 +94,6 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
 
   g_return_val_if_fail (source_variant != NULL, FALSE);
   g_return_val_if_fail (out_info != NULL, FALSE);
-  g_return_val_if_fail (out_metrics != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!get_volume_options_from_variant (source_variant,
@@ -133,8 +131,6 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
                                      refspec,  /* original */
                                      urls,
                                      extensions);
-
-  *out_metrics = eos_metrics_info_new (ref);
 
   return TRUE;
 }

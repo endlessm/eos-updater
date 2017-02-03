@@ -30,7 +30,6 @@ gboolean
 metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
                           GVariant *source_variant,
                           EosUpdateInfo **out_info,
-                          EosMetricsInfo **out_metrics,
                           GError **error)
 {
   OstreeRepo *repo = fetch_data->data->repo;
@@ -43,7 +42,6 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
   g_autoptr(EosExtensions) extensions = NULL;
 
   g_return_val_if_fail (out_info != NULL, FALSE);
-  g_return_val_if_fail (out_metrics != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!get_booted_refspec (&refspec, &remote, &ref, error))
@@ -71,7 +69,6 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
                                 extensions);
 
   *out_info = g_steal_pointer (&info);
-  *out_metrics = eos_metrics_info_new (ref);
 
   return TRUE;
 }

@@ -1150,7 +1150,6 @@ run_fetchers (EosMetadataFetchData *fetch_data,
       MetadataFetcher fetcher = g_ptr_array_index (fetchers, idx);
       GVariant *source_variant = g_ptr_array_index (source_variants, idx);
       g_autoptr(EosUpdateInfo) info = NULL;
-      g_autoptr(EosMetricsInfo) metrics = NULL;
       EosUpdaterDownloadSource source = g_array_index (sources,
                                                        EosUpdaterDownloadSource,
                                                        idx);
@@ -1171,19 +1170,14 @@ run_fetchers (EosMetadataFetchData *fetch_data,
           continue;
         }
 
-      if (!fetcher (fetch_data, source_variant, &info, &metrics, &local_error))
+      if (!fetcher (fetch_data, source_variant, &info, &local_error))
         {
           message ("Failed to poll metadata from source %s: %s",
                    name, local_error->message);
           continue;
         }
-      if (metrics == NULL)
-        {
-          message ("No metadata available from source %s", name);
-          continue;
-        }
 
-      uam = update_and_metrics_new (info, metrics);
+      uam = update_and_metrics_new (info, NULL);
 
       g_hash_table_insert (source_to_uam, (gpointer)name, uam);
     }
@@ -1191,9 +1185,23 @@ run_fetchers (EosMetadataFetchData *fetch_data,
   if (g_hash_table_size (source_to_uam) > 0)
     {
       UpdateAndMetrics *latest_uam = NULL;
+      g_autofree gchar *booted_ref = NULL;
+      g_autoptr(GError) metrics_error = NULL;
 
-      latest_uam = get_latest_uam (sources, source_to_uam, FALSE);
-      maybe_send_metric (latest_uam->metrics);
+      /* Send metrics about our ref: this is the ref we’re going to upgrade to,
+       * but that’s always the same as the one we’re currently on. */
+      if (get_booted_refspec (NULL, NULL, &booted_ref, &metrics_error))
+        {
+          g_autoptr(EosMetricsInfo) metrics = NULL;
+
+          metrics = eos_metrics_info_new (booted_ref);
+          maybe_send_metric (metrics);
+        }
+      else
+        {
+          message ("Failed to get metrics: %s", metrics_error->message);
+        }
+
       latest_uam = get_latest_uam (sources, source_to_uam, TRUE);
       if (latest_uam != NULL)
         return g_object_ref (latest_uam->update);
