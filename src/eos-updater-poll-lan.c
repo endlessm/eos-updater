@@ -181,14 +181,13 @@ get_unique_txt_record (gchar **txt_records,
   return g_hash_table_lookup (records, key);
 }
 
-/* FIXME: Rename this type. */
-#define EOS_TYPE_SERVICE_WITH_BRANCH_FILE eos_service_with_branch_file_get_type ()
-EOS_DECLARE_REFCOUNTED (EosServiceWithBranchFile,
-                        eos_service_with_branch_file,
+#define EOS_TYPE_SERVICE_WITH_METADATA eos_service_with_metadata_get_type ()
+EOS_DECLARE_REFCOUNTED (EosServiceWithMetadata,
+                        eos_service_with_metadata,
                         EOS,
-                        SERVICE_WITH_BRANCH_FILE)
+                        SERVICE_WITH_METADATA)
 
-struct _EosServiceWithBranchFile
+struct _EosServiceWithMetadata
 {
   GObject parent_instance;
 
@@ -197,31 +196,31 @@ struct _EosServiceWithBranchFile
 };
 
 static void
-eos_service_with_branch_file_dispose_impl (EosServiceWithBranchFile *swbf)
+eos_service_with_metadata_dispose_impl (EosServiceWithMetadata *swm)
 {
-  g_clear_object (&swbf->service);
-  g_clear_pointer (&swbf->declared_head_commit_timestamp, g_date_time_unref);
+  g_clear_object (&swm->service);
+  g_clear_pointer (&swm->declared_head_commit_timestamp, g_date_time_unref);
 }
 
 static void
-eos_service_with_branch_file_finalize_impl (EosServiceWithBranchFile *swbf)
+eos_service_with_metadata_finalize_impl (EosServiceWithMetadata *swm)
 {
 }
 
-EOS_DEFINE_REFCOUNTED (EOS_SERVICE_WITH_BRANCH_FILE,
-                       EosServiceWithBranchFile,
-                       eos_service_with_branch_file,
-                       eos_service_with_branch_file_dispose_impl,
-                       eos_service_with_branch_file_finalize_impl)
+EOS_DEFINE_REFCOUNTED (EOS_SERVICE_WITH_METADATA,
+                       EosServiceWithMetadata,
+                       eos_service_with_metadata,
+                       eos_service_with_metadata_dispose_impl,
+                       eos_service_with_metadata_finalize_impl)
 
-static EosServiceWithBranchFile *
-eos_service_with_branch_file_new (EosAvahiService *service)
+static EosServiceWithMetadata *
+eos_service_with_metadata_new (EosAvahiService *service)
 {
-  EosServiceWithBranchFile *swbf = g_object_new (EOS_TYPE_SERVICE_WITH_BRANCH_FILE, NULL);
+  EosServiceWithMetadata *swm = g_object_new (EOS_TYPE_SERVICE_WITH_METADATA, NULL);
 
-  swbf->service = g_object_ref (service);
+  swm->service = g_object_ref (service);
 
-  return swbf;
+  return swm;
 }
 
 static gboolean
@@ -261,14 +260,14 @@ check_dl_time (LanData *lan_data,
 
 static gboolean
 time_check (LanData *lan_data,
-            EosServiceWithBranchFile *swbf,
+            EosServiceWithMetadata *swm,
             const gchar *dl_time)
 {
   g_autoptr(GDateTime) txt_utc = NULL;
 
   if (check_dl_time (lan_data, dl_time, &txt_utc))
     {
-      swbf->declared_head_commit_timestamp = g_steal_pointer (&txt_utc);
+      swm->declared_head_commit_timestamp = g_steal_pointer (&txt_utc);
       return TRUE;
     }
 
@@ -277,13 +276,13 @@ time_check (LanData *lan_data,
 
 static gboolean
 txt_v1_handler (LanData *lan_data,
-                EosServiceWithBranchFile *swbf,
+                EosServiceWithMetadata *swm,
                 gboolean *valid,
                 GError **error)
 {
   g_autoptr(GHashTable) records = NULL;
   const gchar *ostree_path, *dl_time;
-  TxtRecordError txt_error = get_unique_txt_records (swbf->service->txt,
+  TxtRecordError txt_error = get_unique_txt_records (swm->service->txt,
                                                      &records,
                                                      eos_avahi_v1_ostree_path,
                                                      eos_avahi_v1_head_commit_timestamp,
@@ -299,7 +298,7 @@ txt_v1_handler (LanData *lan_data,
   dl_time = g_hash_table_lookup (records, eos_avahi_v1_head_commit_timestamp);
 
   *valid = (check_ostree_path (lan_data, ostree_path) &&
-            time_check (lan_data, swbf, dl_time));
+            time_check (lan_data, swm, dl_time));
 
   return TRUE;
 }
@@ -307,14 +306,14 @@ txt_v1_handler (LanData *lan_data,
 /* Puts services with newer head commit timestamps in front of services with
  * older ones. */
 static gint
-g_compare_func_swbf_by_timestamp (gconstpointer swbf1_ptr_ptr,
-                                  gconstpointer swbf2_ptr_ptr)
+g_compare_func_swm_by_timestamp (gconstpointer swm1_ptr_ptr,
+                                 gconstpointer swm2_ptr_ptr)
 {
-  EosServiceWithBranchFile *swbf1 = *((EosServiceWithBranchFile **)swbf1_ptr_ptr);
-  EosServiceWithBranchFile *swbf2 = *((EosServiceWithBranchFile **)swbf2_ptr_ptr);
+  EosServiceWithMetadata *swm1 = *((EosServiceWithMetadata **)swm1_ptr_ptr);
+  EosServiceWithMetadata *swm2 = *((EosServiceWithMetadata **)swm2_ptr_ptr);
 
-  return g_date_time_compare (swbf2->declared_head_commit_timestamp,
-                              swbf1->declared_head_commit_timestamp);
+  return g_date_time_compare (swm2->declared_head_commit_timestamp,
+                              swm1->declared_head_commit_timestamp);
 }
 
 /* Valid version numbers start from 1. Return 0 on error. */
@@ -352,7 +351,7 @@ filter_services (LanData *lan_data,
                                                         "eos_txt_version",
                                                         &txt_error);
       gboolean valid = FALSE;
-      g_autoptr(EosServiceWithBranchFile) swbf = NULL;
+      g_autoptr(EosServiceWithMetadata) swm = NULL;
 
       if (txt_version == NULL)
         {
@@ -362,11 +361,11 @@ filter_services (LanData *lan_data,
         }
 
       version_number = parse_txt_version (txt_version);
-      swbf = eos_service_with_branch_file_new (service);
+      swm = eos_service_with_metadata_new (service);
 
       if (version_number == 1)
         {
-          if (!txt_v1_handler (lan_data, swbf, &valid, error))
+          if (!txt_v1_handler (lan_data, swm, &valid, error))
             return FALSE;
         }
       else
@@ -379,10 +378,10 @@ filter_services (LanData *lan_data,
 
       if (!valid)
         continue;
-      g_ptr_array_add (valid_services, g_steal_pointer (&swbf));
+      g_ptr_array_add (valid_services, g_steal_pointer (&swm));
     }
 
-  g_ptr_array_sort (valid_services, g_compare_func_swbf_by_timestamp);
+  g_ptr_array_sort (valid_services, g_compare_func_swm_by_timestamp);
   *out_valid_services = g_steal_pointer (&valid_services);
   return TRUE;
 }
@@ -404,11 +403,11 @@ filter_services (LanData *lan_data,
  *       make_checksum_old (checksum)
  */
 static gboolean
-get_update_info_from_swbfs (LanData *lan_data,
-                            GPtrArray *swbfs,
-                            EosUpdateInfo **out_info,
-                            EosMetricsInfo **out_metrics,
-                            GError **error)
+get_update_info_from_swms (LanData *lan_data,
+                           GPtrArray *swms,
+                           EosUpdateInfo **out_info,
+                           EosMetricsInfo **out_metrics,
+                           GError **error)
 {
   guint idx;
   g_autofree gchar *refspec = NULL;
@@ -416,7 +415,7 @@ get_update_info_from_swbfs (LanData *lan_data,
   g_autofree gchar *ref = NULL;
   g_autofree gchar *latest_checksum = NULL;
   guint64 latest_timestamp = 0;
-  g_autoptr(GPtrArray) swbfs_with_latest_commit = NULL;
+  g_autoptr(GPtrArray) swms_with_latest_commit = NULL;
   g_autoptr(GVariant) latest_commit = NULL;
   g_autoptr(GPtrArray) urls = NULL;
   g_autoptr(EosExtensions) latest_extensions = NULL;
@@ -425,13 +424,13 @@ get_update_info_from_swbfs (LanData *lan_data,
   if (!get_booted_refspec (&refspec, &remote, &ref, error))
     return FALSE;
 
-  swbfs_with_latest_commit = object_array_new ();
+  swms_with_latest_commit = object_array_new ();
   urls = g_ptr_array_new_with_free_func (g_free);
-  for (idx = 0; idx < swbfs->len; ++idx)
+  for (idx = 0; idx < swms->len; ++idx)
     {
-      gpointer swbf_ptr = g_ptr_array_index (swbfs, idx);
-      EosServiceWithBranchFile *swbf = EOS_SERVICE_WITH_BRANCH_FILE (swbf_ptr);
-      EosAvahiService *service = swbf->service;
+      gpointer swm_ptr = g_ptr_array_index (swms, idx);
+      EosServiceWithMetadata *swm = EOS_SERVICE_WITH_METADATA (swm_ptr);
+      EosAvahiService *service = swm->service;
       g_autoptr(SoupURI) _url_override = NULL;
       g_autofree gchar *url_override = NULL;
       g_autoptr(GError) local_error = NULL;
@@ -475,13 +474,13 @@ get_update_info_from_swbfs (LanData *lan_data,
       timestamp = ostree_commit_get_timestamp (commit);
 
       /* Sanity check that the commit has the declared timestamp. */
-      if (g_date_time_to_unix (swbf->declared_head_commit_timestamp) != (gint64) timestamp)
+      if (g_date_time_to_unix (swm->declared_head_commit_timestamp) != (gint64) timestamp)
         {
           g_autofree gchar *declared_str = NULL;
           g_autofree gchar *actual_str = NULL;
           g_autoptr(GDateTime) actual_time = NULL;
 
-          declared_str = g_date_time_format (swbf->declared_head_commit_timestamp,
+          declared_str = g_date_time_format (swm->declared_head_commit_timestamp,
                                              "%FT%T%:z");
           actual_time = g_date_time_new_from_unix_utc (timestamp);
           actual_str = g_date_time_format (actual_time, "%FT%T%:z");
@@ -499,7 +498,7 @@ get_update_info_from_swbfs (LanData *lan_data,
 
           if (timestamp == latest_timestamp && g_strcmp0(checksum, latest_checksum) == 0)
             {
-              g_ptr_array_add (swbfs_with_latest_commit, g_object_ref (swbf));
+              g_ptr_array_add (swms_with_latest_commit, g_object_ref (swm));
               g_ptr_array_add (urls, g_steal_pointer (&url_override));
             }
           else if (timestamp > latest_timestamp && g_strcmp0(checksum, latest_checksum) != 0)
@@ -507,7 +506,7 @@ get_update_info_from_swbfs (LanData *lan_data,
               g_clear_pointer (&latest_checksum, g_free);
               g_clear_pointer (&latest_commit, g_variant_unref);
               latest_timestamp = 0;
-              g_ptr_array_set_size (swbfs_with_latest_commit, 0);
+              g_ptr_array_set_size (swms_with_latest_commit, 0);
               g_ptr_array_set_size (urls, 0);
               g_clear_object (&latest_extensions);
             }
@@ -525,7 +524,7 @@ get_update_info_from_swbfs (LanData *lan_data,
           latest_checksum = g_steal_pointer (&checksum);
           latest_commit = g_steal_pointer (&commit);
           latest_timestamp = timestamp;
-          g_ptr_array_add (swbfs_with_latest_commit, g_object_ref (swbf));
+          g_ptr_array_add (swms_with_latest_commit, g_object_ref (swm));
           g_ptr_array_add (urls, g_steal_pointer (&url_override));
           latest_extensions = g_steal_pointer (&extensions);
         }
@@ -576,7 +575,7 @@ check_lan_updates (LanData *lan_data,
       return;
     }
 
-  if (!get_update_info_from_swbfs (lan_data,
+  if (!get_update_info_from_swms (lan_data,
                                    valid_services,
                                    &lan_data->info,
                                    &lan_data->metrics,
