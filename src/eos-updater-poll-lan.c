@@ -413,7 +413,6 @@ get_update_info_from_swbfs (LanData *lan_data,
   guint idx;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *original_refspec = NULL;
-  g_autoptr(EosMetricsInfo) metrics = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
   g_autofree gchar *latest_checksum = NULL;
@@ -426,7 +425,6 @@ get_update_info_from_swbfs (LanData *lan_data,
 
   if (!get_upgrade_info_from_branch_file (&refspec,
                                           &original_refspec,
-                                          &metrics,
                                           error))
     return FALSE;
 
@@ -554,7 +552,8 @@ get_update_info_from_swbfs (LanData *lan_data,
     }
   else
     *out_info = NULL;
-  *out_metrics = g_steal_pointer (&metrics);
+
+  *out_metrics = eos_metrics_info_new (ref);
 
   return TRUE;
 }

@@ -250,21 +250,32 @@ cleanstr (gchar *s)
   return s;
 }
 
+EosMetricsInfo *
+eos_metrics_info_new (const gchar *booted_ref)
+{
+  g_autoptr(GHashTable) hw_descriptors = NULL;
+  g_autoptr(EosMetricsInfo) info = NULL;
+
+  hw_descriptors = get_hw_descriptors ();
+
+  info = g_object_new (EOS_TYPE_METRICS_INFO, NULL);
+  info->vendor = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, VENDOR_KEY)));
+  info->product = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, PRODUCT_KEY)));
+  info->ref = g_strdup (booted_ref);
+
+  return g_steal_pointer (&info);
+}
+
 /* FIXME: Collapse this function. */
 gboolean
 get_upgrade_info_from_branch_file (gchar **upgrade_refspec,
                                    gchar **original_refspec,
-                                   EosMetricsInfo **metrics,
                                    GError **error)
 {
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_autofree gchar *booted_refspec = NULL;
   g_autofree gchar *booted_remote = NULL;
   g_autofree gchar *booted_ref = NULL;
-  g_autoptr(GHashTable) hw_descriptors = NULL;
-  g_autofree gchar *vendor = NULL;
-  g_autofree gchar *product = NULL;
-  g_autofree gchar *upgrade_ref = NULL;
 
   g_return_val_if_fail (upgrade_refspec != NULL, FALSE);
   g_return_val_if_fail (original_refspec != NULL, FALSE);
@@ -278,26 +289,9 @@ get_upgrade_info_from_branch_file (gchar **upgrade_refspec,
   if (!ostree_parse_refspec (booted_refspec, &booted_remote, &booted_ref, error))
     return FALSE;
 
-  hw_descriptors = get_hw_descriptors ();
-  vendor = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, VENDOR_KEY)));
-  product = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, PRODUCT_KEY)));
-
-  upgrade_ref = g_strdup (booted_ref);
-
-  message ("Using product branch %s", upgrade_ref);
-  *upgrade_refspec = g_strdup_printf ("%s:%s", booted_remote, upgrade_ref);
+  message ("Using product branch %s", booted_ref);
+  *upgrade_refspec = g_strdup (booted_refspec);
   *original_refspec = g_strdup (booted_refspec);
-
-  if (metrics != NULL)
-    {
-      g_autoptr(EosMetricsInfo) info = NULL;
-
-      info = g_object_new (EOS_TYPE_METRICS_INFO, NULL);
-      info->vendor = g_steal_pointer (&vendor);
-      info->product = g_steal_pointer (&product);
-      info->ref = g_steal_pointer (&upgrade_ref);
-      *metrics = g_steal_pointer (&info);
-    }
 
   return TRUE;
 }

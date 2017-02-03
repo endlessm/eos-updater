@@ -85,7 +85,6 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
   g_autoptr(OstreeRepo) volume_repo = NULL;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *orig_refspec = NULL;
-  g_autoptr(EosMetricsInfo) metrics = NULL;
   g_autofree gchar *raw_volume_path = NULL;
   g_autofree gchar *repo_url = NULL;
   g_autofree gchar *checksum = NULL;
@@ -114,7 +113,6 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
 
   if (!get_upgrade_info_from_branch_file (&refspec,
                                           &orig_refspec,
-                                          &metrics,
                                           error))
     return FALSE;
 
@@ -142,6 +140,7 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
                                      urls,
                                      extensions);
 
-  *out_metrics = g_steal_pointer (&metrics);
+  *out_metrics = eos_metrics_info_new (ref);
+
   return TRUE;
 }

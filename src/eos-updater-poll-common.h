@@ -56,6 +56,9 @@ struct _EosMetricsInfo
   gchar *ref;
 };
 
+EosMetricsInfo *
+eos_metrics_info_new (const gchar *booted_ref);
+
 #define EOS_TYPE_UPDATE_INFO eos_update_info_get_type ()
 EOS_DECLARE_REFCOUNTED (EosUpdateInfo,
                         eos_update_info,
@@ -113,7 +116,6 @@ typedef gboolean (*MetadataFetcher) (EosMetadataFetchData *fetch_data,
 
 gboolean get_upgrade_info_from_branch_file (gchar **upgrade_refspec,
                                             gchar **original_refspec,
-                                            EosMetricsInfo **metrics,
                                             GError **error);
 
 gboolean fetch_latest_commit (OstreeRepo *repo,

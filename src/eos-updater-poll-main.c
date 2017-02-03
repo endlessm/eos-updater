@@ -37,7 +37,6 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *orig_refspec = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
-  g_autoptr(EosMetricsInfo) metrics = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
   g_autofree gchar *remote = NULL;
@@ -50,7 +49,6 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
 
   if (!get_upgrade_info_from_branch_file (&refspec,
                                           &orig_refspec,
-                                          &metrics,
                                           error))
     return FALSE;
 
@@ -79,6 +77,7 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
                                 extensions);
 
   *out_info = g_steal_pointer (&info);
-  *out_metrics = g_steal_pointer (&metrics);
+  *out_metrics = eos_metrics_info_new (ref);
+
   return TRUE;
 }
