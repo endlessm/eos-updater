@@ -50,7 +50,6 @@ test_update_from_main (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      3,
                                       default_vendor,
                                       default_product,
                                       default_ref,

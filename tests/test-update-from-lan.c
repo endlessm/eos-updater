@@ -57,7 +57,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      lan_server_count + 1,
                                       default_vendor,
                                       default_product,
                                       default_ref,
@@ -94,8 +93,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
 
       g_test_message ("Updating subserver %u", idx);
 
-      g_date_time_unref (subserver->head_commit_timestamp);
-      subserver->head_commit_timestamp = days_ago (lan_server_count - idx);
       g_hash_table_insert (subserver->ref_to_commit,
                            g_strdup (default_ref),
                            GUINT_TO_POINTER (1 + idx));

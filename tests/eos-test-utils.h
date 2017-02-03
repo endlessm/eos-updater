@@ -86,7 +86,6 @@ struct _EosTestSubserver
   gchar *ostree_path;
   GPtrArray *devices;
   GHashTable *ref_to_commit;
-  GDateTime *head_commit_timestamp;
 
   GFile *repo;
   GFile *tree;
@@ -104,8 +103,7 @@ EosTestSubserver *eos_test_subserver_new (GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
                                           GPtrArray *devices,
-                                          GHashTable *ref_to_commit,
-                                          GDateTime *timestamp);
+                                          GHashTable *ref_to_commit);
 
 gboolean eos_test_subserver_update (EosTestSubserver *subserver,
                                     GError **error);
@@ -130,7 +128,6 @@ EosTestServer *eos_test_server_new (GFile *server_root,
                                     GError **error);
 
 EosTestServer *eos_test_server_new_quick (GFile *server_root,
-                                          gint head_commit_from_days_ago,
                                           const gchar *vendor,
                                           const gchar *product,
                                           const gchar *ref,

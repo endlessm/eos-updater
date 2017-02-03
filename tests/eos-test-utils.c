@@ -167,7 +167,6 @@ eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 {
   g_clear_pointer (&subserver->devices, g_ptr_array_unref);
   g_clear_pointer (&subserver->ref_to_commit, g_hash_table_unref);
-  g_clear_pointer (&subserver->head_commit_timestamp, g_date_time_unref);
   g_clear_object (&subserver->repo);
   g_clear_object (&subserver->tree);
   g_clear_object (&subserver->gpg_home);
@@ -192,8 +191,7 @@ eos_test_subserver_new (GFile *gpg_home,
                         const gchar *keyid,
                         const gchar *ostree_path,
                         GPtrArray *devices,
-                        GHashTable *ref_to_commit,
-                        GDateTime *timestamp)
+                        GHashTable *ref_to_commit)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
@@ -202,8 +200,6 @@ eos_test_subserver_new (GFile *gpg_home,
   subserver->ostree_path = g_strdup (ostree_path);
   subserver->devices = g_ptr_array_ref (devices);
   subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
-  if (timestamp != NULL)
-    subserver->head_commit_timestamp = g_date_time_ref (timestamp);
 
   return subserver;
 }
@@ -763,7 +759,6 @@ eos_test_server_new (GFile *server_root,
 
 EosTestServer *
 eos_test_server_new_quick (GFile *server_root,
-                           gint head_commit_from_days_ago,
                            const gchar *vendor,
                            const gchar *product,
                            const gchar *ref,
@@ -776,7 +771,6 @@ eos_test_server_new_quick (GFile *server_root,
   g_autoptr(GPtrArray) subservers = object_array_new ();
   g_autoptr(GPtrArray) devices = object_array_new ();
   g_autoptr(GHashTable) ref_to_commit = eos_test_subserver_ref_to_commit_new ();
-  g_autoptr(GDateTime) old_timestamp = days_ago (head_commit_from_days_ago);
 
   g_ptr_array_add (devices, eos_test_device_new (vendor, product, ref));
   g_hash_table_insert (ref_to_commit, g_strdup (ref), GUINT_TO_POINTER (commit));
@@ -784,8 +778,7 @@ eos_test_server_new_quick (GFile *server_root,
                                                        keyid,
                                                        ostree_path,
                                                        devices,
-                                                       ref_to_commit,
-                                                       old_timestamp));
+                                                       ref_to_commit));
 
   return eos_test_server_new (server_root,
                               subservers,
