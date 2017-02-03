@@ -224,18 +224,6 @@ eos_service_with_branch_file_new (EosAvahiService *service)
   return swbf;
 }
 
-typedef gboolean (*ServiceCheck) (LanData *lan_data,
-                                  EosServiceWithBranchFile *swbf,
-                                  gboolean *valid,
-                                  GError **error);
-
-typedef enum
-  {
-    SERVICE_INVALID,
-    SERVICE_VALID_MORE_CHECKS,
-    SERVICE_VALID
-  } ServiceValidResult;
-
 static gboolean
 check_ostree_path (LanData *lan_data,
                    const gchar *ostree_path)
@@ -243,16 +231,7 @@ check_ostree_path (LanData *lan_data,
   return g_strcmp0 (ostree_path, lan_data->cached_ostree_path) == 0;
 }
 
-/* FIXME: Collapse this code. */
-typedef enum
-  {
-    DL_TIME_NEW,
-    DL_TIME_OLD,
-    DL_TIME_INVALID,
-    DL_TIME_OUT_OF_RANGE,
-  } DlTimeCheckResult;
-
-static DlTimeCheckResult
+static gboolean
 check_dl_time (LanData *lan_data,
                const gchar *dl_time,
                GDateTime **utc_out)
@@ -264,66 +243,36 @@ check_dl_time (LanData *lan_data,
   g_assert (dl_time != NULL);
 
   if (dl_time[0] == '\0')
-    return DL_TIME_INVALID;
+    return FALSE;
   errno = 0;
   utc_time = g_ascii_strtoll (dl_time, &utc_str_end, 10);
   if (errno == EINVAL)
-    return DL_TIME_INVALID;
+    return FALSE;
   if (errno == ERANGE)
-    return DL_TIME_OUT_OF_RANGE;
+    return FALSE;
   if (*utc_str_end != '\0')
-    return DL_TIME_INVALID;
+    return FALSE;
   utc = g_date_time_new_from_unix_utc (utc_time);
   if (utc == NULL)
-    return DL_TIME_OUT_OF_RANGE;
+    return FALSE;
   *utc_out = g_steal_pointer (&utc);
-  return DL_TIME_NEW;
+  return TRUE;
 }
 
-static ServiceValidResult
+static gboolean
 time_check (LanData *lan_data,
             EosServiceWithBranchFile *swbf,
             const gchar *dl_time)
 {
   g_autoptr(GDateTime) txt_utc = NULL;
 
-  switch (check_dl_time (lan_data, dl_time, &txt_utc))
+  if (check_dl_time (lan_data, dl_time, &txt_utc))
     {
-    case DL_TIME_OLD:
-    case DL_TIME_NEW:
       swbf->declared_head_commit_timestamp = g_steal_pointer (&txt_utc);
-      return SERVICE_VALID;
-
-    case DL_TIME_INVALID:
-      // TODO: message
-      return SERVICE_INVALID;
-
-    case DL_TIME_OUT_OF_RANGE:
-      // TODO: message
-      return SERVICE_INVALID;
-
-    default:
-      // TODO: message
-      g_assert_not_reached ();
-      return SERVICE_INVALID;
+      return TRUE;
     }
-}
 
-static gboolean
-txt_v1_handler_checks (LanData *lan_data,
-                       EosServiceWithBranchFile *swbf,
-                       GHashTable *records)
-{
-  const gchar *ostree_path = g_hash_table_lookup (records,
-                                                  eos_avahi_v1_ostree_path);
-  const gchar *dl_time;
-
-  if (!check_ostree_path (lan_data, ostree_path))
-    return FALSE;
-
-  dl_time = g_hash_table_lookup (records, eos_avahi_v1_head_commit_timestamp);
-
-  return time_check (lan_data, swbf, dl_time) != SERVICE_INVALID;
+  return FALSE;
 }
 
 static gboolean
@@ -333,6 +282,7 @@ txt_v1_handler (LanData *lan_data,
                 GError **error)
 {
   g_autoptr(GHashTable) records = NULL;
+  const gchar *ostree_path, *dl_time;
   TxtRecordError txt_error = get_unique_txt_records (swbf->service->txt,
                                                      &records,
                                                      eos_avahi_v1_ostree_path,
@@ -344,28 +294,14 @@ txt_v1_handler (LanData *lan_data,
       *valid = FALSE;
       return TRUE;
     }
-  *valid = txt_v1_handler_checks (lan_data,
-                                  swbf,
-                                  records);
+
+  ostree_path = g_hash_table_lookup (records, eos_avahi_v1_ostree_path);
+  dl_time = g_hash_table_lookup (records, eos_avahi_v1_head_commit_timestamp);
+
+  *valid = (check_ostree_path (lan_data, ostree_path) &&
+            time_check (lan_data, swbf, dl_time));
+
   return TRUE;
-}
-
-static ServiceCheck
-get_txt_handler (const gchar *txt_version)
-{
-  guint64 v;
-  const gchar *end = NULL;
-
-  errno = 0;
-  v = g_ascii_strtoull (txt_version, (gchar **)&end, 10);
-
-  if (errno != 0 || end == NULL)
-    return NULL;
-
-  if (v == 1 && *end == '\0')
-    return txt_v1_handler;
-
-  return NULL;
 }
 
 /* Puts services with newer head commit timestamps in front of services with
@@ -379,6 +315,22 @@ g_compare_func_swbf_by_timestamp (gconstpointer swbf1_ptr_ptr,
 
   return g_date_time_compare (swbf2->declared_head_commit_timestamp,
                               swbf1->declared_head_commit_timestamp);
+}
+
+/* Valid version numbers start from 1. Return 0 on error. */
+static guint
+parse_txt_version (const gchar *txt_version)
+{
+  guint64 v;
+  const gchar *end = NULL;
+
+  errno = 0;
+  v = g_ascii_strtoull (txt_version, (gchar **)&end, 10);
+
+  if (errno != 0 || end == NULL || *end != '\0' || end == txt_version || v > G_MAXUINT)
+    return 0;
+
+  return v;
 }
 
 static gboolean
@@ -395,10 +347,10 @@ filter_services (LanData *lan_data,
       gpointer service_ptr = g_ptr_array_index (found_services, idx);
       EosAvahiService *service = EOS_AVAHI_SERVICE (service_ptr);
       TxtRecordError txt_error = TXT_RECORD_OK;
+      guint version_number;
       const gchar *txt_version = get_unique_txt_record (service->txt,
                                                         "eos_txt_version",
                                                         &txt_error);
-      ServiceCheck checker;
       gboolean valid = FALSE;
       g_autoptr(EosServiceWithBranchFile) swbf = NULL;
 
@@ -408,17 +360,22 @@ filter_services (LanData *lan_data,
                    service->address);
           continue;
         }
-      checker = get_txt_handler (txt_version);
-      if (checker == NULL)
+
+      version_number = parse_txt_version (txt_version);
+      swbf = eos_service_with_branch_file_new (service);
+
+      if (version_number == 1)
+        {
+          if (!txt_v1_handler (lan_data, swbf, &valid, error))
+            return FALSE;
+        }
+      else
         {
           message ("unknown txt records version %s from service at %s, ignoring it",
                    txt_version,
                    service->address);
           continue;
         }
-      swbf = eos_service_with_branch_file_new (service);
-      if (!checker (lan_data, swbf, &valid, error))
-        return FALSE;
 
       if (!valid)
         continue;
