@@ -65,13 +65,11 @@ struct _EosTestDevice
 
   gchar *vendor;
   gchar *product;
-  gboolean on_hold;
   gchar *ref;
 };
 
 EosTestDevice *eos_test_device_new (const gchar *vendor,
                                     const gchar *product,
-                                    gboolean on_hold,
                                     const gchar *ref);
 
 #define EOS_TEST_TYPE_SUBSERVER eos_test_subserver_get_type ()
@@ -135,7 +133,6 @@ EosTestServer *eos_test_server_new_quick (GFile *server_root,
                                           gint head_commit_from_days_ago,
                                           const gchar *vendor,
                                           const gchar *product,
-                                          gboolean on_hold,
                                           const gchar *ref,
                                           guint commit,
                                           GFile *gpg_home,

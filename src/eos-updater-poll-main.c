@@ -38,6 +38,11 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
   g_autofree gchar *orig_refspec = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
   g_autoptr(EosMetricsInfo) metrics = NULL;
+  g_autofree gchar *checksum = NULL;
+  g_autoptr(GVariant) commit = NULL;
+  g_autofree gchar *remote = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autoptr(EosExtensions) extensions = NULL;
 
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (out_metrics != NULL, FALSE);
@@ -49,38 +54,29 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
                                           error))
     return FALSE;
 
-  if (!metrics->on_hold)
-    {
-      g_autofree gchar *checksum = NULL;
-      g_autoptr(GVariant) commit = NULL;
-      g_autofree gchar *remote = NULL;
-      g_autofree gchar *ref = NULL;
-      g_autoptr(EosExtensions) extensions = NULL;
+  if (!ostree_parse_refspec (refspec, &remote, &ref, error))
+    return FALSE;
 
-      if (!ostree_parse_refspec (refspec, &remote, &ref, error))
-        return FALSE;
+  if (!fetch_latest_commit (repo,
+                            g_task_get_cancellable (fetch_data->task),
+                            remote,
+                            ref,
+                            NULL,
+                            &checksum,
+                            &extensions,
+                            error))
+    return FALSE;
 
-      if (!fetch_latest_commit (repo,
-                                g_task_get_cancellable (fetch_data->task),
-                                remote,
-                                ref,
+  if (!is_checksum_an_update (repo, checksum, &commit, error))
+    return FALSE;
+
+  if (commit != NULL)
+    info = eos_update_info_new (checksum,
+                                commit,
+                                refspec,
+                                orig_refspec,
                                 NULL,
-                                &checksum,
-                                &extensions,
-                                error))
-        return FALSE;
-
-      if (!is_checksum_an_update (repo, checksum, &commit, error))
-        return FALSE;
-
-      if (commit != NULL)
-        info = eos_update_info_new (checksum,
-                                    commit,
-                                    refspec,
-                                    orig_refspec,
-                                    NULL,
-                                    extensions);
-    }
+                                extensions);
 
   *out_info = g_steal_pointer (&info);
   *out_metrics = g_steal_pointer (&metrics);

@@ -54,7 +54,6 @@ struct _EosMetricsInfo
   gchar *vendor;
   gchar *product;
   gchar *ref;
-  gboolean on_hold;  /* TODO: drop this? */
   GDateTime *head_commit_timestamp;  /* FIXME: needed? */
 };
 

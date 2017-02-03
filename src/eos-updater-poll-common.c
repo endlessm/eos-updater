@@ -288,7 +288,6 @@ get_upgrade_info_from_branch_file (gchar **upgrade_refspec,
       info->vendor = g_steal_pointer (&vendor);
       info->product = g_steal_pointer (&product);
       info->ref = g_steal_pointer (&upgrade_ref);
-      info->on_hold = FALSE;
       *metrics = g_steal_pointer (&info);
     }
 
@@ -959,15 +958,15 @@ maybe_send_metric (EosMetricsInfo *metrics)
   if (metric_sent)
     return;
 
-  message ("Recording metric event %s: (%s, %s, %s, %d)",
+  message ("Recording metric event %s: (%s, %s, %s)",
            EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
-           metrics->ref, metrics->on_hold);
+           metrics->ref);
   emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
                                          EOS_UPDATER_BRANCH_SELECTED,
                                          g_variant_new ("(sssb)", metrics->vendor,
                                                         metrics->product,
                                                         metrics->ref,
-                                                        metrics->on_hold));
+                                                        (gboolean) FALSE  /* on-hold */));
   metric_sent = TRUE;
 #endif
 }
@@ -1038,11 +1037,10 @@ update_and_metrics_to_string (UpdateAndMetrics *uam)
       else
         head_commit_timestamp = g_strdup ("(no head commit timestamp)");
 
-      metrics_part = g_strdup_printf ("%s, %s, %s, %u, %s",
+      metrics_part = g_strdup_printf ("%s, %s, %s, %s",
                                       uam->metrics->vendor,
                                       uam->metrics->product,
                                       uam->metrics->ref,
-                                      uam->metrics->on_hold,
                                       head_commit_timestamp);
     }
   else

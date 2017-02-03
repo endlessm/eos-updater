@@ -151,14 +151,12 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_DEVICE,
 EosTestDevice *
 eos_test_device_new (const gchar *vendor,
                      const gchar *product,
-                     gboolean on_hold,
                      const gchar *ref)
 {
   EosTestDevice *device = g_object_new (EOS_TEST_TYPE_DEVICE, NULL);
 
   device->vendor = g_strdup (vendor);
   device->product = g_strdup (product);
-  device->on_hold = on_hold;
   device->ref = g_strdup (ref);
 
   return device;
@@ -768,7 +766,6 @@ eos_test_server_new_quick (GFile *server_root,
                            gint head_commit_from_days_ago,
                            const gchar *vendor,
                            const gchar *product,
-                           gboolean on_hold,
                            const gchar *ref,
                            guint commit,
                            GFile *gpg_home,
@@ -781,7 +778,7 @@ eos_test_server_new_quick (GFile *server_root,
   g_autoptr(GHashTable) ref_to_commit = eos_test_subserver_ref_to_commit_new ();
   g_autoptr(GDateTime) old_timestamp = days_ago (head_commit_from_days_ago);
 
-  g_ptr_array_add (devices, eos_test_device_new (vendor, product, on_hold, ref));
+  g_ptr_array_add (devices, eos_test_device_new (vendor, product, ref));
   g_hash_table_insert (ref_to_commit, g_strdup (ref), GUINT_TO_POINTER (commit));
   g_ptr_array_add (subservers, eos_test_subserver_new (gpg_home,
                                                        keyid,
