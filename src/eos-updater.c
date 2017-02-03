@@ -233,11 +233,7 @@ main (gint argc, gchar *argv[])
   g_set_prgname (argv[0]);
 
   repo = eos_updater_local_repo ();
-  if (!eos_updater_data_init (&data, repo, &error))
-    {
-      message ("Failed to initialize eos-updater: %s", error->message);
-      return 1;
-    }
+  eos_updater_data_init (&data, repo);
   loop = g_main_loop_new (NULL, FALSE);
   local_data_init (&local_data, &data, loop);
   if (listen_on_session_bus ())

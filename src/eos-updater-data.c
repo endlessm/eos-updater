@@ -26,20 +26,15 @@
 
 #include <string.h>
 
-gboolean
+void
 eos_updater_data_init (EosUpdaterData *data,
-                       OstreeRepo *repo,
-                       GError **error)
+                       OstreeRepo *repo)
 {
-  g_return_val_if_fail (data != NULL, FALSE);
-  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+  g_return_if_fail (data != NULL);
+  g_return_if_fail (OSTREE_IS_REPO (repo));
 
-  /* FIXME: Simplify. */
   memset (data, 0, sizeof *data);
   data->repo = g_object_ref (repo);
-
-  return TRUE;
 }
 
 void

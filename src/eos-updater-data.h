@@ -52,9 +52,8 @@ struct EosUpdaterData
 
 #define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL }
 
-gboolean eos_updater_data_init (EosUpdaterData *data,
-                                OstreeRepo *repo,
-                                GError **error);
+void eos_updater_data_init (EosUpdaterData *data,
+                            OstreeRepo *repo);
 
 void eos_updater_data_clear (EosUpdaterData *data);
 
