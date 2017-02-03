@@ -976,116 +976,53 @@ maybe_send_metric (EosMetricsInfo *metrics)
 #endif
 }
 
-typedef struct
-{
-  EosUpdateInfo *update;
-  EosMetricsInfo *metrics;
-} UpdateAndMetrics;
-
-static UpdateAndMetrics *
-update_and_metrics_new (EosUpdateInfo *update,
-                        EosMetricsInfo *metrics)
-{
-  UpdateAndMetrics *uam = g_new0 (UpdateAndMetrics, 1);
-
-  if (update != NULL)
-    uam->update = g_object_ref (update);
-
-  if (metrics != NULL)
-    uam->metrics = g_object_ref (metrics);
-
-  return uam;
-}
-
-static void
-update_and_metrics_free (UpdateAndMetrics *uam)
-{
-  if (uam == NULL)
-    return;
-
-  g_clear_object (&uam->update);
-  g_clear_object (&uam->metrics);
-  g_free (uam);
-}
-
 static gchar *
-update_and_metrics_to_string (UpdateAndMetrics *uam)
+eos_update_info_to_string (EosUpdateInfo *update)
 {
   g_autofree gchar *update_urls = NULL;
-  g_autofree gchar *update_part = NULL, *metrics_part = NULL;
+  g_autoptr(GDateTime) timestamp = NULL;
+  g_autofree gchar *timestamp_str = NULL;
 
-  if (uam->update != NULL)
-    {
-      g_autoptr(GDateTime) timestamp = NULL;
-      g_autofree gchar *timestamp_str = NULL;
-
-      if (uam->update->urls != NULL)
-        update_urls = g_strjoinv ("\n   ", uam->update->urls);
-      else
-        update_urls = g_strdup ("");
-
-      timestamp = eos_update_info_get_commit_timestamp (uam->update);
-      timestamp_str = g_date_time_format (timestamp, "%FT%T%:z");
-
-      update_part = g_strdup_printf ("%s, %s, %s, %s",
-                                     uam->update->checksum,
-                                     uam->update->refspec,
-                                     uam->update->original_refspec,
-                                     timestamp_str);
-    }
+  if (update->urls != NULL)
+    update_urls = g_strjoinv ("\n   ", update->urls);
   else
-    {
-      update_urls = g_strdup ("(no update URIs)");
-      update_part = g_strdup ("(no update info)");
-    }
+    update_urls = g_strdup ("");
 
-  if (uam->metrics != NULL)
-    {
-      metrics_part = g_strdup_printf ("%s, %s, %s",
-                                      uam->metrics->vendor,
-                                      uam->metrics->product,
-                                      uam->metrics->ref);
-    }
-  else
-    {
-      metrics_part = g_strdup ("(no branch info)");
-    }
+  timestamp = eos_update_info_get_commit_timestamp (update);
+  timestamp_str = g_date_time_format (timestamp, "%FT%T%:z");
 
-  return g_strdup_printf ("%s, %s\n   %s",
-                          update_part,
-                          metrics_part,
+  return g_strdup_printf ("%s, %s, %s, %s\n   %s",
+                          update->checksum,
+                          update->refspec,
+                          update->original_refspec,
+                          timestamp_str,
                           update_urls);
 }
 
-static UpdateAndMetrics *
-get_latest_uam (GArray *sources,
-                GHashTable *source_to_uam,
-                gboolean with_updates)
+static EosUpdateInfo *
+get_latest_update (GArray *sources,
+                   GHashTable *source_to_update)
 {
   g_autoptr(GHashTable) latest = g_hash_table_new (NULL, NULL);
   GHashTableIter iter;
   gpointer name_ptr;
-  gpointer uam_ptr;
+  gpointer update_ptr;
   g_autoptr(GDateTime) latest_timestamp = NULL;
   gsize idx;
 
-  g_debug ("%s: with_updates: %u, source_to_uam mapping:",
-           G_STRFUNC, with_updates);
+  g_debug ("%s: source_to_update mapping:", G_STRFUNC);
 
-  g_hash_table_iter_init (&iter, source_to_uam);
-  while (g_hash_table_iter_next (&iter, &name_ptr, &uam_ptr))
+  g_hash_table_iter_init (&iter, source_to_update);
+  while (g_hash_table_iter_next (&iter, &name_ptr, &update_ptr))
     {
-      UpdateAndMetrics *uam = uam_ptr;
-      g_autofree gchar *uam_string = update_and_metrics_to_string (uam);
+      EosUpdateInfo *update = update_ptr;
+      g_autofree gchar *update_string = eos_update_info_to_string (update);
       gint compare_value = 1;
       g_autoptr(GDateTime) update_timestamp = NULL;
 
-      g_debug ("%s: - %s: %s", G_STRFUNC, (const gchar *) name_ptr, uam_string);
+      g_debug ("%s: - %s: %s", G_STRFUNC, (const gchar *) name_ptr, update_string);
 
-      if (with_updates && uam->update == NULL)
-        continue;
-
-      update_timestamp = eos_update_info_get_commit_timestamp (uam->update);
+      update_timestamp = eos_update_info_get_commit_timestamp (update);
 
       if (latest_timestamp != NULL)
         compare_value = g_date_time_compare (update_timestamp,
@@ -1099,7 +1036,7 @@ get_latest_uam (GArray *sources,
         }
 
       if (compare_value == 0)
-        g_hash_table_insert (latest, name_ptr, uam_ptr);
+        g_hash_table_insert (latest, name_ptr, update_ptr);
     }
 
   g_debug ("%s: sources list:", G_STRFUNC);
@@ -1110,12 +1047,12 @@ get_latest_uam (GArray *sources,
                                                        EosUpdaterDownloadSource,
                                                        idx);
       const gchar *name = download_source_to_string (source);
-      UpdateAndMetrics *uam = g_hash_table_lookup (latest, name);
+      EosUpdateInfo *update = g_hash_table_lookup (latest, name);
 
-      if (uam != NULL)
+      if (update != NULL)
         {
           g_debug ("%s: - %s (matched)", G_STRFUNC, name);
-          return uam;
+          return update;
         }
       else
         {
@@ -1133,10 +1070,10 @@ run_fetchers (EosMetadataFetchData *fetch_data,
               GArray *sources)
 {
   guint idx;
-  g_autoptr(GHashTable) source_to_uam = g_hash_table_new_full (NULL,
-                                                               NULL,
-                                                               NULL,
-                                                               (GDestroyNotify)update_and_metrics_free);
+  g_autoptr(GHashTable) source_to_update = g_hash_table_new_full (NULL,
+                                                                  NULL,
+                                                                  NULL,
+                                                                  (GDestroyNotify) g_object_unref);
 
   g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), NULL);
   g_return_val_if_fail (fetchers != NULL, NULL);
@@ -1155,7 +1092,6 @@ run_fetchers (EosMetadataFetchData *fetch_data,
                                                        idx);
       const gchar *name = download_source_to_string (source);
       g_autoptr(GError) local_error = NULL;
-      UpdateAndMetrics *uam;
       const GVariantType *source_variant_type = g_variant_get_type (source_variant);
 
       if (!g_variant_type_equal (source_variant_type, G_VARIANT_TYPE_VARDICT))
@@ -1177,14 +1113,13 @@ run_fetchers (EosMetadataFetchData *fetch_data,
           continue;
         }
 
-      uam = update_and_metrics_new (info, NULL);
-
-      g_hash_table_insert (source_to_uam, (gpointer)name, uam);
+      g_hash_table_insert (source_to_update,
+                           (gpointer) name, g_object_ref (info));
     }
 
-  if (g_hash_table_size (source_to_uam) > 0)
+  if (g_hash_table_size (source_to_update) > 0)
     {
-      UpdateAndMetrics *latest_uam = NULL;
+      EosUpdateInfo *latest_update = NULL;
       g_autofree gchar *booted_ref = NULL;
       g_autoptr(GError) metrics_error = NULL;
 
@@ -1202,9 +1137,9 @@ run_fetchers (EosMetadataFetchData *fetch_data,
           message ("Failed to get metrics: %s", metrics_error->message);
         }
 
-      latest_uam = get_latest_uam (sources, source_to_uam, TRUE);
-      if (latest_uam != NULL)
-        return g_object_ref (latest_uam->update);
+      latest_update = get_latest_update (sources, source_to_update);
+      if (latest_update != NULL)
+        return g_object_ref (latest_update);
     }
 
   return NULL;
