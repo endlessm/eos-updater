@@ -62,8 +62,9 @@ typedef enum _UpdateStep {
 static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/eos-updater";
 static const char *UPDATE_STAMP_NAME = "eos-updater-stamp";
 
-static const char *CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater.conf";
-static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-updater.conf";
+static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-autoupdater.conf";
+static const char *OLD_CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater.conf";
+static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-autoupdater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
@@ -325,9 +326,24 @@ read_config_file (const gchar *config_path,
 
   g_key_file_load_from_file (config, config_path, G_KEY_FILE_NONE, &error);
 
+  /* Try the files in order:
+   *  1. config_path from caller (typically CONFIG_FILE_PATH unless in a test
+   *     environment).
+   *  2. OLD_CONFIG_FILE_PATH
+   *  3. STATIC_CONFIG_FILE_PATH
+   */
   if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
+      !g_str_equal (config_path, OLD_CONFIG_FILE_PATH) &&
       !g_str_equal (config_path, STATIC_CONFIG_FILE_PATH)) {
-    g_debug ("Configuration file ‘%s’ not found. Using defaults.", config_path);
+    g_debug ("Configuration file ‘%s’ not found. Trying old path ‘%s’.",
+             config_path, OLD_CONFIG_FILE_PATH);
+
+    return read_config_file (OLD_CONFIG_FILE_PATH, update_interval_days,
+                             update_on_mobile);
+  } else if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
+             g_str_equal (config_path, OLD_CONFIG_FILE_PATH)) {
+    g_debug ("Configuration file ‘%s’ not found. Using defaults.",
+             CONFIG_FILE_PATH);
 
     return read_config_file (STATIC_CONFIG_FILE_PATH, update_interval_days,
                              update_on_mobile);
@@ -339,6 +355,7 @@ read_config_file (const gchar *config_path,
     return FALSE;
   }
 
+  /* Successfully loaded a file. Parse it. */
   _last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
                                                  LAST_STEP_KEY, &error);
   if (error) {
