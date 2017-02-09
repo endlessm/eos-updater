@@ -7,7 +7,9 @@ eos_autoupdater_in = \
 
 systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
 
-sysconf_DATA = \
+# Example configuration files.
+sysconfexampledir = $(pkgdatadir)
+sysconfexample_DATA = \
 	eos-updater.conf \
 	eos-updater-daemon.conf \
 	$(NULL)
@@ -25,7 +27,7 @@ edit = sed \
 	$(NULL)
 
 EXTRA_DIST = $(eos_autoupdater_in) \
-	$(sysconf_DATA) \
+	$(sysconfexample_DATA) \
 	$(NULL)
 
 CLEANFILES = $(systemdsystemunit_DATA)

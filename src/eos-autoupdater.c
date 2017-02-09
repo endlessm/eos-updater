@@ -18,6 +18,8 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include "eos-updater-types.h"
 #include "eos-updater-generated.h"
 
@@ -61,6 +63,7 @@ static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/eos-updater";
 static const char *UPDATE_STAMP_NAME = "eos-updater-stamp";
 
 static const char *CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater.conf";
+static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-updater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
@@ -308,10 +311,10 @@ get_config_file_path (void)
 }
 
 static gboolean
-read_config_file (guint *update_interval_days,
+read_config_file (const gchar *config_path,
+                  guint *update_interval_days,
                   gboolean *update_on_mobile)
 {
-  const gchar *config_path = get_config_file_path ();
   g_autoptr(GKeyFile) config = g_key_file_new ();
   g_autoptr(GError) error = NULL;
   gint _update_interval_days;
@@ -321,7 +324,14 @@ read_config_file (guint *update_interval_days,
   g_return_val_if_fail (update_on_mobile != NULL, FALSE);
 
   g_key_file_load_from_file (config, config_path, G_KEY_FILE_NONE, &error);
-  if (error) {
+
+  if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
+      !g_str_equal (config_path, STATIC_CONFIG_FILE_PATH)) {
+    g_debug ("Configuration file ‘%s’ not found. Using defaults.", config_path);
+
+    return read_config_file (STATIC_CONFIG_FILE_PATH, update_interval_days,
+                             update_on_mobile);
+  } else if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to open the configuration file: %s", error->message,
@@ -620,7 +630,8 @@ main (int argc, char **argv)
   g_option_context_parse (context, &argc, &argv, NULL);
   g_option_context_free (context);
 
-  if (!read_config_file (&update_interval_days, &update_on_mobile))
+  if (!read_config_file (get_config_file_path (),
+                         &update_interval_days, &update_on_mobile))
     return EXIT_FAILURE;
 
   if (volume_path == NULL && !is_online ())

@@ -34,6 +34,7 @@
 #include "eos-util.h"
 
 static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater-daemon.conf";
+static const gchar *const STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-updater-daemon.conf";
 static const gchar *const DOWNLOAD_GROUP = "Download";
 static const gchar *const ORDER_KEY = "Order";
 
@@ -128,40 +129,28 @@ sources_config_has_source (SourcesConfig *config,
 }
 
 static gboolean
-read_config (SourcesConfig *sources_config,
+read_config (const gchar *config_file_path,
+             SourcesConfig *sources_config,
              GError **error)
 {
   g_autoptr(GKeyFile) config = g_key_file_new ();
-  g_autofree gchar *config_file_path = get_config_file_path ();
   g_auto(GStrv) download_order_strv = NULL;
   g_autoptr(GError) local_error = NULL;
   g_autofree gchar *group_name = NULL;
 
-  if (!g_key_file_load_from_file (config, config_file_path, G_KEY_FILE_NONE, &local_error))
-    {
-      EosUpdaterDownloadSource main_source = EOS_UPDATER_DOWNLOAD_MAIN;
-      /* The documentation is not very clear about which error is
-       * returned when the file is not found.
-       */
-      if (!g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
-          !g_error_matches (local_error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_NOT_FOUND))
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
+  g_key_file_load_from_file (config, config_file_path, G_KEY_FILE_NONE, &local_error);
 
-      /* Config file was not found, fall back to the defaults
-       */
-      sources_config->download_order = g_array_sized_new (FALSE, /* not null terminated */
-                                                          FALSE, /* no clearing */
-                                                          sizeof (EosUpdaterDownloadSource),
-                                                          1);
-      g_array_append_val (sources_config->download_order, main_source);
-      sources_config->volume_path = NULL;
+  if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
+      !g_str_equal (config_file_path, STATIC_CONFIG_FILE_PATH)) {
+    g_debug ("Configuration file ‘%s’ not found. Using defaults.", config_file_path);
 
-      return TRUE;
-    }
+    return read_config (STATIC_CONFIG_FILE_PATH, sources_config, error);
+  } else if (local_error != NULL) {
+    g_propagate_error (error, g_steal_pointer (&local_error));
+    return FALSE;
+  }
 
+  /* Parse the options. */
   download_order_strv = g_key_file_get_string_list (config,
                                                     DOWNLOAD_GROUP,
                                                     ORDER_KEY,
@@ -273,10 +262,12 @@ metadata_fetch (GTask *task,
   g_autoptr(GPtrArray) source_variants = NULL;
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
   g_autoptr(EosUpdateInfo) info = NULL;
+  g_autofree gchar *config_file_path = NULL;
 
   fetch_data = eos_metadata_fetch_data_new (task, data, task_context);
 
-  if (!read_config (&config, &error))
+  config_file_path = get_config_file_path ();
+  if (!read_config (config_file_path, &config, &error))
     {
       g_task_return_error (task, g_steal_pointer (&error));
       return;

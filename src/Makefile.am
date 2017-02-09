@@ -50,6 +50,7 @@ common_cppflags = \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DLOCALSTATEDIR=\""$(localstatedir)"\" \
 	-DDATADIR=\""$(datadir)"\" \
+	-DPKGDATADIR=\""$(pkgdatadir)"\" \
 	$(NULL)
 
 libeos_updater_util_la_CPPFLAGS = $(common_cppflags)

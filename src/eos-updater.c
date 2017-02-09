@@ -275,6 +275,9 @@ purge_old_config (void)
   /* Checksum from the file as of release 3.1.1. */
   purge_old_config_file (SYSCONFDIR "/dbus-1/system.d/com.endlessm.Updater.conf",
                          "cbaa5af44c70831f46122cd859424ec2");
+  /* And this one. */
+  purge_old_config_file (SYSCONFDIR "/eos-updater.conf",
+                         "3693ff9b337a89ceec8b0630bd887d01");
 }
 
 gint
