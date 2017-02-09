@@ -35,6 +35,9 @@
  * A server that sits on top of the bare repository and lies to
  * clients about the repositories' mode, so it is possible to do pulls
  * from this repository.
+ *
+ * It currently only supports version 1 of the repository format
+ * (`repo_version=1` in the configuration file).
  */
 
 /**
@@ -74,46 +77,40 @@ enum
 
 static GParamSpec *props[PROP_N] = { NULL, };
 
-static GKeyFile *
-key_file_copy (GKeyFile *key_file,
-               GError **error)
-{
-  g_autoptr(GKeyFile) dup = NULL;
-  gsize len = 0;
-  g_autofree gchar *raw = NULL;
-
-  raw = g_key_file_to_data (key_file, &len, error);
-  if (raw == NULL)
-    return NULL;
-
-  dup = g_key_file_new ();
-  if (!g_key_file_load_from_data (key_file,
-                                  raw,
-                                  len,
-                                  G_KEY_FILE_NONE,
-                                  error))
-    return NULL;
-
-  return g_steal_pointer (&dup);
-}
-
 static gboolean
 generate_faked_config (OstreeRepo *repo,
                        GBytes **out_faked_config_contents,
                        GError **error)
 {
-  g_autoptr(GKeyFile) config = key_file_copy (ostree_repo_get_config (repo),
-                                              error);
+  GKeyFile *parent_config;
+  OstreeRepoMode parent_mode;
+  gint parent_repo_version;
+  g_autoptr(GKeyFile) config = NULL;
   g_autofree gchar *raw = NULL;
   gsize len = 0;
 
-  if (config == NULL)
+  /* Check that the repository is in a format we understand. */
+  parent_config = ostree_repo_get_config (repo);
+  parent_mode = ostree_repo_get_mode (repo);
+  parent_repo_version = g_key_file_get_integer (parent_config, "core",
+                                                "repo_version", NULL);
+
+  if (parent_mode != OSTREE_REPO_MODE_BARE || parent_repo_version != 1)
     {
-      g_debug ("Failed to copy repository config");
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                   "Repository is in the wrong mode (%u) or version (%u).",
+                   parent_mode, parent_repo_version);
       return FALSE;
     }
 
+  /* Return a simple configuration file which doesn’t expose any of our own
+   * remotes (whose URIs might contain usernames and passwords). The client
+   * doesn’t need that information. */
+  config = g_key_file_new ();
+
+  g_key_file_set_integer (config, "core", "repo_version", 1);
   g_key_file_set_string (config, "core", "mode", "archive-z2");
+
   raw = g_key_file_to_data (config, &len, error);
   if (raw == NULL)
     {
