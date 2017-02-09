@@ -67,11 +67,10 @@ apply_finished (GObject *object,
   g_assert_not_reached ();
 }
 
-static gchar *
+static const gchar *
 get_test_osname (void)
 {
-  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME",
-                                     NULL);
+  return g_getenv ("EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME");
 }
 
 static gboolean
@@ -91,7 +90,7 @@ apply_internal (EosUpdater *updater,
   g_autoptr(OstreeDeployment) new_deployment = NULL;
   g_autoptr(GKeyFile) origin = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
-  g_autofree gchar *osname = get_test_osname ();
+  const gchar *osname = get_test_osname ();
   g_autoptr(GHashTable) refs = NULL;
   g_autoptr(GVariant) update_commit = NULL;
   g_autoptr(GDateTime) head_commit_timestamp = NULL;

@@ -233,11 +233,10 @@ timeout_data_setup_timeout (TimeoutData *data)
     data->timeout_id = g_timeout_add_seconds (data->timeout_seconds, timeout_cb, data);
 }
 
-static gchar *
+static const gchar *
 quit_file_name (void)
 {
-  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE",
-                                     NULL);
+  return g_getenv ("EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE");
 }
 
 static EosQuitFileCheckResult
@@ -256,7 +255,7 @@ static gboolean
 timeout_data_maybe_setup_quit_file (TimeoutData *data,
                                     GError **error)
 {
-  g_autofree gchar *filename = quit_file_name ();
+  const gchar *filename = quit_file_name ();
   g_autoptr(EosQuitFile) quit_file = NULL;
   gint timeout_seconds = 5;
 

@@ -433,16 +433,16 @@ eos_updater_queue_callback (GMainContext *context,
   return g_source_attach (source, context);
 }
 
-gchar *
-eos_updater_dup_envvar_or (const gchar *envvar,
+const gchar *
+eos_updater_get_envvar_or (const gchar *envvar,
                            const gchar *default_value)
 {
   const gchar *value = g_getenv (envvar);
 
   if (value != NULL)
-    return g_strdup (value);
+    return value;
 
-  return g_strdup (default_value);
+  return default_value;
 }
 
 GFile *

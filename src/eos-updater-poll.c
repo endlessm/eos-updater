@@ -78,10 +78,10 @@ strv_to_download_order (gchar **sources,
   return TRUE;
 }
 
-static gchar *
+static const gchar *
 get_config_file_path (void)
 {
-  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_CONFIG_FILE_PATH",
+  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_CONFIG_FILE_PATH",
                                     CONFIG_FILE_PATH);
 }
 
@@ -262,12 +262,10 @@ metadata_fetch (GTask *task,
   g_autoptr(GPtrArray) source_variants = NULL;
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
   g_autoptr(EosUpdateInfo) info = NULL;
-  g_autofree gchar *config_file_path = NULL;
 
   fetch_data = eos_metadata_fetch_data_new (task, data, task_context);
 
-  config_file_path = get_config_file_path ();
-  if (!read_config (config_file_path, &config, &error))
+  if (!read_config (get_config_file_path (), &config, &error))
     {
       g_task_return_error (task, g_steal_pointer (&error));
       return;

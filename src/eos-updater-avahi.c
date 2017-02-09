@@ -628,10 +628,10 @@ generate_v1_service_file (OstreeRepo *repo,
                                                   error);
 }
 
-static gchar *
+static const gchar *
 get_avahi_services_dir (void)
 {
-  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR",
+  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR",
                                     SYSCONFDIR "/avahi/services");
 }
 
@@ -641,7 +641,7 @@ eos_avahi_generate_service_file (OstreeRepo *repo,
                                  GError **error)
 {
   g_autoptr(GFile) service_file = NULL;
-  g_autofree gchar *services_dir = NULL;
+  const gchar *services_dir;
   g_autofree gchar *service_file_path = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);

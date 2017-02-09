@@ -154,11 +154,10 @@ on_name_lost (GDBusConnection *connection,
   message ("Lost the name %s\n", name);
 }
 
-static gchar *
+static const gchar *
 quit_file_name (void)
 {
-  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_QUIT_FILE",
-                                     NULL);
+  return g_getenv ("EOS_UPDATER_TEST_UPDATER_QUIT_FILE");
 }
 
 static EosQuitFileCheckResult
@@ -192,7 +191,7 @@ static gboolean
 maybe_setup_quit_file (LocalData *local_data,
                        GError **error)
 {
-  g_autofree gchar *filename = quit_file_name ();
+  const gchar *filename = quit_file_name ();
   g_autoptr(EosQuitFile) quit_file = NULL;
 
   if (filename == NULL)

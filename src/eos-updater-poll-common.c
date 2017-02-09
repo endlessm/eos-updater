@@ -921,11 +921,10 @@ get_x86_hw_descriptors (GHashTable *hw_descriptors)
     }
 }
 
-static gchar *
+static const gchar *
 get_custom_descriptors_path (void)
 {
-  return eos_updater_dup_envvar_or ("EOS_UPDATER_TEST_UPDATER_CUSTOM_DESCRIPTORS_PATH",
-                                    NULL);
+  return g_getenv ("EOS_UPDATER_TEST_UPDATER_CUSTOM_DESCRIPTORS_PATH");
 }
 
 GHashTable *
@@ -933,7 +932,7 @@ get_hw_descriptors (void)
 {
   GHashTable *hw_descriptors = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                       g_free, g_free);
-  g_autofree gchar *custom_descriptors = get_custom_descriptors_path ();
+  const gchar *custom_descriptors = get_custom_descriptors_path ();
 
   if (custom_descriptors != NULL)
     get_custom_hw_descriptors (hw_descriptors,

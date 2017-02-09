@@ -94,8 +94,8 @@ guint eos_updater_queue_callback (GMainContext *context,
                                   gpointer user_data,
                                   const gchar *name);
 
-gchar *eos_updater_dup_envvar_or (const gchar *envvar,
-                                  const gchar *default_value);
+const gchar *eos_updater_get_envvar_or (const gchar *envvar,
+                                        const gchar *default_value);
 
 GFile *eos_updater_get_eos_extensions_dir (OstreeRepo *repo);
 

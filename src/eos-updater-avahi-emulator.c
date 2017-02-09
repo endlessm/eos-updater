@@ -32,9 +32,9 @@ must_get_env (const gchar *env_var,
               gchar **out_value,
               GError **error)
 {
-  g_autofree gchar *value = NULL;
+  const gchar *value;
 
-  value = eos_updater_dup_envvar_or (env_var, NULL);
+  value = g_getenv (env_var);
   if (value == NULL)
     {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
@@ -43,7 +43,7 @@ must_get_env (const gchar *env_var,
       return FALSE;
     }
 
-  *out_value = g_steal_pointer (&value);
+  *out_value = g_strdup (value);
   return TRUE;
 }
 
