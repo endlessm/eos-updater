@@ -30,10 +30,12 @@
 
 #include "eos-util.h"
 
+#include <errno.h>
 #include <ostree.h>
 
 #include <gio/gio.h>
 #include <glib.h>
+#include <glib/gstdio.h>
 
 typedef struct
 {
@@ -219,6 +221,62 @@ listen_on_session_bus (void)
   return value != NULL;
 }
 
+/* Remove our configuration files from /etc which are identical to the current
+ * versions installed in /usr/share or /usr/etc, which we embed as an MD5
+ * checksum. If we do this on all systems, we can eventually change the formats
+ * in /usr/etc without worrying about the new defaults being overwritten by
+ * stale files in /etc.
+ *
+ * This functionality can be removed after a few releases, once we’re confident
+ * all systems will have been upgraded. */
+static void
+purge_old_config_file (const gchar *etc_path,
+                       const gchar *checksum_to_delete)
+{
+  g_autofree guint8 *etc_contents = NULL;
+  gsize etc_length;
+  g_autoptr(GChecksum) checksum = NULL;
+  g_autoptr(GError) error = NULL;
+
+  g_file_get_contents (etc_path, (gchar **) &etc_contents, &etc_length, &error);
+  if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+    {
+      return;
+    }
+  else if (error != NULL)
+    {
+      g_warning ("Error reading ‘%s’ to update it: %s", etc_path,
+                 error->message);
+      return;
+    }
+
+  /* Work out its checksum. */
+  checksum = g_checksum_new (G_CHECKSUM_MD5);
+  g_checksum_update (checksum, etc_contents, etc_length);
+
+  /* If the files are the same, delete the @etc_path. */
+  if (g_strcmp0 (g_checksum_get_string (checksum), checksum_to_delete) == 0)
+    {
+      g_debug ("File ‘%s’ contains default settings. Deleting.", etc_path);
+
+      if (g_unlink (etc_path) < 0)
+        g_warning ("Error deleting ‘%s’: %s", etc_path, g_strerror (errno));
+    }
+  else
+    {
+      g_debug ("File ‘%s’ doesn’t contain default settings. Keeping it.",
+               etc_path);
+    }
+}
+
+static void
+purge_old_config (void)
+{
+  /* Checksum from the file as of release 3.1.1. */
+  purge_old_config_file (SYSCONFDIR "/dbus-1/system.d/com.endlessm.Updater.conf",
+                         "cbaa5af44c70831f46122cd859424ec2");
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -231,6 +289,8 @@ main (gint argc, gchar *argv[])
   GBusType bus_type = G_BUS_TYPE_SYSTEM;
 
   g_set_prgname (argv[0]);
+
+  purge_old_config ();
 
   repo = eos_updater_local_repo ();
   eos_updater_data_init (&data, repo);

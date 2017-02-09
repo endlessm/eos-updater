@@ -1,4 +1,3 @@
-etc/dbus-1/system.d/com.endlessm.Updater.conf
 etc/eos-updater.conf
 etc/eos-updater-daemon.conf
 lib/systemd/system/eos-autoupdater.service
@@ -11,3 +10,4 @@ usr/lib/*/eos-update-server
 usr/lib/*/libeos-updater-0.so.0
 usr/lib/*/libeos-updater-0.so.0.*
 usr/share/dbus-1/system-services/com.endlessm.Updater.service
+usr/share/dbus-1/system.d/com.endlessm.Updater.conf

@@ -49,6 +49,7 @@ common_cppflags = \
 	-DOSTREE_WITH_AUTOCLEANUPS \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DLOCALSTATEDIR=\""$(localstatedir)"\" \
+	-DDATADIR=\""$(datadir)"\" \
 	$(NULL)
 
 libeos_updater_util_la_CPPFLAGS = $(common_cppflags)
@@ -149,7 +150,7 @@ eos_updater_SOURCES = \
 	eos-updater.xml \
 	$(NULL)
 
-dbusconfdir = ${sysconfdir}/dbus-1/system.d
+dbusconfdir = $(datadir)/dbus-1/system.d
 dbussystemservicedir = $(datadir)/dbus-1/system-services
 
 dbusconf_DATA = $(eos_updater_dbus_if).conf
