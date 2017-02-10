@@ -733,6 +733,8 @@ handle_refs_heads (EosUpdaterRepoServer *server,
       return;
     }
 
+  /* Pass through requests to things like /refs/heads/ostree/1/1/0 if they
+   * exist. */
   raw_path = g_build_filename (server->cached_repo_root, requested_path, NULL);
   if (!serve_file_if_exists (msg, server->cached_repo_root, raw_path, server->cancellable, &served))
     return;
@@ -740,6 +742,11 @@ handle_refs_heads (EosUpdaterRepoServer *server,
   if (served)
     return;
 
+  /* If not, this is probably a request for a head which is only available on
+   * the server — and hence available in our repository as a remote ref.
+   * Transparently redirect to /refs/remotes/$remote_name. For example, map
+   * /refs/heads/os/eos/amd64/master to
+   * /refs/remotes/eos/os/eos/amd64/master. */
   head = requested_path + prefix_len; /* e.g eos2/i386 */
   g_clear_pointer (&raw_path, g_free);
   raw_path = g_build_filename (server->cached_repo_root,
