@@ -265,6 +265,12 @@ scoped_main_context_free (ScopedMainContext *context)
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (ScopedMainContext, scoped_main_context_free)
 
+/* Start a new local repository server to pull the content for the USB stick
+ * from. We do this rather than pull-local because it translates refs in
+ * refs/remotes into refs/heads and converts from bare to archive-z2 mode, so
+ * the repository looks like it’s a canonical server with no remotes. This
+ * means that the same fetch-phase code can be used for all update poll sources.
+ */
 static gboolean
 get_server_and_uri (OstreeRepo *repo,
                     EosRefspec *refspec,
