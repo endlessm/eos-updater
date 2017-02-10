@@ -1112,8 +1112,11 @@ run_fetchers (EosMetadataFetchData *fetch_data,
           continue;
         }
 
-      g_hash_table_insert (source_to_update,
-                           (gpointer) name, g_object_ref (info));
+      if (info != NULL)
+        {
+          g_hash_table_insert (source_to_update,
+                               (gpointer) name, g_object_ref (info));
+        }
     }
 
   if (g_hash_table_size (source_to_update) > 0)
