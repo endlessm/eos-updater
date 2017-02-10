@@ -11,7 +11,7 @@ systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
 sysconfexampledir = $(pkgdatadir)
 sysconfexample_DATA = \
 	eos-autoupdater.conf \
-	eos-updater-daemon.conf \
+	eos-updater.conf \
 	$(NULL)
 
 %: %.in

@@ -33,8 +33,8 @@
 
 #include "eos-util.h"
 
-static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater-daemon.conf";
-static const gchar *const STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-updater-daemon.conf";
+static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-updater.conf";
+static const gchar *const STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-updater.conf";
 static const gchar *const DOWNLOAD_GROUP = "Download";
 static const gchar *const ORDER_KEY = "Order";
 
