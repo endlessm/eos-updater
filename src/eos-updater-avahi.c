@@ -168,6 +168,11 @@ queue_callback (EosAvahiDiscoverer *discoverer)
 static void
 queue_error_callback (EosAvahiDiscoverer *discoverer,
                       const gchar *format,
+                      ...) G_GNUC_PRINTF(2, 3);
+
+static void
+queue_error_callback (EosAvahiDiscoverer *discoverer,
+                      const gchar *format,
                       ...)
 {
   va_list args;

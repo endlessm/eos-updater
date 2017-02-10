@@ -31,6 +31,11 @@
 static int
 fail (gboolean     quiet,
       const gchar *error_message,
+      ...) G_GNUC_PRINTF (2, 3);
+
+static int
+fail (gboolean     quiet,
+      const gchar *error_message,
       ...)
 {
   va_list ap;
@@ -49,6 +54,12 @@ fail (gboolean     quiet,
 
   return 1;
 }
+
+static int
+usage (GOptionContext *context,
+       gboolean        quiet,
+       const gchar    *error_message,
+       ...) G_GNUC_PRINTF (3, 4);
 
 static int
 usage (GOptionContext *context,
