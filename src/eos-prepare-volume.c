@@ -137,7 +137,11 @@ main (int argc,
     }
 
   sysroot = ostree_sysroot_new_default ();
-  if (!ostree_sysroot_load (sysroot, NULL, &error))
+
+  /* Lock the sysroot so it can’t be updated while we’re pulling from it. The
+   * lock is automatically released when we finalise the sysroot. */
+  if (!ostree_sysroot_lock (sysroot, &error) ||
+      !ostree_sysroot_load (sysroot, NULL, &error))
     {
       return fail (quiet, "Failed to load sysroot: %s", error->message);
     }
