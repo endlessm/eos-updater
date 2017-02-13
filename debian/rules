@@ -9,17 +9,29 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-confflags = --with-systemdsystemunitdir=/lib/systemd/system
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 override_dh_auto_configure:
-	dh_auto_configure -- $(confflags)
+	dh_auto_configure \
+		-- \
+		--with-systemdsystemunitdir=/lib/systemd/system \
+		--enable-gtk-doc \
+		--sysconfdir=/etc \
+		$(NULL)
+
+override_dh_autoreconf:
+	dh_autoreconf ./autogen.sh
 
 override_dh_strip:
-	dh_strip --dbg-package=eos-updater-dbg
+	dh_strip --dbgsym-migration='eos-updater-dbg (<< 3.0.12)'
 
 # Don't start the services on install
 override_dh_systemd_start:
 	dh_systemd_start --no-start
 
+override_dh_install:
+	rm -f debian/tmp/usr/lib/*/*.la
+	dh_install --fail-missing
+
 %:
-	dh $@ --with autoreconf,systemd
+	dh $@ --with autoreconf,gir,python3,systemd --parallel

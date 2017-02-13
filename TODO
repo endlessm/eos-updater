@@ -1,0 +1,89 @@
+- replace dbuslib with corelib that only has a dependency on gio
+  - maybe put there some code from tests misc-utils to deduplicate the code even more
+
+- replace utillib with ostreelib that uses corelib and depends on
+  ostree
+
+- drop message in favor of g_message
+
+- come up with a communication between eos-update-server and
+  eos-updater, so eos-update-server does not serve outdated updates
+
+- write some a bit more asynchronous code for fetching commit ids from LAN:
+
+  - asynchronous fetches would have a shared state:
+
+    - the latest commit id
+
+    - a list of the LAN servers with the latest commit id
+
+    - a set of old commit ids
+
+  - from each LAN server fetch the
+    <IP>:<PORT>/extensions/eos/refs.d/<REF> file
+
+  - if the checksum in the download ref file is in the old commits id,
+    then discard the LAN server
+
+  - otherwise download the signature and validate it; if it fails,
+    discard the LAN server
+
+  - otherwise if the commit id is the same as the latest commit id
+    then add the LAN server to the list
+
+  - otherwise do the ostree pull with commit-only flag set and check
+    the timestamp of the commit; if timestamp is old then add the
+    checksum to old commits set and discard the LAN server
+
+  - otherwise discard all the LAN servers in the list, add the current
+    latest commit id to the old commits set and set the new latest
+    commit id and add the LAN server to the LIST
+
+- for real-world testing, come up with a master and slaves programs (a
+  botnet, woo!)
+
+  - slave would let the master know it exists under a specific address
+    and a port and then listen on the port to accept some commands
+    from master
+
+    - check a sanity of the environment (avahi daemon running, ostree
+      installed, eos-update-server installed, systemd as pid1)
+
+      - eos-update-server would likely be distributed together with
+        the slave or eos-updater project could be configured to build
+        only the eos-update-server program, so the slave would build
+        it itself
+
+    - setting up a fake sysroot with some specific commit (like we
+      currently do in "make check")
+
+    - setting up an avahi service file and systemd service and socket
+      unit files
+
+    - cleanup the mess
+
+  - master would send the commands to the slaves and then run
+    eos-updater and check the results
+
+  - this would make sure that the following stuff works as expected
+    (complementary to "make check"):
+
+    - avahi discovery
+
+    - systemd socket activation of the eos-update-server
+
+- branch files are remote specific so they should be checked against a
+  remote specific key
+
+- add valgrind support in tests
+
+- add some sanity tests to check if setting up the server and clients
+  work
+
+- for LAN updates, try fetching from another available URL if the
+  downloading objects from the previously chosen one failed for some
+  reason. Long term objective would be downloading from several URLs
+  in parallel, but that requires changes in OSTree.
+
+- consider either adding a --verbose flag to eos-updater or
+  integrating it with systemd journal.

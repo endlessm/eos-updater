@@ -1,5 +1,27 @@
-#include "eos-updater-generated.h"
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
+ *
+ * Copyright © 2013, 2014, 2015, 2016, 2017 Endless Mobile, Inc.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
+ */
+
+#include "config.h"
+
 #include "eos-updater-types.h"
+#include "eos-updater-generated.h"
 
 #include <gio/gio.h>
 #include <glib.h>
@@ -30,13 +52,19 @@ typedef enum _UpdateStep {
   UPDATE_STEP_APPLY
 } UpdateStep;
 
+/* These must be kept in sync with #UpdateStep. */
+#define UPDATE_STEP_FIRST UPDATE_STEP_NONE
+#define UPDATE_STEP_LAST UPDATE_STEP_APPLY
+
 #define SEC_PER_DAY (3600ll * 24)
 
 /* This file is touched whenever the updater starts */
-#define UPDATE_STAMP_DIR        "/var/lib/eos-updater"
-#define UPDATE_STAMP_NAME       "eos-updater-stamp"
+static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/lib/eos-updater";
+static const char *UPDATE_STAMP_NAME = "eos-updater-stamp";
 
-static const char *CONFIG_FILE_PATH = "/etc/eos-updater.conf";
+static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-autoupdater.conf";
+static const char *OLD_CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater.conf";
+static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-autoupdater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
@@ -46,7 +74,7 @@ static const char *ON_MOBILE_KEY = "UpdateOnMobile";
 static gboolean polled_already = FALSE;
 
 /* Read from config file */
-static UpdateStep last_automatic_step;
+static UpdateStep last_automatic_step = UPDATE_STEP_NONE;
 
 /* Set when main should return failure */
 static gboolean should_exit_failure = FALSE;
@@ -54,15 +82,40 @@ static gboolean should_exit_failure = FALSE;
 /* Avoid erroneous additional state transitions */
 static guint previous_state = EOS_UPDATER_STATE_NONE;
 
-static GMainLoop *main_loop;
+static GMainLoop *main_loop = NULL;
+static gchar *volume_path = NULL;
 
+static const gchar *
+get_envvar_or (const gchar *envvar,
+               const gchar *default_value)
+{
+  const gchar *value = g_getenv (envvar);
+
+  if (value != NULL)
+    return value;
+
+  return default_value;
+}
+
+static const gchar *
+get_stamp_dir (void)
+{
+  return get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_UPDATE_STAMP_DIR",
+                        UPDATE_STAMP_DIR);
+}
+
+/* Note: This function does not report errors as a GError because there’s no
+ * harm in the stamp file not being updated: it just means we’re going to check
+ * again for updates sooner than otherwise. */
 static void
 update_stamp_file (void)
 {
-  GFile *stamp_file;
-  GError *error = NULL;
+  const gchar *stamp_dir = get_stamp_dir ();
+  g_autofree gchar *stamp_path = NULL;
+  g_autoptr(GFile) stamp_file = NULL;
+  g_autoptr(GError) error = NULL;
 
-  if (g_mkdir_with_parents (UPDATE_STAMP_DIR, 0755) != 0) {
+  if (g_mkdir_with_parents (stamp_dir, 0755) != 0) {
     int saved_errno = errno;
     const char *err_str = g_strerror (saved_errno);
 
@@ -73,7 +126,8 @@ update_stamp_file (void)
     return;
   }
 
-  stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
+  stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
+  stamp_file = g_file_new_for_path (stamp_path);
   g_file_replace_contents (stamp_file, "", 0, NULL, FALSE,
                            G_FILE_CREATE_NONE, NULL, NULL,
                            &error);
@@ -82,10 +136,8 @@ update_stamp_file (void)
                      "PRIORITY=%d", LOG_CRIT,
                      "MESSAGE=Failed to write updater stamp file: %s", error->message,
                      NULL);
-    g_error_free (error);
+    return;
   }
-
-  g_object_unref (stamp_file);
 }
 
 /* Called on completion of the async dbus calls to check whether they
@@ -113,6 +165,7 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
       eos_updater_call_apply_finish (proxy, res, &error);
       break;
 
+    case UPDATE_STEP_NONE:
     default:
       g_assert_not_reached ();
   }
@@ -144,7 +197,10 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
         return FALSE;
 
       polled_already = TRUE;
-      eos_updater_call_poll (proxy, NULL, update_step_callback, step_data);
+      if (volume_path != NULL)
+        eos_updater_call_poll_volume (proxy, volume_path, NULL, update_step_callback, step_data);
+      else
+        eos_updater_call_poll (proxy, NULL, update_step_callback, step_data);
       break;
 
     case UPDATE_STEP_FETCH:
@@ -155,6 +211,7 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
       eos_updater_call_apply (proxy, NULL, update_step_callback, step_data);
       break;
 
+    case UPDATE_STEP_NONE:
     default:
       g_assert_not_reached ();
   }
@@ -247,55 +304,105 @@ on_state_changed_notify (EosUpdater *proxy,
   on_state_changed (proxy, state);
 }
 
+static const gchar *
+get_config_file_path (void)
+{
+  return get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_CONFIG_FILE_PATH",
+                        CONFIG_FILE_PATH);
+}
+
 static gboolean
-read_config_file (gint *update_interval,
+read_config_file (const gchar *config_path,
+                  guint *update_interval_days,
                   gboolean *update_on_mobile)
 {
-  GKeyFile *config = g_key_file_new ();
-  GError *error = NULL;
-  gboolean success = TRUE;
+  g_autoptr(GKeyFile) config = g_key_file_new ();
+  g_autoptr(GError) error = NULL;
+  gint _update_interval_days;
+  gint _last_automatic_step;
 
-  g_key_file_load_from_file (config, CONFIG_FILE_PATH, G_KEY_FILE_NONE, &error);
-  if (error) {
+  g_return_val_if_fail (update_interval_days != NULL, FALSE);
+  g_return_val_if_fail (update_on_mobile != NULL, FALSE);
+
+  g_key_file_load_from_file (config, config_path, G_KEY_FILE_NONE, &error);
+
+  /* Try the files in order:
+   *  1. config_path from caller (typically CONFIG_FILE_PATH unless in a test
+   *     environment).
+   *  2. OLD_CONFIG_FILE_PATH
+   *  3. STATIC_CONFIG_FILE_PATH
+   */
+  if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
+      !g_str_equal (config_path, OLD_CONFIG_FILE_PATH) &&
+      !g_str_equal (config_path, STATIC_CONFIG_FILE_PATH)) {
+    g_debug ("Configuration file ‘%s’ not found. Trying old path ‘%s’.",
+             config_path, OLD_CONFIG_FILE_PATH);
+
+    return read_config_file (OLD_CONFIG_FILE_PATH, update_interval_days,
+                             update_on_mobile);
+  } else if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
+             g_str_equal (config_path, OLD_CONFIG_FILE_PATH)) {
+    g_debug ("Configuration file ‘%s’ not found. Using defaults.",
+             CONFIG_FILE_PATH);
+
+    return read_config_file (STATIC_CONFIG_FILE_PATH, update_interval_days,
+                             update_on_mobile);
+  } else if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to open the configuration file: %s", error->message,
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
-  last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
-                                                LAST_STEP_KEY, &error);
+  /* Successfully loaded a file. Parse it. */
+  _last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
+                                                 LAST_STEP_KEY, &error);
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to read key '%s' in config file", LAST_STEP_KEY,
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
-  *update_interval = g_key_file_get_integer (config, AUTOMATIC_GROUP,
-                                             INTERVAL_KEY, &error);
+  if (_last_automatic_step < UPDATE_STEP_FIRST ||
+      _last_automatic_step > UPDATE_STEP_LAST) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_ERR,
+                     "MESSAGE=Specified last automatic step is not a valid step",
+                     NULL);
+    return FALSE;
+  }
+
+  last_automatic_step = (UpdateStep) _last_automatic_step;
+
+  _update_interval_days = g_key_file_get_integer (config, AUTOMATIC_GROUP,
+                                                  INTERVAL_KEY, &error);
 
   if (error) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to read key '%s' in config file", INTERVAL_KEY,
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
-  if (*update_interval < 0) {
+  if (_update_interval_days < 0) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Specified update interval is less than zero",
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
+
+  /* This should always be true, as the RHS is out of range for a guint (it’s
+   * around 10^14 days, which should be a long enough update period for anyone).
+   * We use G_MAXUINT64 rather than G_MAXUINT because the time calculation in
+   * is_time_to_update() uses guint64 variables. */
+  g_assert ((guint64) _update_interval_days <= G_MAXUINT64 / SEC_PER_DAY);
+
+  *update_interval_days = (guint) _update_interval_days;
 
   *update_on_mobile = g_key_file_get_boolean (config, AUTOMATIC_GROUP,
                                               ON_MOBILE_KEY, &error);
@@ -305,15 +412,10 @@ read_config_file (gint *update_interval,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to read key '%s' in config file", ON_MOBILE_KEY,
                      NULL);
-    success = FALSE;
-    goto out;
+    return FALSE;
   }
 
-out:
-  g_clear_error (&error);
-  g_key_file_free (config);
-
-  return success;
+  return TRUE;
 }
 
 /* We want to poll once when the updater starts.  To make sure that we
@@ -334,20 +436,23 @@ initial_poll_idle_func (gpointer pointer)
   on_state_changed (proxy, initial_state);
 
   /* Disable this function after the first run */
-  return FALSE;
+  return G_SOURCE_REMOVE;
 }
 
 static gboolean
-is_time_to_update (gint update_interval)
+is_time_to_update (guint update_interval_days)
 {
-  GFile *stamp_file;
-  GFileInfo *stamp_file_info;
-  guint64 last_update_time;
+  const gchar *stamp_dir = get_stamp_dir ();
+  g_autofree gchar *stamp_path = NULL;
+  g_autoptr (GFile) stamp_file = NULL;
+  g_autoptr (GFileInfo) stamp_file_info = NULL;
+  guint64 last_update_time_secs;
   gint64 current_time_usec;
-  GError *error = NULL;
-  gboolean time_to_update = FALSE;
+  g_autoptr (GError) error = NULL;
+  gboolean is_time_to_update = FALSE;
 
-  stamp_file = g_file_new_for_path (UPDATE_STAMP_DIR G_DIR_SEPARATOR_S UPDATE_STAMP_NAME);
+  stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
+  stamp_file = g_file_new_for_path (stamp_path);
   stamp_file_info = g_file_query_info (stamp_file,
                                        G_FILE_ATTRIBUTE_TIME_MODIFIED,
                                        G_FILE_QUERY_INFO_NONE, NULL,
@@ -362,24 +467,29 @@ is_time_to_update (gint update_interval)
                        NULL);
     }
 
-    time_to_update = TRUE;
-    g_clear_error (&error);
+    is_time_to_update = TRUE;
   } else {
+    guint64 next_update_time_secs, update_interval_secs;
+
     /* Determine whether sufficient time has elapsed */
     current_time_usec = g_get_real_time ();
-    last_update_time =
+    last_update_time_secs =
       g_file_info_get_attribute_uint64 (stamp_file_info,
-                                       G_FILE_ATTRIBUTE_TIME_MODIFIED);
+                                        G_FILE_ATTRIBUTE_TIME_MODIFIED);
 
-    time_to_update = (last_update_time + update_interval * SEC_PER_DAY) *
-                      G_USEC_PER_SEC < current_time_usec;
+    /* Guaranteed not to overflow, as we check update_interval_days when
+     * loading it. */
+    update_interval_secs = update_interval_days * SEC_PER_DAY;
 
-    g_object_unref (stamp_file_info);
+    /* next_update_time_secs = last_update_time_secs + update_interval_secs */
+    if (!g_uint64_checked_add (&next_update_time_secs, last_update_time_secs,
+                               update_interval_secs))
+      next_update_time_secs = G_MAXUINT64;
+
+    is_time_to_update = (next_update_time_secs < (guint64) current_time_usec / G_USEC_PER_SEC);
   }
 
-  g_object_unref (stamp_file);
-
-  return time_to_update;
+  return is_time_to_update;
 }
 
 static gboolean
@@ -393,12 +503,20 @@ is_online (void)
     return FALSE;
 
   /* Assume that the ostree server is remote and only consider to be
-   * online if we have global connectivity.
+   * online for ostree updates if we have global connectivity.
+   * For Avahi updates, local or site connectivity is adequate.
    */
   switch (nm_client_get_state (client)) {
+  case NM_STATE_CONNECTED_LOCAL:
+  case NM_STATE_CONNECTED_SITE:
   case NM_STATE_CONNECTED_GLOBAL:
     online = TRUE;
     break;
+  case NM_STATE_UNKNOWN:
+  case NM_STATE_ASLEEP:
+  case NM_STATE_DISCONNECTED:
+  case NM_STATE_DISCONNECTING:
+  case NM_STATE_CONNECTING:
   default:
     online = FALSE;
     break;
@@ -421,37 +539,89 @@ is_connected_through_mobile (void)
   NMDevice *device;
   const GPtrArray *devices;
   gboolean is_mobile = FALSE;
-  gint i;
+  guint i;
 
   client = nm_client_new ();
   if (!client) {
     return FALSE;
   }
 
-  g_object_get (client, "primary-connection", &connection, NULL);
+  connection = nm_client_get_primary_connection (client);
   if (!connection) {
     g_object_unref (client);
     return FALSE;
   }
 
   devices = nm_active_connection_get_devices (connection);
-  for (i = 0; i < devices->len; i++) {
+  for (i = 0; !is_mobile && i < devices->len; i++) {
     device = (NMDevice *) g_ptr_array_index (devices, i);
     switch (nm_device_get_device_type (device)) {
     case NM_DEVICE_TYPE_MODEM:
     case NM_DEVICE_TYPE_BT:
     case NM_DEVICE_TYPE_WIMAX:
-      is_mobile |= TRUE;
+      is_mobile = TRUE;
       break;
+    case NM_DEVICE_TYPE_UNKNOWN:
+    case NM_DEVICE_TYPE_ETHERNET:
+    case NM_DEVICE_TYPE_WIFI:
+    case NM_DEVICE_TYPE_UNUSED1:
+    case NM_DEVICE_TYPE_UNUSED2:
+    case NM_DEVICE_TYPE_OLPC_MESH:
+    case NM_DEVICE_TYPE_INFINIBAND:
+    case NM_DEVICE_TYPE_BOND:
+    case NM_DEVICE_TYPE_VLAN:
+    case NM_DEVICE_TYPE_ADSL:
+    case NM_DEVICE_TYPE_BRIDGE:
+    case NM_DEVICE_TYPE_GENERIC:
+    case NM_DEVICE_TYPE_TEAM:
+    case NM_DEVICE_TYPE_TUN:
+    case NM_DEVICE_TYPE_IP_TUNNEL:
+    case NM_DEVICE_TYPE_MACVLAN:
+    case NM_DEVICE_TYPE_VXLAN:
+    case NM_DEVICE_TYPE_VETH:
     default:
       break;
     }
   }
 
-  g_object_unref (connection);
   g_object_unref (client);
 
   return is_mobile;
+}
+
+static gboolean
+should_listen_on_session_bus (void)
+{
+  const gchar *value = NULL;
+
+  value = g_getenv ("EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS");
+
+  return value != NULL;
+}
+
+static gint
+get_dbus_timeout (void)
+{
+  const gchar *value = NULL;
+  gint64 timeout;
+  gchar *str_end = NULL;
+
+  value = get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT",
+                         NULL);
+
+  if (value == NULL || value[0] == '\0')
+    return -1;
+
+  errno = 0;
+  timeout = g_ascii_strtoll (value, &str_end, 10);
+  if (errno != 0 ||
+      str_end == NULL ||
+      *str_end != '\0' ||
+      timeout > G_MAXINT ||
+      timeout < 0)
+    return -1;
+
+  return timeout;
 }
 
 int
@@ -459,29 +629,35 @@ main (int argc, char **argv)
 {
   EosUpdater *proxy;
   GError *error = NULL;
-  gint update_interval;
+  guint update_interval_days;
   gboolean update_on_mobile;
   gboolean force_update = FALSE;
   GOptionContext *context;
 
   GOptionEntry entries[] = {
     { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
+    { "from-volume", 0, 0, G_OPTION_ARG_STRING, &volume_path, "Poll for updates from the volume", "PATH" },
     { NULL }
   };
+  GBusType bus_type = G_BUS_TYPE_SYSTEM;
+  gint dbus_timeout;
 
   context = g_option_context_new ("Endless Automatic Updater");
   g_option_context_add_main_entries (context, entries, NULL);
   g_option_context_parse (context, &argc, &argv, NULL);
   g_option_context_free (context);
 
-  if (!read_config_file (&update_interval, &update_on_mobile))
+  if (!read_config_file (get_config_file_path (),
+                         &update_interval_days, &update_on_mobile))
     return EXIT_FAILURE;
 
-  if (!is_online ())
+  if (volume_path == NULL && !is_online ())
     return EXIT_SUCCESS;
 
   if (!force_update) {
-    if (!update_on_mobile && is_connected_through_mobile ()) {
+    if (volume_path == NULL &&
+        !update_on_mobile &&
+        is_connected_through_mobile ()) {
       sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
                        "PRIORITY=%d", LOG_INFO,
                        "MESSAGE=Connected to mobile network. Not updating",
@@ -489,10 +665,10 @@ main (int argc, char **argv)
       return EXIT_SUCCESS;
     }
 
-    if (!is_time_to_update (update_interval)) {
+    if (!is_time_to_update (update_interval_days)) {
       sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_TIME_MSGID,
                        "PRIORITY=%d", LOG_INFO,
-                       "MESSAGE=Less than IntervalDays since last update. Exiting",
+                       "MESSAGE=Less than %s since last update. Exiting", INTERVAL_KEY,
                        NULL);
       return EXIT_SUCCESS;
     }
@@ -500,7 +676,9 @@ main (int argc, char **argv)
 
   main_loop = g_main_loop_new (NULL, FALSE);
 
-  proxy = eos_updater_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
+  if (should_listen_on_session_bus ())
+    bus_type = G_BUS_TYPE_SESSION;
+  proxy = eos_updater_proxy_new_for_bus_sync (bus_type,
                      G_DBUS_PROXY_FLAGS_NONE,
                      "com.endlessm.Updater",
                      "/com/endlessm/Updater",
@@ -517,6 +695,9 @@ main (int argc, char **argv)
     goto out;
   }
 
+  dbus_timeout = get_dbus_timeout ();
+  g_dbus_proxy_set_default_timeout (G_DBUS_PROXY (proxy), dbus_timeout);
+
   g_signal_connect (proxy, "notify::state",
                     G_CALLBACK (on_state_changed_notify), NULL);
 
@@ -525,7 +706,8 @@ main (int argc, char **argv)
 
 out:
   g_main_loop_unref (main_loop);
-  g_object_unref (proxy);
+  g_clear_object (&proxy);
+  g_free (volume_path);
 
   if (should_exit_failure) /* All paths setting this print an error message */
     return EXIT_FAILURE;

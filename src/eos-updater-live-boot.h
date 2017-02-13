@@ -23,7 +23,7 @@
 #pragma once
 
 #include "eos-updater-generated.h"
-#include "eos-updater-util.h"
+#include "eos-util.h"
 #include <ostree.h>
 
 G_BEGIN_DECLS

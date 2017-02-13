@@ -1,5 +1,5 @@
 [Unit]
-Description=EndlessOS Automatic Updater
+Description=Endless OS Automatic Updater
 Wants=network.target
 
 [Service]

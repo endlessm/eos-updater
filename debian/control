@@ -3,35 +3,96 @@ Section: misc
 Priority: optional
 Maintainer: John Hiesey <john@endlessm.com>
 Standards-Version: 3.9.6
-Build-Depends: debhelper (>= 9.0.0),
-	eos-metrics-0-dev,
-	libglib2.0-dev (>= 2.36.0),
-	libnm-glib-dev,
-	libsystemd-dev,
-	libostree-dev (>= 2015.6),
-	libgsystem-dev,
-	libsoup2.4-dev,
-	xsltproc,
-	dh-autoreconf,
-	dh-systemd
+Build-Depends:
+ autoconf-archive,
+ debhelper (>= 9.20160114),
+ dh-autoreconf,
+ dh-python,
+ dh-systemd,
+ eos-metrics-0-dev,
+ gobject-introspection (>= 1.30.0),
+ gtk-doc-tools (>= 1.14),
+ libavahi-client-dev (>= 0.6.31),
+ libavahi-glib-dev (>= 0.6.31),
+ libgirepository1.0-dev (>= 1.30.0),
+ libglib2.0-dev (>= 2.44.0),
+ libgsystem-dev,
+ libnm-glib-dev,
+ libostree-dev (>= 2016.15),
+ libsoup2.4-dev,
+ libsystemd-dev,
+ xsltproc,
 
 Package: eos-updater
 Section: misc
 Architecture: any
-Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         systemd (>= 200),
-         python3-gi,
-         gir1.2-glib-2.0
-Description: Updater for EndlessOS
+Multi-arch: no
+Depends:
+ gir1.2-glib-2.0,
+ python3-gi,
+ systemd (>= 200),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Updater for Endless OS
  This package contains the components for keeping Endless OS up to date.
 
-Package: eos-updater-dbg
-Section: debug
-Priority: extra
+Package: eos-updater-tools
+Section: misc
 Architecture: any
-Depends: ${misc:Depends}, eos-updater (= ${binary:Version})
-Description: Updater for EndlessOS - debugging symbols
+Multi-arch: no
+Depends:
+ eos-updater (= ${binary:Version}),
+ ${misc:Depends},
+ ${python3:Depends},
+ ${shlibs:Depends},
+Description: Updater for Endless OS - tools
  This package contains the components for keeping Endless OS up to date.
  .
- This package provides the eos-updater debugging symbols.
+ This package contains tools for preparing updates for distribution
+ using USB sticks.
+
+Package: gir1.2-eos-updater-0
+Section: introspection
+Architecture: any
+Multi-arch: same
+Depends:
+ ${gir:Depends},
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Updater for Endless OS - introspection bindings
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains a machine-readable API description for the shared
+ library for use by the updater and other update packaging tools.
+
+Package: libeos-updater-0-dev
+Section: libdevel
+Architecture: any
+Multi-arch: same
+Depends:
+ eos-updater (= ${binary:Version}),
+ gir1.2-eos-updater-0 (= ${binary:Version}),
+ libglib2.0-dev,
+ libostree-dev,
+ libsoup2.4-dev,
+ ${misc:Depends},
+ ${shlibs:Depends},
+Suggests:
+ libeos-updater-0-doc,
+Description: Updater for Endless OS - development library
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains the development files for use by the updater and
+ other update packaging tools.
+
+Package: libeos-updater-0-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends:
+ ${misc:Depends},
+Description: Updater for Endless OS - documentation
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains reference documentation for the APIs used
+ by the updater and other update packaging tools.

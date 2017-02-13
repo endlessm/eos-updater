@@ -1,6 +1,9 @@
 <node>
   <interface name="com.endlessm.Updater">
-    <method name="Poll" ></method>
+    <method name="Poll"></method>
+    <method name="PollVolume">
+      <arg name="path" type="s" direction="in"/>
+    </method>
     <method name="Fetch"></method>
     <method name="Apply"></method>
 
