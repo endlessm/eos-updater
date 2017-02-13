@@ -69,10 +69,25 @@ AS_IF([test "x$want_metrics" = 'xyes'],
 PKG_CHECK_MODULES([EOS_UPDATER],
                   [$EOS_UPDATER_MODULES])
 
-AC_PATH_PROG([XSLTPROC], [xsltproc], [AC_MSG_ERROR([xsltproc is required for build])])
-AC_PATH_PROG([GDBUS_CODEGEN], [gdbus-codegen], [AC_MSG_ERROR([gdbus-codegen is required for build])])
-AC_PATH_PROG([OSTREE], [ostree], [AC_MSG_ERROR([ostree is required for tests])])
-AC_PATH_PROG([GPG], [gpg], [AC_MSG_ERROR([gpg is required for tests])])
+AC_PATH_PROG([XSLTPROC],[xsltproc])
+AS_IF([test "$XSLTPROC" = ""],[
+	AC_MSG_ERROR([xsltproc is required for build])
+])
+
+AC_PATH_PROG([GDBUS_CODEGEN],[gdbus-codegen])
+AS_IF([test "$GDBUS_CODEGEN" = ""],[
+	AC_MSG_ERROR([gdbus-codegen is required for build])
+])
+
+AC_PATH_PROG([OSTREE],[ostree])
+AS_IF([test "$OSTREE" = ""],[
+	AC_MSG_ERROR([ostree is required for tests])
+])
+
+AC_PATH_PROG([GPG],[gpg])
+AS_IF([test "$GPG" = ""],[
+	AC_MSG_ERROR([gpg is required for tests])
+])
 
 # Code coverage
 AX_CODE_COVERAGE
