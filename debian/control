@@ -10,6 +10,7 @@ Build-Depends:
  dh-python,
  dh-systemd,
  eos-metrics-0-dev,
+ gnupg,
  gobject-introspection (>= 1.30.0),
  gtk-doc-tools (>= 1.14),
  libavahi-client-dev (>= 0.6.31),
@@ -21,6 +22,7 @@ Build-Depends:
  libostree-dev (>= 2016.15),
  libsoup2.4-dev,
  libsystemd-dev,
+ ostree,
  xsltproc,
 
 Package: eos-updater
