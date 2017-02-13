@@ -97,6 +97,7 @@ apply_internal (EosUpdater *updater,
   const gchar *update_checksum;
   GHashTableIter iter;
   gpointer key, value;
+  g_autoptr(GError) local_error = NULL;
 
   /* Before starting, get the commit timestamp for the update_refspec, which we
    * advertise on Avahi later. */
@@ -186,19 +187,24 @@ apply_internal (EosUpdater *updater,
 
   newbootver = ostree_deployment_get_deployserial (new_deployment);
 
+  /* Updates to the extensions and Avahi service file are non-fatal, since
+   * we’ve already successfully deployed the new OS. */
   if (!eos_extensions_save (data->extensions,
                             repo,
                             cancel,
-                            error))
-    return FALSE;
+                            &local_error))
+    g_warning ("Failed to save repository extensions: %s",
+               local_error->message);
   g_clear_object (&data->extensions);
+  g_clear_error (&local_error);
 
   head_commit_timestamp = g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (update_commit));
 
   if (!eos_avahi_generate_service_file (repo,
                                         head_commit_timestamp,
-                                        error))
-    return FALSE;
+                                        &local_error))
+    g_warning ("Failed to update service file: %s", local_error->message);
+  g_clear_error (&local_error);
 
   *out_bootversion_changed = bootversion != newbootver;
   return TRUE;
