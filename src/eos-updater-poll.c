@@ -34,6 +34,7 @@
 #include "eos-util.h"
 
 static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-updater.conf";
+static const gchar *const LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-updater.conf";
 static const gchar *const STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-updater.conf";
 static const gchar *const DOWNLOAD_GROUP = "Download";
 static const gchar *const ORDER_KEY = "Order";
@@ -139,6 +140,7 @@ read_config (const gchar *config_file_path,
   const gchar * const paths[] =
     {
       config_file_path,  /* typically CONFIG_FILE_PATH unless testing */
+      LOCAL_CONFIG_FILE_PATH,
       STATIC_CONFIG_FILE_PATH,
       NULL
     };
