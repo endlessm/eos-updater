@@ -105,6 +105,7 @@ main (int argc,
   g_autoptr(GFile) usb_path = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
   g_autoptr(OstreeAsyncProgress) progress = NULL;
+  gboolean lock_acquired = FALSE;
 
   setlocale (LC_ALL, "");
 
@@ -151,8 +152,18 @@ main (int argc,
 
   /* Lock the sysroot so it can’t be updated while we’re pulling from it. The
    * lock is automatically released when we finalise the sysroot. */
-  if (!ostree_sysroot_lock (sysroot, &error) ||
-      !ostree_sysroot_load (sysroot, NULL, &error))
+  ostree_sysroot_try_lock (sysroot, &lock_acquired, NULL);
+
+  if (!lock_acquired)
+    {
+      if (!quiet)
+        g_print ("Waiting for lock on sysroot…\n");
+
+      if (!ostree_sysroot_lock (sysroot, &error))
+        return fail (quiet, "Failed to lock sysroot: %s", error->message);
+    }
+
+  if (!ostree_sysroot_load (sysroot, NULL, &error))
     {
       return fail (quiet, "Failed to load sysroot: %s", error->message);
     }
