@@ -66,9 +66,9 @@ libeos_updater_util_la_SOURCES = \
 	$(NULL)
 
 eos_autoupdater_CPPFLAGS = $(common_cppflags)
-eos_autoupdater_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS) $(EOS_AUTOUPDATER_CFLAGS)
+eos_autoupdater_CFLAGS = $(common_cflags) $(EOS_AUTOUPDATER_CFLAGS)
 eos_autoupdater_LDFLAGS = $(WARN_LDFLAGS)
-eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(EOS_AUTOUPDATER_LIBS)
+eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(utillib) $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
 
 common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(utillib)

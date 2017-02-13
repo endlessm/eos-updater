@@ -22,6 +22,7 @@
 
 #include "eos-updater-types.h"
 #include "eos-updater-generated.h"
+#include "eos-util.h"
 
 #include <gio/gio.h>
 #include <glib.h>
@@ -316,38 +317,25 @@ read_config_file (const gchar *config_path,
                   guint *update_interval_days,
                   gboolean *update_on_mobile)
 {
-  g_autoptr(GKeyFile) config = g_key_file_new ();
+  g_autoptr(GKeyFile) config = NULL;
   g_autoptr(GError) error = NULL;
   gint _update_interval_days;
   gint _last_automatic_step;
+  const gchar * const paths[] =
+    {
+      config_path,  /* typically CONFIG_FILE_PATH unless testing */
+      OLD_CONFIG_FILE_PATH,
+      STATIC_CONFIG_FILE_PATH,
+      NULL
+    };
 
   g_return_val_if_fail (update_interval_days != NULL, FALSE);
   g_return_val_if_fail (update_on_mobile != NULL, FALSE);
 
-  g_key_file_load_from_file (config, config_path, G_KEY_FILE_NONE, &error);
+  /* Try loading the files in order */
+  config = eos_updater_load_config_file (paths, &error);
 
-  /* Try the files in order:
-   *  1. config_path from caller (typically CONFIG_FILE_PATH unless in a test
-   *     environment).
-   *  2. OLD_CONFIG_FILE_PATH
-   *  3. STATIC_CONFIG_FILE_PATH
-   */
-  if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
-      !g_str_equal (config_path, OLD_CONFIG_FILE_PATH) &&
-      !g_str_equal (config_path, STATIC_CONFIG_FILE_PATH)) {
-    g_debug ("Configuration file ‘%s’ not found. Trying old path ‘%s’.",
-             config_path, OLD_CONFIG_FILE_PATH);
-
-    return read_config_file (OLD_CONFIG_FILE_PATH, update_interval_days,
-                             update_on_mobile);
-  } else if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
-             g_str_equal (config_path, OLD_CONFIG_FILE_PATH)) {
-    g_debug ("Configuration file ‘%s’ not found. Using defaults.",
-             CONFIG_FILE_PATH);
-
-    return read_config_file (STATIC_CONFIG_FILE_PATH, update_interval_days,
-                             update_on_mobile);
-  } else if (error) {
+  if (error != NULL) {
     sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Unable to open the configuration file: %s", error->message,

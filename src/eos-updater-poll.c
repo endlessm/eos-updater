@@ -133,22 +133,20 @@ read_config (const gchar *config_file_path,
              SourcesConfig *sources_config,
              GError **error)
 {
-  g_autoptr(GKeyFile) config = g_key_file_new ();
+  g_autoptr(GKeyFile) config = NULL;
   g_auto(GStrv) download_order_strv = NULL;
-  g_autoptr(GError) local_error = NULL;
   g_autofree gchar *group_name = NULL;
+  const gchar * const paths[] =
+    {
+      config_file_path,  /* typically CONFIG_FILE_PATH unless testing */
+      STATIC_CONFIG_FILE_PATH,
+      NULL
+    };
 
-  g_key_file_load_from_file (config, config_file_path, G_KEY_FILE_NONE, &local_error);
-
-  if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
-      !g_str_equal (config_file_path, STATIC_CONFIG_FILE_PATH)) {
-    g_debug ("Configuration file ‘%s’ not found. Using defaults.", config_file_path);
-
-    return read_config (STATIC_CONFIG_FILE_PATH, sources_config, error);
-  } else if (local_error != NULL) {
-    g_propagate_error (error, g_steal_pointer (&local_error));
+  /* Try loading the files in order. */
+  config = eos_updater_load_config_file (paths, error);
+  if (config == NULL)
     return FALSE;
-  }
 
   /* Parse the options. */
   download_order_strv = g_key_file_get_string_list (config,
