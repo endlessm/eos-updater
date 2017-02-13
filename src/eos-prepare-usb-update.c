@@ -438,6 +438,57 @@ do_pull (OstreeRepo *source_repo,
   return TRUE;
 }
 
+/* Copy eos-summary{,.sig} to summary{,.sig} within the repository if the
+ * latter do not already exist. This allows the standard ostree tools to use
+ * the repository, without needing to know about our eos-summary extension. */
+static gboolean
+mirror_summary (OstreeRepo    *repo,
+                GCancellable  *cancellable,
+                GError       **error)
+{
+  GFile *repo_path;
+  g_autoptr(GFile) _extensions_path = NULL, extensions_path = NULL;
+  g_autoptr(GFile) source_summary = NULL, destination_summary = NULL;
+  g_autoptr(GFile) source_sig = NULL, destination_sig = NULL;
+  g_autoptr(GError) local_error = NULL;
+
+  repo_path = ostree_repo_get_path (repo);
+  _extensions_path = g_file_get_child (repo_path, "extensions");
+  extensions_path = g_file_get_child (_extensions_path, "eos");
+
+  /* Summary file. */
+  source_summary = g_file_get_child (extensions_path, "eos-summary");
+  destination_summary = g_file_get_child (repo_path, "summary");
+
+  g_file_copy (source_summary, destination_summary,
+               G_FILE_COPY_NONE, cancellable, NULL, NULL, &local_error);
+  if (local_error != NULL &&
+      !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) &&
+      !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+  g_clear_error (&local_error);
+
+  /* Signature file. */
+  source_sig = g_file_get_child (extensions_path, "eos-summary.sig");
+  destination_sig = g_file_get_child (repo_path, "summary.sig");
+
+  g_file_copy (source_sig, destination_sig,
+               G_FILE_COPY_NONE, cancellable, NULL, NULL, &local_error);
+  if (local_error != NULL &&
+      !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) &&
+      !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+  g_clear_error (&local_error);
+
+  return TRUE;
+}
+
 static gboolean
 eos_updater_prepare_volume_internal (OstreeRepo *repo,
                                      const gchar *refspec_str,
@@ -487,6 +538,9 @@ eos_updater_prepare_volume_internal (OstreeRepo *repo,
                             usb_repo,
                             cancellable,
                             error))
+    return FALSE;
+
+  if (!mirror_summary (usb_repo, cancellable, error))
     return FALSE;
 
   return TRUE;
