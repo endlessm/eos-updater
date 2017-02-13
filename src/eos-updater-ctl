@@ -70,6 +70,7 @@ def main (argv):
       sys.exit(0)
     else:
       print("Unknown action: " + argv[1])
+      sys.exit(1)
 
   dproxy.connect ('g-properties-changed',
     lambda proxy, changed, invalidated, user_data:
