@@ -21,7 +21,6 @@
  */
 
 #include "eos-prepare-usb-update.h"
-#include "eos-repo-server.h"
 
 #include "eos-extensions.h"
 #include "eos-util.h"
@@ -265,45 +264,6 @@ scoped_main_context_free (ScopedMainContext *context)
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (ScopedMainContext, scoped_main_context_free)
 
-/* Start a new local repository server to pull the content for the USB stick
- * from. We do this rather than pull-local because it translates refs in
- * refs/remotes into refs/heads and converts from bare to archive-z2 mode, so
- * the repository looks like it’s a canonical server with no remotes. This
- * means that the same fetch-phase code can be used for all update poll sources.
- */
-static gboolean
-get_server_and_uri (OstreeRepo *repo,
-                    EosRefspec *refspec,
-                    GCancellable *cancellable,
-                    EosUpdaterRepoServer **out_server,
-                    gchar **out_server_uri,
-                    GError **error)
-{
-  g_autoptr(EosUpdaterRepoServer) server = eos_updater_repo_server_new (repo,
-                                                                        refspec->remote,
-                                                                        cancellable,
-                                                                        error);
-  SoupServer *soup_server;
-  g_autoptr(SoupURI) uri = NULL;
-
-  if (server == NULL)
-    return FALSE;
-
-  soup_server = SOUP_SERVER (server);
-  if (!soup_server_listen_local (soup_server,
-                                 0,
-                                 0,
-                                 error))
-    return FALSE;
-
-  if (!get_first_uri_from_server (soup_server, &uri, error))
-    return FALSE;
-
-  *out_server = g_steal_pointer (&server);
-  *out_server_uri = soup_uri_to_string (uri, FALSE);
-  return TRUE;
-}
-
 #define EOS_TYPE_PULL_DATA eos_pull_data_get_type ()
 EOS_DECLARE_REFCOUNTED (EosPullData,
                         eos_pull_data,
@@ -316,7 +276,7 @@ struct _EosPullData
   GError *error;
   GMainLoop *loop;
 
-  gchar *server_uri;
+  gchar *source_uri;
   EosRefspec *refspec;
   gchar *commit_id;
   OstreeAsyncProgress *progress;
@@ -334,7 +294,7 @@ static void
 eos_pull_data_finalize_impl (EosPullData *pull_data)
 {
   g_clear_pointer (&pull_data->error, g_error_free);
-  g_clear_pointer (&pull_data->server_uri, g_free);
+  g_clear_pointer (&pull_data->source_uri, g_free);
   g_clear_pointer (&pull_data->commit_id, g_free);
 }
 
@@ -346,7 +306,7 @@ EOS_DEFINE_REFCOUNTED (EOS_PULL_DATA,
 
 static EosPullData *
 eos_pull_data_new (GMainLoop *loop,
-                   const gchar *server_uri,
+                   const gchar *source_uri,
                    EosRefspec *refspec,
                    const gchar *commit_id,
                    OstreeAsyncProgress *progress)
@@ -354,7 +314,7 @@ eos_pull_data_new (GMainLoop *loop,
   EosPullData *pull_data = g_object_new (EOS_TYPE_PULL_DATA, NULL);
 
   pull_data->loop = g_main_loop_ref (loop);
-  pull_data->server_uri = g_strdup (server_uri);
+  pull_data->source_uri = g_strdup (source_uri);
   pull_data->refspec = g_object_ref (refspec);
   pull_data->commit_id = g_strdup (commit_id);
   pull_data->progress = g_object_ref (progress);
@@ -387,12 +347,13 @@ run_pull_task_func (GTask *task,
   const gchar *refs[] = { pull_data->refspec->ref };
   const gchar *override_commit_ids[] = { pull_data->commit_id };
   g_autoptr(ScopedMainContext) context = scoped_main_context_new ();
+  OstreeRepoPullFlags pull_flags = OSTREE_REPO_PULL_FLAGS_MIRROR;
 
   g_variant_builder_init (&builder, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&builder,
                          "{s@v}",
                          "override-url",
-                         g_variant_new_variant (g_variant_new_string (pull_data->server_uri)));
+                         g_variant_new_variant (g_variant_new_string (pull_data->source_uri)));
   g_variant_builder_add (&builder,
                          "{s@v}",
                          "refs",
@@ -405,6 +366,10 @@ run_pull_task_func (GTask *task,
                          "{s@v}",
                          "depth",
                          g_variant_new_variant (g_variant_new_int32 (0)));
+  g_variant_builder_add (&builder,
+                         "{s@v}",
+                         "flags",
+                         g_variant_new_variant (g_variant_new_int32 (pull_flags)));
   options = g_variant_ref_sink (g_variant_builder_end (&builder));
 
   if (!ostree_repo_pull_with_options (repo,
@@ -446,22 +411,15 @@ do_pull (OstreeRepo *source_repo,
 {
   g_autoptr(ScopedMainContext) context = scoped_main_context_new ();
   g_autoptr(GMainLoop) loop = NULL;
-  g_autoptr(EosUpdaterRepoServer) server = NULL;
-  g_autofree gchar *server_uri = NULL;
+  g_autofree gchar *source_uri = NULL;
   g_autoptr(GError) local_error = NULL;
   g_autoptr(EosPullData) pull_data = NULL;
 
-  if (!get_server_and_uri (source_repo,
-                           refspec,
-                           cancellable,
-                           &server,
-                           &server_uri,
-                           error))
-    return FALSE;
+  source_uri = g_file_get_uri (ostree_repo_get_path (source_repo));
 
   loop = g_main_loop_new (context, FALSE);
   pull_data = eos_pull_data_new (loop,
-                                 server_uri,
+                                 source_uri,
                                  refspec,
                                  commit_id,
                                  progress);
@@ -476,37 +434,6 @@ do_pull (OstreeRepo *source_repo,
       g_propagate_error (error, g_steal_pointer (&pull_data->error));
       return FALSE;
     }
-
-  return TRUE;
-}
-
-static gboolean
-create_refs_heads (OstreeRepo *repo,
-                   EosRefspec *refspec,
-                   GCancellable *cancellable,
-                   GError **error)
-{
-  GFile *repo_path = ostree_repo_get_path (repo);
-  gchar *raw_refs_remotes = g_build_filename ("refs",
-                                              "remotes",
-                                              refspec->remote,
-                                              refspec->ref,
-                                              NULL);
-  gchar *raw_refs_heads = g_build_filename ("refs",
-                                            "heads",
-                                            refspec->ref,
-                                            NULL);
-  g_autoptr(GFile) remote_head = g_file_get_child (repo_path, raw_refs_remotes);
-  g_autoptr(GFile) head = g_file_get_child (repo_path, raw_refs_heads);
-
-  if (!g_file_copy (remote_head,
-                    head,
-                    G_FILE_COPY_NONE,
-                    cancellable,
-                    NULL, /* no progress callback */
-                    NULL, /* no user data for progress callback */
-                    error))
-    return FALSE;
 
   return TRUE;
 }
@@ -560,12 +487,6 @@ eos_updater_prepare_volume_internal (OstreeRepo *repo,
                             usb_repo,
                             cancellable,
                             error))
-    return FALSE;
-
-  if (!create_refs_heads (usb_repo,
-                          refspec,
-                          cancellable,
-                          error))
     return FALSE;
 
   return TRUE;
