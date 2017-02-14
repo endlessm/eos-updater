@@ -48,12 +48,19 @@ spawn_ostree_in_repo (GFile *repo,
 {
   g_autoptr(GPtrArray) argv = string_array_new ();
   g_autofree gchar *raw_repo_path = g_file_get_path (repo);
+  CmdEnvVar envv[] =
+    {
+      { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { NULL, NULL, NULL },
+    };
+  g_auto(GStrv) envp = build_cmd_env (envv);
 
   g_ptr_array_add (argv, g_strdup (OSTREE_BINARY));
   g_ptr_array_add (argv, flag ("repo", raw_repo_path));
   copy_strv_to_ptr_array (args, argv);
 
-  return test_spawn ((const gchar * const *) argv->pdata, NULL, cmd, error);
+  return test_spawn ((const gchar * const *) argv->pdata,
+                     (const gchar * const *) envp, cmd, error);
 }
 
 static gboolean
@@ -217,6 +224,12 @@ ostree_admin_spawn_in_sysroot (GFile *sysroot,
 {
   g_autofree gchar *raw_sysroot_path = g_file_get_path (sysroot);
   g_autoptr(GPtrArray) argv = string_array_new ();
+  CmdEnvVar envv[] =
+    {
+      { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { NULL, NULL, NULL },
+    };
+  g_auto(GStrv) envp = build_cmd_env (envv);
 
   g_ptr_array_add (argv, g_strdup (OSTREE_BINARY));
   g_ptr_array_add (argv, g_strdup ("admin"));
@@ -224,7 +237,8 @@ ostree_admin_spawn_in_sysroot (GFile *sysroot,
   g_ptr_array_add (argv, flag ("sysroot", raw_sysroot_path));
   copy_strv_to_ptr_array (args, argv);
 
-  return test_spawn ((const gchar * const *) argv->pdata, NULL, cmd, error);
+  return test_spawn ((const gchar * const *) argv->pdata,
+                     (const gchar * const *) envp, cmd, error);
 }
 
 static gboolean
@@ -332,10 +346,16 @@ ostree_httpd (GFile *served_dir,
       { NULL, NULL }
     };
   g_auto(GStrv) argv = build_cmd_args (args);
+  CmdEnvVar envv[] =
+    {
+      { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { NULL, NULL, NULL },
+    };
+  g_auto(GStrv) envp = build_cmd_env (envv);
 
   if (!test_spawn_cwd_full (NULL,
                             (const gchar * const *) argv,
-                            NULL,
+                            (const gchar * const *) envp,
                             TRUE,
                             cmd,
                             error))
