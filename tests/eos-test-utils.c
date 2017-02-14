@@ -44,9 +44,6 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
 {
   g_autoptr(GError) error = NULL;
   g_autofree gchar *tmpdir_path = NULL;
-  g_autofree gchar *test_services_directory = g_test_build_filename (G_TEST_DIST,
-                                                                     "services",
-                                                                     NULL);
   gsize i;
   const gchar * const gpg_home_files[] =
     {
@@ -58,7 +55,6 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
     };
 
   fixture->dbus = g_test_dbus_new (G_TEST_DBUS_NONE);
-  g_test_dbus_add_service_dir (fixture->dbus, test_services_directory);
   g_test_dbus_up (fixture->dbus);
 
   tmpdir_path = g_dir_make_tmp ("eos-updater-test-XXXXXX", &error);
@@ -1295,6 +1291,7 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME", osname, NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
+      { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "EOS_DISABLE_METRICS", "1", NULL },
       { NULL, NULL, NULL }
     };
@@ -1593,6 +1590,7 @@ run_update_server (GFile *repo,
   CmdEnvVar envv[] =
     {
       { "OSTREE_REPO", NULL, repo },
+      { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE", NULL, quit_file },
       { NULL, NULL, NULL }
     };
@@ -1968,6 +1966,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
     {
       { "EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK", "yes", NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
+      { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { NULL, NULL, NULL }
     };
   g_autofree gchar *raw_volume_path = g_file_get_path (volume_path);
@@ -2151,6 +2150,7 @@ spawn_autoupdater (GFile *stamps_dir,
       { "EOS_UPDATER_TEST_AUTOUPDATER_CONFIG_FILE_PATH", NULL, config_file },
       { "EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS", "yes", NULL },
       { "EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT", dbus_timeout_value, NULL },
+      { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { NULL, NULL, NULL }
     };
   g_auto(GStrv) envp = build_cmd_env (envv);

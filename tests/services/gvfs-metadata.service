@@ -1,3 +1,0 @@
-[D-BUS Service]
-Name=org.gtk.vfs.Metadata
-Exec=/usr/lib/gvfs/gvfsd-metadata
