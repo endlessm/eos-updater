@@ -493,10 +493,28 @@ is_time_to_update (guint update_interval_days)
 }
 
 static gboolean
+should_listen_on_session_bus (void)
+{
+  const gchar *value = NULL;
+
+  value = g_getenv ("EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS");
+
+  return value != NULL;
+}
+
+static gboolean
 is_online (void)
 {
   NMClient *client;
   gboolean online;
+
+  /* Don’t connect to NetworkManager when we are supposed to use the session
+   * bus, as NM is on the system bus, and we don’t want to mock it up. */
+  if (should_listen_on_session_bus ())
+    {
+      g_message ("Not using NetworkManager: assuming network is online.");
+      return TRUE;
+    }
 
   client = nm_client_new ();
   if (!client)
@@ -540,6 +558,14 @@ is_connected_through_mobile (void)
   const GPtrArray *devices;
   gboolean is_mobile = FALSE;
   guint i;
+
+  /* Don’t connect to NetworkManager when we are supposed to use the session
+   * bus, as NM is on the system bus, and we don’t want to mock it up. */
+  if (should_listen_on_session_bus ())
+    {
+      g_message ("Not using NetworkManager: assuming network is not mobile.");
+      return FALSE;
+    }
 
   client = nm_client_new ();
   if (!client) {
@@ -587,16 +613,6 @@ is_connected_through_mobile (void)
   g_object_unref (client);
 
   return is_mobile;
-}
-
-static gboolean
-should_listen_on_session_bus (void)
-{
-  const gchar *value = NULL;
-
-  value = g_getenv ("EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS");
-
-  return value != NULL;
 }
 
 static gint
