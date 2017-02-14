@@ -99,7 +99,6 @@ src/Makefile
 data/Makefile
 docs/Makefile
 tests/Makefile
-tests/services/test-eos-updater.service
 eos-updater-0.pc
 ])
 AC_OUTPUT
