@@ -20,6 +20,7 @@
  * Author: Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
+#include "eos-updater-object.h"
 #include "eos-updater-poll-common.h"
 #include "eos-updater-poll-volume-dbus.h"
 #include "eos-updater-poll-volume.h"

@@ -21,6 +21,7 @@
  */
 
 #include "eos-updater-live-boot.h"
+#include "eos-updater-object.h"
 
 #define LIVE_BOOT_MESSAGE "Updater disabled on live systems"
 

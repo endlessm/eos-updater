@@ -36,6 +36,8 @@ libeos_updater_dbus_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_dbus_la_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
 libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
 libeos_updater_dbus_la_SOURCES = \
+	eos-updater-object.c \
+	eos-updater-object.h \
 	eos-updater-types.c \
 	eos-updater-types.h \
 	$(NULL)
@@ -125,7 +127,7 @@ eos_updater_CFLAGS = \
 	$(EOS_UPDATER_CFLAGS) \
 	$(NULL)
 eos_updater_LDFLAGS = $(WARN_LDFLAGS)
-eos_updater_LDADD  = $(common_ldadd) $(EOS_UPDATER_LIBS)
+eos_updater_LDADD  = $(common_ldadd) $(dbuslib) $(EOS_UPDATER_LIBS)
 eos_updater_SOURCES = \
 	eos-updater-apply.c \
 	eos-updater-apply.h \

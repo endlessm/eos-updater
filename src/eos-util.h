@@ -24,9 +24,6 @@
 
 #pragma once
 
-#include "eos-updater-generated.h"
-#include "eos-updater-types.h"
-
 #include "eos-refcounted.h"
 
 #include <ostree.h>
@@ -63,11 +60,6 @@ gboolean eos_updater_save_or_delete  (GBytes *contents,
 gboolean eos_updater_create_extensions_dir (OstreeRepo *repo,
                                             GFile **dir,
                                             GError **error);
-
-void eos_updater_set_error (EosUpdater *updater,
-                            const GError *error);
-void eos_updater_clear_error (EosUpdater *updater,
-                              EosUpdaterState state);
 
 OstreeDeployment *eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
                                                                          GError **error);

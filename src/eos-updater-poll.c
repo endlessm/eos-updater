@@ -25,6 +25,7 @@
 #include "config.h"
 
 #include "eos-updater-data.h"
+#include "eos-updater-object.h"
 #include "eos-updater-poll-common.h"
 #include "eos-updater-poll-lan.h"
 #include "eos-updater-poll-main.h"

@@ -22,6 +22,7 @@
 
 #include "eos-updater-data.h"
 #include "eos-updater-fetch.h"
+#include "eos-updater-object.h"
 
 #include "eos-util.h"
 

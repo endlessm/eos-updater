@@ -23,6 +23,7 @@
 #include "eos-updater-apply.h"
 #include "eos-updater-avahi.h"
 #include "eos-updater-data.h"
+#include "eos-updater-object.h"
 
 #include "eos-util.h"
 

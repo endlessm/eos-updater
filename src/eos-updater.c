@@ -26,6 +26,7 @@
 #include "eos-updater-fetch.h"
 #include "eos-updater-live-boot.h"
 #include "eos-updater-generated.h"
+#include "eos-updater-object.h"
 #include "eos-updater-poll.h"
 
 #include "eos-util.h"
