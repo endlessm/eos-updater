@@ -4,8 +4,13 @@ SUBDIRS = . src data tests docs
 
 # Pre-defines to allow appending later
 noinst_LTLIBRARIES =
+EXTRA_DIST =
+CLEANFILES =
+DISTCLEANFILES =
+MAINTAINERCLEANFILES =
 
-EXTRA_DIST = autogen.sh README.md
+# Documentation
+EXTRA_DIST += README.md
 
 # Ensure systemd units get installed under $(prefix) for distcheck
 AM_DISTCHECK_CONFIGURE_FLAGS = --with-systemdsystemunitdir='$${libdir}/systemd/system' --enable-introspection
@@ -50,3 +55,34 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/extensions.c \
 	libeos-updater-util/extensions.h \
 	$(NULL)
+
+# Cleaning
+EXTRA_DIST += \
+	autogen.sh \
+	$(NULL)
+
+MAINTAINERCLEANFILES += \
+	$(GITIGNORE_MAINTAINERCLEANFILES_TOPLEVEL) \
+	$(GITIGNORE_MAINTAINERCLEANFILES_MAKEFILE_IN) \
+	$(GITIGNORE_MAINTAINERCLEANFILES_M4_LIBTOOL) \
+	build-aux/config.rpath \
+	gtk-doc.make \
+	m4/ax_append_compile_flags.m4 \
+	m4/ax_append_flag.m4 \
+	m4/ax_append_link_flags.m4 \
+	m4/ax_check_compile_flag.m4 \
+	m4/ax_check_link_flag.m4 \
+	m4/ax_code_coverage.m4 \
+	m4/ax_compiler_flags.m4 \
+	m4/ax_compiler_flags_cflags.m4 \
+	m4/ax_compiler_flags_gir.m4 \
+	m4/ax_compiler_flags_ldflags.m4 \
+	m4/ax_is_release.m4 \
+	m4/ax_pkg_check_modules.m4 \
+	m4/ax_require_defined.m4 \
+	m4/ax_valgrind_check.m4 \
+	m4/gtk-doc.m4 \
+	m4/pkg.m4 \
+	$(NULL)
+
+-include $(top_srcdir)/git.mk

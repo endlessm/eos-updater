@@ -28,3 +28,5 @@ edit = sed \
 
 EXTRA_DIST = $(eos_autoupdater_in)
 CLEANFILES = $(systemdsystemunit_DATA)
+
+-include $(top_srcdir)/git.mk

@@ -101,3 +101,5 @@ EXTRA_DIST = \
 	gpghome/random_seed \
 	gpghome/secring.gpg \
 	$(NULL)
+
+-include $(top_srcdir)/git.mk
