@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "eos-refcounted.h"
+#include <libeos-updater-util/refcounted.h>
 
 #include <ostree.h>
 

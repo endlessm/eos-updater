@@ -29,7 +29,7 @@
 #include "eos-updater-object.h"
 #include "eos-updater-poll.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <errno.h>
 #include <ostree.h>

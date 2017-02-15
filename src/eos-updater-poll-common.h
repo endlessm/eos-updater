@@ -24,8 +24,8 @@
 
 #include "eos-updater-data.h"
 
-#include "eos-extensions.h"
-#include "eos-refcounted.h"
+#include <libeos-updater-util/extensions.h>
+#include <libeos-updater-util/refcounted.h>
 
 #include <ostree.h>
 

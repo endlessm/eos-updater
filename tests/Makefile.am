@@ -5,6 +5,8 @@ libeos_updater_test_la_CPPFLAGS = \
 	-DOSTREE_BINARY=\""$(OSTREE)"\" \
 	-DGPG_BINARY=\""$(GPG)"\" \
 	-DOSTREE_WITH_AUTOCLEANUPS \
+	-I$(top_srcdir) \
+	-I$(top_builddir) \
 	-I$(top_srcdir)/src \
 	-I$(top_builddir)/src \
 	$(NULL)
@@ -57,6 +59,8 @@ AM_TESTS_ENVIRONMENT = \
 	;
 
 test_cppflags = \
+	-I$(top_srcdir) \
+	-I$(top_builddir) \
 	-I$(top_srcdir)/src \
 	-I$(top_builddir)/src \
 	$(NULL)

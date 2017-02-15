@@ -22,8 +22,8 @@
 
 #include "eos-prepare-usb-update.h"
 
-#include "eos-extensions.h"
-#include "eos-util.h"
+#include <libeos-updater-util/extensions.h>
+#include <libeos-updater-util/util.h>
 
 #include <libsoup/soup.h>
 /**

@@ -22,7 +22,7 @@
  *          Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <libsoup/soup.h>
 

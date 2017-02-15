@@ -23,7 +23,7 @@
 #include "eos-updater-avahi-emulator.h"
 #include "eos-updater-avahi.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <gio/gio.h>
 

@@ -24,7 +24,7 @@
 #include "eos-updater-poll-common.h"
 #include "eos-updater-poll-lan.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <string.h>
 #include <errno.h>

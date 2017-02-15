@@ -22,7 +22,7 @@
 
 #include "eos-updater-data.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <string.h>
 

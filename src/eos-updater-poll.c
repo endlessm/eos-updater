@@ -32,7 +32,7 @@
 #include "eos-updater-poll-volume.h"
 #include "eos-updater-poll.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-updater.conf";
 static const gchar *const LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-updater.conf";

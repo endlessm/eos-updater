@@ -22,7 +22,7 @@
 
 #include "eos-updater-types.h"
 #include "eos-updater-generated.h"
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <gio/gio.h>
 #include <glib.h>

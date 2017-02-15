@@ -25,7 +25,7 @@
 #include "eos-updater-data.h"
 #include "eos-updater-object.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <ostree.h>
 

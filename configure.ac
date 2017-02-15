@@ -1,6 +1,9 @@
+# API versions
+m4_define([euu_api_version],[0])
+
 AC_INIT([eos-updater],[1.0])
 AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE([1.11.2 dist-xz no-dist-gzip tar-ustar foreign])
+AM_INIT_AUTOMAKE([1.11.2 dist-xz no-dist-gzip tar-ustar foreign subdir-objects])
 AM_SILENT_RULES([yes])
 AC_PROG_CC
 AC_CONFIG_MACRO_DIR([m4])
@@ -12,6 +15,9 @@ PKG_PROG_PKG_CONFIG
 GTK_DOC_CHECK([1.14],[--flavour no-tmpl])
 
 GOBJECT_INTROSPECTION_CHECK([1.30.0])
+
+# Versioning
+AC_SUBST([EUU_API_VERSION],euu_api_version)
 
 # Compiler warnings and --disable-Werror
 AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])

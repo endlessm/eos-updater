@@ -25,7 +25,7 @@
 #include "eos-updater-poll-volume-dbus.h"
 #include "eos-updater-poll-volume.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 typedef struct
 {
