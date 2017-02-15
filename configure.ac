@@ -24,6 +24,9 @@ AC_SUBST([EUU_API_VERSION],euu_api_version)
 # Compiler warnings and --disable-Werror
 AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])
 
+# Valgrind support for tests
+AX_VALGRIND_CHECK
+
 # systemd unit support
 AC_ARG_WITH([systemdsystemunitdir],
             AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
