@@ -28,49 +28,6 @@
 
 #include <string.h>
 
-static const GDBusErrorEntry eos_updater_error_entries[] = {
-  { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" },
-  { EOS_UPDATER_ERROR_LIVE_BOOT, "com.endlessm.Updater.Error.LiveBoot" },
-  { EOS_UPDATER_ERROR_LAN_DISCOVERY_ERROR, "com.endlessm.Updater.Error.LANDiscoveryError" },
-  { EOS_UPDATER_ERROR_WRONG_CONFIGURATION, "com.endlessm.Updater.Error.WrongConfiguration" }
-};
-
-/* Ensure that every error code has an associated D-Bus error name */
-G_STATIC_ASSERT (G_N_ELEMENTS (eos_updater_error_entries) == EOS_UPDATER_ERROR_LAST + 1);
-
-GQuark
-eos_updater_error_quark (void)
-{
-  static volatile gsize quark_volatile = 0;
-  g_dbus_error_register_error_domain ("eos-updater-error-quark",
-                                      &quark_volatile,
-                                      eos_updater_error_entries,
-                                      G_N_ELEMENTS (eos_updater_error_entries));
-  return (GQuark) quark_volatile;
-}
-
-static const gchar * state_str[] = {
-   "None",
-   "Ready",
-   "Error",
-   "Polling",
-   "UpdateAvailable",
-   "Fetching",
-   "UpdateReady",
-   "ApplyUpdate",
-   "UpdateApplied"
-};
-
-G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_UPDATER_STATE_LAST + 1);
-
-const gchar *
-eos_updater_state_to_string (EosUpdaterState state)
-{
-  g_assert (state <= EOS_UPDATER_STATE_LAST);
-
-  return state_str[state];
-};
-
 OstreeRepo *
 eos_updater_local_repo (void)
 {

@@ -35,7 +35,10 @@ BUILT_SOURCES = \
 libeos_updater_dbus_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_dbus_la_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
 libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
-libeos_updater_dbus_la_SOURCES = eos-updater-types.h
+libeos_updater_dbus_la_SOURCES = \
+	eos-updater-types.c \
+	eos-updater-types.h \
+	$(NULL)
 nodist_libeos_updater_dbus_la_SOURCES = $(BUILT_SOURCES)
 
 common_cflags = \

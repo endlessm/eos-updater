@@ -52,11 +52,6 @@ object_array_new (void)
 typedef guint EosBusNameID;
 G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
 
-#define EOS_UPDATER_ERROR (eos_updater_error_quark ())
-GQuark eos_updater_error_quark (void);
-
-const gchar *eos_updater_state_to_string (EosUpdaterState state);
-
 OstreeRepo *eos_updater_local_repo (void);
 
 gboolean eos_updater_save_or_delete  (GBytes *contents,
