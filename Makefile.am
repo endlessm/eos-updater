@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 
-SUBDIRS = . src data tests docs
+SUBDIRS = . src libeos-updater-util/tests data tests docs
 
 # Pre-defines to allow appending later
 noinst_LTLIBRARIES =

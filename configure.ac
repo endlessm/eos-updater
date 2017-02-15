@@ -72,6 +72,8 @@ PKG_CHECK_MODULES([EOS_AUTOUPDATER],
 PKG_CHECK_MODULES([EOS_UPDATE_SERVER],
                   [libsystemd])
 
+AX_PKG_CHECK_MODULES([EOS_UPDATER_UTIL_TESTS],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4])
+
 EOS_UPDATER_MODULES="avahi-client >= $AVAHI_REQUIRED_VERSION avahi-glib >= $AVAHI_REQUIRED_VERSION"
 
 AS_IF([test "x$want_metrics" = 'xyes'],
@@ -124,6 +126,7 @@ AC_SUBST([ENABLE_INSTALLED_TESTS],[$enable_installed_tests])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 Makefile
+libeos-updater-util/tests/Makefile
 src/Makefile
 data/Makefile
 docs/Makefile
