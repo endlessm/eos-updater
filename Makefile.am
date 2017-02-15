@@ -59,6 +59,8 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 # Cleaning
 EXTRA_DIST += \
 	autogen.sh \
+	glib-tap.mk \
+	tap-test \
 	$(NULL)
 
 MAINTAINERCLEANFILES += \
@@ -66,6 +68,7 @@ MAINTAINERCLEANFILES += \
 	$(GITIGNORE_MAINTAINERCLEANFILES_MAKEFILE_IN) \
 	$(GITIGNORE_MAINTAINERCLEANFILES_M4_LIBTOOL) \
 	build-aux/config.rpath \
+	build-aux/tap-driver.sh \
 	gtk-doc.make \
 	m4/ax_append_compile_flags.m4 \
 	m4/ax_append_flag.m4 \
