@@ -275,21 +275,6 @@ eos_updater_get_booted_checksum (GError **error)
   return g_strdup (ostree_deployment_get_csum (booted_deployment));
 }
 
-gchar *
-eos_updater_get_baseurl (OstreeDeployment *booted_deployment,
-                         OstreeRepo *repo,
-                         GError **error)
-{
-  const gchar *osname;
-  g_autofree gchar *url = NULL;
-
-  osname = ostree_deployment_get_osname (booted_deployment);
-  if (!ostree_repo_remote_get_url (repo, osname, &url, error))
-    return NULL;
-
-  return g_steal_pointer (&url);
-}
-
 gboolean
 eos_updater_get_ostree_path (OstreeRepo *repo,
                              gchar **ostree_path,
@@ -300,15 +285,14 @@ eos_updater_get_ostree_path (OstreeRepo *repo,
   g_autoptr(SoupURI) uri = NULL;
   g_autofree gchar *path = NULL;
   gsize to_move = 0;
+  const gchar *osname;
 
   deployment = eos_updater_get_booted_deployment (error);
   if (deployment == NULL)
     return FALSE;
 
-  ostree_url = eos_updater_get_baseurl (deployment,
-                                        repo,
-                                        error);
-  if (ostree_url == NULL)
+  osname = ostree_deployment_get_osname (deployment);
+  if (!ostree_repo_remote_get_url (repo, osname, &ostree_url, error))
     return FALSE;
 
   uri = soup_uri_new (ostree_url);
