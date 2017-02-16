@@ -205,7 +205,8 @@ apply_internal (EosUpdater *updater,
   osname = ostree_deployment_get_osname (new_deployment);
 
   if (!eos_updater_get_ostree_path (repo, osname, &ostree_path, &local_error) ||
-      !eos_avahi_service_file_generate (ostree_path,
+      !eos_avahi_service_file_generate (eos_avahi_service_file_get_directory (),
+                                        ostree_path,
                                         head_commit_timestamp,
                                         &local_error))
     g_warning ("Failed to update service file: %s", local_error->message);

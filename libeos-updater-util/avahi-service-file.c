@@ -140,28 +140,41 @@ generate_v1_service_file (const gchar *ostree_path,
                                                   error);
 }
 
-static const gchar *
-get_avahi_services_dir (void)
+/**
+ * eos_avahi_service_file_get_directory:
+ *
+ * Get the path of the directory where Avahi will look for `.service` files
+ * advertising DNS-SD services. The directory might not have a trailing slash.
+ *
+ * This may be overridden by specifying the
+ * `EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR` environment variable. This is
+ * intended for testing only.
+ *
+ * Returns: service file directory
+ */
+const gchar *
+eos_avahi_service_file_get_directory (void)
 {
   return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR",
                                     SYSCONFDIR "/avahi/services");
 }
 
 gboolean
-eos_avahi_service_file_generate (const gchar *ostree_path,
+eos_avahi_service_file_generate (const gchar *avahi_service_directory,
+                                 const gchar *ostree_path,
                                  GDateTime *head_commit_timestamp,
                                  GError **error)
 {
   g_autoptr(GFile) service_file = NULL;
-  const gchar *services_dir;
   g_autofree gchar *service_file_path = NULL;
 
+  g_return_val_if_fail (avahi_service_directory != NULL, FALSE);
   g_return_val_if_fail (ostree_path != NULL, FALSE);
   g_return_val_if_fail (head_commit_timestamp != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  services_dir = get_avahi_services_dir ();
-  service_file_path = g_build_filename (services_dir, "eos-updater.service", NULL);
+  service_file_path = g_build_filename (avahi_service_directory,
+                                        "eos-updater.service", NULL);
   service_file = g_file_new_for_path (service_file_path);
 
   return generate_v1_service_file (ostree_path, head_commit_timestamp,

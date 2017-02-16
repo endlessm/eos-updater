@@ -33,7 +33,10 @@ extern const gchar * const EOS_UPDATER_AVAHI_SERVICE_TYPE;
 extern const gchar * const eos_avahi_v1_ostree_path;
 extern const gchar * const eos_avahi_v1_head_commit_timestamp;
 
-gboolean eos_avahi_service_file_generate (const gchar  *ostree_path,
+const gchar *eos_avahi_service_file_get_directory (void);
+
+gboolean eos_avahi_service_file_generate (const gchar  *avahi_service_directory,
+                                          const gchar  *ostree_path,
                                           GDateTime    *head_commit_timestamp,
                                           GError      **error);
 
