@@ -52,6 +52,8 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LIBADD = \
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/avahi-service-file.c \
 	libeos-updater-util/avahi-service-file.h \
+	libeos-updater-util/config.c \
+	libeos-updater-util/config.h \
 	libeos-updater-util/extensions.c \
 	libeos-updater-util/extensions.h \
 	libeos-updater-util/refcounted.h \

@@ -30,6 +30,7 @@
 #include "eos-updater-poll-volume.h"
 #include "eos-updater-poll.h"
 
+#include <libeos-updater-util/config.h>
 #include <libeos-updater-util/util.h>
 
 static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-updater.conf";

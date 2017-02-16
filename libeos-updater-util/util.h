@@ -113,7 +113,4 @@ EosQuitFile *eos_updater_setup_quit_file (const gchar *path,
                                           guint timeout_seconds,
                                           GError **error);
 
-GKeyFile *eos_updater_load_config_file (const gchar * const  *key_file_paths,
-                                        GError              **error);
-
 G_END_DECLS
