@@ -60,12 +60,4 @@ eos_avahi_discoverer_new (GMainContext *context,
                           GDestroyNotify notify,
                           GError **error);
 
-gboolean
-eos_avahi_generate_service_file (OstreeRepo *repo,
-                                 GDateTime *head_commit_timestamp,
-                                 GError **error);
-
-extern const gchar *const eos_avahi_v1_ostree_path;
-extern const gchar *const eos_avahi_v1_head_commit_timestamp;
-
 G_END_DECLS

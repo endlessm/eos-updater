@@ -25,6 +25,7 @@
 #include "eos-updater-data.h"
 #include "eos-updater-object.h"
 
+#include <libeos-updater-util/avahi-service-file.h>
 #include <libeos-updater-util/util.h>
 
 #include <ostree.h>
@@ -201,7 +202,7 @@ apply_internal (EosUpdater *updater,
 
   head_commit_timestamp = g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (update_commit));
 
-  if (!eos_avahi_generate_service_file (repo,
+  if (!eos_avahi_service_file_generate (repo,
                                         head_commit_timestamp,
                                         &local_error))
     g_warning ("Failed to update service file: %s", local_error->message);
