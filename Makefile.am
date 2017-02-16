@@ -32,6 +32,7 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CPPFLAGS = \
 	-I$(top_srcdir) \
 	-I$(top_builddir) \
+	-include "config.h" \
 	-DOSTREE_WITH_AUTOCLEANUPS \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DLOCALSTATEDIR=\""$(localstatedir)"\" \

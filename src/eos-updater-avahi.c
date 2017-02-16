@@ -20,8 +20,6 @@
  * Author: Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "config.h"
-
 #include "eos-updater-avahi-emulator.h"
 #include "eos-updater-avahi.h"
 

@@ -7,6 +7,7 @@ installed_test_metadir = $(datadir)/installed-tests/libeos-updater-util-@EUU_API
 AM_CPPFLAGS = \
 	-I$(top_srcdir) \
 	-I$(top_builddir) \
+	-include "config.h" \
 	-DG_LOG_DOMAIN=\"libeos-updater-util-tests\" \
 	$(NULL)
 AM_CFLAGS = \

@@ -22,8 +22,6 @@
  *          Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "config.h"
-
 #include "eos-updater-data.h"
 #include "eos-updater-object.h"
 #include "eos-updater-poll-common.h"
