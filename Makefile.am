@@ -49,11 +49,11 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LIBADD = \
 	$(SOUP_LIBS) \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
-	libeos-updater-util/util.c \
-	libeos-updater-util/util.h \
-	libeos-updater-util/refcounted.h \
 	libeos-updater-util/extensions.c \
 	libeos-updater-util/extensions.h \
+	libeos-updater-util/refcounted.h \
+	libeos-updater-util/util.c \
+	libeos-updater-util/util.h \
 	$(NULL)
 
 # Cleaning
