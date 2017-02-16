@@ -24,8 +24,9 @@
 #include "eos-updater-poll-common.h"
 #include "eos-updater-poll-lan.h"
 
+#include <glib.h>
 #include <libeos-updater-util/util.h>
-
+#include <libsoup/soup.h>
 #include <string.h>
 #include <errno.h>
 
