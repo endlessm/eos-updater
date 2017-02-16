@@ -202,8 +202,9 @@ apply_internal (EosUpdater *updater,
   g_clear_error (&local_error);
 
   head_commit_timestamp = g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (update_commit));
+  osname = ostree_deployment_get_osname (new_deployment);
 
-  if (!eos_updater_get_ostree_path (repo, &ostree_path, &local_error) ||
+  if (!eos_updater_get_ostree_path (repo, osname, &ostree_path, &local_error) ||
       !eos_avahi_service_file_generate (ostree_path,
                                         head_commit_timestamp,
                                         &local_error))

@@ -69,6 +69,7 @@ OstreeDeployment *eos_updater_get_booted_deployment (GError **error);
 gchar *eos_updater_get_booted_checksum (GError **error);
 
 gboolean eos_updater_get_ostree_path (OstreeRepo *repo,
+                                      const gchar *osname,
                                       gchar **ostree_path,
                                       GError **error);
 

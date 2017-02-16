@@ -277,21 +277,15 @@ eos_updater_get_booted_checksum (GError **error)
 
 gboolean
 eos_updater_get_ostree_path (OstreeRepo *repo,
+                             const gchar *osname,
                              gchar **ostree_path,
                              GError **error)
 {
-  g_autoptr(OstreeDeployment) deployment = NULL;
   g_autofree gchar *ostree_url = NULL;
   g_autoptr(SoupURI) uri = NULL;
   g_autofree gchar *path = NULL;
   gsize to_move = 0;
-  const gchar *osname;
 
-  deployment = eos_updater_get_booted_deployment (error);
-  if (deployment == NULL)
-    return FALSE;
-
-  osname = ostree_deployment_get_osname (deployment);
   if (!ostree_repo_remote_get_url (repo, osname, &ostree_url, error))
     return FALSE;
 
@@ -302,7 +296,7 @@ eos_updater_get_ostree_path (OstreeRepo *repo,
                    G_IO_ERROR,
                    G_IO_ERROR_INVALID_DATA,
                    "ostree %s remote's URL is invalid (%s)",
-                   ostree_deployment_get_osname (deployment),
+                   osname,
                    ostree_url);
       return FALSE;
     }
