@@ -592,12 +592,14 @@ eos_updater_load_config_file (const gchar * const  *key_file_paths,
         {
           g_debug ("Configuration file ‘%s’ not found. Trying next path ‘%s’.",
                    key_file_paths[i], key_file_paths[i + 1]);
+          g_clear_error (&local_error);
           continue;
         }
       else if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
         {
           g_error ("Configuration file ‘%s’ not found. The program is not "
                    "installed correctly.", key_file_paths[i]);
+          g_clear_error (&local_error);
           g_assert_not_reached ();
         }
       else if (local_error != NULL)
