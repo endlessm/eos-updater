@@ -26,7 +26,6 @@
 #include <glib.h>
 #include <libeos-updater-util/avahi-service-file.h>
 #include <libeos-updater-util/util.h>
-#include <ostree.h>
 #include <string.h>
 
 #ifndef EOS_AVAHI_PORT
@@ -118,17 +117,13 @@ txt_record (const gchar *key,
 }
 
 static gboolean
-generate_v1_service_file (OstreeRepo *repo,
+generate_v1_service_file (const gchar *ostree_path,
                           GDateTime *head_commit_timestamp,
                           GFile *service_file,
                           GError **error)
 {
   g_autoptr(GPtrArray) txt_records = NULL;
-  g_autofree gchar *ostree_path = NULL;
   g_autofree gchar *timestamp_str = NULL;
-
-  if (!eos_updater_get_ostree_path (repo, &ostree_path, error))
-    return FALSE;
 
   timestamp_str = g_date_time_format (head_commit_timestamp, "%s");
   txt_records = g_ptr_array_new_with_free_func (g_free);
@@ -153,7 +148,7 @@ get_avahi_services_dir (void)
 }
 
 gboolean
-eos_avahi_service_file_generate (OstreeRepo *repo,
+eos_avahi_service_file_generate (const gchar *ostree_path,
                                  GDateTime *head_commit_timestamp,
                                  GError **error)
 {
@@ -161,7 +156,7 @@ eos_avahi_service_file_generate (OstreeRepo *repo,
   const gchar *services_dir;
   g_autofree gchar *service_file_path = NULL;
 
-  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
+  g_return_val_if_fail (ostree_path != NULL, FALSE);
   g_return_val_if_fail (head_commit_timestamp != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
@@ -169,5 +164,6 @@ eos_avahi_service_file_generate (OstreeRepo *repo,
   service_file_path = g_build_filename (services_dir, "eos-updater.service", NULL);
   service_file = g_file_new_for_path (service_file_path);
 
-  return generate_v1_service_file (repo, head_commit_timestamp, service_file, error);
+  return generate_v1_service_file (ostree_path, head_commit_timestamp,
+                                   service_file, error);
 }

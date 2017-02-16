@@ -26,7 +26,6 @@
 #pragma once
 
 #include <glib.h>
-#include <ostree.h>
 
 G_BEGIN_DECLS
 
@@ -34,8 +33,8 @@ extern const gchar * const EOS_UPDATER_AVAHI_SERVICE_TYPE;
 extern const gchar * const eos_avahi_v1_ostree_path;
 extern const gchar * const eos_avahi_v1_head_commit_timestamp;
 
-gboolean eos_avahi_service_file_generate (OstreeRepo  *repo,
-                                          GDateTime   *head_commit_timestamp,
-                                          GError     **error);
+gboolean eos_avahi_service_file_generate (const gchar  *ostree_path,
+                                          GDateTime    *head_commit_timestamp,
+                                          GError      **error);
 
 G_END_DECLS

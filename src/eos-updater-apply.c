@@ -99,6 +99,7 @@ apply_internal (EosUpdater *updater,
   const gchar *update_checksum;
   GHashTableIter iter;
   gpointer key, value;
+  g_autofree gchar *ostree_path = NULL;
   g_autoptr(GError) local_error = NULL;
 
   /* Before starting, get the commit timestamp for the update_refspec, which we
@@ -202,7 +203,8 @@ apply_internal (EosUpdater *updater,
 
   head_commit_timestamp = g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (update_commit));
 
-  if (!eos_avahi_service_file_generate (repo,
+  if (!eos_updater_get_ostree_path (repo, &ostree_path, &local_error) ||
+      !eos_avahi_service_file_generate (ostree_path,
                                         head_commit_timestamp,
                                         &local_error))
     g_warning ("Failed to update service file: %s", local_error->message);
