@@ -66,6 +66,7 @@ test_cppflags = \
 	-include "config.h" \
 	-I$(top_srcdir)/src \
 	-I$(top_builddir)/src \
+	-DG_LOG_DOMAIN=\"eos-updater-tests\" \
 	$(NULL)
 test_cflags = \
 	$(WARN_CFLAGS) \
