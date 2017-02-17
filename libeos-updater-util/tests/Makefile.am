@@ -37,8 +37,10 @@ CODE_COVERAGE_IGNORE_PATTERN = \
 
 test_programs = \
 	config \
+	ostree \
 	$(NULL)
 
 config_SOURCES = config.c
+ostree_SOURCES = ostree.c
 
 -include $(top_srcdir)/git.mk
