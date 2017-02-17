@@ -103,10 +103,10 @@ generate_avahi_service_template_to_file (GFile *path,
   return g_file_replace_contents (path,
                                   raw,
                                   raw_len,
-                                  NULL,
-                                  FALSE,
+                                  NULL,  /* old ETag */
+                                  FALSE,  /* make backup */
                                   G_FILE_CREATE_NONE,
-                                  NULL,
+                                  NULL,  /* new ETag */
                                   cancellable,
                                   error);
 }
