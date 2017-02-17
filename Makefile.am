@@ -18,11 +18,11 @@ pkgconfig_DATA = eos-updater-0.pc
 noinst_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
-	$(WARN_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
 	$(GIO_CFLAGS) \
-	$(SOUP_CFLAGS) \
 	$(OSTREE_CFLAGS) \
+	$(SOUP_CFLAGS) \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CPPFLAGS = \
 	-I$(top_srcdir) \
@@ -40,8 +40,8 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LDFLAGS = \
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LIBADD = \
 	$(CODE_COVERAGE_LIBS) \
 	$(GIO_LIBS) \
-	$(SOUP_LIBS) \
 	$(OSTREE_LIBS) \
+	$(SOUP_LIBS) \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/util.c \
