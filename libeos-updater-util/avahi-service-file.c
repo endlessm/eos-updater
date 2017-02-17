@@ -173,6 +173,33 @@ get_service_file (const gchar *avahi_service_directory)
   return g_file_new_for_path (service_file_path);
 }
 
+/**
+ * eos_avahi_service_file_generate:
+ * @avahi_service_directory: path to the directory containing `.service` files
+ * @ostree_path: OSTree path of the commit to advertise
+ * @head_commit_timestamp: (transfer none): timestamp of the commit to
+ *    advertise
+ * @cancellable: (nullable): a #GCancellable
+ * @error: return location for a #GError
+ *
+ * Create a `.service` file in @avahi_service_directory for the updater. This
+ * instructs Avahi to advertise a DNS-SD service for the updater, with TXT
+ * records indicating this machine has the refs for @ostree_path available with
+ * a commit at @head_commit_timestamp.
+ *
+ * The latest version of the DNS-SD record structure will be used, and a
+ * version record will be added if appropriate.
+ *
+ * If the `.service` file already exists, it will be atomically replaced. If the
+ * @avahi_service_directory does not exist, or is not writeable, an error will
+ * be returned. If an error is returned, the old file will remain in place (if
+ * it exists), unmodified.
+ *
+ * @ostree_path should have the same format as returned by
+ * eos_updater_get_ostree_path().
+ *
+ * Returns: %TRUE on success, %FALSE otherwise
+ */
 gboolean
 eos_avahi_service_file_generate (const gchar *avahi_service_directory,
                                  const gchar *ostree_path,
