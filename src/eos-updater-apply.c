@@ -208,6 +208,7 @@ apply_internal (EosUpdater *updater,
       !eos_avahi_service_file_generate (eos_avahi_service_file_get_directory (),
                                         ostree_path,
                                         head_commit_timestamp,
+                                        cancel,
                                         &local_error))
     g_warning ("Failed to update service file: %s", local_error->message);
   g_clear_error (&local_error);

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <gio/gio.h>
 #include <glib.h>
 
 G_BEGIN_DECLS
@@ -35,9 +36,10 @@ extern const gchar * const eos_avahi_v1_head_commit_timestamp;
 
 const gchar *eos_avahi_service_file_get_directory (void);
 
-gboolean eos_avahi_service_file_generate (const gchar  *avahi_service_directory,
-                                          const gchar  *ostree_path,
-                                          GDateTime    *head_commit_timestamp,
-                                          GError      **error);
+gboolean eos_avahi_service_file_generate (const gchar   *avahi_service_directory,
+                                          const gchar   *ostree_path,
+                                          GDateTime     *head_commit_timestamp,
+                                          GCancellable  *cancellable,
+                                          GError       **error);
 
 G_END_DECLS

@@ -88,6 +88,7 @@ static gboolean
 generate_avahi_service_template_to_file (GFile *path,
                                          const gchar *txt_version,
                                          const gchar **txt_records,
+                                         GCancellable *cancellable,
                                          GError **error)
 {
   g_autoptr(GBytes) contents = NULL;
@@ -106,7 +107,7 @@ generate_avahi_service_template_to_file (GFile *path,
                                   FALSE,
                                   G_FILE_CREATE_NONE,
                                   NULL,
-                                  NULL,
+                                  cancellable,
                                   error);
 }
 
@@ -121,6 +122,7 @@ static gboolean
 generate_v1_service_file (const gchar *ostree_path,
                           GDateTime *head_commit_timestamp,
                           GFile *service_file,
+                          GCancellable *cancellable,
                           GError **error)
 {
   g_autoptr(GPtrArray) txt_records = NULL;
@@ -138,6 +140,7 @@ generate_v1_service_file (const gchar *ostree_path,
   return generate_avahi_service_template_to_file (service_file,
                                                   "1",
                                                   (const gchar **)txt_records->pdata,
+                                                  cancellable,
                                                   error);
 }
 
@@ -164,6 +167,7 @@ gboolean
 eos_avahi_service_file_generate (const gchar *avahi_service_directory,
                                  const gchar *ostree_path,
                                  GDateTime *head_commit_timestamp,
+                                 GCancellable *cancellable,
                                  GError **error)
 {
   g_autoptr(GFile) service_file = NULL;
@@ -172,6 +176,8 @@ eos_avahi_service_file_generate (const gchar *avahi_service_directory,
   g_return_val_if_fail (avahi_service_directory != NULL, FALSE);
   g_return_val_if_fail (ostree_path != NULL, FALSE);
   g_return_val_if_fail (head_commit_timestamp != NULL, FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   service_file_path = g_build_filename (avahi_service_directory,
@@ -179,5 +185,5 @@ eos_avahi_service_file_generate (const gchar *avahi_service_directory,
   service_file = g_file_new_for_path (service_file_path);
 
   return generate_v1_service_file (ostree_path, head_commit_timestamp,
-                                   service_file, error);
+                                   service_file, cancellable, error);
 }
