@@ -41,5 +41,8 @@ gboolean eos_avahi_service_file_generate (const gchar   *avahi_service_directory
                                           GDateTime     *head_commit_timestamp,
                                           GCancellable  *cancellable,
                                           GError       **error);
+gboolean eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
+                                        GCancellable  *cancellable,
+                                        GError       **error);
 
 G_END_DECLS

@@ -163,6 +163,16 @@ eos_avahi_service_file_get_directory (void)
                                     SYSCONFDIR "/avahi/services");
 }
 
+static GFile *
+get_service_file (const gchar *avahi_service_directory)
+{
+  g_autofree gchar *service_file_path = NULL;
+
+  service_file_path = g_build_filename (avahi_service_directory,
+                                        "eos-updater.service", NULL);
+  return g_file_new_for_path (service_file_path);
+}
+
 gboolean
 eos_avahi_service_file_generate (const gchar *avahi_service_directory,
                                  const gchar *ostree_path,
@@ -171,7 +181,6 @@ eos_avahi_service_file_generate (const gchar *avahi_service_directory,
                                  GError **error)
 {
   g_autoptr(GFile) service_file = NULL;
-  g_autofree gchar *service_file_path = NULL;
 
   g_return_val_if_fail (avahi_service_directory != NULL, FALSE);
   g_return_val_if_fail (ostree_path != NULL, FALSE);
@@ -180,10 +189,45 @@ eos_avahi_service_file_generate (const gchar *avahi_service_directory,
                         FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  service_file_path = g_build_filename (avahi_service_directory,
-                                        "eos-updater.service", NULL);
-  service_file = g_file_new_for_path (service_file_path);
+  service_file = get_service_file (avahi_service_directory);
 
   return generate_v1_service_file (ostree_path, head_commit_timestamp,
                                    service_file, cancellable, error);
+}
+
+/**
+ * eos_avahi_service_file_delete:
+ * @avahi_service_directory: path to the directory containing `.service` files
+ * @cancellable: (nullable): a #GCancellable
+ * @error: return location for a #GError
+ *
+ * Delete the updater’s `.service` file from the @avahi_service_directory. This
+ * has the same semantics as g_file_delete(); except if no `.service` file
+ * exists, or if @avahi_service_directory does not exist, %TRUE is returned.
+ *
+ * Returns: %TRUE on success, %FALSE otherwise
+ */
+gboolean
+eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
+                               GCancellable  *cancellable,
+                               GError       **error)
+{
+  g_autoptr(GFile) service_file = NULL;
+  g_autoptr(GError) local_error = NULL;
+
+  g_return_val_if_fail (avahi_service_directory != NULL, FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
+                        FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  service_file = get_service_file (avahi_service_directory);
+
+  if (!g_file_delete (service_file, cancellable, &local_error) &&
+      !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  return TRUE;
 }

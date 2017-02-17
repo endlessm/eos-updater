@@ -36,10 +36,12 @@ CODE_COVERAGE_IGNORE_PATTERN = \
 	$(NULL)
 
 test_programs = \
+	avahi-service-file \
 	config \
 	ostree \
 	$(NULL)
 
+avahi_service_file_SOURCES = avahi-service-file.c
 config_SOURCES = config.c
 ostree_SOURCES = ostree.c
 
