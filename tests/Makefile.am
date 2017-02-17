@@ -106,4 +106,12 @@ dist_uninstalled_test_data = \
 	gpghome/secring.gpg \
 	$(NULL)
 
+# Installed integration tests
+dist_installed_test_scripts = \
+	eos-updater-avahi.py \
+	$(NULL)
+dist_test_extra_scripts = \
+	taptestrunner.py \
+	$(NULL)
+
 -include $(top_srcdir)/git.mk
