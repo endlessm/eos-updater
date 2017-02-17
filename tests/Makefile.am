@@ -1,5 +1,11 @@
+include $(top_srcdir)/glib-tap.mk
+
+installed_testdir = $(libexecdir)/installed-tests/eos-updater-@EU_API_VERSION@
+installed_test_metadir = $(datadir)/installed-tests/eos-updater-@EU_API_VERSION@
+
+# Test utility library
 testlib = libeos-updater-test.la
-noinst_LTLIBRARIES = $(testlib)
+noinst_LTLIBRARIES += $(testlib)
 
 libeos_updater_test_la_CPPFLAGS = \
 	-DOSTREE_BINARY=\""$(OSTREE)"\" \
@@ -38,21 +44,15 @@ CODE_COVERAGE_IGNORE_PATTERN = \
 	gobject.h \
 	$(NULL)
 
-check_PROGRAMS = \
+# FIXME: Ensure these tests can be run installed as well.
+uninstalled_test_programs = \
 	test-update-from-main \
 	test-update-from-lan \
 	test-update-from-volume \
 	$(NULL)
 
-TESTS = $(check_PROGRAMS)
-
 AM_TESTS_ENVIRONMENT = \
 	export \
-	G_TEST_SRCDIR="$(abs_srcdir)" \
-	G_TEST_BUILDDIR="$(abs_builddir)" \
-	G_DEBUG=gc-friendly,fatal-criticals,fatal-warnings \
-	MALLOC_CHECK_=3 \
-	MALLOC_PERTURB_=$$(($${RANDOM:-256} % 256)) \
 	OSTREE_SYSROOT_DEBUG=mutable-deployments \
 	$(if $(EOS_UPDATER_GDB),EOS_CHECK_UPDATER_GDB_BASH_PATH=$(EOS_UPDATER_GDB)) \
 	$(if $(EOS_UPDATE_SERVER_GDB_BASE),EOS_CHECK_UPDATE_SERVER_GDB_BASH_PATH_BASE=$(EOS_UPDATE_SERVER_GDB_BASE)) \
@@ -96,7 +96,7 @@ test_update_from_volume_LDFLAGS = $(test_ldflags)
 test_update_from_volume_LDADD = $(test_ldadd)
 test_update_from_volume_SOURCES = test-update-from-volume.c
 
-EXTRA_DIST = \
+dist_uninstalled_test_data = \
 	gpghome/C1EB8F4E.asc \
 	gpghome/keyid \
 	gpghome/pubring.gpg \

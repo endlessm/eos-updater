@@ -1,4 +1,5 @@
 # API versions
+m4_define([eu_api_version],[0])
 m4_define([euu_api_version],[0])
 
 AC_INIT([eos-updater],[1.0])
@@ -19,6 +20,7 @@ GTK_DOC_CHECK([1.14],[--flavour no-tmpl])
 GOBJECT_INTROSPECTION_CHECK([1.30.0])
 
 # Versioning
+AC_SUBST([EU_API_VERSION],eu_api_version)
 AC_SUBST([EUU_API_VERSION],euu_api_version)
 
 # Compiler warnings and --disable-Werror
