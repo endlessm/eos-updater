@@ -42,6 +42,7 @@ CODE_COVERAGE_IGNORE_PATTERN = \
 	"*-autocleanups.h" \
 	gmem.h \
 	gobject.h \
+	gtypes.h \
 	$(NULL)
 
 # FIXME: Ensure these tests can be run installed as well.
