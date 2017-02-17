@@ -35,7 +35,7 @@ libeos_updater_test_la_SOURCES = \
 	eos-test-utils.h \
 	$(NULL)
 
-# make check-code-coverage rule
+@VALGRIND_CHECK_RULES@
 @CODE_COVERAGE_RULES@
 CODE_COVERAGE_IGNORE_PATTERN = \
 	eos-updater-generated.c \
