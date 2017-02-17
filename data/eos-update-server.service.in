@@ -2,6 +2,9 @@
 Description=Endless OS Local Update Server
 Wants=network.target
 
+# Only run when Avahi is advertising the port.
+ConditionPathExists=@sysconfdir@/avahi/services/eos-updater.service
+
 [Service]
 Type=simple
 ExecStart=@libexecdir@/eos-update-server

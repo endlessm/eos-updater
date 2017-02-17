@@ -3,7 +3,9 @@ ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 SUBDIRS = . src libeos-updater-util/tests data tests docs
 
 # Pre-defines to allow appending later
+libexec_PROGRAMS =
 noinst_LTLIBRARIES =
+systemdsystemunit_DATA =
 EXTRA_DIST =
 CLEANFILES =
 DISTCLEANFILES =
@@ -19,6 +21,19 @@ pkgconfigdir = $(libdir)/pkgconfig
 
 pkgconfig_DATA = eos-updater-0.pc
 
+# Common compilation options
+AM_CPPFLAGS = \
+	-I$(top_srcdir) \
+	-I$(top_builddir) \
+	-include "config.h" \
+	-DOSTREE_WITH_AUTOCLEANUPS \
+	-DSYSCONFDIR=\""$(sysconfdir)"\" \
+	-DLOCALSTATEDIR=\""$(localstatedir)"\" \
+	-DDATADIR=\""$(datadir)"\" \
+	-DPKGDATADIR=\""$(pkgdatadir)"\" \
+	-DPREFIX=\""$(prefix)"\" \
+	$(NULL)
+
 # Utility library
 noinst_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
@@ -30,15 +45,7 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 	$(SOUP_CFLAGS) \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CPPFLAGS = \
-	-I$(top_srcdir) \
-	-I$(top_builddir) \
-	-include "config.h" \
-	-DOSTREE_WITH_AUTOCLEANUPS \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DLOCALSTATEDIR=\""$(localstatedir)"\" \
-	-DDATADIR=\""$(datadir)"\" \
-	-DPKGDATADIR=\""$(pkgdatadir)"\" \
-	-DPREFIX=\""$(prefix)"\" \
+	$(AM_CPPFLAGS) \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LDFLAGS = \
 	$(WARN_LDFLAGS) \
@@ -62,6 +69,54 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/util.c \
 	libeos-updater-util/util.h \
 	$(NULL)
+
+# eos-updater-avahi program
+libexec_PROGRAMS += eos-updater-avahi/eos-updater-avahi
+
+eos_updater_avahi_eos_updater_avahi_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	$(NULL)
+eos_updater_avahi_eos_updater_avahi_CFLAGS = \
+	$(WARN_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(EOS_UPDATER_AVAHI_CFLAGS) \
+	$(NULL)
+eos_updater_avahi_eos_updater_avahi_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_updater_avahi_eos_updater_avahi_LDADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(EOS_UPDATER_AVAHI_LIBS) \
+	$(NULL)
+eos_updater_avahi_eos_updater_avahi_SOURCES = \
+	eos-updater-avahi/eos-updater-avahi.c \
+	$(NULL)
+
+eos_updater_avahi_in = \
+	eos-updater-avahi/eos-updater-avahi.path.in \
+	eos-updater-avahi/eos-updater-avahi.service.in \
+	$(NULL)
+
+systemdsystemunit_DATA += $(eos_updater_avahi_in:%.in=%)
+EXTRA_DIST += $(eos_updater_avahi_in)
+CLEANFILES += $(eos_updater_avahi_in:%.in=%)
+
+# Generic systemd rules
+edit = sed \
+	-e 's|[@]bindir[@]|$(bindir)|g' \
+	-e 's|[@]libexecdir[@]|$(libexecdir)|g' \
+	-e 's|[@]localstatedir[@]|$(localstatedir)|g' \
+	-e 's|[@]pkgdatadir[@]|$(pkgdatadir)|g' \
+	-e 's|[@]prefix[@]|$(prefix)|g' \
+	-e 's|[@]sbindir[@]|$(sbindir)|g' \
+	-e 's|[@]sysconfdir[@]|$(sysconfdir)|g' \
+	$(NULL)
+
+%.service: %.service.in Makefile
+	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
+%.path: %.path.in Makefile
+	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 
 # Cleaning
 EXTRA_DIST += \
