@@ -24,7 +24,7 @@
 
 #include "eos-updater-poll-main.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 gboolean
 metadata_fetch_from_main (EosMetadataFetchData *fetch_data,

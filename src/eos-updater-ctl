@@ -20,68 +20,101 @@
 # Boston, MA 02111-1307, USA.
 
 import sys
-from gi.repository import GObject, Gio, GLib
+from gi.repository import Gio, GLib
 
-EosUpdaterStates = [
-  "None",
-  "Ready",
-  "Error",
-  "Polling",
-  "UpdateAvailable",
-  "Fetching",
-  "UpdateReady",
-  "ApplyingUpdate",
-  "UpdateApplied"
+UPDATER_STATES = [
+    "None",
+    "Ready",
+    "Error",
+    "Polling",
+    "UpdateAvailable",
+    "Fetching",
+    "UpdateReady",
+    "ApplyingUpdate",
+    "UpdateApplied"
 ]
 
-def signal_emitted (proxy, signal, parameters):
-  if (signal != "StateChanged"):
-      return
-  print("======= State changed to: " + EosUpdaterStates[parameters[0]] +  " =======")
 
-def dump_daemon_properties (proxy):
+def signal_emitted(proxy, signal, parameters):
+    if signal != "StateChanged":
+        return
+    state = UPDATER_STATES[parameters[0]]
+    print("======= State changed to: " + state + " =======")
 
-  print("======= Properties =======")
-  s = proxy.get_cached_property ("State").get_uint32()
-  print("State: " + EosUpdaterStates[s])
 
-  for x in proxy.get_cached_property_names():
-    if x != "State":
-        print(" " + x + ": " + str(proxy.get_cached_property(x)))
-  print("")
+def dump_daemon_properties(proxy):
+    print("======= Properties =======")
+    s = proxy.get_cached_property("State").get_uint32()
+    print("State: " + UPDATER_STATES[s])
 
-def main (argv):
-  loop = GObject.MainLoop()
+    for x in proxy.get_cached_property_names():
+        if x != "State":
+            print(" " + x + ": " + str(proxy.get_cached_property(x)))
+    print("")
 
-  b = Gio.bus_get_sync (Gio.BusType.SYSTEM, None)
-  dproxy = Gio.DBusProxy.new_sync (b, 0, None,
-    'com.endlessm.Updater',
-    '/com/endlessm/Updater',
-    'com.endlessm.Updater', None)
 
-  if len(argv) > 1:
-    methods = { "poll": "Poll",
-                "fetch": "Fetch",
-                "apply": "Apply" }
-    if argv[1] in list(methods.keys()):
-      dproxy.call_sync ("com.endlessm.Updater." + methods[argv[1]],
-        None,
-        0, -1, None)
-      sys.exit(0)
-    else:
-      print("Unknown action: " + argv[1])
+def name_appeared_cb(connection, name, name_owner):
+    print("======= Ownership =======")
+    print("%s appeared as %s" % (name, name_owner))
 
-  dproxy.connect ('g-properties-changed',
-    lambda proxy, changed, invalidated, user_data:
-      dump_daemon_properties (proxy), None)
+    proxy = Gio.DBusProxy.new_sync(connection,
+                                   Gio.DBusProxyFlags.NONE,
+                                   None,  # interface info
+                                   name_owner,
+                                   '/com/endlessm/Updater',
+                                   'com.endlessm.Updater',
+                                   None)  # cancellable
 
-  dproxy.connect ('g-signal',
-    lambda proxy, sender, signal, parameters, user_data:
-      signal_emitted (proxy, signal, parameters), None)
+    proxy.connect('g-properties-changed',
+                  lambda proxy, changed, invalidated, user_data: \
+                      dump_daemon_properties(proxy), None)
+    proxy.connect('g-signal',
+                  lambda proxy, sender, signal, parameters, user_data: \
+                      signal_emitted(proxy, signal, parameters), None)
 
-  dump_daemon_properties (dproxy)
+    dump_daemon_properties(proxy)
 
-  loop.run()
+
+def name_vanished_cb(connection, name):
+    print("======= Ownership =======")
+    print("%s disappeared" % name)
+
+
+def main(argv):
+    loop = GLib.MainLoop()
+
+    b = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+
+    # Handle the given action.
+    if len(argv) > 1:
+        methods = {
+            "poll": "Poll",
+            "fetch": "Fetch",
+            "apply": "Apply"
+        }
+
+        if argv[1] in list(methods.keys()):
+            print("Unknown action: " + argv[1])
+            sys.exit(1)
+
+        proxy = Gio.DBusProxy.new_sync(b, 0, None,
+                                       'com.endlessm.Updater',
+                                       '/com/endlessm/Updater',
+                                       'com.endlessm.Updater', None)
+        proxy.call_sync("com.endlessm.Updater." + methods[argv[1]],
+                        None,
+                        0, -1, None)
+        sys.exit(0)
+
+    # Watch properties and signals from the updater indefinitely.
+    name_watch_id = Gio.bus_watch_name_on_connection(
+        b, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
+        name_appeared_cb, name_vanished_cb)
+
+    loop.run()
+
+    b.unwatch_name(name_watch_id)
+
 
 if __name__ == '__main__':
-  main(sys.argv)
+    main(sys.argv)

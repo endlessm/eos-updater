@@ -34,6 +34,9 @@ typedef enum {
   EOS_UPDATER_ERROR_LAST = EOS_UPDATER_ERROR_WRONG_CONFIGURATION /*< skip >*/
 } EosUpdaterError;
 
+#define EOS_UPDATER_ERROR (eos_updater_error_quark ())
+GQuark eos_updater_error_quark (void);
+
 typedef enum {
   EOS_UPDATER_STATE_NONE = 0,
   EOS_UPDATER_STATE_READY,
@@ -46,5 +49,7 @@ typedef enum {
   EOS_UPDATER_STATE_UPDATE_APPLIED,
   EOS_UPDATER_STATE_LAST = EOS_UPDATER_STATE_UPDATE_APPLIED, /*< skip > */
 } EosUpdaterState;
+
+const gchar *eos_updater_state_to_string (EosUpdaterState state);
 
 G_END_DECLS

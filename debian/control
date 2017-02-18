@@ -98,3 +98,15 @@ Description: Updater for Endless OS - documentation
  .
  This package contains reference documentation for the APIs used
  by the updater and other update packaging tools.
+
+Package: libeos-updater-util-0-tests
+Section: misc
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Updater for Endless OS - tests
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains unit tests for the APIs used by the updater and
+ other update packaging tools.

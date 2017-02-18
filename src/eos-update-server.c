@@ -22,8 +22,8 @@
 
 #include "eos-repo-server.h"
 
-#include "eos-refcounted.h"
-#include "eos-util.h"
+#include <libeos-updater-util/refcounted.h>
+#include <libeos-updater-util/util.h>
 
 #include <ostree.h>
 

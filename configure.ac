@@ -1,11 +1,16 @@
+# API versions
+m4_define([euu_api_version],[0])
+
 AC_INIT([eos-updater],[1.0])
+AC_CONFIG_AUX_DIR([build-aux])
 AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE([1.11.2 dist-xz no-dist-gzip tar-ustar foreign])
+AM_INIT_AUTOMAKE([1.11.2 dist-xz no-dist-gzip tar-ustar foreign subdir-objects])
 AM_SILENT_RULES([yes])
 AC_PROG_CC
 AC_CONFIG_MACRO_DIR([m4])
 LT_INIT
 AX_IS_RELEASE([git-directory])
+AC_REQUIRE_AUX_FILE([tap-driver.sh])
 
 PKG_PROG_PKG_CONFIG
 
@@ -13,8 +18,14 @@ GTK_DOC_CHECK([1.14],[--flavour no-tmpl])
 
 GOBJECT_INTROSPECTION_CHECK([1.30.0])
 
+# Versioning
+AC_SUBST([EUU_API_VERSION],euu_api_version)
+
 # Compiler warnings and --disable-Werror
 AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])
+
+# Valgrind support for tests
+AX_VALGRIND_CHECK
 
 # systemd unit support
 AC_ARG_WITH([systemdsystemunitdir],
@@ -61,6 +72,8 @@ PKG_CHECK_MODULES([EOS_AUTOUPDATER],
 PKG_CHECK_MODULES([EOS_UPDATE_SERVER],
                   [libsystemd])
 
+AX_PKG_CHECK_MODULES([EOS_UPDATER_UTIL_TESTS],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4])
+
 EOS_UPDATER_MODULES="avahi-client >= $AVAHI_REQUIRED_VERSION avahi-glib >= $AVAHI_REQUIRED_VERSION"
 
 AS_IF([test "x$want_metrics" = 'xyes'],
@@ -92,9 +105,28 @@ AS_IF([test "$GPG" = ""],[
 # Code coverage
 AX_CODE_COVERAGE
 
+# installed-tests
+AC_ARG_ENABLE([always_build_tests],
+              AS_HELP_STRING([--enable-always-build-tests],
+                             [Enable always building tests (default: yes)]),,
+              [enable_always_build_tests=yes])
+AC_ARG_ENABLE([installed_tests],
+              AS_HELP_STRING([--enable-installed-tests],
+                             [Install test programs (default: no)]),,
+              [enable_installed_tests=no])
+
+AM_CONDITIONAL([ENABLE_ALWAYS_BUILD_TESTS],
+               [test "$enable_always_build_tests" = "yes"])
+AC_SUBST([ENABLE_ALWAYS_BUILD_TESTS],[$enable_always_build_tests])
+
+AM_CONDITIONAL([ENABLE_INSTALLED_TESTS],
+               [test "$enable_installed_tests" = "yes"])
+AC_SUBST([ENABLE_INSTALLED_TESTS],[$enable_installed_tests])
+
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 Makefile
+libeos-updater-util/tests/Makefile
 src/Makefile
 data/Makefile
 docs/Makefile

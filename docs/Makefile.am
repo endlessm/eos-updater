@@ -52,21 +52,22 @@ IGNORE_HFILES=\
 	eos-updater-data.h \
 	eos-updater-poll.h \
 	eos-updater-poll-volume.h \
-	eos-extensions.h \
 	eos-updater-apply.h \
 	eos-updater-fetch.h \
 	eos-updater-live-boot.h \
+	eos-updater-object.h \
 	eos-updater-poll-lan.h \
 	eos-updater-types.h \
 	eos-updater-avahi-emulator.h \
 	eos-updater-generated.c \
 	eos-updater-generated.h \
 	eos-updater-poll-main.h \
-	eos-util.h \
-	eos-refcounted.h \
 	eos-updater-avahi.h \
 	eos-updater-poll-common.h \
 	eos-updater-poll-volume-dbus.h \
+	libeos-updater-util/extensions.h \
+	libeos-updater-util/refcounted.h \
+	libeos-updater-util/util.h \
 	$(NULL)
 
 # Images to copy into HTML directory.

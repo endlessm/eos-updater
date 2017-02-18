@@ -24,7 +24,7 @@
 
 #include "spawn-utils.h"
 
-#include <eos-refcounted.h>
+#include <libeos-updater-util/refcounted.h>
 
 #include <gio/gio.h>
 

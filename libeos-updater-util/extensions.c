@@ -20,9 +20,9 @@
  * Author: Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-extensions.h"
+#include <libeos-updater-util/extensions.h>
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <string.h>
 

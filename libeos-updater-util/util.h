@@ -24,10 +24,7 @@
 
 #pragma once
 
-#include "eos-updater-generated.h"
-#include "eos-updater-types.h"
-
-#include "eos-refcounted.h"
+#include <libeos-updater-util/refcounted.h>
 
 #include <ostree.h>
 
@@ -52,11 +49,6 @@ object_array_new (void)
 typedef guint EosBusNameID;
 G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
 
-#define EOS_UPDATER_ERROR (eos_updater_error_quark ())
-GQuark eos_updater_error_quark (void);
-
-const gchar *eos_updater_state_to_string (EosUpdaterState state);
-
 OstreeRepo *eos_updater_local_repo (void);
 
 gboolean eos_updater_save_or_delete  (GBytes *contents,
@@ -68,11 +60,6 @@ gboolean eos_updater_save_or_delete  (GBytes *contents,
 gboolean eos_updater_create_extensions_dir (OstreeRepo *repo,
                                             GFile **dir,
                                             GError **error);
-
-void eos_updater_set_error (EosUpdater *updater,
-                            const GError *error);
-void eos_updater_clear_error (EosUpdater *updater,
-                              EosUpdaterState state);
 
 OstreeDeployment *eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
                                                                          GError **error);
@@ -125,5 +112,8 @@ EosQuitFile *eos_updater_setup_quit_file (const gchar *path,
                                           GDestroyNotify notify,
                                           guint timeout_seconds,
                                           GError **error);
+
+GKeyFile *eos_updater_load_config_file (const gchar * const  *key_file_paths,
+                                        GError              **error);
 
 G_END_DECLS

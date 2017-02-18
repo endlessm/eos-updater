@@ -22,54 +22,11 @@
  *          Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <libsoup/soup.h>
 
 #include <string.h>
-
-static const GDBusErrorEntry eos_updater_error_entries[] = {
-  { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" },
-  { EOS_UPDATER_ERROR_LIVE_BOOT, "com.endlessm.Updater.Error.LiveBoot" },
-  { EOS_UPDATER_ERROR_LAN_DISCOVERY_ERROR, "com.endlessm.Updater.Error.LANDiscoveryError" },
-  { EOS_UPDATER_ERROR_WRONG_CONFIGURATION, "com.endlessm.Updater.Error.WrongConfiguration" }
-};
-
-/* Ensure that every error code has an associated D-Bus error name */
-G_STATIC_ASSERT (G_N_ELEMENTS (eos_updater_error_entries) == EOS_UPDATER_ERROR_LAST + 1);
-
-GQuark
-eos_updater_error_quark (void)
-{
-  static volatile gsize quark_volatile = 0;
-  g_dbus_error_register_error_domain ("eos-updater-error-quark",
-                                      &quark_volatile,
-                                      eos_updater_error_entries,
-                                      G_N_ELEMENTS (eos_updater_error_entries));
-  return (GQuark) quark_volatile;
-}
-
-static const gchar * state_str[] = {
-   "None",
-   "Ready",
-   "Error",
-   "Polling",
-   "UpdateAvailable",
-   "Fetching",
-   "UpdateReady",
-   "ApplyUpdate",
-   "UpdateApplied"
-};
-
-G_STATIC_ASSERT (G_N_ELEMENTS (state_str) == EOS_UPDATER_STATE_LAST + 1);
-
-const gchar *
-eos_updater_state_to_string (EosUpdaterState state)
-{
-  g_assert (state <= EOS_UPDATER_STATE_LAST);
-
-  return state_str[state];
-};
 
 OstreeRepo *
 eos_updater_local_repo (void)
@@ -242,47 +199,6 @@ eos_updater_create_extensions_dir (OstreeRepo *repo,
 
   *dir = g_steal_pointer (&ext_path);
   return TRUE;
-}
-
-static void
-eos_updater_set_state_changed (EosUpdater *updater, EosUpdaterState state)
-{
-  eos_updater_set_state (updater, state);
-  eos_updater_emit_state_changed (updater, state);
-}
-
-void
-eos_updater_set_error (EosUpdater *updater,
-                       const GError *error)
-{
-  gint code = error ? error->code : -1;
-  const gchar *msg = (error && error->message) ? error->message : "Unspecified";
-  g_autofree gchar *error_name = g_dbus_error_encode_gerror (error);
-
-  g_warn_if_fail (error != NULL);
-
-  message ("Changing to error state: %s, %d, %s", error_name, code, msg);
-
-  eos_updater_set_error_name (updater, error_name);
-  eos_updater_set_error_code (updater, code);
-  eos_updater_set_error_message (updater, msg);
-  eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
-}
-
-void
-eos_updater_clear_error (EosUpdater *updater,
-                         EosUpdaterState state)
-{
-  if (eos_updater_get_error_code (updater) != 0)
-    message ("Clearing error state and changing to state %s",
-             eos_updater_state_to_string (state));
-  else
-    message ("Changing to state %s", eos_updater_state_to_string (state));
-
-  eos_updater_set_error_name (updater, "");
-  eos_updater_set_error_code (updater, 0);
-  eos_updater_set_error_message (updater, "");
-  eos_updater_set_state_changed (updater, state);
 }
 
 static gboolean
@@ -632,4 +548,71 @@ eos_updater_setup_quit_file (const gchar *path,
   quit_file->notify = notify;
 
   return g_steal_pointer (&quit_file);
+}
+
+/**
+ * eos_updater_load_config_file:
+ * @key_file_paths: (transfer none) (array zero-terminated=1): priority list of
+ *     paths to try loading, most important first; %NULL-terminated
+ * @error: return location for a #GError
+ *
+ * Load a configuration file from one of a number of paths, trying them in
+ * order until one of the files exists. If one of the files exists, but there
+ * is an error in loading it (for example, it contains invalid syntax), that
+ * error will be returned; the next file in @key_file_paths will not be loaded.
+ *
+ * There must be at least one path in @key_file_paths, and at least one of the
+ * paths in @key_file_paths must be guaranteed to exist (for example, as a
+ * default configuration file installed by the package).
+ *
+ * Returns: (transfer full): loaded configuration file
+ */
+GKeyFile *
+eos_updater_load_config_file (const gchar * const  *key_file_paths,
+                              GError              **error)
+{
+  g_autoptr(GKeyFile) config = NULL;
+  g_autoptr(GError) local_error = NULL;
+  gsize i;
+
+  g_return_val_if_fail (key_file_paths != NULL, NULL);
+  g_return_val_if_fail (key_file_paths[0] != NULL, NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
+
+  config = g_key_file_new ();
+
+  /* Try the files in order. */
+  for (i = 0; key_file_paths[i] != NULL; i++)
+    {
+      g_key_file_load_from_file (config, key_file_paths[i], G_KEY_FILE_NONE,
+                                 &local_error);
+
+      if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
+          key_file_paths[i + 1] != NULL)
+        {
+          g_debug ("Configuration file ‘%s’ not found. Trying next path ‘%s’.",
+                   key_file_paths[i], key_file_paths[i + 1]);
+          g_clear_error (&local_error);
+          continue;
+        }
+      else if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+        {
+          g_error ("Configuration file ‘%s’ not found. The program is not "
+                   "installed correctly.", key_file_paths[i]);
+          g_clear_error (&local_error);
+          g_assert_not_reached ();
+        }
+      else if (local_error != NULL)
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
+      else
+        {
+          /* Successfully loaded a file. */
+          return g_steal_pointer (&config);
+        }
+    }
+
+  return config;
 }

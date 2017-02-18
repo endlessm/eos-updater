@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "eos-extensions.h"
+#include <libeos-updater-util/extensions.h>
 
 #include <ostree.h>
 

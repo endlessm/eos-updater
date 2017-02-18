@@ -22,9 +22,10 @@
  *          Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
+#include "eos-updater-object.h"
 #include "eos-updater-poll-common.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #ifdef HAS_EOSMETRICS_0
 

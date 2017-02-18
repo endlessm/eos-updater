@@ -19,10 +19,9 @@
 # Boston, MA 02111-1307, USA.
 
 dbuslib = libeos-updater-dbus.la
-utillib = libeos-updater-util.la
 preparelib = libeos-updater-0.la
 
-noinst_LTLIBRARIES = $(dbuslib) $(utillib)
+noinst_LTLIBRARIES = $(dbuslib)
 lib_LTLIBRARIES = $(preparelib)
 libexec_PROGRAMS = eos-autoupdater eos-update-server
 dist_bin_SCRIPTS = eos-updater-ctl
@@ -35,7 +34,12 @@ BUILT_SOURCES = \
 libeos_updater_dbus_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_dbus_la_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
 libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
-libeos_updater_dbus_la_SOURCES = eos-updater-types.h
+libeos_updater_dbus_la_SOURCES = \
+	eos-updater-object.c \
+	eos-updater-object.h \
+	eos-updater-types.c \
+	eos-updater-types.h \
+	$(NULL)
 nodist_libeos_updater_dbus_la_SOURCES = $(BUILT_SOURCES)
 
 common_cflags = \
@@ -46,32 +50,23 @@ common_cflags = \
 	$(OSTREE_CFLAGS) \
 	$(NULL)
 common_cppflags = \
+	-I$(top_srcdir) \
+	-I$(top_builddir) \
 	-DOSTREE_WITH_AUTOCLEANUPS \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DLOCALSTATEDIR=\""$(localstatedir)"\" \
 	-DDATADIR=\""$(datadir)"\" \
 	-DPKGDATADIR=\""$(pkgdatadir)"\" \
-	$(NULL)
-
-libeos_updater_util_la_CPPFLAGS = $(common_cppflags)
-libeos_updater_util_la_CFLAGS = $(common_cflags)
-libeos_updater_util_la_LDFLAGS = $(WARN_LDFLAGS)
-libeos_updater_util_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(dbuslib)
-libeos_updater_util_la_SOURCES = \
-	eos-util.c \
-	eos-util.h \
-	eos-refcounted.h \
-	eos-extensions.c \
-	eos-extensions.h \
+	-DPREFIX=\""$(prefix)"\" \
 	$(NULL)
 
 eos_autoupdater_CPPFLAGS = $(common_cppflags)
-eos_autoupdater_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS) $(EOS_AUTOUPDATER_CFLAGS)
+eos_autoupdater_CFLAGS = $(common_cflags) $(EOS_AUTOUPDATER_CFLAGS)
 eos_autoupdater_LDFLAGS = $(WARN_LDFLAGS)
-eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(EOS_AUTOUPDATER_LIBS)
+eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
 
-common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(utillib)
+common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
 libeos_updater_0_la_CPPFLAGS = $(common_cppflags)
 libeos_updater_0_la_CFLAGS = $(common_cflags)
@@ -121,7 +116,7 @@ eos_updater_CFLAGS = \
 	$(EOS_UPDATER_CFLAGS) \
 	$(NULL)
 eos_updater_LDFLAGS = $(WARN_LDFLAGS)
-eos_updater_LDADD  = $(common_ldadd) $(EOS_UPDATER_LIBS)
+eos_updater_LDADD  = $(common_ldadd) $(dbuslib) $(EOS_UPDATER_LIBS)
 eos_updater_SOURCES = \
 	eos-updater-apply.c \
 	eos-updater-apply.h \
@@ -210,3 +205,5 @@ typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
 CLEANFILES += $(gir_DATA) $(typelib_DATA)
 
 endif
+
+-include $(top_srcdir)/git.mk

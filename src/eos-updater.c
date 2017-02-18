@@ -26,9 +26,10 @@
 #include "eos-updater-fetch.h"
 #include "eos-updater-live-boot.h"
 #include "eos-updater-generated.h"
+#include "eos-updater-object.h"
 #include "eos-updater-poll.h"
 
-#include "eos-util.h"
+#include <libeos-updater-util/util.h>
 
 #include <errno.h>
 #include <ostree.h>
@@ -83,7 +84,7 @@ on_bus_acquired (GDBusConnection *connection,
   g_autofree gchar *ref = NULL;
   g_autofree gchar *sum = NULL;
 
-  message ("Acquired a message bus connection\n");
+  message ("Acquired a message bus connection");
 
   /* Create a new org.freedesktop.DBus.ObjectManager rooted at /com/endlessm */
   local_data->manager = g_dbus_object_manager_server_new ("/com/endlessm");
@@ -143,7 +144,7 @@ on_name_acquired (GDBusConnection *connection,
                   const gchar     *name,
                   gpointer         user_data)
 {
-  message ("Acquired the name %s\n", name);
+  message ("Acquired the name %s", name);
 }
 
 static void
@@ -151,7 +152,7 @@ on_name_lost (GDBusConnection *connection,
               const gchar     *name,
               gpointer         user_data)
 {
-  message ("Lost the name %s\n", name);
+  message ("Lost the name %s", name);
 }
 
 static const gchar *
