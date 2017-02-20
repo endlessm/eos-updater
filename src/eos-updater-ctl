@@ -111,7 +111,10 @@ def main(argv):
         b, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
         name_appeared_cb, name_vanished_cb)
 
-    loop.run()
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        pass
 
     b.unwatch_name(name_watch_id)
 
