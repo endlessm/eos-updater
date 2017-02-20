@@ -93,7 +93,7 @@ def main(argv):
             "apply": "Apply"
         }
 
-        if argv[1] in list(methods.keys()):
+        if argv[1] not in list(methods.keys()):
             print("Unknown action: " + argv[1])
             sys.exit(1)
 
