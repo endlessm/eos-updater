@@ -263,9 +263,21 @@ metadata_fetch (GTask *task,
   g_autoptr(GPtrArray) source_variants = NULL;
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
   g_autoptr(EosUpdateInfo) info = NULL;
+  g_autoptr(OstreeDeployment) deployment = NULL;
 
   fetch_data = eos_metadata_fetch_data_new (task, data, task_context);
 
+  /* Check we’re not on a dev-converted system. */
+  deployment = eos_updater_get_booted_deployment (&error);
+  if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+    {
+      g_task_return_new_error (task, EOS_UPDATER_ERROR,
+                               EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
+                               "Not an OSTree-based system: cannot update it.");
+      return;
+    }
+
+  /* Work out which sources to poll. */
   if (!read_config (get_config_file_path (), &config, &error))
     {
       g_task_return_error (task, g_steal_pointer (&error));
