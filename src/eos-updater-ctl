@@ -116,7 +116,7 @@ def main(argv):
     except KeyboardInterrupt:
         pass
 
-    b.unwatch_name(name_watch_id)
+    Gio.bus_unwatch_name(name_watch_id)
 
 
 if __name__ == '__main__':
