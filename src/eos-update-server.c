@@ -28,7 +28,7 @@
 #include <ostree.h>
 
 #include <libsoup/soup.h>
-
+#include <locale.h>
 #include <gio/gio.h>
 #include <glib-object.h>
 #include <glib.h>
@@ -387,6 +387,8 @@ main (int argc, char **argv)
   g_autoptr(EosUpdaterRepoServer) server = NULL;
   g_auto(TimeoutData) data = TIMEOUT_DATA_CLEARED;
   g_autoptr(OstreeRepo) repo = NULL;
+
+  setlocale (LC_ALL, "");
 
   if (!options_init (&options, &argc, &argv, &error))
     {
