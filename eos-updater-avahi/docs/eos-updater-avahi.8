@@ -1,0 +1,139 @@
+.\" Manpage for eos-updater-avahi.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "20 Feb 2017" "1.0" "eos-updater-avahi man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos-updater-avahi — Endless OS Avahi Advertisement Updater
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fBeos\-updater\-avahi [\-q] [\-d \fPservice\-directory\fB]
+[\-c \fPconfig\-file\fB]
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-updater\-avahi\fP is a utility to update the Avahi advertisements for
+Endless OS updates being advertised by this computer to others on the local
+network. When run, it checks whether advertising updates is enabled, and which
+OSTree commits are present in the computer’s repository, and adds, updates or
+removes the Avahi advertisements for them.
+.PP
+The Avahi advertisements are DNS\-SD records which allow other computers on the
+local network to check which updates are available to download from this
+computer, and which port to download them from. By default, they are stored in
+\fI/etc/avahi/services/eos\-updater.service\fP.
+.PP
+Advertisement of updates can be disabled by setting the \fIAdvertiseUpdates\fP
+key to \fIfalse\fP in \fI/etc/eos\-updater/eos\-update\-server.conf\fP.
+.PP
+\fBeos\-updater\-avahi\fP is designed to be run by \fBsystemd\fP(1), whenever
+the \fIeos\-updater\-avahi.path\fP unit is triggered. By default, it is
+triggered whenever the system OSTree repository is updated, or the updater
+configuration is changed. There should be no need to run
+\fBeos\-updater\-avahi\fP manually.
+.PP
+If the computer has been converted to not use OSTree, advertisement of updates
+to the local network is permanently disabled.
+.\"
+.SH OPTIONS
+.IX Header "OPTIONS"
+.\"
+.IP "\fB\-q\fP, \fB\-\-quiet\fP"
+Do not print informational output.
+.\"
+.IP "\fB\-d\fP, \fB\-\-service\-directory=\fP"
+Look for and modify Avahi service files in the given directory. This is
+intended to be used for testing. (Default: \fI/etc/avahi/services\fP.)
+.\"
+.IP "\fB\-c\fP, \fB\-\-config\-file=\fP"
+Load configuration for \fBeos\-updater\-avahi\fP from the given file. This is
+intended to be used for testing. (Default:
+\fI/etc/eos\-updater/eos\-updater\-avahi.conf\fP.)
+.\"
+.SH "ENVIRONMENT"
+.IX Header "ENVIRONMENT"
+.\"
+\fPeos\-updater\-avahi\fP supports the standard GLib environment variables for
+debugging. These variables are \fBnot\fP intended to be used in production:
+.\"
+.IP \fI$G_MESSAGES_DEBUG\fP 4
+.IX Item "$G_MESSAGES_DEBUG"
+This variable can contain one or more debug domain names to display debug output
+for. The value \fIall\fP will enable all debug output. The default is for no
+debug output to be enabled.
+.\"
+.SH "EXIT STATUS"
+.IX Header "EXIT STATUS"
+.\"
+\fBeos\-updater\-avahi\fP may return one of several error codes if it encounters
+problems.
+.\"
+.IP "0" 4
+No problems occurred. The Avahi service file was successfully updated if
+necessary.
+.\"
+.IP "1" 4
+.IX Item "1"
+There was an error while updating or deleting the Avahi service file.
+.\"
+.IP "2" 4
+.IX Item "2"
+An invalid option was passed to \fBeos\-updater\-avahi\fP on startup.
+.\"
+.IP "3" 4
+.IX Item "3"
+The configuration file for \fBeos\-updater\-avahi\fP could not be loaded or
+parsed.
+.\"
+.SH "FILES"
+.IX Header "FILES"
+.\"
+.IP \fI/etc/avahi/services/eos\-updater.service\fP 4
+.IX Item "/etc/avahi/services/eos\-updater.service"
+Describes the DNS\-SD record for Avahi to advertise to the local network. No
+advertisement will be made if this file is not present. This is the file which
+\fBeos\-updater\-avahi\fP adds, updates and removes when run.
+.\"
+.IP \fI/etc/eos\-updater/eos\-update\-server.conf\fP 4
+.IX Item "/etc/eos\-updater/eos\-update\-server.conf"
+.IX Item "/usr/local/share/eos\-updater/eos\-update\-server.conf"
+.IX Item "/usr/share/eos\-updater/eos\-update\-server.conf"
+Configuration file for \fBeos\-updater\-avahi\fP. Defaults are loaded from
+\fI/usr/local/share/eos\-updater/eos\-update\-server.conf\fP (if present) or
+\fI/usr/share/eos\-updater/eos\-update\-server.conf\fP.
+.\"
+.IP \fI/lib/systemd/system/eos\-updater\-avahi.path\fP 4
+.IX Item "/lib/systemd/system/eos\-updater\-avahi.path"
+\fBsystemd\fP(1) path file which triggers \fBeos\-updater\-avahi\fP to run
+when conditions change. See \fBsystemd.path\fP(5).
+.\"
+.IP \fI/lib/systemd/system/eos\-updater\-avahi.service\fP 4
+.IX Item "/lib/systemd/system/eos\-updater\-avahi.service"
+\fBsystemd\fP(1) service file which specifies the runtime environment for
+\fBeos\-updater\-avahi\fP. See \fBsystemd.service\fP(5).
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-update\-server\fP(8),
+\fBeos\-updater\fP(8)
+.\"
+.SH BUGS
+.IX Header "BUGS"
+.\"
+Any bugs which are found should be reported on the project website:
+.br
+\fIhttps://support.endlessm.com/\fP
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.

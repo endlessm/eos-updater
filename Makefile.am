@@ -6,6 +6,7 @@ SUBDIRS = . src libeos-updater-util/tests data tests docs
 libexec_PROGRAMS =
 noinst_LTLIBRARIES =
 systemdsystemunit_DATA =
+dist_man8_MANS =
 EXTRA_DIST =
 CLEANFILES =
 DISTCLEANFILES =
@@ -101,6 +102,8 @@ eos_updater_avahi_in = \
 systemdsystemunit_DATA += $(eos_updater_avahi_in:%.in=%)
 EXTRA_DIST += $(eos_updater_avahi_in)
 CLEANFILES += $(eos_updater_avahi_in:%.in=%)
+
+dist_man8_MANS += eos-updater-avahi/docs/eos-updater-avahi.8
 
 # Generic systemd rules
 edit = sed \
