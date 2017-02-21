@@ -26,6 +26,8 @@
 #include <libeos-updater-util/util.h>
 #include <locale.h>
 #include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 typedef struct
 {
@@ -160,6 +162,13 @@ test_config_file_unreadable (Fixture       *fixture,
       fixture->key_file1_path,
       NULL
     };
+
+  /* If the test is run as root, the user can read any file anyway. */
+  if (geteuid () == 0)
+    {
+      g_test_skip ("Test cannot be run as root.");
+      return;
+    }
 
   key_file = eos_updater_load_config_file (paths, &error);
   g_assert_error (error, G_FILE_ERROR, G_FILE_ERROR_ACCES);
