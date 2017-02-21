@@ -32,7 +32,7 @@
 #include <gio/gio.h>
 #include <glib-object.h>
 #include <glib.h>
-
+#include <stdlib.h>
 #include <systemd/sd-daemon.h>
 
 #include <errno.h>
@@ -379,6 +379,17 @@ start_listening (SoupServer *server,
   return soup_server_listen_fd (server, SD_LISTEN_FDS_START, 0, error);
 }
 
+/* main() exit codes. */
+enum
+{
+  EXIT_OK = EXIT_SUCCESS,
+  EXIT_FAILED = 1,
+  EXIT_INVALID_ARGUMENTS = 2,
+  EXIT_BAD_CONFIGURATION = 3,
+  EXIT_DISABLED = 4,
+  EXIT_NO_SOCKETS = 5,
+};
+
 int
 main (int argc, char **argv)
 {
@@ -393,7 +404,7 @@ main (int argc, char **argv)
   if (!options_init (&options, &argc, &argv, &error))
     {
       message ("Failed to initialize options: %s", error->message);
-      return 1;
+      return EXIT_INVALID_ARGUMENTS;
     }
 
   repo = eos_updater_local_repo ();
@@ -404,23 +415,23 @@ main (int argc, char **argv)
   if (server == NULL)
     {
       message ("Failed to create a server: %s", error->message);
-      return 1;
+      return EXIT_FAILED;
     }
 
 
   if (!timeout_data_init (&data, &options, server, &error))
     {
       message ("Failed to initialize timeout data: %s", error->message);
-      return 1;
+      return EXIT_FAILED;
     }
 
   if (!start_listening (SOUP_SERVER (server), &options, &error))
     {
       message ("Failed to listen: %s", error->message);
-      return 1;
+      return EXIT_NO_SOCKETS;
     }
 
   g_main_loop_run (data.loop);
 
-  return 0;
+  return EXIT_OK;
 }
