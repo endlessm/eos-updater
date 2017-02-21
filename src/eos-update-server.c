@@ -22,6 +22,7 @@
 
 #include "eos-repo-server.h"
 
+#include <libeos-updater-util/config.h>
 #include <libeos-updater-util/refcounted.h>
 #include <libeos-updater-util/util.h>
 
@@ -38,12 +39,68 @@
 #include <errno.h>
 #include <string.h>
 
+/* FIXME: The configuration code is shared with eos-updater-avahi and should be
+ * split out into a helper library. */
+/* Paths for the configuration file. */
+static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-update-server.conf";
+static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-update-server.conf";
+static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-update-server.conf";
+
+/* Configuration file keys. */
+static const char *LOCAL_NETWORK_UPDATES_GROUP = "Local Network Updates";
+static const char *ADVERTISE_UPDATES_KEY = "AdvertiseUpdates";
+
+static gboolean
+read_config_file (const gchar  *config_file_path,
+                  gboolean     *advertise_updates,
+                  GError      **error)
+{
+  g_autoptr(GKeyFile) config = NULL;
+  g_autoptr(GError) local_error = NULL;
+  const gchar * const default_paths[] =
+    {
+      CONFIG_FILE_PATH,
+      LOCAL_CONFIG_FILE_PATH,
+      STATIC_CONFIG_FILE_PATH,
+      NULL
+    };
+  const gchar * const override_paths[] =
+    {
+      config_file_path,
+      NULL
+    };
+
+  g_return_val_if_fail (advertise_updates != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  /* Try loading the files in order. If the user specified a configuration file
+   * on the command line, use only that. Otherwise use the normal hierarchy. */
+  config = eos_updater_load_config_file ((config_file_path != NULL) ? override_paths : default_paths,
+                                         error);
+  if (config == NULL)
+    return FALSE;
+
+  /* Successfully loaded a file. Parse it. */
+  *advertise_updates = g_key_file_get_boolean (config,
+                                               LOCAL_NETWORK_UPDATES_GROUP,
+                                               ADVERTISE_UPDATES_KEY,
+                                               &local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 typedef struct
 {
   guint16 local_port;
   gchar *raw_port_path;
   gint timeout_seconds;
   gchar *served_remote;
+  gchar *config_file;
 } Options;
 
 #define OPTIONS_CLEARED { 0u, NULL, 0, NULL }
@@ -134,6 +191,10 @@ options_init (Options *options,
     { "timeout", 't', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &options->timeout_seconds, "Time in seconds of inactivity allowed before quitting (zero or less means no timeout), default 5 seconds", "N" },
     { "serve-remote", 'r', G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, serve_remote_goption, "Which remote should be served, default eos", "NAME" },
     { "port-file", 'f', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &options->raw_port_path, "Where to write the port number, default NULL", "PATH" },
+    { "config-file", 'c',
+      G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &options->config_file,
+      "Configuration file to use (default: "
+      SYSCONFDIR "/" PACKAGE "/eos-update-server.conf" ")", "PATH" },
     { NULL }
   };
 
@@ -156,6 +217,7 @@ options_clear (Options *options)
   options->timeout_seconds = 0;
   g_clear_pointer (&options->served_remote, g_free);
   g_clear_pointer (&options->raw_port_path, g_free);
+  g_clear_pointer (&options->config_file, g_free);
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (Options, options_clear)
@@ -398,6 +460,7 @@ main (int argc, char **argv)
   g_autoptr(EosUpdaterRepoServer) server = NULL;
   g_auto(TimeoutData) data = TIMEOUT_DATA_CLEARED;
   g_autoptr(OstreeRepo) repo = NULL;
+  gboolean advertise_updates = FALSE;
 
   setlocale (LC_ALL, "");
 
@@ -405,6 +468,21 @@ main (int argc, char **argv)
     {
       message ("Failed to initialize options: %s", error->message);
       return EXIT_INVALID_ARGUMENTS;
+    }
+
+  /* Load our configuration. */
+  if (!read_config_file (options.config_file, &advertise_updates, &error))
+    {
+      message ("Failed to load configuration file: %s", error->message);
+      return EXIT_BAD_CONFIGURATION;
+    }
+
+  /* Should we actually run? */
+  if (!advertise_updates)
+    {
+      message ("Advertising updates is disabled in the configuration file. "
+               "Exiting.");
+      return EXIT_DISABLED;
     }
 
   repo = eos_updater_local_repo ();
