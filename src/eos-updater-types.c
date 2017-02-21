@@ -33,7 +33,8 @@ static const GDBusErrorEntry eos_updater_error_entries[] = {
   { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" },
   { EOS_UPDATER_ERROR_LIVE_BOOT, "com.endlessm.Updater.Error.LiveBoot" },
   { EOS_UPDATER_ERROR_LAN_DISCOVERY_ERROR, "com.endlessm.Updater.Error.LANDiscoveryError" },
-  { EOS_UPDATER_ERROR_WRONG_CONFIGURATION, "com.endlessm.Updater.Error.WrongConfiguration" }
+  { EOS_UPDATER_ERROR_WRONG_CONFIGURATION, "com.endlessm.Updater.Error.WrongConfiguration" },
+  { EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM, "com.endlessm.Updater.Error.NotOstreeSystem" },
 };
 
 /* Ensure that every error code has an associated D-Bus error name */
