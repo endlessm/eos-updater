@@ -161,7 +161,10 @@ on_name_lost (GDBusConnection *connection,
               const gchar     *name,
               gpointer         user_data)
 {
-  message ("Lost the name %s", name);
+  LocalData *local_data = user_data;
+
+  message ("Lost the name %s. Exiting.", name);
+  g_main_loop_quit (local_data->loop);
 }
 
 static const gchar *
