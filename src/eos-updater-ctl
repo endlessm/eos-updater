@@ -34,6 +34,8 @@ UPDATER_STATES = [
     "UpdateApplied"
 ]
 
+current_proxy = None
+
 
 def signal_emitted(proxy, signal, parameters):
     if signal != "StateChanged":
@@ -54,6 +56,8 @@ def dump_daemon_properties(proxy):
 
 
 def name_appeared_cb(connection, name, name_owner):
+    global current_proxy
+
     print("======= Ownership =======")
     print("%s appeared as %s" % (name, name_owner))
 
@@ -73,9 +77,14 @@ def name_appeared_cb(connection, name, name_owner):
                       signal_emitted(proxy, signal, parameters), None)
 
     dump_daemon_properties(proxy)
+    current_proxy = proxy
 
 
 def name_vanished_cb(connection, name):
+    global current_proxy
+
+    current_proxy = None
+
     print("======= Ownership =======")
     print("%s disappeared" % name)
 
