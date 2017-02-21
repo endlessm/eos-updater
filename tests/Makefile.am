@@ -109,6 +109,7 @@ dist_uninstalled_test_data = \
 # Installed integration tests
 dist_installed_test_scripts = \
 	eos-updater-avahi.py \
+	eos-update-server.py \
 	$(NULL)
 dist_test_extra_scripts = \
 	taptestrunner.py \
