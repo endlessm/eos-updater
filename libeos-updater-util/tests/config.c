@@ -155,6 +155,7 @@ test_config_file_unreadable (Fixture       *fixture,
 {
   g_autoptr(GError) error = NULL;
   g_autoptr(GKeyFile) key_file = NULL;
+  g_autofree gchar *temp = NULL;
   const gchar * const paths[] =
     {
       fixture->key_file_nonexistent_path,
@@ -163,10 +164,12 @@ test_config_file_unreadable (Fixture       *fixture,
       NULL
     };
 
-  /* If the test is run as root, the user can read any file anyway. */
-  if (geteuid () == 0)
+  /* If the test is run as root (or another user with CAP_DAC_OVERRIDE), the
+   * user can read any file anyway. */
+  if (g_file_get_contents (fixture->key_file_unreadable_path, &temp, NULL, NULL))
     {
-      g_test_skip ("Test cannot be run as root.");
+      g_test_skip ("Test cannot be run as a user with CAP_DAC_OVERRIDE or "
+                   "CAP_DAC_READ_SEARCH.");
       return;
     }
 
