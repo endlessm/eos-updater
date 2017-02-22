@@ -91,21 +91,21 @@ eos_update_server_LDFLAGS = $(WARN_LDFLAGS)
 eos_update_server_LDADD = $(common_ldadd) $(preparelib) $(EOS_UPDATE_SERVER_LIBS)
 eos_update_server_SOURCES = eos-update-server.c
 
-bin_PROGRAMS = eos-updater eos-prepare-volume
+bin_PROGRAMS = eos-updater eos-updater-prepare-volume
 
-eos_prepare_volume_CPPFLAGS = \
+eos_updater_prepare_volume_CPPFLAGS = \
 	$(common_cppflags) \
 	$(NULL)
-eos_prepare_volume_CFLAGS = \
+eos_updater_prepare_volume_CFLAGS = \
 	$(common_cflags) \
 	$(NULL)
-eos_prepare_volume_LDFLAGS = $(WARN_LDFLAGS)
-eos_prepare_volume_LDADD = \
+eos_updater_prepare_volume_LDFLAGS = $(WARN_LDFLAGS)
+eos_updater_prepare_volume_LDADD = \
 	$(common_ldadd) \
 	$(preparelib) \
 	$(NULL)
-eos_prepare_volume_SOURCES = \
-	eos-prepare-volume.c \
+eos_updater_prepare_volume_SOURCES = \
+	eos-updater-prepare-volume.c \
 	$(NULL)
 
 eos_updater_CPPFLAGS = \

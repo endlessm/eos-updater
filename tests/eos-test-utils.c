@@ -1956,11 +1956,11 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                 GFile *volume_path,
                                 GError **error)
 {
-  g_autofree gchar *eos_prepare_volume_binary = g_test_build_filename (G_TEST_BUILT,
-                                                                       "..",
-                                                                       "src",
-                                                                       "eos-prepare-volume",
-                                                                       NULL);
+  g_autofree gchar *eos_updater_prepare_volume_binary = g_test_build_filename (G_TEST_BUILT,
+                                                                               "..",
+                                                                               "src",
+                                                                               "eos-updater-prepare-volume",
+                                                                               NULL);
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
   CmdEnvVar envv[] =
     {
@@ -1972,7 +1972,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
   g_autofree gchar *raw_volume_path = g_file_get_path (volume_path);
   const gchar *argv[] =
     {
-      eos_prepare_volume_binary,
+      eos_updater_prepare_volume_binary,
       raw_volume_path,
       NULL
     };
@@ -1982,7 +1982,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
   if (!create_directory (volume_path, error))
     return FALSE;
 
-  bash_script_path = g_strdup (g_getenv ("EOS_CHECK_PREPARE_VOLUME_GDB_BASH_PATH"));
+  bash_script_path = g_strdup (g_getenv ("EOS_CHECK_UPDATER_PREPARE_VOLUME_GDB_BASH_PATH"));
   if (bash_script_path != NULL)
     {
       g_autoptr(GFile) bash_script = NULL;

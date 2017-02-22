@@ -1,2 +1,2 @@
-usr/bin/eos-prepare-volume
+usr/bin/eos-updater-prepare-volume
 usr/bin/eos-updater-ctl
