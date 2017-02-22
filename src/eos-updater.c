@@ -106,6 +106,15 @@ on_bus_acquired (GDBusConnection *connection,
       eos_updater_set_update_id (updater, "");
       eos_updater_clear_error (updater, EOS_UPDATER_STATE_READY);
     }
+  else if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+    {
+      g_clear_error (&error);
+      g_set_error (&error, EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
+                   "Not an OSTree-based system: cannot update it.");
+      eos_updater_set_error (updater, error);
+      g_clear_error (&error);
+    }
   else
     {
       eos_updater_set_error (updater, error);
