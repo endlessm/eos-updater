@@ -275,40 +275,18 @@ eos_updater_get_booted_checksum (GError **error)
   return g_strdup (ostree_deployment_get_csum (booted_deployment));
 }
 
-gchar *
-eos_updater_get_baseurl (OstreeDeployment *booted_deployment,
-                         OstreeRepo *repo,
-                         GError **error)
-{
-  const gchar *osname;
-  g_autofree gchar *url = NULL;
-
-  osname = ostree_deployment_get_osname (booted_deployment);
-  if (!ostree_repo_remote_get_url (repo, osname, &url, error))
-    return NULL;
-
-  return g_steal_pointer (&url);
-}
-
 gboolean
 eos_updater_get_ostree_path (OstreeRepo *repo,
+                             const gchar *osname,
                              gchar **ostree_path,
                              GError **error)
 {
-  g_autoptr(OstreeDeployment) deployment = NULL;
   g_autofree gchar *ostree_url = NULL;
   g_autoptr(SoupURI) uri = NULL;
   g_autofree gchar *path = NULL;
   gsize to_move = 0;
 
-  deployment = eos_updater_get_booted_deployment (error);
-  if (deployment == NULL)
-    return FALSE;
-
-  ostree_url = eos_updater_get_baseurl (deployment,
-                                        repo,
-                                        error);
-  if (ostree_url == NULL)
+  if (!ostree_repo_remote_get_url (repo, osname, &ostree_url, error))
     return FALSE;
 
   uri = soup_uri_new (ostree_url);
@@ -318,7 +296,7 @@ eos_updater_get_ostree_path (OstreeRepo *repo,
                    G_IO_ERROR,
                    G_IO_ERROR_INVALID_DATA,
                    "ostree %s remote's URL is invalid (%s)",
-                   ostree_deployment_get_osname (deployment),
+                   osname,
                    ostree_url);
       return FALSE;
     }
@@ -548,71 +526,4 @@ eos_updater_setup_quit_file (const gchar *path,
   quit_file->notify = notify;
 
   return g_steal_pointer (&quit_file);
-}
-
-/**
- * eos_updater_load_config_file:
- * @key_file_paths: (transfer none) (array zero-terminated=1): priority list of
- *     paths to try loading, most important first; %NULL-terminated
- * @error: return location for a #GError
- *
- * Load a configuration file from one of a number of paths, trying them in
- * order until one of the files exists. If one of the files exists, but there
- * is an error in loading it (for example, it contains invalid syntax), that
- * error will be returned; the next file in @key_file_paths will not be loaded.
- *
- * There must be at least one path in @key_file_paths, and at least one of the
- * paths in @key_file_paths must be guaranteed to exist (for example, as a
- * default configuration file installed by the package).
- *
- * Returns: (transfer full): loaded configuration file
- */
-GKeyFile *
-eos_updater_load_config_file (const gchar * const  *key_file_paths,
-                              GError              **error)
-{
-  g_autoptr(GKeyFile) config = NULL;
-  g_autoptr(GError) local_error = NULL;
-  gsize i;
-
-  g_return_val_if_fail (key_file_paths != NULL, NULL);
-  g_return_val_if_fail (key_file_paths[0] != NULL, NULL);
-  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
-
-  config = g_key_file_new ();
-
-  /* Try the files in order. */
-  for (i = 0; key_file_paths[i] != NULL; i++)
-    {
-      g_key_file_load_from_file (config, key_file_paths[i], G_KEY_FILE_NONE,
-                                 &local_error);
-
-      if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT) &&
-          key_file_paths[i + 1] != NULL)
-        {
-          g_debug ("Configuration file ‘%s’ not found. Trying next path ‘%s’.",
-                   key_file_paths[i], key_file_paths[i + 1]);
-          g_clear_error (&local_error);
-          continue;
-        }
-      else if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
-        {
-          g_error ("Configuration file ‘%s’ not found. The program is not "
-                   "installed correctly.", key_file_paths[i]);
-          g_clear_error (&local_error);
-          g_assert_not_reached ();
-        }
-      else if (local_error != NULL)
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return NULL;
-        }
-      else
-        {
-          /* Successfully loaded a file. */
-          return g_steal_pointer (&config);
-        }
-    }
-
-  return config;
 }

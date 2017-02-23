@@ -1,13 +1,10 @@
 [Unit]
-Description=Endless OS Local Update Server
-Wants=network.target
-
-# Only run when Avahi is advertising the port.
-ConditionPathExists=@sysconfdir@/avahi/services/eos-updater.service
+Description=Endless OS Avahi Advertisement Updater
+Documentation=man:eos-updater-avahi(8)
 
 [Service]
 Type=simple
-ExecStart=@libexecdir@/eos-update-server
+ExecStart=@libexecdir@/eos-updater-avahi
 
 # Sandboxing
 # FIXME: Enable more of these options once we have systemd > 229
@@ -18,7 +15,7 @@ Environment=GVFS_REMOTE_VOLUME_MONITOR_IGNORE=1
 #MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 PrivateDevices=yes
-PrivateNetwork=no
+PrivateNetwork=yes
 PrivateTmp=yes
 #PrivateUsers=yes
 #ProtectControlGroups=yes
@@ -26,11 +23,11 @@ ProtectHome=yes
 #ProtectKernelModules=yes
 #ProtectKernelTunables=yes
 #ProtectSystem=strict
-ProtectSystem=full
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectSystem=true
+#ReadWritePaths=/etc/avahi/services/eos-updater.service
 #RestrictRealtime=yes
 #SystemCallErrorNumber=EPERM
-#SystemCallFilter=@basic-io @io-event @ipc @network-io
+#SystemCallFilter=@basic-io @io-event @ipc
 
 [Install]
-Also=eos-update-server.socket
+Also=eos-update-server.service eos-updater-avahi.path

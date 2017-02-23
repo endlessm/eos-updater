@@ -1,4 +1,5 @@
 # API versions
+m4_define([eu_api_version],[0])
 m4_define([euu_api_version],[0])
 
 AC_INIT([eos-updater],[1.0])
@@ -19,6 +20,7 @@ GTK_DOC_CHECK([1.14],[--flavour no-tmpl])
 GOBJECT_INTROSPECTION_CHECK([1.30.0])
 
 # Versioning
+AC_SUBST([EU_API_VERSION],eu_api_version)
 AC_SUBST([EUU_API_VERSION],euu_api_version)
 
 # Compiler warnings and --disable-Werror
@@ -72,6 +74,7 @@ PKG_CHECK_MODULES([EOS_AUTOUPDATER],
 PKG_CHECK_MODULES([EOS_UPDATE_SERVER],
                   [libsystemd])
 
+AX_PKG_CHECK_MODULES([EOS_UPDATER_AVAHI],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION])
 AX_PKG_CHECK_MODULES([EOS_UPDATER_UTIL_TESTS],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4])
 
 EOS_UPDATER_MODULES="avahi-client >= $AVAHI_REQUIRED_VERSION avahi-glib >= $AVAHI_REQUIRED_VERSION"

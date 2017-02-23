@@ -1,0 +1,26 @@
+[Unit]
+Description=Endless OS Avahi Advertisement Updater
+
+[Path]
+# Deployments
+# These are the ref files which indicate which ref the various deployments we
+# have are at. They are in the format:
+#    ostree/$bootversion/$subbootversion/$deployindex
+# See generate_deployment_refs() in ostree.git.
+# The $bootversion and $subbootversion can both only ever be 0 or 1. The
+# deployment index is an unbounded non-negative integer, but since we only
+# ever expect two deployments (current booted one, and the previous or next
+# one on upgrade), we just list 0 and 1.
+PathChanged=/ostree/repo/refs/heads/ostree/0/0/0
+PathChanged=/ostree/repo/refs/heads/ostree/0/0/1
+PathChanged=/ostree/repo/refs/heads/ostree/0/1/0
+PathChanged=/ostree/repo/refs/heads/ostree/0/1/1
+PathChanged=/ostree/repo/refs/heads/ostree/1/0/0
+PathChanged=/ostree/repo/refs/heads/ostree/1/0/1
+PathChanged=/ostree/repo/refs/heads/ostree/1/1/0
+PathChanged=/ostree/repo/refs/heads/ostree/1/1/1
+
+# Configuration files
+PathChanged=@sysconfdir@/eos-updater/eos-update-server.conf
+PathChanged=@pkgdatadir@/eos-update-server.conf
+PathChanged=@prefix@/local/share/eos-updater/eos-update-server.conf

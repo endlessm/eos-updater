@@ -2,12 +2,17 @@ lib/systemd/system/eos-autoupdater.service
 lib/systemd/system/eos-autoupdater.timer
 lib/systemd/system/eos-update-server.service
 lib/systemd/system/eos-update-server.socket
+lib/systemd/system/eos-updater-avahi.path
+lib/systemd/system/eos-updater-avahi.service
 usr/bin/eos-updater
 usr/lib/*/eos-autoupdater
 usr/lib/*/eos-update-server
+usr/lib/*/eos-updater-avahi
 usr/lib/*/libeos-updater-0.so.0
 usr/lib/*/libeos-updater-0.so.0.*
 usr/share/dbus-1/system-services/com.endlessm.Updater.service
 usr/share/dbus-1/system.d/com.endlessm.Updater.conf
 usr/share/eos-updater/eos-autoupdater.conf
 usr/share/eos-updater/eos-updater.conf
+usr/share/eos-updater/eos-update-server.conf
+usr/share/man/man8/eos-updater-avahi.8

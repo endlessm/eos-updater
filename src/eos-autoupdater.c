@@ -18,11 +18,9 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#include "config.h"
-
 #include "eos-updater-types.h"
 #include "eos-updater-generated.h"
-#include <libeos-updater-util/util.h>
+#include <libeos-updater-util/config.h>
 
 #include <gio/gio.h>
 #include <glib.h>

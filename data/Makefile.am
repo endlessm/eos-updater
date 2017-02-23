@@ -12,6 +12,7 @@ sysconfexampledir = $(pkgdatadir)
 dist_sysconfexample_DATA = \
 	eos-autoupdater.conf \
 	eos-updater.conf \
+	eos-update-server.conf \
 	$(NULL)
 
 %: %.in

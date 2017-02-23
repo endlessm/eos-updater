@@ -52,6 +52,7 @@ common_cflags = \
 common_cppflags = \
 	-I$(top_srcdir) \
 	-I$(top_builddir) \
+	-include "config.h" \
 	-DOSTREE_WITH_AUTOCLEANUPS \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DLOCALSTATEDIR=\""$(localstatedir)"\" \

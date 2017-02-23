@@ -24,8 +24,10 @@
 #include "eos-updater-poll-common.h"
 #include "eos-updater-poll-lan.h"
 
+#include <glib.h>
+#include <libeos-updater-util/avahi-service-file.h>
 #include <libeos-updater-util/util.h>
-
+#include <libsoup/soup.h>
 #include <string.h>
 #include <errno.h>
 
@@ -52,6 +54,8 @@ lan_data_init (LanData *lan_data,
                EosMetadataFetchData *fetch_data,
                GError **error)
 {
+  g_autoptr(OstreeDeployment) deployment = NULL;
+
   g_return_val_if_fail (lan_data != NULL, FALSE);
   g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -60,7 +64,12 @@ lan_data_init (LanData *lan_data,
   lan_data->fetch_data = g_object_ref (fetch_data);
   lan_data->main_loop = g_main_loop_new (fetch_data->context, FALSE);
 
+  deployment = eos_updater_get_booted_deployment (error);
+  if (deployment == NULL)
+    return FALSE;
+
   if (!eos_updater_get_ostree_path (fetch_data->data->repo,
+                                    ostree_deployment_get_osname (deployment),
                                     &lan_data->cached_ostree_path,
                                     error))
     return FALSE;

@@ -21,7 +21,6 @@
  */
 
 #include "eos-updater-apply.h"
-#include "eos-updater-avahi.h"
 #include "eos-updater-data.h"
 #include "eos-updater-object.h"
 
@@ -92,38 +91,7 @@ apply_internal (EosUpdater *updater,
   g_autoptr(GKeyFile) origin = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
   const gchar *osname = get_test_osname ();
-  g_autoptr(GHashTable) refs = NULL;
-  g_autoptr(GVariant) update_commit = NULL;
-  g_autoptr(GDateTime) head_commit_timestamp = NULL;
-  const gchar *update_checksum;
-  GHashTableIter iter;
-  gpointer key, value;
   g_autoptr(GError) local_error = NULL;
-
-  /* Before starting, get the commit timestamp for the update_refspec, which we
-   * advertise on Avahi later. */
-  if (!ostree_repo_list_refs (repo, NULL, &refs, NULL, error))
-    return FALSE;
-
-  g_hash_table_iter_init (&iter, refs);
-  while (g_hash_table_iter_next (&iter, &key, &value))
-    {
-      g_debug ("%s: refs mapping: %s = %s", G_STRFUNC,
-               (const gchar *) key, (const gchar *) value);
-    }
-
-  update_checksum = g_hash_table_lookup (refs, update_refspec);
-  if (update_checksum == NULL)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                   "Commit could not be found for update refspec ‘%s’.",
-                   update_refspec);
-      return FALSE;
-    }
-
-  if (!ostree_repo_load_commit (repo, update_checksum, &update_commit, NULL,
-                                error))
-    return FALSE;
 
   sysroot = ostree_sysroot_new_default ();
   /* The sysroot lock must be taken to prevent multiple processes (like this
@@ -188,7 +156,7 @@ apply_internal (EosUpdater *updater,
 
   newbootver = ostree_deployment_get_deployserial (new_deployment);
 
-  /* Updates to the extensions and Avahi service file are non-fatal, since
+  /* Updates to the extensions are non-fatal, since
    * we’ve already successfully deployed the new OS. */
   if (!eos_extensions_save (data->extensions,
                             repo,
@@ -197,14 +165,6 @@ apply_internal (EosUpdater *updater,
     g_warning ("Failed to save repository extensions: %s",
                local_error->message);
   g_clear_object (&data->extensions);
-  g_clear_error (&local_error);
-
-  head_commit_timestamp = g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (update_commit));
-
-  if (!eos_avahi_generate_service_file (repo,
-                                        head_commit_timestamp,
-                                        &local_error))
-    g_warning ("Failed to update service file: %s", local_error->message);
   g_clear_error (&local_error);
 
   *out_bootversion_changed = bootversion != newbootver;

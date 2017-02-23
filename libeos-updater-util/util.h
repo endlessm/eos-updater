@@ -68,11 +68,8 @@ OstreeDeployment *eos_updater_get_booted_deployment (GError **error);
 
 gchar *eos_updater_get_booted_checksum (GError **error);
 
-gchar *eos_updater_get_baseurl (OstreeDeployment *booted_deployment,
-                                OstreeRepo *repo,
-                                GError **error);
-
 gboolean eos_updater_get_ostree_path (OstreeRepo *repo,
+                                      const gchar *osname,
                                       gchar **ostree_path,
                                       GError **error);
 
@@ -112,8 +109,5 @@ EosQuitFile *eos_updater_setup_quit_file (const gchar *path,
                                           GDestroyNotify notify,
                                           guint timeout_seconds,
                                           GError **error);
-
-GKeyFile *eos_updater_load_config_file (const gchar * const  *key_file_paths,
-                                        GError              **error);
 
 G_END_DECLS
