@@ -174,6 +174,7 @@ test_avahi_service_file_generate_denied (Fixture       *fixture,
   g_autoptr(GError) error = NULL;
   g_autofree gchar *subdirectory = NULL;
   g_autofree gchar *service_file = NULL;
+  g_autofree gchar *test_file = NULL;
   gboolean retval;
 
   subdirectory = g_build_filename (fixture->tmp_dir,
@@ -182,15 +183,27 @@ test_avahi_service_file_generate_denied (Fixture       *fixture,
   g_assert_cmpint (g_mkdir (subdirectory, 0500), ==, 0);
   service_file = g_build_filename (subdirectory, "eos-updater.service", NULL);
 
-  /* Try to generate a service file. */
-  retval = eos_avahi_service_file_generate (subdirectory, "ostree-path",
-                                            fixture->example_timestamp,
-                                            NULL, &error);
-  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED);
-  g_assert_false (retval);
+  /* If the test is run as root (or another user with CAP_DAC_OVERRIDE), the
+   * user can write any file anyway. */
+  test_file = g_build_filename (subdirectory, "permissions-test", NULL);
+  if (g_file_set_contents (test_file, "permissions test", -1, NULL))
+    {
+      g_unlink (test_file);
+      g_test_skip ("Test cannot be run as a user with CAP_DAC_OVERRIDE or "
+                   "CAP_DAC_READ_SEARCH.");
+    }
+  else
+    {
+      /* Try to generate a service file. */
+      retval = eos_avahi_service_file_generate (subdirectory, "ostree-path",
+                                                fixture->example_timestamp,
+                                                NULL, &error);
+      g_assert_error (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED);
+      g_assert_false (retval);
 
-  /* File should not have been created. */
-  g_assert_false (g_file_test (service_file, G_FILE_TEST_EXISTS));
+      /* File should not have been created. */
+      g_assert_false (g_file_test (service_file, G_FILE_TEST_EXISTS));
+    }
 
   /* Clean up. */
   g_assert_cmpint (g_chmod (subdirectory, 0700), ==, 0);
@@ -270,6 +283,7 @@ test_avahi_service_file_delete_denied (Fixture       *fixture,
   g_autoptr(GError) error = NULL;
   g_autofree gchar *subdirectory = NULL;
   g_autofree gchar *service_file = NULL;
+  g_autofree gchar *test_file = NULL;
   gboolean retval;
 
   /* Create a service file. */
@@ -283,10 +297,22 @@ test_avahi_service_file_delete_denied (Fixture       *fixture,
 
   g_assert_cmpint (g_chmod (subdirectory, 0500), ==, 0);
 
-  /* Try to delete it. */
-  retval = eos_avahi_service_file_delete (subdirectory, NULL, &error);
-  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED);
-  g_assert_false (retval);
+  /* If the test is run as root (or another user with CAP_DAC_OVERRIDE), the
+   * user can write or delete any file anyway. */
+  test_file = g_build_filename (subdirectory, "permissions-test", NULL);
+  if (g_file_set_contents (test_file, "permissions test", -1, NULL))
+    {
+      g_unlink (test_file);
+      g_test_skip ("Test cannot be run as a user with CAP_DAC_OVERRIDE or "
+                   "CAP_DAC_READ_SEARCH.");
+    }
+  else
+    {
+      /* Try to delete it. */
+      retval = eos_avahi_service_file_delete (subdirectory, NULL, &error);
+      g_assert_error (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED);
+      g_assert_false (retval);
+    }
 
   /* Clean up. */
   g_assert_cmpint (g_chmod (subdirectory, 0700), ==, 0);
