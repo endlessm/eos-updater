@@ -61,8 +61,8 @@ class TestEosUpdaterAvahi(unittest.TestCase):
 
         # Explicitly stop the service so it isn’t running when the next test
         # starts, which could confuse things.
-        subprocess.check_call(['systemctl', 'stop', '--quiet',
-                               'eos-updater-avahi.service'])
+        subprocess.call(['systemctl', 'stop', '--quiet',
+                         'eos-updater-avahi.service'])
 
         # And wait for a second to avoid triggering systemd’s rate limiting
         # for start requests.
