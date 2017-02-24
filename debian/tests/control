@@ -2,3 +2,9 @@ Tests: gnome-desktop-testing
 Depends:
  gnome-desktop-testing,
  libeos-updater-util-0-tests,
+
+Tests: gnome-desktop-testing-root
+Depends:
+ eos-updater-tests,
+ gnome-desktop-testing,
+Restrictions: needs-root
