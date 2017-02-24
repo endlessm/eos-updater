@@ -98,6 +98,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         """Test Avahi adverts are disabled by default, on a clean install."""
         self.assertFalse(os.path.isfile(self.__service_file))
 
+    @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_enable_via_configuration_file(self):
         """Test enabling the configuration file creates the .service file."""
         os.makedirs('/etc/eos-updater/', mode=0o755, exist_ok=True)
@@ -110,6 +111,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         self._wait_for_condition(
             lambda s: os.path.isfile(self.__service_file))
 
+    @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_disable_via_configuration_file(self):
         """Test disabling the configuration file deletes the .service file."""
         os.makedirs('/etc/eos-updater/', mode=0o755, exist_ok=True)
@@ -122,6 +124,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         self._wait_for_condition(
             lambda s: not os.path.isfile(self.__service_file))
 
+    @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_update_on_ostree_update(self):
         """Test updating the OSTree deployment updates the .service file."""
         def get_mtime_if_exists(path):
@@ -156,6 +159,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         self._wait_for_condition(
             lambda s: get_mtime_if_exists(self.__service_file) > before)
 
+    @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_services_enabled_by_default(self):
         """Test the Avahi systemd units are enabled by default."""
         self.assertTrue(self._is_service_enabled('eos-update-server.service'))
