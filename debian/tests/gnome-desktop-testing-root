@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Run the eos-updater installed-tests which do not require root privileges.
+# Run the eos-updater installed-tests which require root privileges.
 
 # Copyright © 2017 Endless Mobile, Inc.
 #
@@ -22,4 +22,4 @@
 set -e
 exec 2>&1
 
-exec gnome-desktop-testing-runner libeos-updater-util-0
+exec gnome-desktop-testing-runner eos-updater-0

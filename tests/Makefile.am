@@ -115,4 +115,12 @@ dist_test_extra_scripts = \
 	taptestrunner.py \
 	$(NULL)
 
+# Our Python integration tests don’t need the --tap argument
+%.py.test: %.py Makefile
+	$(AM_V_GEN) (echo '[Test]' > $@.tmp; \
+	echo 'Type=session' >> $@.tmp; \
+	echo 'Exec=$(installed_testdir)/$(notdir $<)' >> $@.tmp; \
+	echo 'Output=TAP' >> $@.tmp; \
+	mv $@.tmp $@)
+
 -include $(top_srcdir)/git.mk

@@ -114,7 +114,7 @@ generate_faked_config (OstreeRepo *repo,
   raw = g_key_file_to_data (config, &len, error);
   if (raw == NULL)
     {
-      g_debug ("Failed to get raw contents of modified repository config");
+      g_warning ("Failed to get raw contents of modified repository config");
       return FALSE;
     }
 
@@ -478,7 +478,7 @@ filez_stream_read_chunk_cb (GObject *stream_object,
   server = SOUP_SERVER (read_data->server);
   if (bytes_read < 0)
     {
-      g_debug ("Failed to read the file %s: %s", read_data->filez_path, error->message);
+      g_warning ("Failed to read the file %s: %s", read_data->filez_path, error->message);
       soup_message_set_status (read_data->msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
       soup_message_body_complete (read_data->msg->response_body);
       soup_server_unpause_message (server, read_data->msg);
@@ -531,11 +531,11 @@ handle_objects_filez (EosUpdaterRepoServer *server,
                                       &error);
   if (checksum == NULL)
     {
-      g_debug ("Failed to get checksum of the filez object %s: %s", requested_path, error->message);
+      g_warning ("Failed to get checksum of the filez object %s: %s", requested_path, error->message);
       soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
       return;
     }
-  message("Got checksum: %s", checksum);
+  g_debug ("Got checksum: %s", checksum);
 
   if (!load_compressed_file_stream (server->repo,
                                     checksum,
@@ -544,7 +544,7 @@ handle_objects_filez (EosUpdaterRepoServer *server,
                                     &uncompressed_size,
                                     &error))
     {
-      g_debug ("Failed to get stream to the filez object %s: %s", requested_path, error->message);
+      g_warning ("Failed to get stream to the filez object %s: %s", requested_path, error->message);
       soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
       return;
     }
@@ -640,7 +640,7 @@ serve_file_if_exists (SoupMessage *msg,
   mapping = g_mapped_file_new (raw_path, FALSE, &error);
   if (mapping == NULL)
     {
-      g_debug ("Failed to map %s: %s", raw_path, error->message);
+      g_warning ("Failed to map %s: %s", raw_path, error->message);
       soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
       return FALSE;
     }

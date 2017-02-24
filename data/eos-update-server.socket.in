@@ -1,5 +1,9 @@
 [Unit]
 Description=Socket for Endless OS Automatic Updater
+ConditionPathExists=/etc/avahi/services/eos-updater.service
 
 [Socket]
 ListenStream=@server_port@
+
+[Install]
+WantedBy=sockets.target

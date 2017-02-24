@@ -11,7 +11,7 @@ ExecStart=@libexecdir@/eos-update-server
 
 # Sandboxing
 # FIXME: Enable more of these options once we have systemd > 229
-CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 Environment=GIO_USE_VFS=local
 Environment=GVFS_DISABLE_FUSE=1
 Environment=GVFS_REMOTE_VOLUME_MONITOR_IGNORE=1

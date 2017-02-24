@@ -24,3 +24,6 @@ PathChanged=/ostree/repo/refs/heads/ostree/1/1/1
 PathChanged=@sysconfdir@/eos-updater/eos-update-server.conf
 PathChanged=@pkgdatadir@/eos-update-server.conf
 PathChanged=@prefix@/local/share/eos-updater/eos-update-server.conf
+
+[Install]
+WantedBy=paths.target

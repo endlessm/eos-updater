@@ -58,6 +58,7 @@ class TestEosUpdateServer(unittest.TestCase):
         # for start requests.
         time.sleep(1)
 
+    @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_enable_via_configuration_file(self):
         """Test enabling the configuration file allows the server to run."""
         os.makedirs('/etc/eos-updater/', mode=0o755, exist_ok=True)
@@ -76,6 +77,7 @@ class TestEosUpdateServer(unittest.TestCase):
                                   '--timeout=1'])
         self.assertEqual(status, 0)
 
+    @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_disable_via_configuration_file(self):
         """
         Test disabling the configuration file causes the server to not start.
@@ -91,6 +93,7 @@ class TestEosUpdateServer(unittest.TestCase):
                                   '--timeout=1'])
         self.assertEqual(status, 4)  # EXIT_DISABLED
 
+    @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     @unittest.expectedFailure
     def test_disable_via_configuration_file_at_runtime(self):
         """
