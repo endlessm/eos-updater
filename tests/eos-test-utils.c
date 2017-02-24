@@ -1576,17 +1576,21 @@ static gboolean
 run_update_server (GFile *repo,
                    GFile *quit_file,
                    GFile *port_file,
+                   GFile *config_file,
                    const gchar *remote_name,
                    guint16 *out_port,
                    CmdAsyncResult *cmd,
                    GError **error)
 {
+  guint timeout_seconds = 10;
+  guint i;
   g_autofree gchar *eos_update_server_binary = g_test_build_filename (G_TEST_BUILT,
                                                                       "..",
                                                                       "src",
                                                                       "eos-update-server",
                                                                       NULL);
   g_autofree gchar *raw_port_file_path = g_file_get_path (port_file);
+  g_autofree gchar *raw_config_file_path = g_file_get_path (config_file);
   CmdEnvVar envv[] =
     {
       { "OSTREE_REPO", NULL, repo },
@@ -1600,6 +1604,7 @@ run_update_server (GFile *repo,
       { "port-file", raw_port_file_path },
       { "timeout", "0" },
       { "serve-remote", remote_name },
+      { "config-file", raw_config_file_path },
       { NULL, NULL }
     };
   g_auto(GStrv) envp = build_cmd_env (envv);
@@ -1640,8 +1645,25 @@ run_update_server (GFile *repo,
                               (const gchar * const *) envp, FALSE, cmd, error))
     return FALSE;
 
-  while (!g_file_query_exists (port_file, NULL))
-    sleep (1);
+  /* Keep a rough count of the timeout.
+   *
+   * FIXME: Really, we should be using GSubprocess, tracking the child PID and
+   * erroring if it exits earlier than expected, and using a GMainContext
+   * rather than sleep(); but those are fairly major changes. */
+  i = 0;
+  while (!g_file_query_exists (port_file, NULL) &&
+         (bash_script_path_base != NULL || i < timeout_seconds))
+    {
+      sleep (1);
+      i++;
+    }
+
+  if (!g_file_query_exists (port_file, NULL))
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT,
+                   "Timed out waiting for eos-update-server to create port file.");
+      return FALSE;
+    }
 
   if (!read_port_file (port_file,
                        out_port,
@@ -1747,17 +1769,31 @@ get_update_server_port_file (GFile *update_server_dir)
   return g_file_get_child (update_server_dir, "port-file");
 }
 
+static GFile *
+get_update_server_config_file (GFile *update_server_dir)
+{
+  return g_file_get_child  (update_server_dir, "config-file.conf");
+}
+
 static gboolean
 prepare_update_server_dir (GFile *update_server_dir,
                            GError **error)
 {
   g_autoptr(GFile) quit_file = NULL;
+  g_autoptr(GFile) config_file = NULL;
+  g_autofree gchar *config_file_path = NULL;
+  const gchar *config = "[Local Network Updates]\nAdvertiseUpdates=true";
 
   if (!create_directory (update_server_dir, error))
     return FALSE;
 
   quit_file = get_update_server_quit_file (update_server_dir);
   if (!create_file (quit_file, NULL, error))
+    return FALSE;
+
+  config_file = get_update_server_config_file (update_server_dir);
+  config_file_path = g_file_get_path (config_file);
+  if (!g_file_set_contents (config_file_path, config, -1, error))
     return FALSE;
 
   return TRUE;
@@ -1780,6 +1816,7 @@ eos_test_client_run_update_server (EosTestClient *client,
   g_autoptr(GFile) repo = NULL;
   g_autoptr(GFile) quit_file = NULL;
   g_autoptr(GFile) port_file = NULL;
+  g_autoptr(GFile) config_file = NULL;
   g_autoptr(GDateTime) timestamp = NULL;
   guint16 port;
 
@@ -1790,9 +1827,11 @@ eos_test_client_run_update_server (EosTestClient *client,
   repo = get_repo_for_sysroot (sysroot);
   quit_file = get_update_server_quit_file (update_server_dir);
   port_file = get_update_server_port_file (update_server_dir);
+  config_file = get_update_server_config_file (update_server_dir);
   if (!run_update_server (repo,
                           quit_file,
                           port_file,
+                          config_file,
                           client->remote_name,
                           &port,
                           cmd,
