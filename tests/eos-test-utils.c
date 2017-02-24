@@ -1581,6 +1581,8 @@ run_update_server (GFile *repo,
                    CmdAsyncResult *cmd,
                    GError **error)
 {
+  guint timeout_seconds = 10;
+  guint i;
   g_autofree gchar *eos_update_server_binary = g_test_build_filename (G_TEST_BUILT,
                                                                       "..",
                                                                       "src",
@@ -1640,8 +1642,25 @@ run_update_server (GFile *repo,
                               (const gchar * const *) envp, FALSE, cmd, error))
     return FALSE;
 
-  while (!g_file_query_exists (port_file, NULL))
-    sleep (1);
+  /* Keep a rough count of the timeout.
+   *
+   * FIXME: Really, we should be using GSubprocess, tracking the child PID and
+   * erroring if it exits earlier than expected, and using a GMainContext
+   * rather than sleep(); but those are fairly major changes. */
+  i = 0;
+  while (!g_file_query_exists (port_file, NULL) &&
+         (bash_script_path_base != NULL || i < timeout_seconds))
+    {
+      sleep (1);
+      i++;
+    }
+
+  if (!g_file_query_exists (port_file, NULL))
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT,
+                   "Timed out waiting for eos-update-server to create port file.");
+      return FALSE;
+    }
 
   if (!read_port_file (port_file,
                        out_port,
