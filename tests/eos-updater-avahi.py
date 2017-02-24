@@ -159,7 +159,9 @@ class TestEosUpdaterAvahi(unittest.TestCase):
     def test_services_enabled_by_default(self):
         """Test the Avahi systemd units are enabled by default."""
         self.assertTrue(self._is_service_enabled('eos-update-server.service'))
+        self.assertTrue(self._is_service_enabled('eos-update-server.socket'))
         self.assertTrue(self._is_service_enabled('eos-updater-avahi.service'))
+        self.assertTrue(self._is_service_enabled('eos-updater-avahi.path'))
         self.assertTrue(self._is_service_enabled('avahi-daemon.service'))
 
 

@@ -3,3 +3,6 @@ Description=Socket for Endless OS Automatic Updater
 
 [Socket]
 ListenStream=@server_port@
+
+[Install]
+WantedBy=sockets.target
