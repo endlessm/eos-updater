@@ -88,6 +88,7 @@ generate_faked_config (OstreeRepo *repo,
   g_autoptr(GKeyFile) config = NULL;
   g_autofree gchar *raw = NULL;
   gsize len = 0;
+  g_autoptr(GError) local_error = NULL;
 
   /* Check that the repository is in a format we understand. */
   parent_config = ostree_repo_get_config (repo);
@@ -111,10 +112,12 @@ generate_faked_config (OstreeRepo *repo,
   g_key_file_set_integer (config, "core", "repo_version", 1);
   g_key_file_set_string (config, "core", "mode", "archive-z2");
 
-  raw = g_key_file_to_data (config, &len, error);
+  raw = g_key_file_to_data (config, &len, &local_error);
   if (raw == NULL)
     {
-      g_warning ("Failed to get raw contents of modified repository config");
+      g_warning ("Failed to get raw contents of modified repository config: %s",
+                 local_error->message);
+      g_propagate_error (error, g_steal_pointer (&local_error));
       return FALSE;
     }
 
