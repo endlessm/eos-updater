@@ -16,3 +16,4 @@ usr/share/eos-updater/eos-autoupdater.conf
 usr/share/eos-updater/eos-updater.conf
 usr/share/eos-updater/eos-update-server.conf
 usr/share/man/man8/eos-updater-avahi.8
+usr/share/man/man8/eos-update-server.8

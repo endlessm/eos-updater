@@ -94,6 +94,8 @@ eos_update_server_LDFLAGS = $(WARN_LDFLAGS)
 eos_update_server_LDADD = $(common_ldadd) $(preparelib) $(EOS_UPDATE_SERVER_LIBS)
 eos_update_server_SOURCES = eos-update-server.c
 
+dist_man8_MANS += docs/eos-update-server.8
+
 bin_PROGRAMS = eos-updater eos-updater-prepare-volume
 
 eos_updater_prepare_volume_CPPFLAGS = \
