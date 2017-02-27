@@ -188,9 +188,9 @@ options_init (Options *options,
   g_autoptr(GOptionGroup) group = NULL;
   GOptionEntry entries[] = {
     { "local-port", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, local_port_goption, "Local port number (0 < N < 65536)", "N" },
-    { "timeout", 't', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &options->timeout_seconds, "Time in seconds of inactivity allowed before quitting (zero or less means no timeout), default 5 seconds", "N" },
-    { "serve-remote", 'r', G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, serve_remote_goption, "Which remote should be served, default eos", "NAME" },
-    { "port-file", 'f', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &options->raw_port_path, "Where to write the port number, default NULL", "PATH" },
+    { "timeout", 't', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &options->timeout_seconds, "Number of seconds of inactivity allowed before exiting (default: 5 seconds; ≤0 means no timeout)", "SECONDS" },
+    { "serve-remote", 'r', G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, serve_remote_goption, "Name of the remote to serve (default: eos)", "REMOTE-NAME" },
+    { "port-file", 'f', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &options->raw_port_path, "File to write the port number in (default: do not write the port number)", "PATH" },
     { "config-file", 'c',
       G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &options->config_file,
       "Configuration file to use (default: "
@@ -198,10 +198,14 @@ options_init (Options *options,
     { NULL }
   };
 
-  context = g_option_context_new ("Endless OSTree server");
+  context = g_option_context_new ("— Endless OS OSTree Server");
   group = g_option_group_new (NULL, NULL, NULL, options, NULL);
   g_option_group_add_entries (group, entries);
   g_option_context_set_main_group (context, g_steal_pointer (&group));
+  g_option_context_set_summary (context,
+                                "Serve the local OSTree repository to other "
+                                "computers on the network, to allow Endless OS "
+                                "updates to be shared between computers.");
 
   memset (options, 0, sizeof (*options));
   options->timeout_seconds = 5;
