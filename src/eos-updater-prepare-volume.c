@@ -106,10 +106,10 @@ main (int argc,
 {
   gboolean quiet = FALSE;
   g_auto(GStrv) remaining = NULL;
-  g_autoptr(GOptionContext) context = g_option_context_new ("— Endless USB Drive Preparation Tool");
+  g_autoptr(GOptionContext) context = g_option_context_new ("— Endless OS Updater USB Drive Preparation Tool");
   GOptionEntry entries[] =
     {
-      { "quiet", 'q', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &quiet, "Do not print anything, check exit status for success", NULL },
+      { "quiet", 'q', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &quiet, "Do not print anything; check exit status for success", NULL },
       { G_OPTION_REMAINING, 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME_ARRAY,
         &remaining, "Path to the USB drive to prepare", "VOLUME-PATH" },
       { NULL }
@@ -126,7 +126,7 @@ main (int argc,
   g_option_context_add_main_entries (context, entries, NULL);
   g_option_context_set_summary (context,
                                 "Prepare a USB drive with a copy of the local "
-                                "ostree repository, so it can be used to "
+                                "OSTree repository, so it can be used to "
                                 "update other machines offline. The repository "
                                 "copy will be put in the eos-update directory "
                                 "on the USB drive; other files will not be "
