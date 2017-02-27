@@ -1,2 +1,3 @@
 usr/bin/eos-updater-prepare-volume
 usr/bin/eos-updater-ctl
+usr/share/man/man8/eos-updater-prepare-volume.8

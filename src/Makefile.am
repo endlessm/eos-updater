@@ -18,6 +18,8 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+dist_man8_MANS =
+
 dbuslib = libeos-updater-dbus.la
 preparelib = libeos-updater-0.la
 
@@ -108,6 +110,8 @@ eos_updater_prepare_volume_LDADD = \
 eos_updater_prepare_volume_SOURCES = \
 	eos-updater-prepare-volume.c \
 	$(NULL)
+
+dist_man8_MANS += docs/eos-updater-prepare-volume.8
 
 eos_updater_CPPFLAGS = \
 	$(common_cppflags) \
