@@ -10,6 +10,11 @@ ConditionPathExists=@sysconfdir@/avahi/services/eos-updater.service
 Type=simple
 ExecStart=@libexecdir@/eos-update-server
 
+# Deprioritise the process to reduce UI impact if clients are downloading from
+# this machine. Numbers are chosen fairly arbitrarily.
+Nice=15
+IOSchedulingClass=idle
+
 # Sandboxing
 # FIXME: Enable more of these options once we have systemd > 229
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH
