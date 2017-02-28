@@ -28,6 +28,8 @@ lib_LTLIBRARIES = $(preparelib)
 libexec_PROGRAMS = eos-autoupdater eos-update-server
 dist_bin_SCRIPTS = eos-updater-ctl
 
+dist_man8_MANS += docs/eos-updater-ctl.8
+
 BUILT_SOURCES = \
 	eos-updater-generated.h \
 	eos-updater-generated.c \
