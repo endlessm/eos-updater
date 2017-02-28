@@ -646,8 +646,12 @@ main (int argc, char **argv)
   GBusType bus_type = G_BUS_TYPE_SYSTEM;
   gint dbus_timeout;
 
-  context = g_option_context_new ("Endless Automatic Updater");
+  context = g_option_context_new ("— Endless OS Automatic Updater");
   g_option_context_add_main_entries (context, entries, NULL);
+  g_option_context_set_summary (context,
+                                "Automatically poll for, fetch and apply "
+                                "updates in the background. This drives the "
+                                "state changes in the eos-updater service.");
   g_option_context_parse (context, &argc, &argv, NULL);
 
   if (!read_config_file (get_config_file_path (),
