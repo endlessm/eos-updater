@@ -631,12 +631,12 @@ get_dbus_timeout (void)
 int
 main (int argc, char **argv)
 {
-  EosUpdater *proxy;
-  GError *error = NULL;
+  g_autoptr(EosUpdater) proxy = NULL;
+  g_autoptr(GError) error = NULL;
   guint update_interval_days;
   gboolean update_on_mobile;
   gboolean force_update = FALSE;
-  GOptionContext *context;
+  g_autoptr(GOptionContext) context = NULL;
 
   GOptionEntry entries[] = {
     { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
@@ -649,7 +649,6 @@ main (int argc, char **argv)
   context = g_option_context_new ("Endless Automatic Updater");
   g_option_context_add_main_entries (context, entries, NULL);
   g_option_context_parse (context, &argc, &argv, NULL);
-  g_option_context_free (context);
 
   if (!read_config_file (get_config_file_path (),
                          &update_interval_days, &update_on_mobile))
@@ -694,7 +693,6 @@ main (int argc, char **argv)
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Error getting EOS updater object: %s", error->message,
                      NULL);
-    g_error_free (error);
     should_exit_failure = TRUE;
     goto out;
   }
@@ -710,7 +708,6 @@ main (int argc, char **argv)
 
 out:
   g_main_loop_unref (main_loop);
-  g_clear_object (&proxy);
   g_free (volume_path);
 
   if (should_exit_failure) /* All paths setting this print an error message */
