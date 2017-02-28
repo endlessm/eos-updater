@@ -1,0 +1,149 @@
+.\" Manpage for eos-autoupdater.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "28 Feb 2017" "1.0" "eos\-autoupdater man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-autoupdater — Endless OS Automatic Updater
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fBeos\-autoupdater [\-\-force\-update] [\-\-from\-volume \fPpath\fB]\fP
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-autoupdater\fP is a service which couples with \fBeos\-updater\fP(8) to
+automate downloading and applying updates. While \fBeos\-updater\fP(8) provides
+the implementation of polling for, fetching, and applying updates;
+\fBeos\-autoupdater\fP provides the policy of when to poll, and how many steps
+of the process should be done automatically. It controls the D\-Bus API exposed
+by \fBeos\-updater\fP(8).
+.PP
+\fBeos\-autoupdater\fP is designed to be run by \fBsystemd\fP(1) on a timer
+(the \fBeos\-autoupdater.timer\fP unit) which is set to poll for updates around
+once an hour. \fBeos\-autoupdater\fP should not typically be run manually, but
+can be triggered by starting the \fBeos\-autoupdater.service\fP unit. This will
+trigger a poll for updates (and it potentially fetches and applies any which
+are found). See \fBsystemctl\fP(1).
+.PP
+To interact with \fBeos\-updater\fP more directly, use the
+\fBeos\-updater\-ctl\fP(8) tool.
+.PP
+Updates are retrieved in several stages; see \fBeos\-updater\fP(8). The
+autoupdater controls the transitions between these stages, automatically
+advancing as far as it can up to (and including) the stage specified by
+\fILastAutomaticStep=\fP in \fBeos\-autoupdater.conf\fP(5), but no further.
+The user must manually trigger further stages.
+.PP
+The \fBeos\-autoupdater.conf\fP(5) configuration file allows several policies
+to be specified to control when updates are polled for. Use the
+\fB\-\-force\-update\fP option to ignore these policies and unconditionally
+poll for an update.
+.PP
+To apply Endless OS updates from a USB drive which is not configured in
+\fBeos\-updater.conf\fP(5), use the \fB\-\-from\-volume\fP option to provide
+the USB drive mount path. By default, updates on USB drives will be ignored.
+Use \fBeos\-updater\-prepare\-volume\fP(8) to put updates onto a USB drive.
+.PP
+If the computer has been converted to not use OSTree, automatic updates are
+permanently disabled.
+.\"
+.SH OPTIONS
+.IX Header "OPTIONS"
+.\"
+.IP "\fB\-\-force\-update\fP"
+Force the updater to poll for an update (and potentially fetch and apply it),
+regardless of the policies configured in \fBeos\-autoupdater.conf\fP(5).
+.\"
+.IP "\fB\-\-from\-volume=\fP"
+Path to a mounted USB drive which contains Endless OS updates prepared using
+\fBeos\-updater\-prepare\-volume\fP(8). Force the updater to poll for updates
+from the USB drive, and fetch and apply them locally if they are more recent
+than the booted operating system.
+.\"
+.SH "ENVIRONMENT"
+.IX Header "ENVIRONMENT"
+.\"
+\fPeos\-autoupdater\fP supports the standard GLib environment variables for
+debugging. These variables are \fBnot\fP intended to be used in production:
+.\"
+.IP \fI$G_MESSAGES_DEBUG\fP 4
+.IX Item "$G_MESSAGES_DEBUG"
+This variable can contain one or more debug domain names to display debug output
+for. The value \fIall\fP will enable all debug output. The default is for no
+debug output to be enabled.
+.\"
+.SH "EXIT STATUS"
+.IX Header "EXIT STATUS"
+.\"
+\fBeos\-autoupdater\fP may return one of several error codes if it encounters
+problems.
+.\"
+.IP "0" 4
+.IX Item "0"
+No problems occurred. The updater ran successfully, and either polled for
+updates, or determined not to based on policies configured in
+\fBeos\-autoupdater.conf\fP(5).
+.\"
+.IP "1" 4
+.IX Item "1"
+There was a D\-Bus error while running the updater, or the updater entered an
+error state after a poll, fetch or apply operation.
+.\"
+.IP "2" 4
+.IX Item "2"
+An invalid option was passed to \fBeos\-autoupdater\fP on startup.
+.\"
+.IP "3" 4
+.IX Item "3"
+The configuration file for \fBeos\-autoupdater\fP could not be loaded or
+parsed.
+.\"
+.SH "FILES"
+.IX Header "FILES"
+.\"
+.IP \fI/etc/eos\-updater/eos\-autoupdater.conf\fP 4
+.IX Item "/etc/eos\-updater/eos\-autoupdater.conf"
+.IX Item "/usr/local/share/eos\-updater/eos\-autoupdater.conf"
+.IX Item "/usr/share/eos\-updater/eos\-autoupdater.conf"
+Configuration file for \fBeos\-autoupdater\fP. Defaults are loaded from
+\fI/usr/local/share/eos\-updater/eos\-autoupdater.conf\fP (if present) or
+\fI/usr/share/eos\-updater/eos\-autoupdater.conf\fP. See
+\fBeos\-autoupdater.conf\fP(5).
+.\"
+.IP \fI/lib/systemd/system/eos\-autoupdater.timer\fP 4
+.IX Item "/lib/systemd/system/eos\-autoupdater.timer"
+\fBsystemd\fP(1) timer file which triggers \fBeos\-autoupdater\fP to run
+at regular intervals. See \fBsystemd.timer\fP(5).
+.\"
+.IP \fI/lib/systemd/system/eos\-autoupdater.service\fP 4
+.IX Item "/lib/systemd/system/eos\-autoupdater.service"
+\fBsystemd\fP(1) service file which specifies the runtime environment for
+\fBeos\-autoupdater\fP. See \fBsystemd.service\fP(5).
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-autoupdater.conf\fP(5),
+\fBeos\-updater\fP(8),
+\fBeos\-updater\-ctl\fP(8),
+\fBeos\-updater\-prepare\-volume\fP(8)
+.\"
+.SH BUGS
+.IX Header "BUGS"
+.\"
+Any bugs which are found should be reported on the project website:
+.br
+\fIhttps://support.endlessm.com/\fP
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.
