@@ -45,10 +45,10 @@
  * needs to intervene.
  */
 typedef enum _UpdateStep {
-  UPDATE_STEP_NONE,
-  UPDATE_STEP_POLL,
-  UPDATE_STEP_FETCH,
-  UPDATE_STEP_APPLY
+  UPDATE_STEP_NONE = 0,
+  UPDATE_STEP_POLL = 1,
+  UPDATE_STEP_FETCH = 2,
+  UPDATE_STEP_APPLY = 3,
 } UpdateStep;
 
 /* These must be kept in sync with #UpdateStep. */
