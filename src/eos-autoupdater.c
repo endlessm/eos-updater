@@ -32,6 +32,7 @@
 
 #include <systemd/sd-journal.h>
 
+#define EOS_UPDATER_INVALID_ARGS_MSGID          "27b3a4600f7242acadf1855a2a1eaa6d"
 #define EOS_UPDATER_CONFIGURATION_ERROR_MSGID   "5af9f4df37f949a1948971e00be0d620"
 #define EOS_UPDATER_DAEMON_ERROR_MSGID          "f31fd043074a4a21b04784cf895c56ae"
 #define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
@@ -661,7 +662,15 @@ main (int argc, char **argv)
                                 "Automatically poll for, fetch and apply "
                                 "updates in the background. This drives the "
                                 "state changes in the eos-updater service.");
-  g_option_context_parse (context, &argc, &argv, NULL);
+
+  if (!g_option_context_parse (context, &argc, &argv, &error))
+    {
+      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_INVALID_ARGS_MSGID,
+                       "PRIORITY=%d", LOG_ERR,
+                       "MESSAGE=Error parsing command line arguments: %s", error->message,
+                       NULL);
+      return EXIT_INVALID_ARGUMENTS;
+    }
 
   if (!read_config_file (get_config_file_path (),
                          &update_interval_days, &update_on_mobile))
