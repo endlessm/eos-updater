@@ -30,4 +30,11 @@ edit = sed \
 EXTRA_DIST = $(eos_autoupdater_in)
 CLEANFILES = $(systemdsystemunit_DATA)
 
+# Documentation
+dist_man5_MANS = \
+	docs/eos-autoupdater.conf.5 \
+	docs/eos-updater.conf.5 \
+	docs/eos-update-server.conf.5 \
+	$(NULL)
+
 -include $(top_srcdir)/git.mk

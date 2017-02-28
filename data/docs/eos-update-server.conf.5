@@ -1,0 +1,60 @@
+.\" Manpage for eos-update-server.conf.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "28 Feb 2017" "1.0" "eos\-update\-server.conf man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-update\-server.conf — Endless OS OSTree Server Configuration
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fB/etc/eos\-updater/eos\-update\-server.conf\fP
+.br
+\fB/usr/local/share/eos\-updater/eos\-update\-server.conf\fP
+.br
+\fB/usr/share/eos\-updater/eos\-update\-server.conf\fP
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-update\-server.conf\fP provides the configuration for
+\fBeos\-update\-server\fP(8) and \fBeos\-updater\-avahi\fP(8). It determines
+whether the server and its DNS\-SD adverts are enabled to distribute Endless OS
+updates to other computers on the local network.
+.PP
+The configuration file contains a single section, \fI[Local Network Updates]\fP,
+whose keys are described below.
+.PP
+Default values are stored in
+\fI/usr/share/eos\-updater/eos\-update\-server.conf\fP, which must always
+exist. To override the configuration, copy it to
+\fI/usr/local/share/eos\-updater/\fP or \fI/etc/eos\-updater/\fP. Configuration
+in \fI/etc\fP overrides that in \fI/usr\fP.
+.\"
+.SH [Local Network Updates] SECTION OPTIONS
+.IX Header "[Local Network Updates] SECTION OPTIONS"
+.\"
+.IP "\fIAdvertiseUpdates=\fP"
+.IX Item "AdvertiseUpdates="
+Whether to advertise and distribute updates over the local network. This may be
+\fItrue\fP or \fIfalse\fP. If \fItrue\fP, \fBeos\-update\-server\fP(8) and
+\fBeos\-updater\-avahi\fP(8) are enabled; otherwise, they will both refuse to
+advertise or distribute updates.
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-updater\fP(8),
+\fBeos\-updater\-avahi\fP(8),
+\fBeos\-update\-server\fP(8)
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.
