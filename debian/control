@@ -16,7 +16,7 @@ Build-Depends:
  libavahi-client-dev (>= 0.6.31),
  libavahi-glib-dev (>= 0.6.31),
  libgirepository1.0-dev (>= 1.30.0),
- libglib2.0-dev (>= 2.44.0),
+ libglib2.0-dev (>= 2.50.0),
  libgsystem-dev,
  libnm-glib-dev,
  libostree-dev (>= 2016.15),

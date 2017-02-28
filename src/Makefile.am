@@ -181,6 +181,7 @@ eos-updater-generated.h: eos-updater.xml
 	   --generate-c-code eos-updater-generated	\
 	   --c-namespace Eos                    \
 	   --c-generate-object-manager          \
+	   --c-generate-autocleanup all \
 	   $<
 
 $(eos_updater_dbus_if).conf: eos-updater-policy.xslt eos-updater.xml
