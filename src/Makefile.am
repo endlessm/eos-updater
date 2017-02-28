@@ -153,6 +153,8 @@ eos_updater_SOURCES = \
 	eos-updater.xml \
 	$(NULL)
 
+dist_man8_MANS += docs/eos-updater.8
+
 dbusconfdir = $(datadir)/dbus-1/system.d
 dbussystemservicedir = $(datadir)/dbus-1/system-services
 
