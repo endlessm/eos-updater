@@ -628,6 +628,15 @@ get_dbus_timeout (void)
   return timeout;
 }
 
+/* main() exit codes. */
+enum
+{
+  EXIT_OK = EXIT_SUCCESS,
+  EXIT_FAILED = 1,
+  EXIT_INVALID_ARGUMENTS = 2,
+  EXIT_BAD_CONFIGURATION = 3,
+};
+
 int
 main (int argc, char **argv)
 {
@@ -656,10 +665,10 @@ main (int argc, char **argv)
 
   if (!read_config_file (get_config_file_path (),
                          &update_interval_days, &update_on_mobile))
-    return EXIT_FAILURE;
+    return EXIT_BAD_CONFIGURATION;
 
   if (volume_path == NULL && !is_online ())
-    return EXIT_SUCCESS;
+    return EXIT_OK;
 
   if (!force_update) {
     if (volume_path == NULL &&
@@ -669,7 +678,7 @@ main (int argc, char **argv)
                        "PRIORITY=%d", LOG_INFO,
                        "MESSAGE=Connected to mobile network. Not updating",
                        NULL);
-      return EXIT_SUCCESS;
+      return EXIT_OK;
     }
 
     if (!is_time_to_update (update_interval_days)) {
@@ -677,7 +686,7 @@ main (int argc, char **argv)
                        "PRIORITY=%d", LOG_INFO,
                        "MESSAGE=Less than %s since last update. Exiting", INTERVAL_KEY,
                        NULL);
-      return EXIT_SUCCESS;
+      return EXIT_OK;
     }
   }
 
@@ -715,7 +724,7 @@ out:
   g_free (volume_path);
 
   if (should_exit_failure) /* All paths setting this print an error message */
-    return EXIT_FAILURE;
+    return EXIT_FAILED;
 
   /* Update the stamp file since all configured steps have succeeded. */
   update_stamp_file ();
@@ -724,5 +733,5 @@ out:
                    "MESSAGE=Updater finished successfully",
                    NULL);
 
-  return EXIT_SUCCESS;
+  return EXIT_OK;
 }
