@@ -35,10 +35,13 @@ UPDATER_STATES = [
     "UpdateApplied"
 ]
 
+# Mapping from command name (given on the command line), to a tuple of
+# (D-Bus method to call, state we expect eos-updater to transition into while
+#  performing that action)
 METHODS = {
-    'poll': 'Poll',
-    'fetch': 'Fetch',
-    'apply': 'Apply',
+    'poll': ('Poll', 'Polling'),
+    'fetch': ('Fetch', 'Fetching'),
+    'apply': ('Apply', 'ApplyingUpdate'),
 }
 
 current_proxy = None
@@ -97,15 +100,51 @@ def name_vanished_cb(connection, name):
 
 
 def run_command(command, bus):
+    """Run the given command and wait for it to complete."""
+    (function_name, in_progress_state) = METHODS[command]
+
+    def signal_cb(proxy, sender_name, signal_name, parameters, user_data):
+        nonlocal seen_in_progress_state, seen_next_state
+
+        if signal_name != 'StateChanged':
+            return
+
+        new_state = UPDATER_STATES[parameters[0]]
+        print('Changed state to ' + new_state)
+
+        if new_state == in_progress_state:
+            seen_in_progress_state = True
+        elif new_state != in_progress_state and seen_in_progress_state:
+            seen_next_state = True
+
     proxy = Gio.DBusProxy.new_sync(bus, 0, None,
                                    'com.endlessm.Updater',
                                    '/com/endlessm/Updater',
                                    'com.endlessm.Updater', None)
-    proxy.call_sync("com.endlessm.Updater." + METHODS[command],
-                    None,
-                    0, -1, None)
+    signal_id = proxy.connect('g-signal', signal_cb, None)
+    context = GLib.main_context_default()
 
-    return 0
+    # Call the method, wait for the updater to enter the expected in-progress
+    # state; then wait for it to leave that state again (either to Error, or
+    # the next state corresponding to the method).
+    proxy.call_sync('com.endlessm.Updater.' + function_name, None, 0, -1, None)
+
+    cancelled = False
+    seen_in_progress_state = False
+    seen_next_state = False
+
+    while not cancelled and not (seen_in_progress_state and seen_next_state):
+        try:
+            context.iteration(True)
+        except KeyboardInterrupt:
+            cancelled = True
+
+    proxy.disconnect(signal_id)
+
+    # Print the final state of the properties before exiting.
+    dump_daemon_properties(proxy)
+
+    return 1 if cancelled else 0
 
 
 def monitor(bus):
