@@ -19,6 +19,7 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+import argparse
 import sys
 from gi.repository import Gio, GLib
 
@@ -33,6 +34,15 @@ UPDATER_STATES = [
     "ApplyingUpdate",
     "UpdateApplied"
 ]
+
+# Mapping from command name (given on the command line), to a tuple of
+# (D-Bus method to call, state we expect eos-updater to transition into while
+#  performing that action)
+METHODS = {
+    'poll': ('Poll', 'Polling'),
+    'fetch': ('Fetch', 'Fetching'),
+    'apply': ('Apply', 'ApplyingUpdate'),
+}
 
 current_proxy = None
 
@@ -89,35 +99,62 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def main(argv):
+def run_command(command, bus, block):
+    """Run the given command and wait for it to complete."""
+    (function_name, in_progress_state) = METHODS[command]
+
+    def signal_cb(proxy, sender_name, signal_name, parameters, user_data):
+        nonlocal seen_in_progress_state, seen_next_state
+
+        if signal_name != 'StateChanged':
+            return
+
+        new_state = UPDATER_STATES[parameters[0]]
+        print('Changed state to ' + new_state)
+
+        if new_state == in_progress_state:
+            seen_in_progress_state = True
+        elif new_state != in_progress_state and seen_in_progress_state:
+            seen_next_state = True
+
+    proxy = Gio.DBusProxy.new_sync(bus, 0, None,
+                                   'com.endlessm.Updater',
+                                   '/com/endlessm/Updater',
+                                   'com.endlessm.Updater', None)
+    signal_id = proxy.connect('g-signal', signal_cb, None)
+    context = GLib.main_context_default()
+
+    # Call the method, wait for the updater to enter the expected in-progress
+    # state; then wait for it to leave that state again (either to Error, or
+    # the next state corresponding to the method).
+    proxy.call_sync('com.endlessm.Updater.' + function_name, None, 0, -1, None)
+
+    cancelled = False
+    seen_in_progress_state = False
+    seen_next_state = False
+
+    while (block and
+           not cancelled and
+           not (seen_in_progress_state and seen_next_state)):
+        try:
+            context.iteration(True)
+        except KeyboardInterrupt:
+            cancelled = True
+
+    proxy.disconnect(signal_id)
+
+    # Print the final state of the properties before exiting.
+    if block:
+        dump_daemon_properties(proxy)
+
+    return 1 if cancelled else 0
+
+
+def monitor(bus):
+    """Watch properties and signals from the updater indefinitely."""
     loop = GLib.MainLoop()
-
-    b = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
-
-    # Handle the given action.
-    if len(argv) > 1:
-        methods = {
-            "poll": "Poll",
-            "fetch": "Fetch",
-            "apply": "Apply"
-        }
-
-        if argv[1] not in list(methods.keys()):
-            print("Unknown action: " + argv[1])
-            sys.exit(2)
-
-        proxy = Gio.DBusProxy.new_sync(b, 0, None,
-                                       'com.endlessm.Updater',
-                                       '/com/endlessm/Updater',
-                                       'com.endlessm.Updater', None)
-        proxy.call_sync("com.endlessm.Updater." + methods[argv[1]],
-                        None,
-                        0, -1, None)
-        sys.exit(0)
-
-    # Watch properties and signals from the updater indefinitely.
     name_watch_id = Gio.bus_watch_name_on_connection(
-        b, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
+        bus, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
         name_appeared_cb, name_vanished_cb)
 
     try:
@@ -127,6 +164,34 @@ def main(argv):
 
     Gio.bus_unwatch_name(name_watch_id)
 
+    return 0
+
+
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Control eos-updater stages.')
+    parser.add_argument('command', choices=METHODS.keys(), nargs='?',
+                        help='command to pass to eos-updater; '
+                             'omit to monitor the updater')
+    parser.add_argument('--no-block', dest='block', action='store_false',
+                        help='Do not wait until eos-updater has finished all '
+                             'processing in the requested state')
+    parser.add_argument('--block', dest='block', action='store_true')
+    parser.set_defaults(block=True)
+
+    args = parser.parse_args()
+
+    # Set up a D-Bus connection
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+
+    # Handle the given action.
+    if args.command:
+        status = run_command(args.command, bus, args.block)
+    else:
+        status = monitor(bus)
+
+    sys.exit(status)
+
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

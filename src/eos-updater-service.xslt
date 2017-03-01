@@ -6,7 +6,8 @@
 Name=</xsl:text>
     <xsl:apply-templates /><xsl:text>
 Exec=/usr/bin/eos-updater
-User=root</xsl:text>
+User=root
+SystemdService=eos-updater.service</xsl:text>
   </xsl:template>
 
 

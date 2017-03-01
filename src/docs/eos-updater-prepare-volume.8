@@ -73,12 +73,10 @@ Path=/run/media/user/some\-volume  # wherever the volume will be mounted
 .RE
 .fi
 .PP
-Then run the following commands, waiting for the background output to show
-success from the previous one first:
+Then run the following commands:
 .PP
 .nf
 .RS
-old\-machine$ eos\-updater\-ctl &
 old\-machine$ eos\-updater\-ctl poll
 old\-machine$ eos\-updater\-ctl fetch
 old\-machine$ eos\-updater\-ctl apply
