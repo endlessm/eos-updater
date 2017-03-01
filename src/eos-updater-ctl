@@ -35,6 +35,12 @@ UPDATER_STATES = [
     "UpdateApplied"
 ]
 
+METHODS = {
+    'poll': 'Poll',
+    'fetch': 'Fetch',
+    'apply': 'Apply',
+}
+
 current_proxy = None
 
 
@@ -90,38 +96,23 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Control eos-updater stages.')
+def run_command(command, bus):
+    proxy = Gio.DBusProxy.new_sync(bus, 0, None,
+                                   'com.endlessm.Updater',
+                                   '/com/endlessm/Updater',
+                                   'com.endlessm.Updater', None)
+    proxy.call_sync("com.endlessm.Updater." + METHODS[command],
+                    None,
+                    0, -1, None)
 
-    methods = {
-        'poll': 'Poll',
-        'fetch': 'Fetch',
-        'apply': 'Apply',
-    }
-    parser.add_argument('command', choices=methods.keys(), nargs='?',
-                        help='command to pass to eos-updater; '
-                             'omit to monitor the updater')
-    args = parser.parse_args()
+    return 0
 
-    # Set up a D-Bus connection
+
+def monitor(bus):
+    """Watch properties and signals from the updater indefinitely."""
     loop = GLib.MainLoop()
-    b = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
-
-    # Handle the given action.
-    if args.command:
-        proxy = Gio.DBusProxy.new_sync(b, 0, None,
-                                       'com.endlessm.Updater',
-                                       '/com/endlessm/Updater',
-                                       'com.endlessm.Updater', None)
-        proxy.call_sync("com.endlessm.Updater." + methods[args.command],
-                        None,
-                        0, -1, None)
-        sys.exit(0)
-
-    # Watch properties and signals from the updater indefinitely.
     name_watch_id = Gio.bus_watch_name_on_connection(
-        b, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
+        bus, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
         name_appeared_cb, name_vanished_cb)
 
     try:
@@ -130,6 +121,28 @@ def main():
         pass
 
     Gio.bus_unwatch_name(name_watch_id)
+
+    return 0
+
+
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Control eos-updater stages.')
+    parser.add_argument('command', choices=METHODS.keys(), nargs='?',
+                        help='command to pass to eos-updater; '
+                             'omit to monitor the updater')
+    args = parser.parse_args()
+
+    # Set up a D-Bus connection
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+
+    # Handle the given action.
+    if args.command:
+        status = run_command(args.command, bus)
+    else:
+        status = monitor(bus)
+
+    sys.exit(status)
 
 
 if __name__ == '__main__':
