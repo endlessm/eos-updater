@@ -1,5 +1,6 @@
 [Unit]
 Description=Endless OS Local Update Server
+Documentation=man:eos-update-server(8)
 Wants=network.target
 
 # Only run when Avahi is advertising the port.

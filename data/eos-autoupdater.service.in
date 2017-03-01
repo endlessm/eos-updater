@@ -1,5 +1,6 @@
 [Unit]
 Description=Endless OS Automatic Updater
+Documentation=man:eos-autoupdater(8)
 Wants=network.target
 
 [Service]
