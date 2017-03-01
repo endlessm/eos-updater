@@ -1,0 +1,78 @@
+.\" Manpage for eos-autoupdater.conf.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "28 Feb 2017" "1.0" "eos\-autoupdater.conf man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-autoupdater.conf — Endless OS Automatic Updater Configuration
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fB/etc/eos\-updater/eos\-autoupdater.conf\fP
+.br
+\fB/usr/local/share/eos\-updater/eos\-autoupdater.conf\fP
+.br
+\fB/usr/share/eos\-updater/eos\-autoupdater.conf\fP
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-autoupdater.conf\fP provides the configuration for
+\fBeos\-autoupdater\fP(8). It sets the policies for how often the updater will
+check for updates, how far through the update process it goes automatically,
+and what network connections to download updates over.
+.PP
+The configuration file contains a single section, \fI[Automatic Updates]\fP,
+whose keys are described below.
+.PP
+Default values are stored in
+\fI/usr/share/eos\-updater/eos\-autoupdater.conf\fP, which must always exist.
+To override the configuration, copy it to \fI/usr/local/share/eos\-updater/\fP
+or \fI/etc/eos\-updater/\fP. Configuration in \fI/etc\fP overrides that in
+\fI/usr\fP.
+.PP
+This configuration file used to be installed as \fI/etc/eos\-updater.conf\fP.
+If that file is present, its values will be overridden by any in
+\fI/etc/eos\-updater/eos\-autoupdater.conf\fP, but it will override any
+configuration in \fI/usr\fP.
+.\"
+.SH [Automatic Updates] SECTION OPTIONS
+.IX Header "[Automatic Updates] SECTION OPTIONS"
+.\"
+.IP "\fILastAutomaticStep=\fP"
+.IX Item "LastAutomaticStep="
+Identifier for the last stage of the update process which will be run
+automatically by \fBeos\-autoupdater\fP(8) — stages after this require manual
+triggering by the user. Use \fI0\fP for no automatic progress; \fI1\fP to poll
+for updates; \fI2\fP to poll and fetch updates; and \fI3\fP to poll, fetch and
+apply updates automatically.
+.\"
+.IP "\fIIntervalDays=\fP"
+.IX Item "IntervalDays="
+Number of days to wait between checks for updates. If \fBeos\-autoupdater\fP(8)
+is triggered earlier than this number of days after the most recent successful
+update, it will exit. It must be \fI0\fP or greater. An interval of \fI0\fP
+days means that checks for updates are not rate limited.
+.\"
+.IP "\fIUpdateOnMobile=\fP"
+.IX Item "UpdateOnMobile="
+Whether to check for and download updates when connected to the internet over a
+mobile internet connection, such as GPRS or 3G. This may be \fItrue\fP or
+\fIfalse\fP.
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-autoupdater\fP(8),
+\fBeos\-updater\fP(8)
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.

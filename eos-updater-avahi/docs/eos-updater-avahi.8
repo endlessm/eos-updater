@@ -1,10 +1,10 @@
 .\" Manpage for eos-updater-avahi.
 .\" Documentation is under the same licence as the eos-updater package.
-.TH man 8 "20 Feb 2017" "1.0" "eos-updater-avahi man page"
+.TH man 8 "20 Feb 2017" "1.0" "eos\-updater\-avahi man page"
 .\"
 .SH NAME
 .IX Header "NAME"
-eos-updater-avahi — Endless OS Avahi Advertisement Updater
+eos\-updater\-avahi — Endless OS Avahi Advertisement Updater
 .\"
 .SH SYNOPSIS
 .IX Header "SYNOPSIS"
@@ -26,8 +26,8 @@ local network to check which updates are available to download from this
 computer, and which port to download them from. By default, they are stored in
 \fI/etc/avahi/services/eos\-updater.service\fP.
 .PP
-Advertisement of updates can be disabled by setting the \fIAdvertiseUpdates\fP
-key to \fIfalse\fP in \fI/etc/eos\-updater/eos\-update\-server.conf\fP.
+Advertisement of updates can be disabled by setting the \fIAdvertiseUpdates=\fP
+key to \fIfalse\fP in \fBeos\-update\-server.conf\fP(5).
 .PP
 \fBeos\-updater\-avahi\fP is designed to be run by \fBsystemd\fP(1), whenever
 the \fIeos\-updater\-avahi.path\fP unit is triggered. By default, it is
@@ -72,6 +72,7 @@ debug output to be enabled.
 problems.
 .\"
 .IP "0" 4
+.IX Item "0"
 No problems occurred. The Avahi service file was successfully updated if
 necessary.
 .\"
@@ -103,7 +104,8 @@ advertisement will be made if this file is not present. This is the file which
 .IX Item "/usr/share/eos\-updater/eos\-update\-server.conf"
 Configuration file for \fBeos\-updater\-avahi\fP. Defaults are loaded from
 \fI/usr/local/share/eos\-updater/eos\-update\-server.conf\fP (if present) or
-\fI/usr/share/eos\-updater/eos\-update\-server.conf\fP.
+\fI/usr/share/eos\-updater/eos\-update\-server.conf\fP. See
+\fBeos\-update\-server.conf\fP(5).
 .\"
 .IP \fI/lib/systemd/system/eos\-updater\-avahi.path\fP 4
 .IX Item "/lib/systemd/system/eos\-updater\-avahi.path"
@@ -119,7 +121,8 @@ when conditions change. See \fBsystemd.path\fP(5).
 .IX Header "SEE ALSO"
 .\"
 \fBeos\-update\-server\fP(8),
-\fBeos\-updater\fP(8)
+\fBeos\-updater\fP(8),
+\fBeos\-update\-server.conf\fP(5)
 .\"
 .SH BUGS
 .IX Header "BUGS"

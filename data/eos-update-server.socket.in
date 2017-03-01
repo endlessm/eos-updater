@@ -1,5 +1,6 @@
 [Unit]
 Description=Socket for Endless OS Automatic Updater
+Documentation=man:eos-update-server(8)
 ConditionPathExists=/etc/avahi/services/eos-updater.service
 
 [Socket]

@@ -18,6 +18,8 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+dist_man8_MANS =
+
 dbuslib = libeos-updater-dbus.la
 preparelib = libeos-updater-0.la
 
@@ -25,6 +27,8 @@ noinst_LTLIBRARIES = $(dbuslib)
 lib_LTLIBRARIES = $(preparelib)
 libexec_PROGRAMS = eos-autoupdater eos-update-server
 dist_bin_SCRIPTS = eos-updater-ctl
+
+dist_man8_MANS += docs/eos-updater-ctl.8
 
 BUILT_SOURCES = \
 	eos-updater-generated.h \
@@ -67,6 +71,8 @@ eos_autoupdater_LDFLAGS = $(WARN_LDFLAGS)
 eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
 
+dist_man8_MANS += docs/eos-autoupdater.8
+
 common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
 libeos_updater_0_la_CPPFLAGS = $(common_cppflags)
@@ -92,6 +98,8 @@ eos_update_server_LDFLAGS = $(WARN_LDFLAGS)
 eos_update_server_LDADD = $(common_ldadd) $(preparelib) $(EOS_UPDATE_SERVER_LIBS)
 eos_update_server_SOURCES = eos-update-server.c
 
+dist_man8_MANS += docs/eos-update-server.8
+
 bin_PROGRAMS = eos-updater eos-updater-prepare-volume
 
 eos_updater_prepare_volume_CPPFLAGS = \
@@ -108,6 +116,8 @@ eos_updater_prepare_volume_LDADD = \
 eos_updater_prepare_volume_SOURCES = \
 	eos-updater-prepare-volume.c \
 	$(NULL)
+
+dist_man8_MANS += docs/eos-updater-prepare-volume.8
 
 eos_updater_CPPFLAGS = \
 	$(common_cppflags) \
@@ -147,6 +157,8 @@ eos_updater_SOURCES = \
 	eos-updater.xml \
 	$(NULL)
 
+dist_man8_MANS += docs/eos-updater.8
+
 dbusconfdir = $(datadir)/dbus-1/system.d
 dbussystemservicedir = $(datadir)/dbus-1/system-services
 
@@ -173,6 +185,7 @@ eos-updater-generated.h: eos-updater.xml
 	   --generate-c-code eos-updater-generated	\
 	   --c-namespace Eos                    \
 	   --c-generate-object-manager          \
+	   --c-generate-autocleanup all \
 	   $<
 
 $(eos_updater_dbus_if).conf: eos-updater-policy.xslt eos-updater.xml

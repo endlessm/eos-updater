@@ -32,6 +32,7 @@
 
 #include <systemd/sd-journal.h>
 
+#define EOS_UPDATER_INVALID_ARGS_MSGID          "27b3a4600f7242acadf1855a2a1eaa6d"
 #define EOS_UPDATER_CONFIGURATION_ERROR_MSGID   "5af9f4df37f949a1948971e00be0d620"
 #define EOS_UPDATER_DAEMON_ERROR_MSGID          "f31fd043074a4a21b04784cf895c56ae"
 #define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
@@ -45,10 +46,10 @@
  * needs to intervene.
  */
 typedef enum _UpdateStep {
-  UPDATE_STEP_NONE,
-  UPDATE_STEP_POLL,
-  UPDATE_STEP_FETCH,
-  UPDATE_STEP_APPLY
+  UPDATE_STEP_NONE = 0,
+  UPDATE_STEP_POLL = 1,
+  UPDATE_STEP_FETCH = 2,
+  UPDATE_STEP_APPLY = 3,
 } UpdateStep;
 
 /* These must be kept in sync with #UpdateStep. */
@@ -628,15 +629,24 @@ get_dbus_timeout (void)
   return timeout;
 }
 
+/* main() exit codes. */
+enum
+{
+  EXIT_OK = EXIT_SUCCESS,
+  EXIT_FAILED = 1,
+  EXIT_INVALID_ARGUMENTS = 2,
+  EXIT_BAD_CONFIGURATION = 3,
+};
+
 int
 main (int argc, char **argv)
 {
-  EosUpdater *proxy;
-  GError *error = NULL;
+  g_autoptr(EosUpdater) proxy = NULL;
+  g_autoptr(GError) error = NULL;
   guint update_interval_days;
   gboolean update_on_mobile;
   gboolean force_update = FALSE;
-  GOptionContext *context;
+  g_autoptr(GOptionContext) context = NULL;
 
   GOptionEntry entries[] = {
     { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
@@ -646,17 +656,28 @@ main (int argc, char **argv)
   GBusType bus_type = G_BUS_TYPE_SYSTEM;
   gint dbus_timeout;
 
-  context = g_option_context_new ("Endless Automatic Updater");
+  context = g_option_context_new ("— Endless OS Automatic Updater");
   g_option_context_add_main_entries (context, entries, NULL);
-  g_option_context_parse (context, &argc, &argv, NULL);
-  g_option_context_free (context);
+  g_option_context_set_summary (context,
+                                "Automatically poll for, fetch and apply "
+                                "updates in the background. This drives the "
+                                "state changes in the eos-updater service.");
+
+  if (!g_option_context_parse (context, &argc, &argv, &error))
+    {
+      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_INVALID_ARGS_MSGID,
+                       "PRIORITY=%d", LOG_ERR,
+                       "MESSAGE=Error parsing command line arguments: %s", error->message,
+                       NULL);
+      return EXIT_INVALID_ARGUMENTS;
+    }
 
   if (!read_config_file (get_config_file_path (),
                          &update_interval_days, &update_on_mobile))
-    return EXIT_FAILURE;
+    return EXIT_BAD_CONFIGURATION;
 
   if (volume_path == NULL && !is_online ())
-    return EXIT_SUCCESS;
+    return EXIT_OK;
 
   if (!force_update) {
     if (volume_path == NULL &&
@@ -666,7 +687,7 @@ main (int argc, char **argv)
                        "PRIORITY=%d", LOG_INFO,
                        "MESSAGE=Connected to mobile network. Not updating",
                        NULL);
-      return EXIT_SUCCESS;
+      return EXIT_OK;
     }
 
     if (!is_time_to_update (update_interval_days)) {
@@ -674,7 +695,7 @@ main (int argc, char **argv)
                        "PRIORITY=%d", LOG_INFO,
                        "MESSAGE=Less than %s since last update. Exiting", INTERVAL_KEY,
                        NULL);
-      return EXIT_SUCCESS;
+      return EXIT_OK;
     }
   }
 
@@ -694,7 +715,6 @@ main (int argc, char **argv)
                      "PRIORITY=%d", LOG_ERR,
                      "MESSAGE=Error getting EOS updater object: %s", error->message,
                      NULL);
-    g_error_free (error);
     should_exit_failure = TRUE;
     goto out;
   }
@@ -710,11 +730,10 @@ main (int argc, char **argv)
 
 out:
   g_main_loop_unref (main_loop);
-  g_clear_object (&proxy);
   g_free (volume_path);
 
   if (should_exit_failure) /* All paths setting this print an error message */
-    return EXIT_FAILURE;
+    return EXIT_FAILED;
 
   /* Update the stamp file since all configured steps have succeeded. */
   update_stamp_file ();
@@ -723,5 +742,5 @@ out:
                    "MESSAGE=Updater finished successfully",
                    NULL);
 
-  return EXIT_SUCCESS;
+  return EXIT_OK;
 }

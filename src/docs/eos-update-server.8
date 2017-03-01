@@ -1,0 +1,168 @@
+.\" Manpage for eos-update-server.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "27 Feb 2017" "1.0" "eos\-update\-server man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-update\-server — Endless OS OSTree Server
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fBeos\-update\-server [\-q] [\-r \fPremote\-name\fB] [\-f \fPport\-file\fB]
+[\-t \fPtimeout\-secs\fB] [\-p \fPlocal\-port\fB] [\-c \fPconfig\-file\fB]
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-update\-server\fP is a HTTP server which exposes this computer’s OSTree
+repository to other computers on the network, to allow Endless OS updates to be
+shared between computers. The DNS\-SD advertisement of these updates to the
+local network is controlled by \fBeos\-updater\-avahi\fP(8) and
+\fBeos\-update\-server.conf\fP(5).
+.PP
+When running, \fBeos\-update\-server\fP waits for requests on the specified
+port (default: 12345) and serves signed OSTree objects over HTTP. There is no
+authentication or encryption, as all objects are signed centrally.
+.PP
+Advertisement of updates can be disabled by setting the \fIAdvertiseUpdates=\fP
+key to \fIfalse\fP in \fBeos\-update\-server.conf\fP(5).
+.PP
+\fBeos\-update\-server\fP is designed to be run by \fBsystemd\fP(1), being
+socket activated by \fIeos\-update\-server.socket\fP. There should be no need
+to run \fBeos\-update\-server\fP manually.
+.PP
+If the computer has been converted to not use OSTree, advertisement of updates
+to the local network is permanently disabled.
+.\"
+.SH OPTIONS
+.IX Header "OPTIONS"
+.\"
+.IP "\fB\-q\fP, \fB\-\-quiet\fP"
+Do not print informational output.
+.\"
+.IP "\fB\-p\fP, \fB\-\-local\-port=\fP"
+Local network port to listen for incoming HTTP connections on. If this option
+is provided with the value \fI0\fP, a random port will be allocated; use the
+\fB\-\-port\-file\fP option to read it. (Default: Receive a socket from
+\fBsystemd\fP(1).)
+.\"
+.IP "\fB\-f\fP, \fB\-\-port\-file=\fP"
+Path to a file to create and write the number of the local network port which
+\fBeos\-update\-server\fP is listening on in. This is useful when combined with
+the \fB\-\-local\-port\fP option. (Default: Do not write the port number
+anywhere.)
+.\"
+.IP "\fB\-t\fP, \fB\-\-timeout=\fP"
+Number of seconds of inactivity to wait for before timing out and exiting. If
+zero or a negative number is provided, no timeout is implemented and
+\fBeos\-update\-server\fP will run indefinitely. (Default: 5 seconds.)
+.\"
+.IP "\fB\-r\fP, \fB\-\-serve\-remote=\fP"
+Name of the OSTree remote to serve from the local repository. The remote must
+be configured in the local repository. This is indented to be used for testing.
+(Default: \fIeos\fP.)
+.\"
+.IP "\fB\-c\fP, \fB\-\-config\-file=\fP"
+Load configuration for \fBeos\-update\-server\fP from the given file. This is
+intended to be used for testing. (Default:
+\fI/etc/eos\-updater/eos\-update\-server.conf\fP.)
+.\"
+.SH "ENVIRONMENT"
+.IX Header "ENVIRONMENT"
+.\"
+\fPeos\-update\-server\fP supports the standard GLib environment variables for
+debugging. These variables are \fBnot\fP intended to be used in production:
+.\"
+.IP \fI$G_MESSAGES_DEBUG\fP 4
+.IX Item "$G_MESSAGES_DEBUG"
+This variable can contain one or more debug domain names to display debug output
+for. The value \fIall\fP will enable all debug output. The default is for no
+debug output to be enabled.
+.\"
+.SH "EXIT STATUS"
+.IX Header "EXIT STATUS"
+.\"
+\fBeos\-update\-server\fP may return one of several error codes if it encounters
+problems.
+.\"
+.IP "0" 4
+.IX Item "0"
+No problems occurred. The server ran, responded to zero or more requests, and
+then exited due to being explicitly closed, or timing out due to inactivity
+(see the \fB\-\-timeout\fP option).
+.\"
+.IP "1" 4
+.IX Item "1"
+There was an error while serving updates to a peer.
+.\"
+.IP "2" 4
+.IX Item "2"
+An invalid option was passed to \fBeos\-update\-server\fP on startup.
+.\"
+.IP "3" 4
+.IX Item "3"
+The configuration file for \fBeos\-update\-server\fP could not be loaded or
+parsed.
+.\"
+.IP "4" 4
+.IX Item "4"
+Advertising updates is disabled in the configuration file,
+\fBeos\-update\-server.conf\fP(5), by the \fIAdvertiseUpdates=\fP key.
+.\"
+.IP "5" 4
+.IX Item "5"
+No suitable listening sockets were received from \fBsystemd\fP(1).
+.\"
+.SH "FILES"
+.IX Header "FILES"
+.\"
+.IP \fI/etc/avahi/services/eos\-updater.service\fP 4
+.IX Item "/etc/avahi/services/eos\-updater.service"
+Describes the DNS\-SD record for Avahi to advertise to the local network. No
+advertisement will be made if this file is not present. This file is controlled
+by \fBeos\-updater\-avahi\fP(8).
+.\"
+.IP \fI/etc/eos\-updater/eos\-update\-server.conf\fP 4
+.IX Item "/etc/eos\-updater/eos\-update\-server.conf"
+.IX Item "/usr/local/share/eos\-updater/eos\-update\-server.conf"
+.IX Item "/usr/share/eos\-updater/eos\-update\-server.conf"
+Configuration file for \fBeos\-update\-server\fP. Defaults are loaded from
+\fI/usr/local/share/eos\-updater/eos\-update\-server.conf\fP (if present) or
+\fI/usr/share/eos\-updater/eos\-update\-server.conf\fP. See
+\fBeos\-update\-server.conf\fP(5).
+.\"
+.IP \fI/lib/systemd/system/eos\-update\-server.socket\fP 4
+.IX Item "/lib/systemd/system/eos\-update\-server.socket"
+\fBsystemd\fP(1) socket file which sets up \fBeos\-update\-server\fP’s
+listening socket for accepting incoming connections. See
+\fBsystemd.socket\fP(5).
+.\"
+.IP \fI/lib/systemd/system/eos\-update\-server.service\fP 4
+.IX Item "/lib/systemd/system/eos\-update\-server.service"
+\fBsystemd\fP(1) service file which specifies the runtime environment for
+\fBeos\-update\-server\fP. See \fBsystemd.service\fP(5).
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-updater\-avahi\fP(8),
+\fBeos\-updater\fP(8),
+\fBeos\-update\-server.conf\fP(5)
+.\"
+.SH BUGS
+.IX Header "BUGS"
+.\"
+Any bugs which are found should be reported on the project website:
+.br
+\fIhttps://support.endlessm.com/\fP
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.

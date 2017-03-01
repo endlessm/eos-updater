@@ -104,7 +104,7 @@ def main(argv):
 
         if argv[1] not in list(methods.keys()):
             print("Unknown action: " + argv[1])
-            sys.exit(1)
+            sys.exit(2)
 
         proxy = Gio.DBusProxy.new_sync(b, 0, None,
                                        'com.endlessm.Updater',

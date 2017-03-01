@@ -1,0 +1,72 @@
+.\" Manpage for eos-updater.conf.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "28 Feb 2017" "1.0" "eos\-updater.conf man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-updater.conf — Endless OS Updater Configuration
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fB/etc/eos\-updater/eos\-updater.conf\fP
+.br
+\fB/usr/local/share/eos\-updater/eos\-updater.conf\fP
+.br
+\fB/usr/share/eos\-updater/eos\-updater.conf\fP
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-updater.conf\fP provides the configuration for \fBeos\-updater\fP(8).
+It determines which sources the updater should check for updates from, and
+provides the necessary configuration for sources which need it.
+.PP
+The configuration file contains a mandatory section, \fI[Download]\fP, and an
+optional per\-source section, \fI[Source "volume"]\fP, whose keys are described
+below.
+.PP
+Default values are stored in \fI/usr/share/eos\-updater/eos\-updater.conf\fP,
+which must always exist. To override the configuration, copy it to
+\fI/usr/local/share/eos\-updater/\fP or \fI/etc/eos\-updater/\fP. Configuration
+in \fI/etc\fP overrides that in \fI/usr\fP.
+.\"
+.SH [Download] SECTION OPTIONS
+.IX Header "[Download] SECTION OPTIONS"
+.\"
+.IP "\fIOrder=\fP"
+.IX Item "Order="
+A semicolon\-separated list of sources to check for updates, with the most
+important listed first. The available sources are \fImain\fP, \fIlan\fP and
+\fIvolume\fP; corresponding to updates from the Endless Mobile servers on the
+internet, updates from other computers on the local network (see
+\fBeos\-update\-server\fP(8)) and updates from a connected USB drive (see
+\fBeos\-updater\-prepare\-volume\fP(8)).
+.PP
+If the \fIvolume\fP source is listed, the \fI[Source "volume"]\fP section must
+also be present in the file. Otherwise, it is ignored.
+.\"
+.SH "[Source ""volume""] SECTION OPTIONS"
+.IX Header "[Source ""volume""] SECTION OPTIONS"
+.\"
+.IP "\fIPath=\fP"
+.IX Item "Path="
+Path to the mounted USB drive to fetch updates from. If this does not exist,
+updating from the USB drive will be skipped. This option must be set if the
+\fIvolume\fP source is listed in \fIDownload.Order\fP.
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-autoupdater\fP(8),
+\fBeos\-updater\fP(8)
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.

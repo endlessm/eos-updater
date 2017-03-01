@@ -1,0 +1,105 @@
+.\" Manpage for eos-updater-ctl.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "28 Feb 2017" "1.0" "eos\-updater\-ctl man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-updater\-ctl — Endless OS Updater Controller
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fBeos\-updater\-ctl [\fPcommand\fB]
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-updater\-ctl\fP is a utility to manually control the update process of
+\fBeos\-updater\fP(8), triggering it to move through states in the update
+sequence. It accepts three commands: \fBpoll\fP, \fBfetch\fP and \fBapply\fP.
+These correspond with the states described in \fBeos\-updater\fP(8), with each
+command triggering a progression to the named state. Normally, the updater is
+moved through these states automatically by \fBeos\-autoupdater\fP(8) —
+\fBeos\-updater\-ctl\fP allows this to be done manually. Execution of the
+command will not block on successful progression to the named state: for
+example, the \fBfetch\fP command will complete immediately, rather than waiting
+for an update to be downloaded.
+.PP
+If no command is specified, \fBeos\-updater\-ctl\fP will monitor the state of
+\fBeos\-updater\fP(8) until interrupted, printing out its D\-Bus properties
+every time they change. If the updater disappears off the system bus,
+\fBeos\-updater\-ctl\fP will wait until it reappears and will resume
+monitoring.
+.\"
+.SH COMMANDS
+.IX Header "COMMANDS"
+.\"
+.IP "\fBpoll\fP"
+Check all configured update sources for available updates.
+.\"
+.IP "\fBfetch\fP"
+Download updates which were found in the previous \fBpoll\fP stage.
+.\"
+.IP "\fBapply\fP"
+Deploy updates which were downloaded in the previous \fBfetch\fP stage, and
+ready the computer to boot into an updated OSTree deployment when next rebooted.
+This command does not reboot the computer.
+.\"
+.SH EXAMPLES
+.IX Header "EXAMPLES"
+.\"
+Example of updating a computer manually using \fBeos\-updater\-ctl\fP:
+.PP
+.nf
+.RS
+$ eos\-updater\-ctl &
+$ eos\-updater\-ctl poll
+# wait for the output to show state UpdateAvailable
+$ eos\-updater\-ctl fetch
+# wait for the output to show state UpdateReady
+$ eos\-updater\-ctl apply
+# wait for the output to show state UpdateApplied
+.RE
+.fi
+.\"
+.SH "EXIT STATUS"
+.IX Header "EXIT STATUS"
+.\"
+\fBeos\-updater\-ctl\fP may return one of several error codes if it encounters
+problems.
+.\"
+.IP "0" 4
+.IX Item "0"
+No problems occurred. The specified command was successfully sent to the
+updater; or there were no problems in monitoring the updater’s state.
+.\"
+.IP "1" 4
+.IX Item "1"
+There was an error while communicating with the updater.
+.\"
+.IP "2" 4
+.IX Item "2"
+An invalid option was passed to \fBeos\-updater\-ctl\fP on startup.
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-autoupdater\fP(8),
+\fBeos\-updater\fP(8)
+.\"
+.SH BUGS
+.IX Header "BUGS"
+.\"
+Any bugs which are found should be reported on the project website:
+.br
+\fIhttps://support.endlessm.com/\fP
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.

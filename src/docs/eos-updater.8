@@ -1,0 +1,131 @@
+.\" Manpage for eos-updater.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "28 Feb 2017" "1.0" "eos\-updater man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-updater — Endless OS Updater
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fBeos\-updater
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-updater\fP is a service which manages the polling for, fetching of, and
+applying of, updates to the Endless OS on this computer. It takes no arguments,
+and exposes its functionality through a D\-Bus API at the well\-known name
+\fBcom.endlessm.Updater\fP on the system bus.
+.PP
+To interact with \fBeos\-updater\fP, use a UI update tool,
+\fBeos\-autoupdater\fP(8), or the \fBeos\-updater\-ctl\fP(8) tool.
+.PP
+\fBeos\-updater\fP supports updating the system from several sources. Typically,
+a system will be updated only from the \fImain\fP source, which downloads
+OSTree updates from Endless Mobile servers. The \fIlan\fP source can be enabled
+to download updates from other computers on the local network (see
+\fBeos\-update\-server\fP(8)); similarly, the \fIvolume\fP source can be
+enabled and configured to load updates stored on a USB drive (see
+\fBeos\-updater\-prepare\-volume\fP(8)). See \fBeos\-updater.conf\fP(5) for
+information on how to change the update sources.
+.PP
+Updates are retrieved in several stages: \fIpoll\fP, \fIfetch\fP and
+\fIapply\fP. The \fIpoll\fP stage checks each enabled update source to see if
+it has any newer OSTree commits than are present on the booted system. If that
+finds updates, the \fIfetch\fP stage downloads the OSTree objects and metadata
+from the latest commit on the source to the local OSTree repository. Then, the
+\fIapply\fP stage deploys that commit and prepares the system to boot into it
+when next rebooted.
+.PP
+\fBeos\-update\fP provides the implementation of these stages, but the policy
+of when to run each stage is provided by other processes — typically by
+\fBeos\-autoupdater\fP(8), which automatically runs the stages periodically.
+.PP
+\fBeos\-updater\fP is designed to be D\-Bus activated by requests to the
+well-known name \fBcom.endlessm.Updater\fP. It is integrated into
+\fBsystemd\fP(1) via \fBeos\-autoupdater\fP(8), which is run on a timer as the
+\fBeos\-autoupdater.timer\fP unit. \fBeos\-updater\fP should not be run
+manually, but can be triggered by starting the \fBeos\-autoupdater.service\fP
+unit. See \fBsystemctl\fP(1).
+.PP
+If the computer has been converted to not use OSTree, automatic updates are
+permanently disabled.
+.\"
+.SH OPTIONS
+.IX Header "OPTIONS"
+.\"
+\fBeos\-updater\fP does not accept any options.
+.\"
+.SH "ENVIRONMENT"
+.IX Header "ENVIRONMENT"
+.\"
+\fPeos\-updater\fP supports the standard GLib environment variables for
+debugging. These variables are \fBnot\fP intended to be used in production:
+.\"
+.IP \fI$G_MESSAGES_DEBUG\fP 4
+.IX Item "$G_MESSAGES_DEBUG"
+This variable can contain one or more debug domain names to display debug output
+for. The value \fIall\fP will enable all debug output. The default is for no
+debug output to be enabled.
+.\"
+.SH "EXIT STATUS"
+.IX Header "EXIT STATUS"
+.\"
+\fBeos\-updater\fP may return one of several error codes if it encounters
+problems.
+.\"
+.IP "0" 4
+No problems occurred. The updater ran successfully.
+.\"
+.IP "1" 4
+.IX Item "1"
+There was an error while setting up the updater. This is not used for errors
+while updating — they are reported over the D\-Bus API.
+.\"
+.SH "FILES"
+.IX Header "FILES"
+.\"
+.IP \fI/etc/eos\-updater/eos\-updater.conf\fP 4
+.IX Item "/etc/eos\-updater/eos\-updater.conf"
+.IX Item "/usr/local/share/eos\-updater/eos\-updater.conf"
+.IX Item "/usr/share/eos\-updater/eos\-updater.conf"
+Configuration file for \fBeos\-updater\fP. Defaults are loaded from
+\fI/usr/local/share/eos\-updater/eos\-updater.conf\fP (if present) or
+\fI/usr/share/eos\-updater/eos\-updater.conf\fP. See \fBeos\-updater.conf\fP(5).
+.\"
+.IP \fI/lib/systemd/system/eos\-autoupdater.timer\fP 4
+.IX Item "/lib/systemd/system/eos\-autoupdater.timer"
+\fBsystemd\fP(1) timer file which triggers \fBeos\-updater\fP to run
+at regular intervals. See \fBsystemd.timer\fP(5) and \fBeos\-autoupdater\fP(8).
+.\"
+.IP \fI/lib/systemd/system/eos\-autoupdater.service\fP 4
+.IX Item "/lib/systemd/system/eos\-autoupdater.service"
+\fBsystemd\fP(1) service file which specifies the runtime environment for
+\fBeos\-updater\fP. See \fBsystemd.service\fP(5) and \fBeos\-autoupdater\fP(8).
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-autoupdater\fP(8),
+\fBeos\-update\-server\fP(8),
+\fBeos\-updater.conf\fP(5),
+\fBeos\-updater\-ctl\fP(8)
+.\"
+.SH BUGS
+.IX Header "BUGS"
+.\"
+Any bugs which are found should be reported on the project website:
+.br
+\fIhttps://support.endlessm.com/\fP
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.
