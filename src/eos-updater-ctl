@@ -19,6 +19,7 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+import argparse
 import sys
 from gi.repository import Gio, GLib
 
@@ -89,28 +90,31 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def main(argv):
-    loop = GLib.MainLoop()
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Control eos-updater stages.')
 
+    methods = {
+        'poll': 'Poll',
+        'fetch': 'Fetch',
+        'apply': 'Apply',
+    }
+    parser.add_argument('command', choices=methods.keys(), nargs='?',
+                        help='command to pass to eos-updater; '
+                             'omit to monitor the updater')
+    args = parser.parse_args()
+
+    # Set up a D-Bus connection
+    loop = GLib.MainLoop()
     b = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
 
     # Handle the given action.
-    if len(argv) > 1:
-        methods = {
-            "poll": "Poll",
-            "fetch": "Fetch",
-            "apply": "Apply"
-        }
-
-        if argv[1] not in list(methods.keys()):
-            print("Unknown action: " + argv[1])
-            sys.exit(2)
-
+    if args.command:
         proxy = Gio.DBusProxy.new_sync(b, 0, None,
                                        'com.endlessm.Updater',
                                        '/com/endlessm/Updater',
                                        'com.endlessm.Updater', None)
-        proxy.call_sync("com.endlessm.Updater." + methods[argv[1]],
+        proxy.call_sync("com.endlessm.Updater." + methods[args.command],
                         None,
                         0, -1, None)
         sys.exit(0)
@@ -129,4 +133,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()
