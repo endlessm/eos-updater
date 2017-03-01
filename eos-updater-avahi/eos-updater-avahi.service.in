@@ -3,7 +3,8 @@ Description=Endless OS Avahi Advertisement Updater
 Documentation=man:eos-updater-avahi(8)
 
 [Service]
-Type=simple
+Type=oneshot
+RemainAfterExit=yes
 ExecStart=@libexecdir@/eos-updater-avahi
 
 # Sandboxing
