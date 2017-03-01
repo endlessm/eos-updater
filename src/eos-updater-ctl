@@ -99,7 +99,7 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def run_command(command, bus):
+def run_command(command, bus, block):
     """Run the given command and wait for it to complete."""
     (function_name, in_progress_state) = METHODS[command]
 
@@ -133,7 +133,9 @@ def run_command(command, bus):
     seen_in_progress_state = False
     seen_next_state = False
 
-    while not cancelled and not (seen_in_progress_state and seen_next_state):
+    while (block and
+           not cancelled and
+           not (seen_in_progress_state and seen_next_state)):
         try:
             context.iteration(True)
         except KeyboardInterrupt:
@@ -142,7 +144,8 @@ def run_command(command, bus):
     proxy.disconnect(signal_id)
 
     # Print the final state of the properties before exiting.
-    dump_daemon_properties(proxy)
+    if block:
+        dump_daemon_properties(proxy)
 
     return 1 if cancelled else 0
 
@@ -170,6 +173,12 @@ def main():
     parser.add_argument('command', choices=METHODS.keys(), nargs='?',
                         help='command to pass to eos-updater; '
                              'omit to monitor the updater')
+    parser.add_argument('--no-block', dest='block', action='store_false',
+                        help='Do not wait until eos-updater has finished all '
+                             'processing in the requested state')
+    parser.add_argument('--block', dest='block', action='store_true')
+    parser.set_defaults(block=True)
+
     args = parser.parse_args()
 
     # Set up a D-Bus connection
@@ -177,7 +186,7 @@ def main():
 
     # Handle the given action.
     if args.command:
-        status = run_command(args.command, bus)
+        status = run_command(args.command, bus, args.block)
     else:
         status = monitor(bus)
 

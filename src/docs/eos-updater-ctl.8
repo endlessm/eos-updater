@@ -21,9 +21,9 @@ These correspond with the states described in \fBeos\-updater\fP(8), with each
 command triggering a progression to the named state. Normally, the updater is
 moved through these states automatically by \fBeos\-autoupdater\fP(8) —
 \fBeos\-updater\-ctl\fP allows this to be done manually. Execution of the
-command will not block on successful progression to the named state: for
-example, the \fBfetch\fP command will complete immediately, rather than waiting
-for an update to be downloaded.
+command will block on successful progression through the named state unless the
+\fB\-\-no\-block\fP option is provided: for example, the \fBfetch\fP command
+will wait for an update to be downloaded rather than completing immediately.
 .PP
 If no command is specified, \fBeos\-updater\-ctl\fP will monitor the state of
 \fBeos\-updater\fP(8) until interrupted, printing out its D\-Bus properties
@@ -45,6 +45,14 @@ Deploy updates which were downloaded in the previous \fBfetch\fP stage, and
 ready the computer to boot into an updated OSTree deployment when next rebooted.
 This command does not reboot the computer.
 .\"
+.SH OPTIONS
+.IX Header "OPTIONS"
+.\"
+.IP "\fB\-\-no\-block\fP"
+Do not wait for the given command to result in a state change in
+\fBeos\-updater\fP(8); instead, return immediately. This has no effect if no
+command is provided.
+.\"
 .SH EXAMPLES
 .IX Header "EXAMPLES"
 .\"
@@ -52,13 +60,9 @@ Example of updating a computer manually using \fBeos\-updater\-ctl\fP:
 .PP
 .nf
 .RS
-$ eos\-updater\-ctl &
 $ eos\-updater\-ctl poll
-# wait for the output to show state UpdateAvailable
 $ eos\-updater\-ctl fetch
-# wait for the output to show state UpdateReady
 $ eos\-updater\-ctl apply
-# wait for the output to show state UpdateApplied
 .RE
 .fi
 .\"
@@ -75,7 +79,8 @@ updater; or there were no problems in monitoring the updater’s state.
 .\"
 .IP "1" 4
 .IX Item "1"
-There was an error while communicating with the updater.
+There was an error while communicating with the updater or the requested
+command resulted in an error state in the updater.
 .\"
 .IP "2" 4
 .IX Item "2"
