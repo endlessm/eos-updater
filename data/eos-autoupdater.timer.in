@@ -10,4 +10,3 @@ RandomizedDelaySec=30min
 
 [Install]
 WantedBy=multi-user.target
-Alias=eos-updater.timer

@@ -1,15 +1,16 @@
 [Unit]
-Description=Endless OS Automatic Updater
-Documentation=man:eos-autoupdater(8)
+Description=Endless OS Updater
+Documentation=man:eos-updater(8)
 Wants=network.target
 
 [Service]
-Type=simple
-ExecStart=@libexecdir@/eos-autoupdater
+ExecStart=@bindir@/eos-updater
+Type=dbus
+BusName=com.endlessm.Updater
 
 # Sandboxing
 # FIXME: Enable more of these options once we have systemd > 229
-CapabilityBoundingSet=
+#CapabilityBoundingSet=(some list of capabilities)
 Environment=GIO_USE_VFS=local
 Environment=GVFS_DISABLE_FUSE=1
 Environment=GVFS_REMOTE_VOLUME_MONITOR_IGNORE=1
@@ -29,6 +30,3 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 #RestrictRealtime=yes
 #SystemCallErrorNumber=EPERM
 #SystemCallFilter=@basic-io @io-event @ipc @network-io
-
-[Install]
-Also=eos-autoupdater.timer

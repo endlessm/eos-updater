@@ -3,6 +3,7 @@ eos_autoupdater_in = \
 	eos-autoupdater.timer.in \
 	eos-update-server.socket.in \
 	eos-update-server.service.in \
+	eos-updater.service.in \
 	$(NULL)
 
 systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
