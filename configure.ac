@@ -49,7 +49,7 @@ AM_CONDITIONAL([WITH_METRICS], [test "x$want_metrics" = 'xyes'])
 AC_ARG_WITH([server-port],
             AS_HELP_STRING([--with-server-port], [Port number for the update server]),
             [port=$withval],
-            [port=12345])
+            [port=43381])
 AC_SUBST([server_port], [$port])
 AC_DEFINE_UNQUOTED([EOS_AVAHI_PORT], [$port], [Socket activation port to be used by eos-update-server])
 
