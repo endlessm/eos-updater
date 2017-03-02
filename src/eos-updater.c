@@ -32,6 +32,7 @@
 #include <libeos-updater-util/util.h>
 
 #include <errno.h>
+#include <locale.h>
 #include <ostree.h>
 
 #include <gio/gio.h>
@@ -303,6 +304,7 @@ main (gint argc, gchar *argv[])
   g_auto(LocalData) local_data = LOCAL_DATA_CLEARED;
   GBusType bus_type = G_BUS_TYPE_SYSTEM;
 
+  setlocale (LC_ALL, "");
   g_set_prgname (argv[0]);
 
   purge_old_config ();

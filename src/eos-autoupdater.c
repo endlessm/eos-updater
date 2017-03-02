@@ -24,6 +24,7 @@
 
 #include <gio/gio.h>
 #include <glib.h>
+#include <locale.h>
 #include <stdlib.h>
 #include <errno.h>
 
@@ -655,6 +656,8 @@ main (int argc, char **argv)
   };
   GBusType bus_type = G_BUS_TYPE_SYSTEM;
   gint dbus_timeout;
+
+  setlocale (LC_ALL, "");
 
   context = g_option_context_new ("— Endless OS Automatic Updater");
   g_option_context_add_main_entries (context, entries, NULL);
