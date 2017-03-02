@@ -24,6 +24,7 @@
 
 #include <gio/gio.h>
 #include <glib.h>
+#include <locale.h>
 #include <stdlib.h>
 #include <errno.h>
 
@@ -656,6 +657,8 @@ main (int argc, char **argv)
   GBusType bus_type = G_BUS_TYPE_SYSTEM;
   gint dbus_timeout;
 
+  setlocale (LC_ALL, "");
+
   context = g_option_context_new ("— Endless OS Automatic Updater");
   g_option_context_add_main_entries (context, entries, NULL);
   g_option_context_set_summary (context,
@@ -678,6 +681,11 @@ main (int argc, char **argv)
 
   if (volume_path == NULL && !is_online ())
     return EXIT_OK;
+
+  /* Always force an update if running with --from-volume; it doesn’t make
+   * sense not to. */
+  if (volume_path != NULL)
+    force_update = TRUE;
 
   if (!force_update) {
     if (volume_path == NULL &&

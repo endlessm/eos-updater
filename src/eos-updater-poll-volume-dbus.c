@@ -66,19 +66,28 @@ volume_metadata_fetch (GTask *task,
                        GCancellable *cancel)
 {
   VolumeMetadataFetchData *volume_fetch_data = task_data;
-  g_autoptr(GMainContext) task_context = g_main_context_new ();
-  g_autoptr(EosMetadataFetchData) fetch_data = eos_metadata_fetch_data_new (task,
-                                                                            volume_fetch_data->data,
-                                                                            task_context);
-  g_autoptr(GPtrArray) fetchers = g_ptr_array_sized_new (1);
-  g_autoptr(GPtrArray) source_variants = g_ptr_array_sized_new (1);
-  g_autoptr(GArray) download_order = g_array_sized_new (FALSE, /* not null-terminated */
-                                                        FALSE, /* no clearing */
-                                                        sizeof (EosUpdaterDownloadSource),
-                                                        1);
+  g_autoptr(GMainContext) task_context = NULL;
+  g_autoptr(EosMetadataFetchData) fetch_data = NULL;
+  g_autoptr(GPtrArray) fetchers = NULL;
+  g_autoptr(GPtrArray) source_variants = NULL;
+  g_autoptr(GArray) download_order = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
-  g_autoptr(GVariant) volume_variant = g_variant_ref_sink (g_variant_new_string (volume_fetch_data->volume_path));
+  g_autoptr(GVariant) volume_variant = NULL;
   EosUpdaterDownloadSource volume_source = EOS_UPDATER_DOWNLOAD_VOLUME;
+
+  task_context = g_main_context_new ();
+  fetch_data = eos_metadata_fetch_data_new (task, volume_fetch_data->data,
+                                            task_context);
+  fetchers = g_ptr_array_sized_new (1);
+  source_variants = g_ptr_array_sized_new (1);
+  download_order = g_array_sized_new (FALSE, /* not null-terminated */
+                                      FALSE, /* no clearing */
+                                      sizeof (EosUpdaterDownloadSource),
+                                      1);
+
+  /* Inverse of get_volume_options_from_variant(). */
+  volume_variant = g_variant_new_parsed ("{ 'volume-path': <%s> }",
+                                         volume_fetch_data->volume_path);
 
   g_ptr_array_add (fetchers, metadata_fetch_from_volume);
   g_ptr_array_add (source_variants, volume_variant);

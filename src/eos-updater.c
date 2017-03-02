@@ -28,10 +28,12 @@
 #include "eos-updater-generated.h"
 #include "eos-updater-object.h"
 #include "eos-updater-poll.h"
+#include "eos-updater-poll-volume-dbus.h"
 
 #include <libeos-updater-util/util.h>
 
 #include <errno.h>
+#include <locale.h>
 #include <ostree.h>
 
 #include <gio/gio.h>
@@ -126,6 +128,8 @@ on_bus_acquired (GDBusConnection *connection,
       /* Disable updates on live USBs: */
       g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_on_live_boot), local_data->data);
       g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_on_live_boot), local_data->data);
+      g_signal_connect (updater, "handle-poll-volume",
+                        G_CALLBACK (handle_on_live_boot), local_data->data);
       g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), local_data->data);
 
       eos_updater_set_error (updater, error);
@@ -136,6 +140,8 @@ on_bus_acquired (GDBusConnection *connection,
       /* Handle the various DBus methods: */
       g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), local_data->data);
       g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), local_data->data);
+      g_signal_connect (updater, "handle-poll-volume",
+                        G_CALLBACK (handle_poll_volume), local_data->data);
       g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), local_data->data);
     }
 
@@ -303,6 +309,7 @@ main (gint argc, gchar *argv[])
   g_auto(LocalData) local_data = LOCAL_DATA_CLEARED;
   GBusType bus_type = G_BUS_TYPE_SYSTEM;
 
+  setlocale (LC_ALL, "");
   g_set_prgname (argv[0]);
 
   purge_old_config ();

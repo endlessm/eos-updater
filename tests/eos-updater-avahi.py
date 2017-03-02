@@ -88,11 +88,12 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         else:
             GLib.Source.remove(timeout_id)
 
-    def _is_service_enabled(self, unit_file):
+    def _is_service_enabled(self, unit_file, indirect_ok=False):
         out = subprocess.check_output(['systemctl', 'is-enabled', unit_file])
         out = out.decode('utf-8').strip()
-        return out in ['enabled', 'enabled-runtime',
-                       'linked', 'linked-runtime']
+        return (out in ['enabled', 'enabled-runtime',
+                        'linked', 'linked-runtime'] or
+                (indirect_ok and out == 'indirect'))
 
     def test_disabled_by_default(self):
         """Test Avahi adverts are disabled by default, on a clean install."""
@@ -150,11 +151,20 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         # advertisements.
         time.sleep(2)
 
-        # `touch` a deployment ref
-        with os.fdopen(os.open('/ostree/repo/refs/heads/ostree/0/1/0',
-                               flags=os.O_CREAT | os.O_APPEND,
-                               mode=0o644)) as f:
-            os.utime(f.fileno(), None)
+        # ‘Touch’ a deployment ref by rewriting it with the same contents
+        done = False
+        for boot_version in ['0/0', '0/1', '1/0', '1/1']:
+            try:
+                path = '/ostree/repo/refs/heads/ostree/' + boot_version + '/0'
+                with open(path, 'r') as f:
+                    contents = f.read()
+                with open(path, 'w') as f:
+                    f.write(contents)
+                done = True
+            except FileNotFoundError:
+                pass
+
+        self.assertTrue(done, 'no suitable deployment ref found')
 
         self._wait_for_condition(
             lambda s: get_mtime_if_exists(self.__service_file) > before)
@@ -162,9 +172,11 @@ class TestEosUpdaterAvahi(unittest.TestCase):
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_services_enabled_by_default(self):
         """Test the Avahi systemd units are enabled by default."""
-        self.assertTrue(self._is_service_enabled('eos-update-server.service'))
+        self.assertTrue(self._is_service_enabled('eos-update-server.service',
+                                                 indirect_ok=True))
         self.assertTrue(self._is_service_enabled('eos-update-server.socket'))
-        self.assertTrue(self._is_service_enabled('eos-updater-avahi.service'))
+        self.assertTrue(self._is_service_enabled('eos-updater-avahi.service',
+                                                 indirect_ok=True))
         self.assertTrue(self._is_service_enabled('eos-updater-avahi.path'))
         self.assertTrue(self._is_service_enabled('avahi-daemon.service'))
 
