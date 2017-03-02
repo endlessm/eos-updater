@@ -682,6 +682,11 @@ main (int argc, char **argv)
   if (volume_path == NULL && !is_online ())
     return EXIT_OK;
 
+  /* Always force an update if running with --from-volume; it doesn’t make
+   * sense not to. */
+  if (volume_path != NULL)
+    force_update = TRUE;
+
   if (!force_update) {
     if (volume_path == NULL &&
         !update_on_mobile &&
