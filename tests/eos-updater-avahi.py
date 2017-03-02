@@ -88,11 +88,12 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         else:
             GLib.Source.remove(timeout_id)
 
-    def _is_service_enabled(self, unit_file):
+    def _is_service_enabled(self, unit_file, indirect_ok=False):
         out = subprocess.check_output(['systemctl', 'is-enabled', unit_file])
         out = out.decode('utf-8').strip()
-        return out in ['enabled', 'enabled-runtime',
-                       'linked', 'linked-runtime']
+        return (out in ['enabled', 'enabled-runtime',
+                        'linked', 'linked-runtime'] or
+                (indirect_ok and out == 'indirect'))
 
     def test_disabled_by_default(self):
         """Test Avahi adverts are disabled by default, on a clean install."""
@@ -162,9 +163,11 @@ class TestEosUpdaterAvahi(unittest.TestCase):
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_services_enabled_by_default(self):
         """Test the Avahi systemd units are enabled by default."""
-        self.assertTrue(self._is_service_enabled('eos-update-server.service'))
+        self.assertTrue(self._is_service_enabled('eos-update-server.service',
+                                                 indirect_ok=True))
         self.assertTrue(self._is_service_enabled('eos-update-server.socket'))
-        self.assertTrue(self._is_service_enabled('eos-updater-avahi.service'))
+        self.assertTrue(self._is_service_enabled('eos-updater-avahi.service',
+                                                 indirect_ok=True))
         self.assertTrue(self._is_service_enabled('eos-updater-avahi.path'))
         self.assertTrue(self._is_service_enabled('avahi-daemon.service'))
 
