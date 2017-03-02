@@ -84,7 +84,10 @@ volume_metadata_fetch (GTask *task,
                                       FALSE, /* no clearing */
                                       sizeof (EosUpdaterDownloadSource),
                                       1);
-  volume_variant = g_variant_ref_sink (g_variant_new_string (volume_fetch_data->volume_path));
+
+  /* Inverse of get_volume_options_from_variant(). */
+  volume_variant = g_variant_new_parsed ("{ 'volume-path': <%s> }",
+                                         volume_fetch_data->volume_path);
 
   g_ptr_array_add (fetchers, metadata_fetch_from_volume);
   g_ptr_array_add (source_variants, volume_variant);
