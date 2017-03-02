@@ -151,11 +151,20 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         # advertisements.
         time.sleep(2)
 
-        # `touch` a deployment ref
-        with os.fdopen(os.open('/ostree/repo/refs/heads/ostree/0/1/0',
-                               flags=os.O_CREAT | os.O_APPEND,
-                               mode=0o644)) as f:
-            os.utime(f.fileno(), None)
+        # ‘Touch’ a deployment ref by rewriting it with the same contents
+        done = False
+        for boot_version in ['0/0', '0/1', '1/0', '1/1']:
+            try:
+                path = '/ostree/repo/refs/heads/ostree/' + boot_version + '/0'
+                with open(path, 'r') as f:
+                    contents = f.read()
+                with open(path, 'w') as f:
+                    f.write(contents)
+                done = True
+            except FileNotFoundError:
+                pass
+
+        self.assertTrue(done, 'no suitable deployment ref found')
 
         self._wait_for_condition(
             lambda s: get_mtime_if_exists(self.__service_file) > before)
