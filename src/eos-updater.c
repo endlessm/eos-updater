@@ -28,6 +28,7 @@
 #include "eos-updater-generated.h"
 #include "eos-updater-object.h"
 #include "eos-updater-poll.h"
+#include "eos-updater-poll-volume-dbus.h"
 
 #include <libeos-updater-util/util.h>
 
@@ -127,6 +128,8 @@ on_bus_acquired (GDBusConnection *connection,
       /* Disable updates on live USBs: */
       g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_on_live_boot), local_data->data);
       g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_on_live_boot), local_data->data);
+      g_signal_connect (updater, "handle-poll-volume",
+                        G_CALLBACK (handle_on_live_boot), local_data->data);
       g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), local_data->data);
 
       eos_updater_set_error (updater, error);
@@ -137,6 +140,8 @@ on_bus_acquired (GDBusConnection *connection,
       /* Handle the various DBus methods: */
       g_signal_connect (updater, "handle-fetch", G_CALLBACK (handle_fetch), local_data->data);
       g_signal_connect (updater, "handle-poll",  G_CALLBACK (handle_poll), local_data->data);
+      g_signal_connect (updater, "handle-poll-volume",
+                        G_CALLBACK (handle_poll_volume), local_data->data);
       g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), local_data->data);
     }
 
