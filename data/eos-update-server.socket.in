@@ -2,6 +2,7 @@
 Description=Socket for Endless OS Automatic Updater
 Documentation=man:eos-update-server(8)
 ConditionPathExists=@sysconfdir@/avahi/services/eos-updater.service
+After=eos-updater-avahi.service
 
 [Socket]
 ListenStream=@server_port@

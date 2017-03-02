@@ -2,9 +2,13 @@
 Description=Endless OS Avahi Advertisement Updater
 Documentation=man:eos-updater-avahi(8)
 
+# Try to start the update server socket after updating the Avahi service file,
+# since eos-update-server.socket has a ConditionPathExists on it.
+Wants=eos-update-server.socket
+
 [Service]
 Type=oneshot
-RemainAfterExit=yes
+RemainAfterExit=no
 ExecStart=@libexecdir@/eos-updater-avahi
 
 # Sandboxing
