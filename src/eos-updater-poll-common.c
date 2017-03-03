@@ -121,6 +121,9 @@ is_checksum_an_update (OstreeRepo *repo,
    */
   if (is_newer && g_strcmp0 (cur, checksum) != 0)
     *commit = g_steal_pointer (&update_commit);
+  else
+    *commit = NULL;
+
   return TRUE;
 }
 

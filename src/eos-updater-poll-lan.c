@@ -471,9 +471,14 @@ get_update_info_from_swms (LanData *lan_data,
 
       if (!is_checksum_an_update (repo, checksum, &commit, &local_error))
         {
-          message ("Commit %s from %s is not an update",
-                   checksum,
-                   url_override);
+          message ("Failed to fetch metadata for commit %s from %s: %s",
+                   checksum, url_override, local_error->message);
+          continue;
+        }
+      else if (commit == NULL)
+        {
+          message ("Commit %s from %s is not an update; ignoring",
+                   checksum, url_override);
           continue;
         }
 
