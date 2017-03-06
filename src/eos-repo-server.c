@@ -337,6 +337,8 @@ load_compressed_file_stream (OstreeRepo *repo,
   g_autoptr(GFileInfo) info = NULL;
   g_autoptr(GVariant) xattrs = NULL;
   g_autoptr(GInputStream) content = NULL;
+  g_auto(GVariantBuilder) builder = { { { 0, } } };
+  g_autoptr(GVariant) options = NULL;
 
   if (!ostree_repo_load_file (repo,
                               checksum,
@@ -347,13 +349,23 @@ load_compressed_file_stream (OstreeRepo *repo,
                               error))
     return FALSE;
 
-  if (!ostree_raw_file_to_archive_z2_stream (bare,
-                                             info,
-                                             xattrs,
-                                             &content,
-                                             cancellable,
-                                             error))
-      return FALSE;
+  /* Use compression level 2 (the maximum is 9) as a balance between CPU usage
+   * and compression attained. This gives fairly low CPU usage (a third of
+   * what’s needed for level 9) while halving the size of the uncompressed
+   * files. */
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+  g_variant_builder_add (&builder, "{s@v}", "compression-level",
+                         g_variant_new_variant (g_variant_new_int32 (2)));
+  options = g_variant_ref_sink (g_variant_builder_end (&builder));
+
+  if (!ostree_raw_file_to_archive_z2_stream_with_options (bare,
+                                                          info,
+                                                          xattrs,
+                                                          options,
+                                                          &content,
+                                                          cancellable,
+                                                          error))
+    return FALSE;
 
   *out_input = g_steal_pointer (&content);
   *out_uncompressed_size = g_file_info_get_size (info);
