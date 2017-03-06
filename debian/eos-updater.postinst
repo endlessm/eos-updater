@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+#DEBHELPER#
+
+# Convert from eos-updater.{service,timer} being an alias for
+# eos-autoupdater.{service,timer}. eos-updater.timer should now never exist.
+grep -qs "ExecStart=.*eos-autoupdater" /etc/systemd/system/eos-updater.service && \
+  rm /etc/systemd/system/eos-updater.service
+rm -f /etc/systemd/system/eos-updater.timer
