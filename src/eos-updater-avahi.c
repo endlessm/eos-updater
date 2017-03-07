@@ -158,10 +158,22 @@ queue_callback (EosAvahiDiscoverer *discoverer)
                                                         "eos updater avahi callback");
 }
 
+static gboolean
+should_queue_callback (EosAvahiDiscoverer *discoverer)
+{
+  return (discoverer->state == EOS_AVAHI_RESOLVING_ONLY &&
+          discoverer->callback_id == 0 &&
+          g_hash_table_size (discoverer->discovered_services) == 0);
+}
+
 static void
 queue_error_callback (EosAvahiDiscoverer *discoverer,
                       const gchar *format,
                       ...) G_GNUC_PRINTF(2, 3);
+static void
+maybe_queue_error_callback (EosAvahiDiscoverer *discoverer,
+                            const gchar *format,
+                            ...) G_GNUC_PRINTF(2, 3);
 
 static void
 queue_error_callback (EosAvahiDiscoverer *discoverer,
@@ -169,6 +181,25 @@ queue_error_callback (EosAvahiDiscoverer *discoverer,
                       ...)
 {
   va_list args;
+
+  va_start (args, format);
+  discoverer->error = g_error_new_valist (EOS_UPDATER_ERROR,
+                                          EOS_UPDATER_ERROR_LAN_DISCOVERY_ERROR,
+                                          format,
+                                          args);
+  va_end (args);
+  queue_callback (discoverer);
+}
+
+static void
+maybe_queue_error_callback (EosAvahiDiscoverer *discoverer,
+                            const gchar *format,
+                            ...)
+{
+  va_list args;
+
+  if (!should_queue_callback (discoverer))
+    return;
 
   va_start (args, format);
   discoverer->error = g_error_new_valist (EOS_UPDATER_ERROR,
@@ -212,13 +243,7 @@ client_cb (AvahiClient *client,
 static void
 maybe_queue_success_callback (EosAvahiDiscoverer *discoverer)
 {
-  if (discoverer->state != EOS_AVAHI_RESOLVING_ONLY)
-    return;
-
-  if (discoverer->callback_id > 0)
-    return;
-
-  if (g_hash_table_size (discoverer->discovered_services) > 0)
+  if (!should_queue_callback (discoverer))
     return;
 
   queue_callback (discoverer);
@@ -268,6 +293,21 @@ resolve_cb (AvahiServiceResolver *r,
     {
       g_hash_table_insert (discoverer->discovered_services, g_strdup (name),
                            GUINT_TO_POINTER (n_resolvers - 1));
+    }
+
+  /* Was resolution successful? */
+  switch (event)
+    {
+    case AVAHI_RESOLVER_FOUND:
+      /* continue below */
+      break;
+    case AVAHI_RESOLVER_FAILURE:
+    default:
+      maybe_queue_error_callback (discoverer,
+                                  "Failed to resolve service %s: %s",
+                                  name,
+                                  avahi_strerror (avahi_client_errno (discoverer->client)));
+      return;
     }
 
   gtxt = g_ptr_array_new ();
