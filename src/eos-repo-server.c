@@ -613,7 +613,9 @@ path_is_handled_as_is (const gchar *requested_path)
     }
 
   if (g_str_has_prefix (requested_path, "/deltas/") ||
-      g_str_has_prefix (requested_path, "/extensions/"))
+      g_str_has_prefix (requested_path, "/extensions/") ||
+      g_str_equal (requested_path, "/summary") ||
+      g_str_equal (requested_path, "/summary.sig"))
     return TRUE;
 
   return FALSE;
