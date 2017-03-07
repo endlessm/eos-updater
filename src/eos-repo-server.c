@@ -667,7 +667,8 @@ serve_file_if_exists (SoupMessage *msg,
                                        g_mapped_file_get_length (mapping),
                                        g_mapped_file_ref (mapping),
                                        (GDestroyNotify)g_mapped_file_unref);
-  soup_message_body_append_buffer (msg->response_body, buffer);
+  if (buffer->length > 0)
+    soup_message_body_append_buffer (msg->response_body, buffer);
   soup_message_set_status (msg, SOUP_STATUS_OK);
   *served = TRUE;
 
@@ -721,7 +722,8 @@ send_bytes (SoupMessage *msg,
 {
   g_autoptr(SoupBuffer) buffer = buffer_from_bytes (bytes);
 
-  soup_message_body_append_buffer (msg->response_body, buffer);
+  if (buffer->length > 0)
+    soup_message_body_append_buffer (msg->response_body, buffer);
   soup_message_set_status (msg, SOUP_STATUS_OK);
 }
 
