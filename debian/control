@@ -19,7 +19,7 @@ Build-Depends:
  libglib2.0-dev (>= 2.50.0),
  libgsystem-dev,
  libnm-glib-dev,
- libostree-dev (>= 2016.15),
+ libostree-dev (>= 2016.15+dev24.a109440),
  libsoup2.4-dev,
  libsystemd-dev,
  ostree,
