@@ -786,13 +786,10 @@ handle_path (EosUpdaterRepoServer *server,
     }
 
   g_debug ("Requested %s", path);
-  if (strstr (path, "..") != NULL)
-    {
-      soup_message_set_status (msg, SOUP_STATUS_FORBIDDEN);
-      return;
-    }
 
-  if (g_str_has_prefix (path, "/objects/") && g_str_has_suffix (path, ".filez"))
+  if (strstr (path, "..") != NULL)
+    soup_message_set_status (msg, SOUP_STATUS_FORBIDDEN);
+  else if (g_str_has_prefix (path, "/objects/") && g_str_has_suffix (path, ".filez"))
     handle_objects_filez (server, msg, path);
   else if (path_is_handled_as_is (path))
     handle_as_is (server, msg, path);
@@ -802,6 +799,8 @@ handle_path (EosUpdaterRepoServer *server,
     handle_refs_heads (server, msg, path);
   else
     soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+
+  g_debug ("Returning status %u (%s)", msg->status_code, msg->reason_phrase);
 }
 
 static void
