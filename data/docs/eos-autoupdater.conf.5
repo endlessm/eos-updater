@@ -55,6 +55,13 @@ is triggered earlier than this number of days after the most recent successful
 update, it will exit. It must be \fI0\fP or greater. An interval of \fI0\fP
 days means that checks for updates are not rate limited.
 .\"
+.IP "\fIRandomizedDelayDays=\fP"
+.IX Item "RandomizedDelayDays="
+Maximum number of days to add to the wait between checks for updates. This is a
+random interval, uniformly distributed between 0 and the number of days set in
+this option. It must be \fI0\fP or greater. An interval of \fI0\fP days means
+that the wait is always exactly \fIIntervalDays=\fP long.
+.\"
 .IP "\fIUpdateOnMobile=\fP"
 .IX Item "UpdateOnMobile="
 Whether to check for and download updates when connected to the internet over a

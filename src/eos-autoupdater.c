@@ -70,6 +70,7 @@ static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
+static const char *RANDOMIZED_DELAY_KEY = "RandomizedDelayDays";
 static const char *ON_MOBILE_KEY = "UpdateOnMobile";
 
 /* Ensures that the updater never tries to poll twice in one run */
@@ -110,7 +111,7 @@ get_stamp_dir (void)
  * harm in the stamp file not being updated: it just means we’re going to check
  * again for updates sooner than otherwise. */
 static void
-update_stamp_file (void)
+update_stamp_file (guint randomized_delay_days)
 {
   const gchar *stamp_dir = get_stamp_dir ();
   g_autofree gchar *stamp_path = NULL;
@@ -140,6 +141,44 @@ update_stamp_file (void)
                      NULL);
     return;
   }
+
+  /* Set the file’s mtime to include the randomised delay. This will result in
+   * the mtime either being now, or some number of days in the future. Setting
+   * the mtime to the future should not be a problem, as the stamp file is only
+   * accessed by eos-autoupdater, so the semantics of the mtime are clear. */
+  if (randomized_delay_days > 0)
+    {
+      g_autoptr(GFileInfo) file_info = NULL;
+      GTimeVal mtime;
+      gint32 actual_delay_days;
+
+      file_info = g_file_query_info (stamp_file, G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                                     G_FILE_QUERY_INFO_NONE, NULL, &error);
+      if (error != NULL)
+        {
+          sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                           "PRIORITY=%d", LOG_CRIT,
+                           "MESSAGE=Failed to get stamp file info: %s", error->message,
+                           NULL);
+          return;
+        }
+
+      g_get_current_time (&mtime);
+      actual_delay_days = g_random_int_range (0, randomized_delay_days + 1);
+      mtime.tv_sec += actual_delay_days * SEC_PER_DAY;
+      g_file_info_set_modification_time (file_info, &mtime);
+
+      g_file_set_attributes_from_info (stamp_file, file_info,
+                                       G_FILE_QUERY_INFO_NONE, NULL, &error);
+      if (error != NULL)
+        {
+          sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                           "PRIORITY=%d", LOG_CRIT,
+                           "MESSAGE=Failed to set stamp file info: %s", error->message,
+                           NULL);
+          return;
+        }
+    }
 }
 
 /* Called on completion of the async dbus calls to check whether they
@@ -316,11 +355,13 @@ get_config_file_path (void)
 static gboolean
 read_config_file (const gchar *config_path,
                   guint *update_interval_days,
+                  guint *randomized_delay_days,
                   gboolean *update_on_mobile)
 {
   g_autoptr(GKeyFile) config = NULL;
   g_autoptr(GError) error = NULL;
   gint _update_interval_days;
+  gint _randomized_delay_days;
   gint _last_automatic_step;
   const gchar * const paths[] =
     {
@@ -394,6 +435,31 @@ read_config_file (const gchar *config_path,
 
   *update_interval_days = (guint) _update_interval_days;
 
+  _randomized_delay_days = g_key_file_get_integer (config, AUTOMATIC_GROUP,
+                                                   RANDOMIZED_DELAY_KEY,
+                                                   &error);
+
+  if (error) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_ERR,
+                     "MESSAGE=Unable to read key '%s' in config file",
+                     RANDOMIZED_DELAY_KEY,
+                     NULL);
+    return FALSE;
+  }
+
+  /* We use G_MAXINT32 as g_random_int_range() operates on gint32. */
+  if (_randomized_delay_days < 0 ||
+      _randomized_delay_days > (G_MAXINT32 / SEC_PER_DAY) - 1) {
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_ERR,
+                     "MESSAGE=Specified randomized delay is less than zero or too large",
+                     NULL);
+    return FALSE;
+  }
+
+  *randomized_delay_days = (guint) _randomized_delay_days;
+
   *update_on_mobile = g_key_file_get_boolean (config, AUTOMATIC_GROUP,
                                               ON_MOBILE_KEY, &error);
 
@@ -430,7 +496,8 @@ initial_poll_idle_func (gpointer pointer)
 }
 
 static gboolean
-is_time_to_update (guint update_interval_days)
+is_time_to_update (guint update_interval_days,
+                   guint randomized_delay_days)
 {
   const gchar *stamp_dir = get_stamp_dir ();
   g_autofree gchar *stamp_path = NULL;
@@ -448,16 +515,22 @@ is_time_to_update (guint update_interval_days)
                                        G_FILE_QUERY_INFO_NONE, NULL,
                                        &error);
 
-  if (error) {
-    if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
-      /* Failed for some reason other than the file not being present */
-      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                       "PRIORITY=%d", LOG_CRIT,
-                       "MESSAGE=Failed to read attributes of updater timestamp file",
-                       NULL);
-    }
-
+  if (error != NULL &&
+      !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
+    /* Failed for some reason other than the file not being present */
+    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                     "PRIORITY=%d", LOG_CRIT,
+                     "MESSAGE=Failed to read attributes of updater timestamp file",
+                     NULL);
     is_time_to_update = TRUE;
+  } else if (error != NULL) {
+    /* Stamp file is not present, so this is likely the first time the
+     * computer’s run eos-autoupdater. In order to avoid a thundering herd of
+     * computers requesting updates when a lab is first turned on, create a
+     * stamp file with a random delay applied, and check again for updates
+     * later. */
+    update_stamp_file (randomized_delay_days);
+    is_time_to_update = FALSE;
   } else {
     guint64 next_update_time_secs, update_interval_secs;
 
@@ -644,7 +717,7 @@ main (int argc, char **argv)
 {
   g_autoptr(EosUpdater) proxy = NULL;
   g_autoptr(GError) error = NULL;
-  guint update_interval_days;
+  guint update_interval_days, randomized_delay_days;
   gboolean update_on_mobile;
   gboolean force_update = FALSE;
   g_autoptr(GOptionContext) context = NULL;
@@ -676,7 +749,8 @@ main (int argc, char **argv)
     }
 
   if (!read_config_file (get_config_file_path (),
-                         &update_interval_days, &update_on_mobile))
+                         &update_interval_days, &randomized_delay_days,
+                         &update_on_mobile))
     return EXIT_BAD_CONFIGURATION;
 
   if (volume_path == NULL && !is_online ())
@@ -698,7 +772,7 @@ main (int argc, char **argv)
       return EXIT_OK;
     }
 
-    if (!is_time_to_update (update_interval_days)) {
+    if (!is_time_to_update (update_interval_days, randomized_delay_days)) {
       sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_TIME_MSGID,
                        "PRIORITY=%d", LOG_INFO,
                        "MESSAGE=Less than %s since last update. Exiting", INTERVAL_KEY,
@@ -744,7 +818,7 @@ out:
     return EXIT_FAILED;
 
   /* Update the stamp file since all configured steps have succeeded. */
-  update_stamp_file ();
+  update_stamp_file (randomized_delay_days);
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_SUCCESS_MSGID,
                    "PRIORITY=%d", LOG_INFO,
                    "MESSAGE=Updater finished successfully",
