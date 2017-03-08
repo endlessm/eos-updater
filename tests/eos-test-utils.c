@@ -2086,6 +2086,7 @@ get_autoupdater_config (UpdateStep step,
 
   g_key_file_set_integer (config, "Automatic Updates", "LastAutomaticStep", step);
   g_key_file_set_integer (config, "Automatic Updates", "IntervalDays", update_interval_in_days);
+  g_key_file_set_integer (config, "Automatic Updates", "RandomizedDelayDays", 0);
   g_key_file_set_boolean (config, "Automatic Updates", "UpdateOnMobile", update_on_mobile);
 
   return g_steal_pointer (&config);
