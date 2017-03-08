@@ -2,6 +2,8 @@
 Description=Endless OS Automatic Update Timer
 Documentation=man:eos-autoupdater(8)
 Wants=network.target
+ConditionKernelCommandLine=!endless.live_boot
+ConditionKernelCommandLine=ostree
 
 [Timer]
 OnBootSec=15m
