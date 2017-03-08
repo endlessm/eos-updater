@@ -111,12 +111,15 @@ get_stamp_dir (void)
  * harm in the stamp file not being updated: it just means we’re going to check
  * again for updates sooner than otherwise. */
 static void
-update_stamp_file (guint randomized_delay_days)
+update_stamp_file (guint update_interval_days,
+                   guint randomized_delay_days)
 {
   const gchar *stamp_dir = get_stamp_dir ();
   g_autofree gchar *stamp_path = NULL;
   g_autoptr(GFile) stamp_file = NULL;
   g_autoptr(GError) error = NULL;
+  GTimeVal mtime;
+  g_autofree gchar *next_update = NULL;
 
   if (g_mkdir_with_parents (stamp_dir, 0755) != 0) {
     int saved_errno = errno;
@@ -128,6 +131,8 @@ update_stamp_file (guint randomized_delay_days)
                      NULL);
     return;
   }
+
+  g_get_current_time (&mtime);
 
   stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
   stamp_file = g_file_new_for_path (stamp_path);
@@ -149,7 +154,6 @@ update_stamp_file (guint randomized_delay_days)
   if (randomized_delay_days > 0)
     {
       g_autoptr(GFileInfo) file_info = NULL;
-      GTimeVal mtime;
       gint32 actual_delay_days;
 
       file_info = g_file_query_info (stamp_file, G_FILE_ATTRIBUTE_TIME_MODIFIED,
@@ -163,7 +167,6 @@ update_stamp_file (guint randomized_delay_days)
           return;
         }
 
-      g_get_current_time (&mtime);
       actual_delay_days = g_random_int_range (0, randomized_delay_days + 1);
       mtime.tv_sec += actual_delay_days * SEC_PER_DAY;
       g_file_info_set_modification_time (file_info, &mtime);
@@ -179,6 +182,11 @@ update_stamp_file (guint randomized_delay_days)
           return;
         }
     }
+
+  /* A little bit of help for debuggers. */
+  mtime.tv_sec += update_interval_days * SEC_PER_DAY;
+  next_update = g_time_val_to_iso8601 (&mtime);
+  g_debug ("Wrote stamp file. Next update at %s", next_update);
 }
 
 /* Called on completion of the async dbus calls to check whether they
@@ -523,13 +531,16 @@ is_time_to_update (guint update_interval_days,
                      "MESSAGE=Failed to read attributes of updater timestamp file",
                      NULL);
     is_time_to_update = TRUE;
+    g_debug ("Time to update, due to stamp file (%s) not being queryable.",
+             stamp_path);
   } else if (error != NULL) {
     /* Stamp file is not present, so this is likely the first time the
      * computer’s run eos-autoupdater. In order to avoid a thundering herd of
      * computers requesting updates when a lab is first turned on, create a
      * stamp file with a random delay applied, and check again for updates
      * later. */
-    update_stamp_file (randomized_delay_days);
+    g_debug ("Not time to update, due to stamp file not being present.");
+    update_stamp_file (update_interval_days, randomized_delay_days);
     is_time_to_update = FALSE;
   } else {
     guint64 next_update_time_secs, update_interval_secs;
@@ -550,6 +561,11 @@ is_time_to_update (guint update_interval_days,
       next_update_time_secs = G_MAXUINT64;
 
     is_time_to_update = (next_update_time_secs < (guint64) current_time_usec / G_USEC_PER_SEC);
+
+    if (is_time_to_update)
+      g_debug ("Time to update");
+    else
+      g_debug ("Not time to update");
   }
 
   return is_time_to_update;
@@ -818,7 +834,7 @@ out:
     return EXIT_FAILED;
 
   /* Update the stamp file since all configured steps have succeeded. */
-  update_stamp_file (randomized_delay_days);
+  update_stamp_file (update_interval_days, randomized_delay_days);
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_SUCCESS_MSGID,
                    "PRIORITY=%d", LOG_INFO,
                    "MESSAGE=Updater finished successfully",
