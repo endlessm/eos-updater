@@ -295,7 +295,7 @@ on_state_changed (EosUpdater *proxy, EosUpdaterState state)
 
   previous_state = state;
 
-  g_message ("EOS updater state is: %u", state);
+  g_message ("EOS updater state is: %s", eos_updater_state_to_string (state));
 
   switch (state) {
     case EOS_UPDATER_STATE_NONE: /* State should change soon */
