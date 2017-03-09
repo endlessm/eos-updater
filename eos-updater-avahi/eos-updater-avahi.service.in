@@ -1,6 +1,7 @@
 [Unit]
 Description=Endless OS Avahi Advertisement Updater
 Documentation=man:eos-updater-avahi(8)
+Wants=avahi-daemon.service
 
 # Try to start the update server socket after updating the Avahi service file,
 # since eos-update-server.socket has a ConditionPathExists on it.
@@ -37,3 +38,4 @@ ProtectSystem=true
 
 [Install]
 Also=eos-update-server.service eos-updater-avahi.path
+WantedBy=multi-user.target
