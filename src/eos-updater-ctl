@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright © 2013 Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+# Copyright © 2017 Endless Mobile, Inc.
 #
 # Quick test command line for eos-updater
 #
@@ -20,6 +21,7 @@
 # Boston, MA 02111-1307, USA.
 
 import argparse
+import os
 import sys
 from gi.repository import Gio, GLib
 
@@ -43,6 +45,19 @@ METHODS = {
     'fetch': ('Fetch', 'Fetching'),
     'apply': ('Apply', 'ApplyingUpdate'),
 }
+
+# Various well-known file locations for eos-updater
+EOS_UPDATE_SERVER_CONFS = [
+    '/etc/eos-updater/eos-update-server.conf',
+    '/usr/local/share/eos-updater/eos-update-server.conf',
+    '/usr/share/eos-updater/eos-update-server.conf',
+]
+EOS_UPDATER_CONFS = [
+    '/etc/eos-updater/eos-updater.conf',
+    '/usr/local/share/eos-updater/eos-updater.conf',
+    '/usr/share/eos-updater/eos-updater.conf',
+]
+EOS_SUMMARY = '/ostree/repo/extensions/eos/eos-summary'
 
 current_proxy = None
 
@@ -99,8 +114,9 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def run_command(command, bus, block):
+def command_dbus(command, block, quiet=False):
     """Run the given command and wait for it to complete."""
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     (function_name, in_progress_state) = METHODS[command]
 
     def signal_cb(proxy, sender_name, signal_name, parameters, user_data):
@@ -110,7 +126,8 @@ def run_command(command, bus, block):
             return
 
         new_state = UPDATER_STATES[parameters[0]]
-        print('Changed state to ' + new_state)
+        if not quiet:
+            print('Changed state to ' + new_state)
 
         if new_state == in_progress_state:
             seen_in_progress_state = True
@@ -144,14 +161,44 @@ def run_command(command, bus, block):
     proxy.disconnect(signal_id)
 
     # Print the final state of the properties before exiting.
-    if block:
+    if block and not quiet:
         dump_daemon_properties(proxy)
 
     return 1 if cancelled else 0
 
 
-def monitor(bus):
+def command_poll(block, quiet=False):
+    return command_dbus('poll', block, quiet)
+
+
+def command_fetch(block, quiet=False):
+    return command_dbus('fetch', block, quiet)
+
+
+def command_apply(block, quiet=False):
+    return command_dbus('apply', block, quiet)
+
+
+def command_update(quiet=False):
+    """Run the entire update process."""
+    poll_result = command_poll(block=True, quiet=quiet)
+    if poll_result != 0:
+        return poll_result
+
+    fetch_result = command_fetch(block=True, quiet=quiet)
+    if fetch_result != 0:
+        return fetch_result
+
+    apply_result = command_apply(block=True, quiet=quiet)
+    if apply_result != 0:
+        return apply_result
+
+    return 0
+
+
+def command_monitor(quiet=False):
     """Watch properties and signals from the updater indefinitely."""
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     loop = GLib.MainLoop()
     name_watch_id = Gio.bus_watch_name_on_connection(
         bus, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
@@ -167,30 +214,150 @@ def monitor(bus):
     return 0
 
 
+def command_server(server_command, quiet=False):
+    """Enable or disable eos-update-server."""
+    if server_command == 'enable':
+        new_state = True
+    elif server_command == 'disable':
+        new_state = False
+    else:
+        return 0
+
+    # Must be run as root.
+    if os.geteuid() != 0:
+        print('Error: Must be run as root.', file=sys.stderr)
+        return 1
+
+    # If we are enabling eos-update-server, check that eos-updater is
+    # configured to get updates from the internet; we do not support mesh
+    # update networks yet.
+    if new_state:
+        download_order = []
+        for path in EOS_UPDATER_CONFS:
+            try:
+                conf = GLib.KeyFile()
+                conf.load_from_file(path, GLib.KeyFileFlags.NONE)
+                download_order = conf.get_string_list('Download', 'Order')
+                break
+            except GLib.Error as exc:
+                continue
+
+        if 'main' not in download_order:
+            print('The ‘main’ update source is not enabled. Add it to '
+                  'Download.Order in {}.'.format(EOS_UPDATER_CONFS[0]),
+                  file=sys.stderr)
+            return 1
+
+    # Change the server configuration to enable/disable it.
+    # FIXME: This config file handling will eventually move into a library.
+    # See https://phabricator.endlessm.com/T15740
+    key_file = GLib.KeyFile()
+    for path in EOS_UPDATE_SERVER_CONFS:
+        try:
+            key_file.load_from_file(path, GLib.KeyFileFlags.KEEP_COMMENTS)
+            break
+        except GLib.Error as exc:
+            if not exc.matches(GLib.quark_from_string('g-file-error-quark'),
+                               GLib.FileError.NOENT):
+                print('Error loading existing configuration '
+                      'from {}: {}'.format(path, exc.message), file=sys.stderr)
+                return 1
+
+    old_state = key_file.get_boolean('Local Network Updates',
+                                     'AdvertiseUpdates')
+
+    if old_state == new_state:
+        if not quiet:
+            print('eos-update-server is already ' +
+                  ('enabled' if new_state else 'disabled'))
+        return 0
+
+    key_file.set_boolean('Local Network Updates', 'AdvertiseUpdates',
+                         new_state)
+
+    # Save the updated config file. Create the directory first.
+    try:
+        os.makedirs(os.path.dirname(EOS_UPDATE_SERVER_CONFS[0]),
+                    mode=0o755, exist_ok=True)
+    except:
+        # Fall through and try to write the file anyway.
+        pass
+
+    try:
+        key_file.save_to_file(EOS_UPDATE_SERVER_CONFS[0])
+        if not quiet:
+            print('Updated {}'.format(EOS_UPDATE_SERVER_CONFS[0]))
+    except GLib.Error as exc:
+        print('Error writing new configuration to {}: {}'.format(
+            EOS_UPDATE_SERVER_CONFS[0], exc.message), file=sys.stderr)
+        return 1
+
+    # If we are enabling the server, check that we have an OSTree summary file
+    # present. If not, we need to apply an update to download one.
+    if new_state and not os.path.exists(EOS_SUMMARY):
+        if not quiet:
+            print('Triggering update to download OSTree summary file…')
+        return command_update(quiet=True)
+
+    return 0
+
+
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Control eos-updater stages.')
-    parser.add_argument('command', choices=METHODS.keys(), nargs='?',
-                        help='command to pass to eos-updater; '
-                             'omit to monitor the updater')
-    parser.add_argument('--no-block', dest='block', action='store_false',
-                        help='Do not wait until eos-updater has finished all '
-                             'processing in the requested state')
-    parser.add_argument('--block', dest='block', action='store_true')
-    parser.set_defaults(block=True)
+    subparsers = parser.add_subparsers(metavar='command',
+                                       help='command to pass to eos-updater; '
+                                            'omit to monitor the updater')
+    parser.set_defaults(function=command_monitor)
+    parser.add_argument('--quiet', action='store_true',
+                        help='output no informational messages')
+    parser.set_defaults(quiet=False)
 
+    # Common options for the D-Bus method subcommands.
+    common_parser = argparse.ArgumentParser(add_help=False)
+    group = common_parser.add_mutually_exclusive_group()
+    group.add_argument('--no-block', dest='block',
+                       action='store_false',
+                       help='do not wait until eos-updater has finished all '
+                            'processing in the requested state')
+    group.add_argument('--block', dest='block', action='store_true',
+                       help='opposite of --no-block')
+    common_parser.set_defaults(block=True)
+
+    parser_poll = subparsers.add_parser('poll', parents=[common_parser],
+                                        help='check for updates')
+    parser_poll.set_defaults(function=command_poll)
+
+    parser_fetch = subparsers.add_parser('fetch', parents=[common_parser],
+                                         help='download available updates')
+    parser_fetch.set_defaults(function=command_fetch)
+
+    parser_apply = subparsers.add_parser('apply', parents=[common_parser],
+                                         help='deploy downloaded updates')
+    parser_apply.set_defaults(function=command_apply)
+
+    parser_monitor = subparsers.add_parser('monitor',
+                                           help='watch eos-updater properties')
+    parser_monitor.set_defaults(function=command_monitor)
+
+    parser_server = subparsers.add_parser('server',
+                                          help='control eos-update-server '
+                                               'configuration')
+    parser_server.set_defaults(function=command_server)
+    server_subparsers = parser_server.add_subparsers(
+        dest='server_command', metavar='command',
+        help='command to run regarding the server')
+    server_subparsers.add_parser('enable', help='enable eos-update-server')
+    server_subparsers.add_parser('disable', help='disable eos-update-server')
+
+    parser_update = subparsers.add_parser('update',
+                                          help='run the entire update process')
+    parser_update.set_defaults(function=command_update)
+
+    # Parse the command line arguments and run the subcommand.
     args = parser.parse_args()
-
-    # Set up a D-Bus connection
-    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
-
-    # Handle the given action.
-    if args.command:
-        status = run_command(args.command, bus, args.block)
-    else:
-        status = monitor(bus)
-
-    sys.exit(status)
+    args_dict = dict((k, v) for k, v in vars(args).items() if k != 'function')
+    sys.exit(args.function(**args_dict))
 
 
 if __name__ == '__main__':
