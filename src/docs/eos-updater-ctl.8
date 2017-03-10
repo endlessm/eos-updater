@@ -16,7 +16,8 @@ eos\-updater\-ctl — Endless OS Updater Controller
 .\"
 \fBeos\-updater\-ctl\fP is a utility to manually control the update process of
 \fBeos\-updater\fP(8), triggering it to move through states in the update
-sequence. It accepts three commands: \fBpoll\fP, \fBfetch\fP and \fBapply\fP.
+sequence. It accepts three main commands: \fBpoll\fP, \fBfetch\fP and
+\fBapply\fP.
 These correspond with the states described in \fBeos\-updater\fP(8), with each
 command triggering a progression to the named state. Normally, the updater is
 moved through these states automatically by \fBeos\-autoupdater\fP(8) —
@@ -24,6 +25,9 @@ moved through these states automatically by \fBeos\-autoupdater\fP(8) —
 command will block on successful progression through the named state unless the
 \fB\-\-no\-block\fP option is provided: for example, the \fBfetch\fP command
 will wait for an update to be downloaded rather than completing immediately.
+.PP
+If the \fBupdate\fP command is given, all three states will be moved through
+in sequence.
 .PP
 If the \fBmonitor\fP command is given (or if no command is given),
 \fBeos\-updater\-ctl\fP will monitor the state of
@@ -50,6 +54,9 @@ D\-Bus name changes. Run until killed.
 .IP "\fBpoll\fP"
 Check all configured update sources for available updates.
 .\"
+.IP "\fBupdate\fP"
+Run all three update stages in sequence: poll, fetch, apply.
+.\"
 .SH OPTIONS
 .IX Header "OPTIONS"
 .\"
@@ -68,9 +75,15 @@ Example of updating a computer manually using \fBeos\-updater\-ctl\fP:
 .PP
 .nf
 .RS
+$ eos\-updater\-ctl update
+.RE
+.fi
+.PP
+Example of polling for updates manually:
+.PP
+.nf
+.RS
 $ eos\-updater\-ctl poll
-$ eos\-updater\-ctl fetch
-$ eos\-updater\-ctl apply
 .RE
 .fi
 .\"

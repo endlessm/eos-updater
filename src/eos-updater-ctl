@@ -165,6 +165,23 @@ def command_apply(block, quiet=False):
     return command_dbus('apply', block, quiet)
 
 
+def command_update(quiet=False):
+    """Run the entire update process."""
+    poll_result = command_poll(block=True, quiet=quiet)
+    if poll_result != 0:
+        return poll_result
+
+    fetch_result = command_fetch(block=True, quiet=quiet)
+    if fetch_result != 0:
+        return fetch_result
+
+    apply_result = command_apply(block=True, quiet=quiet)
+    if apply_result != 0:
+        return apply_result
+
+    return 0
+
+
 def command_monitor(quiet=False):
     """Watch properties and signals from the updater indefinitely."""
     bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
@@ -220,6 +237,10 @@ def main():
     parser_monitor = subparsers.add_parser('monitor',
                                            help='watch eos-updater properties')
     parser_monitor.set_defaults(function=command_monitor)
+
+    parser_update = subparsers.add_parser('update',
+                                          help='run the entire update process')
+    parser_update.set_defaults(function=command_update)
 
     # Parse the command line arguments and run the subcommand.
     args = parser.parse_args()
