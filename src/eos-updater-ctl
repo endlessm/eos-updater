@@ -100,7 +100,7 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def command_dbus(command, block):
+def command_dbus(command, block, quiet=False):
     """Run the given command and wait for it to complete."""
     bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     (function_name, in_progress_state) = METHODS[command]
@@ -112,7 +112,8 @@ def command_dbus(command, block):
             return
 
         new_state = UPDATER_STATES[parameters[0]]
-        print('Changed state to ' + new_state)
+        if not quiet:
+            print('Changed state to ' + new_state)
 
         if new_state == in_progress_state:
             seen_in_progress_state = True
@@ -146,25 +147,25 @@ def command_dbus(command, block):
     proxy.disconnect(signal_id)
 
     # Print the final state of the properties before exiting.
-    if block:
+    if block and not quiet:
         dump_daemon_properties(proxy)
 
     return 1 if cancelled else 0
 
 
-def command_poll(block):
-    return command_dbus('poll', block)
+def command_poll(block, quiet=False):
+    return command_dbus('poll', block, quiet)
 
 
-def command_fetch(block):
-    return command_dbus('fetch', block)
+def command_fetch(block, quiet=False):
+    return command_dbus('fetch', block, quiet)
 
 
-def command_apply(block):
-    return command_dbus('apply', block)
+def command_apply(block, quiet=False):
+    return command_dbus('apply', block, quiet)
 
 
-def command_monitor():
+def command_monitor(quiet=False):
     """Watch properties and signals from the updater indefinitely."""
     bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     loop = GLib.MainLoop()
@@ -189,6 +190,9 @@ def main():
                                        help='command to pass to eos-updater; '
                                             'omit to monitor the updater')
     parser.set_defaults(function=command_monitor)
+    parser.add_argument('--quiet', action='store_true',
+                        help='output no informational messages')
+    parser.set_defaults(quiet=False)
 
     # Common options for the D-Bus method subcommands.
     common_parser = argparse.ArgumentParser(add_help=False)
