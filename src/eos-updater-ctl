@@ -192,13 +192,13 @@ def main():
 
     # Common options for the D-Bus method subcommands.
     common_parser = argparse.ArgumentParser(add_help=False)
-    common_parser.add_argument('--no-block', dest='block',
-                               action='store_false',
-                               help='do not wait until eos-updater has '
-                                    'finished all processing in the requested '
-                                    'state')
-    common_parser.add_argument('--block', dest='block', action='store_true',
-                               help='opposite of --no-block')
+    group = common_parser.add_mutually_exclusive_group()
+    group.add_argument('--no-block', dest='block',
+                       action='store_false',
+                       help='do not wait until eos-updater has finished all '
+                            'processing in the requested state')
+    group.add_argument('--block', dest='block', action='store_true',
+                       help='opposite of --no-block')
     common_parser.set_defaults(block=True)
 
     parser_poll = subparsers.add_parser('poll', parents=[common_parser],
