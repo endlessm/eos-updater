@@ -25,7 +25,8 @@ command will block on successful progression through the named state unless the
 \fB\-\-no\-block\fP option is provided: for example, the \fBfetch\fP command
 will wait for an update to be downloaded rather than completing immediately.
 .PP
-If no command is specified, \fBeos\-updater\-ctl\fP will monitor the state of
+If the \fBmonitor\fP command is given (or if no command is given),
+\fBeos\-updater\-ctl\fP will monitor the state of
 \fBeos\-updater\fP(8) until interrupted, printing out its D\-Bus properties
 every time they change. If the updater disappears off the system bus,
 \fBeos\-updater\-ctl\fP will wait until it reappears and will resume
@@ -42,6 +43,10 @@ This command does not reboot the computer.
 .IP "\fBfetch\fP"
 Download updates which were found in the previous \fBpoll\fP stage.
 .\"
+.IP "\fBmonitor\fP"
+Monitor the status of \fBeos\-updater\fP(8), printing its state changes and
+D\-Bus name changes. Run until killed.
+.\"
 .IP "\fBpoll\fP"
 Check all configured update sources for available updates.
 .\"
@@ -50,8 +55,8 @@ Check all configured update sources for available updates.
 .\"
 .IP "\fB\-\-no\-block\fP"
 Do not wait for the given command to result in a state change in
-\fBeos\-updater\fP(8); instead, return immediately. This has no effect if no
-command is provided.
+\fBeos\-updater\fP(8); instead, return immediately. This is understood by the
+\fBpoll\fP, \fBfetch\fP and \fBapply\fP commands.
 .\"
 .SH EXAMPLES
 .IX Header "EXAMPLES"

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright © 2013 Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+# Copyright © 2017 Endless Mobile, Inc.
 #
 # Quick test command line for eos-updater
 #
@@ -99,8 +100,9 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def run_command(command, bus, block):
+def command_dbus(command, block):
     """Run the given command and wait for it to complete."""
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     (function_name, in_progress_state) = METHODS[command]
 
     def signal_cb(proxy, sender_name, signal_name, parameters, user_data):
@@ -150,8 +152,21 @@ def run_command(command, bus, block):
     return 1 if cancelled else 0
 
 
-def monitor(bus):
+def command_poll(block):
+    return command_dbus('poll', block)
+
+
+def command_fetch(block):
+    return command_dbus('fetch', block)
+
+
+def command_apply(block):
+    return command_dbus('apply', block)
+
+
+def command_monitor():
     """Watch properties and signals from the updater indefinitely."""
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     loop = GLib.MainLoop()
     name_watch_id = Gio.bus_watch_name_on_connection(
         bus, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
@@ -170,27 +185,42 @@ def monitor(bus):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Control eos-updater stages.')
-    parser.add_argument('command', choices=METHODS.keys(), nargs='?',
-                        help='command to pass to eos-updater; '
-                             'omit to monitor the updater')
-    parser.add_argument('--no-block', dest='block', action='store_false',
-                        help='Do not wait until eos-updater has finished all '
-                             'processing in the requested state')
-    parser.add_argument('--block', dest='block', action='store_true')
-    parser.set_defaults(block=True)
+    subparsers = parser.add_subparsers(metavar='command',
+                                       help='command to pass to eos-updater; '
+                                            'omit to monitor the updater')
+    parser.set_defaults(function=command_monitor)
 
+    # Common options for the D-Bus method subcommands.
+    common_parser = argparse.ArgumentParser(add_help=False)
+    common_parser.add_argument('--no-block', dest='block',
+                               action='store_false',
+                               help='do not wait until eos-updater has '
+                                    'finished all processing in the requested '
+                                    'state')
+    common_parser.add_argument('--block', dest='block', action='store_true',
+                               help='opposite of --no-block')
+    common_parser.set_defaults(block=True)
+
+    parser_poll = subparsers.add_parser('poll', parents=[common_parser],
+                                        help='check for updates')
+    parser_poll.set_defaults(function=command_poll)
+
+    parser_fetch = subparsers.add_parser('fetch', parents=[common_parser],
+                                         help='download available updates')
+    parser_fetch.set_defaults(function=command_fetch)
+
+    parser_apply = subparsers.add_parser('apply', parents=[common_parser],
+                                         help='deploy downloaded updates')
+    parser_apply.set_defaults(function=command_apply)
+
+    parser_monitor = subparsers.add_parser('monitor',
+                                           help='watch eos-updater properties')
+    parser_monitor.set_defaults(function=command_monitor)
+
+    # Parse the command line arguments and run the subcommand.
     args = parser.parse_args()
-
-    # Set up a D-Bus connection
-    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
-
-    # Handle the given action.
-    if args.command:
-        status = run_command(args.command, bus, args.block)
-    else:
-        status = monitor(bus)
-
-    sys.exit(status)
+    args_dict = dict((k, v) for k, v in vars(args).items() if k != 'function')
+    sys.exit(args.function(**args_dict))
 
 
 if __name__ == '__main__':
