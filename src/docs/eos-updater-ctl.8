@@ -35,6 +35,11 @@ If the \fBmonitor\fP command is given (or if no command is given),
 every time they change. If the updater disappears off the system bus,
 \fBeos\-updater\-ctl\fP will wait until it reappears and will resume
 monitoring.
+.PP
+The \fBserver\fP command is used to control the configuration of
+\fBeos\-update\-server\fP(8). Its \fBenable\fP and \fBdisable\fP subcommands
+make the necessary configuration and update changes to enable or disable
+advertising and serving updates to computers on the local network.
 .\"
 .SH COMMANDS
 .IX Header "COMMANDS"
@@ -53,6 +58,10 @@ D\-Bus name changes. Run until killed.
 .\"
 .IP "\fBpoll\fP"
 Check all configured update sources for available updates.
+.\"
+.IP "\fBserver\fP [\fBenable\fP|\fBdisable\fP]\fP"
+Enable or disable advertising and serving updates to the local network using
+\fBeos\-update\-server\fP(8).
 .\"
 .IP "\fBupdate\fP"
 Run all three update stages in sequence: poll, fetch, apply.

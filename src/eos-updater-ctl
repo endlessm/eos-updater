@@ -21,6 +21,7 @@
 # Boston, MA 02111-1307, USA.
 
 import argparse
+import os
 import sys
 from gi.repository import Gio, GLib
 
@@ -44,6 +45,19 @@ METHODS = {
     'fetch': ('Fetch', 'Fetching'),
     'apply': ('Apply', 'ApplyingUpdate'),
 }
+
+# Various well-known file locations for eos-updater
+EOS_UPDATE_SERVER_CONFS = [
+    '/etc/eos-updater/eos-update-server.conf',
+    '/usr/local/share/eos-updater/eos-update-server.conf',
+    '/usr/share/eos-updater/eos-update-server.conf',
+]
+EOS_UPDATER_CONFS = [
+    '/etc/eos-updater/eos-updater.conf',
+    '/usr/local/share/eos-updater/eos-updater.conf',
+    '/usr/share/eos-updater/eos-updater.conf',
+]
+EOS_SUMMARY = '/ostree/repo/extensions/eos/eos-summary'
 
 current_proxy = None
 
@@ -200,6 +214,89 @@ def command_monitor(quiet=False):
     return 0
 
 
+def command_server(server_command, quiet=False):
+    """Enable or disable eos-update-server."""
+    if server_command == 'enable':
+        new_state = True
+    elif server_command == 'disable':
+        new_state = False
+    else:
+        return 0
+
+    # If we are enabling eos-update-server, check that eos-updater is
+    # configured to get updates from the internet; we do not support mesh
+    # update networks yet.
+    if new_state:
+        download_order = []
+        for path in EOS_UPDATER_CONFS:
+            try:
+                conf = GLib.KeyFile()
+                conf.load_from_file(path, GLib.KeyFileFlags.NONE)
+                download_order = conf.get_string_list('Download', 'Order')
+                break
+            except GLib.Error as exc:
+                continue
+
+        if 'main' not in download_order:
+            print('The ‘main’ update source is not enabled. Add it to '
+                  'Download.Order in {}.'.format(EOS_UPDATER_CONFS[0]),
+                  file=sys.stderr)
+            return 1
+
+    # Change the server configuration to enable/disable it.
+    # FIXME: This config file handling will eventually move into a library.
+    # See https://phabricator.endlessm.com/T15740
+    key_file = GLib.KeyFile()
+    for path in EOS_UPDATE_SERVER_CONFS:
+        try:
+            key_file.load_from_file(path, GLib.KeyFileFlags.KEEP_COMMENTS)
+            break
+        except GLib.Error as exc:
+            if not exc.matches(GLib.quark_from_string('g-file-error-quark'),
+                               GLib.FileError.NOENT):
+                print('Error loading existing configuration '
+                      'from {}: {}'.format(path, exc.message), file=sys.stderr)
+                return 1
+
+    old_state = key_file.get_boolean('Local Network Updates',
+                                     'AdvertiseUpdates')
+
+    if old_state == new_state:
+        if not quiet:
+            print('eos-update-server is already ' +
+                  ('enabled' if new_state else 'disabled'))
+        return 0
+
+    key_file.set_boolean('Local Network Updates', 'AdvertiseUpdates',
+                         new_state)
+
+    # Save the updated config file. Create the directory first.
+    try:
+        os.makedirs(os.path.dirname(EOS_UPDATE_SERVER_CONFS[0]),
+                    mode=0o755, exist_ok=True)
+    except:
+        # Fall through and try to write the file anyway.
+        pass
+
+    try:
+        key_file.save_to_file(EOS_UPDATE_SERVER_CONFS[0])
+        if not quiet:
+            print('Updated {}'.format(EOS_UPDATE_SERVER_CONFS[0]))
+    except GLib.Error as exc:
+        print('Error writing new configuration to {}: {}'.format(
+            EOS_UPDATE_SERVER_CONFS[0], exc.message), file=sys.stderr)
+        return 1
+
+    # If we are enabling the server, check that we have an OSTree summary file
+    # present. If not, we need to apply an update to download one.
+    if new_state and not os.path.exists(EOS_SUMMARY):
+        if not quiet:
+            print('Triggering update to download OSTree summary file…')
+        return command_update(quiet=True)
+
+    return 0
+
+
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Control eos-updater stages.')
@@ -237,6 +334,16 @@ def main():
     parser_monitor = subparsers.add_parser('monitor',
                                            help='watch eos-updater properties')
     parser_monitor.set_defaults(function=command_monitor)
+
+    parser_server = subparsers.add_parser('server',
+                                          help='control eos-update-server '
+                                               'configuration')
+    parser_server.set_defaults(function=command_server)
+    server_subparsers = parser_server.add_subparsers(
+        dest='server_command', metavar='command',
+        help='command to run regarding the server')
+    server_subparsers.add_parser('enable', help='enable eos-update-server')
+    server_subparsers.add_parser('disable', help='disable eos-update-server')
 
     parser_update = subparsers.add_parser('update',
                                           help='run the entire update process')
