@@ -34,16 +34,16 @@ monitoring.
 .SH COMMANDS
 .IX Header "COMMANDS"
 .\"
-.IP "\fBpoll\fP"
-Check all configured update sources for available updates.
-.\"
-.IP "\fBfetch\fP"
-Download updates which were found in the previous \fBpoll\fP stage.
-.\"
 .IP "\fBapply\fP"
 Deploy updates which were downloaded in the previous \fBfetch\fP stage, and
 ready the computer to boot into an updated OSTree deployment when next rebooted.
 This command does not reboot the computer.
+.\"
+.IP "\fBfetch\fP"
+Download updates which were found in the previous \fBpoll\fP stage.
+.\"
+.IP "\fBpoll\fP"
+Check all configured update sources for available updates.
 .\"
 .SH OPTIONS
 .IX Header "OPTIONS"
