@@ -223,6 +223,11 @@ def command_server(server_command, quiet=False):
     else:
         return 0
 
+    # Must be run as root.
+    if os.geteuid() != 0:
+        print('Error: Must be run as root.', file=sys.stderr)
+        return 1
+
     # If we are enabling eos-update-server, check that eos-updater is
     # configured to get updates from the internet; we do not support mesh
     # update networks yet.
