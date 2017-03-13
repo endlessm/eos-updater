@@ -518,6 +518,9 @@ browse_cb (AvahiServiceBrowser *browser,
       break;
 
     case AVAHI_BROWSER_CACHE_EXHAUSTED:
+      /* don’t care about this. */
+      break;
+
     case AVAHI_BROWSER_ALL_FOR_NOW:
       browse_discovery_finished (discoverer);
       break;
