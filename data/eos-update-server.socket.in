@@ -4,6 +4,20 @@ Documentation=man:eos-update-server(8)
 ConditionPathExists=@sysconfdir@/avahi/services/eos-updater.service
 After=eos-updater-avahi.service
 
+# We want all the default dependencies except Before=sockets.target, otherwise
+# we get an ordering loop with eos-updater-avahi.service, basic.target and
+# sockets.target. We definitely want to be ordered after
+# eos-updater-avahi.service so that our ConditionPathExists is re-evaluated
+# each time it’s run.
+DefaultDependencies=no
+
+After=sysinit.target
+Requires=sysinit.target
+After=-.slice
+Requires=-.slice
+Before=shutdown.target
+Conflicts=shutdown.target
+
 [Socket]
 ListenStream=@server_port@
 
