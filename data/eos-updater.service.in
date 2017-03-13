@@ -1,7 +1,7 @@
 [Unit]
 Description=Endless OS Updater
 Documentation=man:eos-updater(8)
-Wants=network.target
+After=network.target
 
 [Service]
 ExecStart=@bindir@/eos-updater
