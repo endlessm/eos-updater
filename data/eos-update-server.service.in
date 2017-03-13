@@ -1,7 +1,7 @@
 [Unit]
 Description=Endless OS Local Update Server
 Documentation=man:eos-update-server(8)
-Wants=network.target
+After=network.target
 
 # Only run when Avahi is advertising the port.
 ConditionPathExists=@sysconfdir@/avahi/services/eos-updater.service
