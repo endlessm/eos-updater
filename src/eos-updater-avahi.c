@@ -61,6 +61,76 @@ typedef enum
   EOS_AVAHI_FINISHED
 } EosAvahiState;
 
+static const gchar *
+eos_avahi_state_to_string (EosAvahiState state)
+{
+  switch (state)
+    {
+    case EOS_AVAHI_DISCOVERING_AND_RESOLVING:
+      return "discovering-and-resolving";
+    case EOS_AVAHI_RESOLVING_ONLY:
+      return "resolving-only";
+    case EOS_AVAHI_FINISHED:
+      return "finished";
+    default:
+      g_assert_not_reached ();
+    }
+}
+
+static const gchar *
+eos_avahi_client_state_to_string (AvahiClientState state)
+{
+  switch (state)
+    {
+    case AVAHI_CLIENT_S_REGISTERING:
+      return "registering";
+    case AVAHI_CLIENT_S_RUNNING:
+      return "running";
+    case AVAHI_CLIENT_S_COLLISION:
+      return "collision";
+    case AVAHI_CLIENT_CONNECTING:
+      return "connecting";
+    case AVAHI_CLIENT_FAILURE:
+      return "failure";
+    default:
+      return "unknown";
+    }
+}
+
+static const gchar *
+eos_avahi_resolver_event_to_string (AvahiResolverEvent event)
+{
+  switch (event)
+    {
+    case AVAHI_RESOLVER_FOUND:
+      return "found";
+    case AVAHI_RESOLVER_FAILURE:
+      return "failure";
+    default:
+      return "unknown";
+    }
+}
+
+static const gchar *
+eos_avahi_browser_event_to_string (AvahiBrowserEvent event)
+{
+  switch (event)
+    {
+    case AVAHI_BROWSER_NEW:
+      return "new";
+    case AVAHI_BROWSER_REMOVE:
+      return "remove";
+    case AVAHI_BROWSER_CACHE_EXHAUSTED:
+      return "cache-exhausted";
+    case AVAHI_BROWSER_ALL_FOR_NOW:
+      return "all-for-now";
+    case AVAHI_BROWSER_FAILURE:
+      return "failure";
+    default:
+      return "unknown";
+    }
+}
+
 struct _EosAvahiDiscoverer
 {
   GObject parent_instance;
@@ -217,6 +287,10 @@ client_cb (AvahiClient *client,
 {
   EosAvahiDiscoverer *discoverer = discoverer_ptr;
 
+  g_debug ("%s: Entered state ‘%s’. Discoverer in state ‘%s’.",
+           G_STRFUNC, eos_avahi_client_state_to_string (state),
+           eos_avahi_state_to_string (discoverer->state));
+
   if (discoverer->state == EOS_AVAHI_FINISHED)
     return;
 
@@ -270,6 +344,10 @@ resolve_cb (AvahiServiceResolver *r,
   EosAvahiService *service;
   AvahiStringList* iter;
   guint n_resolvers;
+
+  g_debug ("%s: Resolve event ‘%s’ for name ‘%s’. Discoverer in state ‘%s’.",
+           G_STRFUNC, eos_avahi_resolver_event_to_string (event), name,
+           eos_avahi_state_to_string (discoverer->state));
 
   if (discoverer->state == EOS_AVAHI_FINISHED)
     return;
@@ -421,6 +499,10 @@ browse_cb (AvahiServiceBrowser *browser,
            void* discoverer_ptr)
 {
   EosAvahiDiscoverer *discoverer = discoverer_ptr;
+
+  g_debug ("%s: Browse event ‘%s’ for name ‘%s’. Discoverer state is ‘%s’.",
+           G_STRFUNC, eos_avahi_browser_event_to_string (event), name,
+           eos_avahi_state_to_string (discoverer->state));
 
   if (discoverer->state == EOS_AVAHI_FINISHED)
     return;
