@@ -544,7 +544,7 @@ setup_real_avahi_discoverer (EosAvahiDiscoverer *discoverer,
 
   discoverer->poll = avahi_glib_poll_new (context, G_PRIORITY_DEFAULT);
   discoverer->client = avahi_client_new (avahi_glib_poll_get (discoverer->poll),
-                                         0,
+                                         AVAHI_CLIENT_NO_FAIL,
                                          client_cb,
                                          discoverer,
                                          &failure);
