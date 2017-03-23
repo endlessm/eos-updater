@@ -403,20 +403,29 @@ eos_filez_read_data_disconnect_and_clear_msg (EosFilezReadData *read_data)
 
 static void
 update_pending_requests (EosUpdaterRepoServer *server,
-                         guint new_value)
+                         gint                  delta)
 {
-  if (server->pending_requests == new_value)
+  GObject *obj = G_OBJECT (server);
+
+  g_assert (delta >= 0 || server->pending_requests >= (guint) -delta);
+  g_assert (delta <= 0 || server->pending_requests <= G_MAXUINT - delta);
+
+  if (delta == 0)
     return;
 
-  server->pending_requests = new_value;
-  g_object_notify_by_pspec (G_OBJECT (server), props[PROP_PENDING_REQUESTS]);
+  server->pending_requests += delta;
+  server->last_request_time = g_get_monotonic_time ();
+
+  g_object_freeze_notify (obj);
+  g_object_notify_by_pspec (obj, props[PROP_PENDING_REQUESTS]);
+  g_object_notify_by_pspec (obj, props[PROP_LAST_REQUEST_TIME]);
+  g_object_thaw_notify (obj);
 }
 
 static void
 eos_filez_read_data_dispose_impl (EosFilezReadData *read_data)
 {
-  update_pending_requests (read_data->server,
-                           read_data->server->pending_requests - 1);
+  update_pending_requests (read_data->server, -1);
   eos_filez_read_data_disconnect_and_clear_msg (read_data);
 }
 
@@ -467,8 +476,7 @@ filez_read_data_new (EosUpdaterRepoServer *server,
   read_data->filez_path = g_strdup (filez_path);
   read_data->finished_signal_id = g_signal_connect (msg, "finished", G_CALLBACK (filez_read_data_finished_cb), read_data);
 
-  update_pending_requests (read_data->server,
-                           read_data->server->pending_requests + 1);
+  update_pending_requests (read_data->server, 1);
 
   return read_data;
 }
@@ -808,13 +816,6 @@ handle_path (EosUpdaterRepoServer *server,
 }
 
 static void
-update_last_request_time (EosUpdaterRepoServer *server)
-{
-  server->last_request_time = g_get_monotonic_time ();
-  g_object_notify_by_pspec (G_OBJECT (server), props[PROP_LAST_REQUEST_TIME]);
-}
-
-static void
 server_cb (SoupServer *soup_server,
            SoupMessage *msg,
            const gchar *path,
@@ -823,16 +824,8 @@ server_cb (SoupServer *soup_server,
            gpointer user_data)
 {
   EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
-  guint status_code;
 
   handle_path (server, msg, path);
-
-  g_object_get (msg,
-                "status-code", &status_code,
-                NULL);
-
-  if (SOUP_STATUS_IS_SUCCESSFUL (status_code))
-    update_last_request_time (server);
 }
 
 static gboolean
