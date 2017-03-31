@@ -188,7 +188,7 @@ options_init (Options *options,
   g_autoptr(GOptionGroup) group = NULL;
   GOptionEntry entries[] = {
     { "local-port", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, local_port_goption, "Local port number (0 < N < 65536)", "N" },
-    { "timeout", 't', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &options->timeout_seconds, "Number of seconds of inactivity allowed before exiting (default: 5 seconds; ≤0 means no timeout)", "SECONDS" },
+    { "timeout", 't', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &options->timeout_seconds, "Number of seconds of inactivity allowed before exiting (default: 200 seconds; ≤0 means no timeout)", "SECONDS" },
     { "serve-remote", 'r', G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, serve_remote_goption, "Name of the remote to serve (default: eos)", "REMOTE-NAME" },
     { "port-file", 'f', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &options->raw_port_path, "File to write the port number in (default: do not write the port number)", "PATH" },
     { "config-file", 'c',
@@ -208,7 +208,7 @@ options_init (Options *options,
                                 "updates to be shared between computers.");
 
   memset (options, 0, sizeof (*options));
-  options->timeout_seconds = 5;
+  options->timeout_seconds = 200;
   options->served_remote = g_strdup ("eos");
 
   return g_option_context_parse (context, argc, argv, error);
