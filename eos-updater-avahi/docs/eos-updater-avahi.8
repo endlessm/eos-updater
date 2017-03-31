@@ -38,6 +38,25 @@ configuration is changed. There should be no need to run
 If the computer has been converted to not use OSTree, advertisement of updates
 to the local network is permanently disabled.
 .\"
+.SH ROUTER CONFIGURATION
+.IX HEADER "ROUTER CONFIGURATION"
+.\"
+\fBeos\-updater\-avahi\fP relies on DNS\-SD advertisements being successfully
+multicast across the local network, via mDNS over IPv4 or IPv6 (or both). As
+multicast is expensive on wireless networks, some routers do not forward
+multicast packets to wireless peers unless they can determine that the peers are
+interested in receiving them. This is typically achieved by listening for IGMP
+requests from the peers to establish their interest in receiving multicast
+packets.
+.PP
+If DNS\-SD advertisement of updates in the local network is not working, or if
+it works when a peer is first started, but then times out after a number of
+minutes, please ensure that the relevant multicast options are enabled in the
+local network’s router. These might be labelled \fIIGMP snooping\fP,
+\fIIGMP proxy\fP or \fImulticast routing\fP, for example.
+.PP
+mDNS problems can be debugged using \fBavahi\-browse\fP(1).
+.\"
 .SH OPTIONS
 .IX Header "OPTIONS"
 .\"
@@ -123,6 +142,12 @@ when conditions change. See \fBsystemd.path\fP(5).
 \fBeos\-update\-server\fP(8),
 \fBeos\-updater\fP(8),
 \fBeos\-update\-server.conf\fP(5)
+.PP
+\fBavahi\-browse\fP(1)
+.PP
+\fIhttps://en.wikipedia.org/wiki/DNS\-SD\fP,
+\fIhttps://en.wikipedia.org/wiki/Multicast_DNS\fP,
+\fIhttps://en.wikipedia.org/wiki/Internet_Group_Management_Protocol\fP
 .\"
 .SH BUGS
 .IX Header "BUGS"
