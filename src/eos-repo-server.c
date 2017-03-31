@@ -392,16 +392,6 @@ struct _EosFilezReadData
 };
 
 static void
-eos_filez_read_data_disconnect_and_clear_msg (EosFilezReadData *read_data)
-{
-  if (read_data->finished_signal_id > 0)
-    g_signal_handler_disconnect (read_data->msg, read_data->finished_signal_id);
-  read_data->finished_signal_id = 0;
-  g_clear_object (&read_data->msg);
-  g_clear_object (&read_data->server);
-}
-
-static void
 update_pending_requests (EosUpdaterRepoServer *server,
                          gint                  delta)
 {
@@ -423,9 +413,21 @@ update_pending_requests (EosUpdaterRepoServer *server,
 }
 
 static void
+eos_filez_read_data_disconnect_and_clear_msg (EosFilezReadData *read_data)
+{
+  if (read_data->server != NULL)
+    update_pending_requests (read_data->server, -1);
+
+  if (read_data->finished_signal_id > 0)
+    g_signal_handler_disconnect (read_data->msg, read_data->finished_signal_id);
+  read_data->finished_signal_id = 0;
+  g_clear_object (&read_data->msg);
+  g_clear_object (&read_data->server);
+}
+
+static void
 eos_filez_read_data_dispose_impl (EosFilezReadData *read_data)
 {
-  update_pending_requests (read_data->server, -1);
   eos_filez_read_data_disconnect_and_clear_msg (read_data);
 }
 
