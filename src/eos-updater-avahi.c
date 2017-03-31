@@ -37,6 +37,7 @@
 #include <avahi-common/strlst.h>
 #include <avahi-glib/glib-malloc.h>
 #include <avahi-glib/glib-watch.h>
+#include <netinet/in.h>
 #include <string.h>
 
 static void
@@ -323,6 +324,33 @@ maybe_queue_success_callback (EosAvahiDiscoverer *discoverer)
   queue_callback (discoverer);
 }
 
+/* Convert an AvahiAddress to a string which is suitable for use in URIs (for
+ * example). Take into account the scope ID, if the address is IPv6 and a
+ * link-local address.
+ * (See https://en.wikipedia.org/wiki/IPv6_address#Link-local_addresses_and_zone_indices and
+ * https://github.com/lathiat/avahi/issues/110.) */
+static gchar *
+address_to_string (const AvahiAddress *address,
+                   AvahiIfIndex        interface)
+{
+  char address_string[AVAHI_ADDRESS_STR_MAX];
+
+  avahi_address_snprint (address_string, sizeof (address_string), address);
+
+  switch (address->proto)
+    {
+    case AVAHI_PROTO_INET6:
+      if (IN6_IS_ADDR_LINKLOCAL (address->data.data) ||
+          IN6_IS_ADDR_LOOPBACK (address->data.data))
+        return g_strdup_printf ("%s%%%d", address_string, interface);
+      /* else fall through */
+    case AVAHI_PROTO_INET:
+    case AVAHI_PROTO_UNSPEC:
+    default:
+      return g_strdup (address_string);
+    }
+}
+
 static void
 resolve_cb (AvahiServiceResolver *r,
             AvahiIfIndex interface,
@@ -339,7 +367,6 @@ resolve_cb (AvahiServiceResolver *r,
             void* discoverer_ptr)
 {
   EosAvahiDiscoverer *discoverer = discoverer_ptr;
-  char address_string[AVAHI_ADDRESS_STR_MAX];
   GPtrArray *gtxt;
   EosAvahiService *service;
   AvahiStringList* iter;
@@ -401,7 +428,7 @@ resolve_cb (AvahiServiceResolver *r,
   service = g_object_new (EOS_TYPE_AVAHI_SERVICE, NULL);
   service->name = g_strdup (name);
   service->domain = g_strdup (domain);
-  service->address = g_strdup (avahi_address_snprint (address_string, sizeof address_string, address));
+  service->address = address_to_string (address, interface);
   service->port = port;
   service->txt = (gchar**)g_ptr_array_free (gtxt, FALSE);
   g_ptr_array_add (discoverer->found_services, service);
