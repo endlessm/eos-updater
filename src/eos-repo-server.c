@@ -261,12 +261,12 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
   /**
    * EosUpdaterRepoServer:last-request-time:
    *
-   * Time of the last served valid request. See
+   * Time of the last served valid request or response. See
    * eos_updater_repo_server_get_last_request_time() for details.
    */
   props[PROP_LAST_REQUEST_TIME] = g_param_spec_int64 ("last-request-time",
                                                       "Last request time",
-                                                      "A monotonic time in microseconds when the last valid request was handled",
+                                                      "A monotonic time in microseconds when the last request or response was handled",
                                                       0,
                                                       G_MAXINT64,
                                                       0,
@@ -403,6 +403,9 @@ update_pending_requests (EosUpdaterRepoServer *server,
   if (delta == 0)
     return;
 
+  g_debug ("%s: Updating from %u to %u", G_STRFUNC, server->pending_requests,
+           server->pending_requests + delta);
+
   server->pending_requests += delta;
   server->last_request_time = g_get_monotonic_time ();
 
@@ -415,9 +418,6 @@ update_pending_requests (EosUpdaterRepoServer *server,
 static void
 eos_filez_read_data_disconnect_and_clear_msg (EosFilezReadData *read_data)
 {
-  if (read_data->server != NULL)
-    update_pending_requests (read_data->server, -1);
-
   if (read_data->finished_signal_id > 0)
     g_signal_handler_disconnect (read_data->msg, read_data->finished_signal_id);
   read_data->finished_signal_id = 0;
@@ -477,8 +477,6 @@ filez_read_data_new (EosUpdaterRepoServer *server,
   read_data->msg = g_object_ref (msg);
   read_data->filez_path = g_strdup (filez_path);
   read_data->finished_signal_id = g_signal_connect (msg, "finished", G_CALLBACK (filez_read_data_finished_cb), read_data);
-
-  update_pending_requests (read_data->server, 1);
 
   return read_data;
 }
@@ -830,6 +828,39 @@ server_cb (SoupServer *soup_server,
   handle_path (server, msg, path);
 }
 
+static void
+request_started_cb (SoupServer        *soup_server,
+                    SoupMessage       *message,
+                    SoupClientContext *client,
+                    gpointer           user_data)
+{
+  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
+
+  update_pending_requests (server, 1);
+}
+
+static void
+request_finished_cb (SoupServer        *soup_server,
+                     SoupMessage       *message,
+                     SoupClientContext *client,
+                     gpointer           user_data)
+{
+  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
+
+  update_pending_requests (server, -1);
+}
+
+static void
+request_aborted_cb (SoupServer        *soup_server,
+                    SoupMessage       *message,
+                    SoupClientContext *client,
+                    gpointer           user_data)
+{
+  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
+
+  update_pending_requests (server, -1);
+}
+
 static gboolean
 eos_updater_repo_server_initable_init (GInitable     *initable,
                                        GCancellable  *cancellable,
@@ -849,6 +880,10 @@ eos_updater_repo_server_initable_init (GInitable     *initable,
                            server_cb,
                            NULL,
                            NULL);
+  g_signal_connect (server, "request-started", (GCallback) request_started_cb, NULL);
+  g_signal_connect (server, "request-finished", (GCallback) request_finished_cb, NULL);
+  g_signal_connect (server, "request-aborted", (GCallback) request_aborted_cb, NULL);
+
   return TRUE;
 }
 
@@ -912,9 +947,9 @@ eos_updater_repo_server_get_pending_requests (EosUpdaterRepoServer *repo_server)
  * @repo_server: The #EosUpdaterRepoServer
  *
  * The result of this function is basically a result of
- * g_get_monotonic_time() at the end request handler. Note that this
- * property is updated only when the request was valid (returned 2xx
- * HTTP status). Use this function together with
+ * g_get_monotonic_time() at the end request and response handlers. It is
+ * updated once at the start of each request, and once at the end (regardless of
+ * whether the request was successful). Use this function together with
  * eos_updater_repo_server_get_pending_requests() if you want to stop
  * the server after the timeout.
  *
