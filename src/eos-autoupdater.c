@@ -28,8 +28,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <nm-client.h>
-#include <nm-device.h>
+#include <NetworkManager.h>
 
 #include <systemd/sd-journal.h>
 
@@ -586,6 +585,7 @@ is_online (void)
 {
   NMClient *client;
   gboolean online;
+  g_autoptr(GError) error = NULL;
 
   /* Don’t connect to NetworkManager when we are supposed to use the session
    * bus, as NM is on the system bus, and we don’t want to mock it up. */
@@ -595,9 +595,12 @@ is_online (void)
       return TRUE;
     }
 
-  client = nm_client_new ();
+  client = nm_client_new (NULL, &error);
   if (!client)
-    return FALSE;
+    {
+      g_message ("Failed to get the NetworkManager client: %s", error->message);
+      return FALSE;
+    }
 
   /* Assume that the ostree server is remote and only consider to be
    * online for ostree updates if we have global connectivity.
@@ -637,6 +640,7 @@ is_connected_through_mobile (void)
   const GPtrArray *devices;
   gboolean is_mobile = FALSE;
   guint i;
+  g_autoptr(GError) error = NULL;
 
   /* Don’t connect to NetworkManager when we are supposed to use the session
    * bus, as NM is on the system bus, and we don’t want to mock it up. */
@@ -646,10 +650,12 @@ is_connected_through_mobile (void)
       return FALSE;
     }
 
-  client = nm_client_new ();
-  if (!client) {
-    return FALSE;
-  }
+  client = nm_client_new (NULL, &error);
+  if (!client)
+    {
+      g_message ("Failed to get the NetworkManager client: %s", error->message);
+      return FALSE;
+    }
 
   connection = nm_client_get_primary_connection (client);
   if (!connection) {
@@ -684,6 +690,9 @@ is_connected_through_mobile (void)
     case NM_DEVICE_TYPE_MACVLAN:
     case NM_DEVICE_TYPE_VXLAN:
     case NM_DEVICE_TYPE_VETH:
+#if NM_CHECK_VERSION(1, 6, 0)
+    case NM_DEVICE_TYPE_MACSEC:
+#endif
     default:
       break;
     }
