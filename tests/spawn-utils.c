@@ -51,7 +51,6 @@ cmd_result_ensure_ok (CmdResult *cmd,
   g_autoptr(GError) local_error = NULL;
   g_autofree gchar *dump = cmd_result_dump (cmd);
 
-  g_printerr ("**\n%s", dump);
   g_test_message ("%s", dump);
   if (!g_spawn_check_exit_status (cmd->exit_status, &local_error))
     {
@@ -85,7 +84,6 @@ cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
         continue;
 
       msg = g_strdup_printf ("%s failure:\n%s", cmd->cmdline, error->message);
-      g_printerr ("**\n%s", msg);
       g_test_message ("%s", msg);
       ok = FALSE;
     }

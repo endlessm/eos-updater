@@ -1321,8 +1321,8 @@ spawn_updater (GFile *sysroot,
       if (!generate_bash_script (path, argv, (const gchar * const *) envp, error))
         return FALSE;
 
-      g_printerr ("Bash script %s generated. Run it, make check will continue when com.endlessm.Updater appears on the test session bus\n",
-                  bash_script_path);
+      g_test_message ("Bash script %s generated. Run it, make check will continue when com.endlessm.Updater appears on the test session bus\n",
+                      bash_script_path);
 
     }
   else if (!test_spawn_async ((const gchar * const *) argv,
@@ -1637,9 +1637,9 @@ run_update_server (GFile *repo,
                                  (const gchar * const *) envp, error))
         return FALSE;
 
-      g_printerr ("Bash script %s generated. Run it, make check will continue when port file at %s is generated\n",
-                  bash_script_path,
-                  raw_port_file_path);
+      g_test_message ("Bash script %s generated. Run it, make check will continue when port file at %s is generated\n",
+                      bash_script_path,
+                      raw_port_file_path);
     }
   else if (!test_spawn_async ((const gchar * const *) argv,
                               (const gchar * const *) envp, FALSE, cmd, error))
@@ -2034,9 +2034,9 @@ eos_test_client_prepare_volume (EosTestClient *client,
 
       delete_me_path = g_strconcat (bash_script_path, ".deleteme", NULL);
       delete_me = g_file_new_for_path (delete_me_path);
-      g_printerr ("Bash script %s generated. Run it, make check will continue when %s is deleted\n",
-                  bash_script_path,
-                  delete_me_path);
+      g_test_message ("Bash script %s generated. Run it, make check will continue when %s is deleted\n",
+                      bash_script_path,
+                      delete_me_path);
 
       if (!create_file (delete_me, NULL, error))
         return FALSE;
