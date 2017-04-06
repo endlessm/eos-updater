@@ -262,7 +262,10 @@ no_requests_timeout (EosUpdaterRepoServer *server,
   gint64 diff;
 
   if (pending_requests > 0)
-    return FALSE;
+    {
+      g_debug ("%s: %u requests pending.", G_STRFUNC, pending_requests);
+      return FALSE;
+    }
 
   last_request_time = eos_updater_repo_server_get_last_request_time (server);
   monotonic_now = g_get_monotonic_time ();

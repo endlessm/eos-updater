@@ -829,10 +829,10 @@ server_cb (SoupServer *soup_server,
 }
 
 static void
-request_started_cb (SoupServer        *soup_server,
-                    SoupMessage       *message,
-                    SoupClientContext *client,
-                    gpointer           user_data)
+request_read_cb (SoupServer        *soup_server,
+                 SoupMessage       *message,
+                 SoupClientContext *client,
+                 gpointer           user_data)
 {
   EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
 
@@ -880,7 +880,7 @@ eos_updater_repo_server_initable_init (GInitable     *initable,
                            server_cb,
                            NULL,
                            NULL);
-  g_signal_connect (server, "request-started", (GCallback) request_started_cb, NULL);
+  g_signal_connect (server, "request-read", (GCallback) request_read_cb, NULL);
   g_signal_connect (server, "request-finished", (GCallback) request_finished_cb, NULL);
   g_signal_connect (server, "request-aborted", (GCallback) request_aborted_cb, NULL);
 
