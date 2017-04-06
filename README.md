@@ -33,7 +33,7 @@ for the various configuration files it uses:
 Licensing
 ---------
 
-eos-updater is licensed under the LGPLv2+.
+eos-updater is licensed under the LGPL-2.1+.
 
 Testing
 -------
