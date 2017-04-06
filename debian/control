@@ -18,7 +18,7 @@ Build-Depends:
  libgirepository1.0-dev (>= 1.30.0),
  libglib2.0-dev (>= 2.50.0),
  libgsystem-dev,
- libnm-glib-dev,
+ libnm-dev (>= 1.2.0),
  libostree-dev (>= 2016.15+dev24.a109440),
  libsoup2.4-dev,
  libsystemd-dev,
