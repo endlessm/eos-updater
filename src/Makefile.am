@@ -151,25 +151,22 @@ eos_updater_SOURCES = \
 	eos-updater-poll-volume.c \
 	eos-updater-poll-volume.h \
 	eos-updater.c \
-	eos-updater.xml \
 	$(NULL)
 
 dist_man8_MANS += docs/eos-updater.8
 
 dbusconfdir = $(datadir)/dbus-1/system.d
 dbussystemservicedir = $(datadir)/dbus-1/system-services
+dbusinterfacesdir = $(datadir)/dbus-1/interfaces
 
 dist_dbusconf_DATA = $(srcdir)/com.endlessm.Updater.conf
 dist_dbussystemservice_DATA = $(srcdir)/com.endlessm.Updater.service
+dist_dbusinterfaces_DATA = $(srcdir)/com.endlessm.Updater.xml
 
 CLEANFILES = $(BUILT_SOURCES)
 
-EXTRA_DIST = \
-	eos-updater.xml \
-	$(NULL)
-
 eos-updater-generated.c: eos-updater-generated.h
-eos-updater-generated.h: eos-updater.xml
+eos-updater-generated.h: com.endlessm.Updater.xml
 	$(AM_V_GEN)$(GDBUS_CODEGEN)                \
 	   --interface-prefix com.endlessm.        \
 	   --generate-c-code eos-updater-generated \
