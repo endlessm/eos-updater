@@ -51,7 +51,6 @@ cmd_result_ensure_ok (CmdResult *cmd,
   g_autoptr(GError) local_error = NULL;
   g_autofree gchar *dump = cmd_result_dump (cmd);
 
-  g_printerr ("**\n%s", dump);
   g_test_message ("%s", dump);
   if (!g_spawn_check_exit_status (cmd->exit_status, &local_error))
     {
@@ -85,7 +84,6 @@ cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
         continue;
 
       msg = g_strdup_printf ("%s failure:\n%s", cmd->cmdline, error->message);
-      g_printerr ("**\n%s", msg);
       g_test_message ("%s", msg);
       ok = FALSE;
     }
@@ -121,6 +119,14 @@ cmd_async_result_free (CmdAsyncResult *cmd)
   g_free (cmd);
 }
 
+static gchar *
+join_envp_for_logging (const gchar * const *envp)
+{
+  g_autofree gchar *envp_joined = g_strjoinv ("\n - ", (gchar **) envp);
+
+  return g_strdup_printf (" - %s", envp_joined);
+}
+
 gboolean
 test_spawn_cwd_async (const gchar *cwd,
                       const gchar * const *argv,
@@ -132,7 +138,7 @@ test_spawn_cwd_async (const gchar *cwd,
   GSpawnFlags flags = G_SPAWN_DEFAULT;
   g_auto(GStrv) merged_env = merge_parent_and_child_env (envp);
   g_autofree gchar *argv_joined = g_strjoinv (" ", (gchar **) argv);
-  g_autofree gchar *envp_joined = g_strjoinv ("\n - ", merged_env);
+  g_autofree gchar *envp_joined = join_envp_for_logging ((const gchar * const *) merged_env);
 
   if (!autoreap && cmd != NULL)
     flags |= G_SPAWN_DO_NOT_REAP_CHILD;
@@ -208,7 +214,7 @@ test_spawn_cwd_full (const gchar *cwd,
   GSpawnFlags flags = G_SPAWN_DEFAULT;
   g_auto(GStrv) merged_env = merge_parent_and_child_env (envp);
   g_autofree gchar *argv_joined = g_strjoinv (" ", (gchar **) argv);
-  g_autofree gchar *envp_joined = g_strjoinv ("\n - ", merged_env);
+  g_autofree gchar *envp_joined = join_envp_for_logging ((const gchar * const *) merged_env);
   gchar **out = NULL;
   gchar **err = NULL;
   gint *status = NULL;
