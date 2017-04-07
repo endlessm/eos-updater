@@ -151,45 +151,29 @@ eos_updater_SOURCES = \
 	eos-updater-poll-volume.c \
 	eos-updater-poll-volume.h \
 	eos-updater.c \
-	eos-updater.xml \
 	$(NULL)
 
 dist_man8_MANS += docs/eos-updater.8
 
 dbusconfdir = $(datadir)/dbus-1/system.d
 dbussystemservicedir = $(datadir)/dbus-1/system-services
+dbusinterfacesdir = $(datadir)/dbus-1/interfaces
 
-dbusconf_DATA = $(eos_updater_dbus_if).conf
-dbussystemservice_DATA = $(eos_updater_dbus_if).service
+dist_dbusconf_DATA = $(srcdir)/com.endlessm.Updater.conf
+dist_dbussystemservice_DATA = $(srcdir)/com.endlessm.Updater.service
+dist_dbusinterfaces_DATA = $(srcdir)/com.endlessm.Updater.xml
 
-CLEANFILES = $(BUILT_SOURCES) $(dbusconf_DATA) $(dbussystemservice_DATA)
-
-EXTRA_DIST = \
-	eos-updater-ifname.xslt \
-	eos-updater-policy.xslt \
-	eos-updater-service.xslt \
-	eos-updater.xml \
-	$(NULL)
-
-eos_updater_dbus_if := \
-	$(shell $(XSLTPROC) $(srcdir)/eos-updater-ifname.xslt \
-		$(srcdir)/eos-updater.xml)
+CLEANFILES = $(BUILT_SOURCES)
 
 eos-updater-generated.c: eos-updater-generated.h
-eos-updater-generated.h: eos-updater.xml
-	$(AM_V_GEN)$(GDBUS_CODEGEN)                        \
-	   --interface-prefix $(basename $(eos_updater_dbus_if)). \
-	   --generate-c-code eos-updater-generated	\
-	   --c-namespace Eos                    \
-	   --c-generate-object-manager          \
-	   --c-generate-autocleanup all \
+eos-updater-generated.h: com.endlessm.Updater.xml
+	$(AM_V_GEN)$(GDBUS_CODEGEN)                \
+	   --interface-prefix com.endlessm.        \
+	   --generate-c-code eos-updater-generated \
+	   --c-namespace Eos                       \
+	   --c-generate-object-manager             \
+	   --c-generate-autocleanup all            \
 	   $<
-
-$(eos_updater_dbus_if).conf: eos-updater-policy.xslt eos-updater.xml
-	$(AM_V_GEN)$(XSLTPROC) $+ > $@
-
-$(eos_updater_dbus_if).service: eos-updater-service.xslt eos-updater.xml
-	$(AM_V_GEN)$(XSLTPROC) $+ > $@
 
 
 

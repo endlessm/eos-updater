@@ -13,6 +13,7 @@ usr/lib/*/libeos-updater-0.so.0
 usr/lib/*/libeos-updater-0.so.0.*
 usr/share/dbus-1/system-services/com.endlessm.Updater.service
 usr/share/dbus-1/system.d/com.endlessm.Updater.conf
+usr/share/dbus-1/interfaces/com.endlessm.Updater.xml
 usr/share/eos-updater/eos-autoupdater.conf
 usr/share/eos-updater/eos-updater.conf
 usr/share/eos-updater/eos-update-server.conf

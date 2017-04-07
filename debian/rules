@@ -22,7 +22,7 @@ override_dh_auto_configure:
 		$(NULL)
 
 override_dh_autoreconf:
-	dh_autoreconf ./autogen.sh
+	NOCONFIGURE=1 dh_autoreconf ./autogen.sh
 
 override_dh_strip:
 	dh_strip --dbgsym-migration='eos-updater-dbg (<< 3.0.12)'

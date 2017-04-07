@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=com.endlessm.Updater
+Exec=/usr/bin/eos-updater
+User=root
+SystemdService=eos-updater.service
