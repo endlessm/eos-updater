@@ -25,11 +25,10 @@
 #include <glib.h>
 #include <locale.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
-
+#include <glib/gprintf.h>
 #include <NetworkManager.h>
-
-#include <systemd/sd-journal.h>
 
 #define EOS_UPDATER_INVALID_ARGS_MSGID          "27b3a4600f7242acadf1855a2a1eaa6d"
 #define EOS_UPDATER_CONFIGURATION_ERROR_MSGID   "5af9f4df37f949a1948971e00be0d620"
@@ -39,6 +38,8 @@
 #define EOS_UPDATER_NOT_ONLINE_MSGID            "2797d0eaca084a9192e21838ab12cbd0"
 #define EOS_UPDATER_MOBILE_CONNECTED_MSGID      "7c80d571cbc248d2a5cfd985c7cbd44c"
 #define EOS_UPDATER_NOT_TIME_MSGID              "7c853d8fbc0b4a9b9f331b5b9aee4435"
+
+#define EOS_UPDATER_MSGID_LENGTH                32
 
 /* The step of the update. These constants are used in the configuration
  * file to indicate which is the final automatic step before the user
@@ -105,6 +106,88 @@ get_stamp_dir (void)
                         UPDATE_STAMP_DIR);
 }
 
+static void
+log_with_msgid (const gchar *msgid,
+                GLogLevelFlags log_level,
+                const gchar *numeric_log_level,
+                const gchar *format,
+                va_list args)
+{
+  G_STATIC_ASSERT (G_LOG_DOMAIN != NULL);
+  G_STATIC_ASSERT (G_LOG_DOMAIN[0] != '\0');
+
+  g_autofree gchar *message = NULL;
+  /* Apparently the version of GCC in Endless ignores the
+   * G_GNUC_PRINTF annotation that has a zero as the second parameter,
+   * so it suggests to use this attribute. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
+  gint message_length = g_vasprintf (&message, format, args);
+#pragma GCC diagnostic pop
+  const GLogField fields[] = {
+    { "MESSAGE", message, message_length },
+    { "MESSAGE_ID", msgid, EOS_UPDATER_MSGID_LENGTH },
+    { "PRIORITY", numeric_log_level, -1 },
+    /* strlen (G_LOG_DOMAIN) should be folded to a constant at a
+     * compilation time, because G_LOG_DOMAIN is a macro defining a
+     * literal string */
+    { "GLIB_DOMAIN", G_LOG_DOMAIN, strlen (G_LOG_DOMAIN) },
+  };
+
+  g_log_structured_array (log_level, fields, G_N_ELEMENTS (fields));
+}
+
+static void
+critical (const gchar *msgid,
+          const gchar *format,
+          ...) G_GNUC_PRINTF(2, 3);
+
+static void
+critical (const gchar *msgid,
+          const gchar *format,
+          ...)
+{
+  va_list args;
+
+  va_start (args, format);
+  log_with_msgid (msgid, G_LOG_LEVEL_CRITICAL, "4", format, args);
+  va_end (args);
+}
+
+static void
+warning (const gchar *msgid,
+         const gchar *format,
+         ...) G_GNUC_PRINTF(2, 3);
+
+static void
+warning (const gchar *msgid,
+         const gchar *format,
+         ...)
+{
+  va_list args;
+
+  va_start (args, format);
+  log_with_msgid (msgid, G_LOG_LEVEL_WARNING, "4", format, args);
+  va_end (args);
+}
+
+static void
+info (const gchar *msgid,
+      const gchar *format,
+      ...) G_GNUC_PRINTF(2, 3);
+
+static void
+info (const gchar *msgid,
+      const gchar *format,
+      ...)
+{
+  va_list args;
+
+  va_start (args, format);
+  log_with_msgid (msgid, G_LOG_LEVEL_INFO, "6", format, args);
+  va_end (args);
+}
+
 /* Note: This function does not report errors as a GError because there’s no
  * harm in the stamp file not being updated: it just means we’re going to check
  * again for updates sooner than otherwise. */
@@ -123,10 +206,9 @@ update_stamp_file (guint update_interval_days,
     int saved_errno = errno;
     const char *err_str = g_strerror (saved_errno);
 
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_CRIT,
-                     "MESSAGE=Failed to create updater timestamp directory: %s", err_str,
-                     NULL);
+    critical (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+              "Failed to create updater timestamp directory: %s",
+              err_str);
     return;
   }
 
@@ -138,10 +220,9 @@ update_stamp_file (guint update_interval_days,
                            G_FILE_CREATE_NONE, NULL, NULL,
                            &error);
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_CRIT,
-                     "MESSAGE=Failed to write updater stamp file: %s", error->message,
-                     NULL);
+    critical (EOS_UPDATER_STAMP_ERROR_MSGID,
+              "Failed to write updater stamp file: %s",
+              error->message);
     return;
   }
 
@@ -158,10 +239,9 @@ update_stamp_file (guint update_interval_days,
                                      G_FILE_QUERY_INFO_NONE, NULL, &error);
       if (error != NULL)
         {
-          sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                           "PRIORITY=%d", LOG_CRIT,
-                           "MESSAGE=Failed to get stamp file info: %s", error->message,
-                           NULL);
+          critical (EOS_UPDATER_STAMP_ERROR_MSGID,
+                    "Failed to get stamp file info: %s",
+                    error->message);
           return;
         }
 
@@ -173,10 +253,9 @@ update_stamp_file (guint update_interval_days,
                                        G_FILE_QUERY_INFO_NONE, NULL, &error);
       if (error != NULL)
         {
-          sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                           "PRIORITY=%d", LOG_CRIT,
-                           "MESSAGE=Failed to set stamp file info: %s", error->message,
-                           NULL);
+          critical (EOS_UPDATER_STAMP_ERROR_MSGID,
+                    "Failed to set stamp file info: %s",
+                    error->message);
           return;
         }
     }
@@ -218,10 +297,9 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
   }
 
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_DAEMON_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Error calling EOS updater: %s", error->message,
-                     NULL);
+    warning (EOS_UPDATER_DAEMON_ERROR_MSGID,
+             "Error calling EOS updater: %s",
+             error->message);
     should_exit_failure = TRUE;
     g_main_loop_quit (main_loop);
     g_error_free (error);
@@ -274,10 +352,9 @@ report_error_status (EosUpdater *proxy)
   name = eos_updater_get_error_name (proxy);
   error_message = eos_updater_get_error_message (proxy);
 
-  sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_DAEMON_ERROR_MSGID,
-                   "PRIORITY=%d", LOG_ERR,
-                   "MESSAGE=EOS updater error (%s): %s", name, error_message,
-                   NULL);
+  warning (EOS_UPDATER_DAEMON_ERROR_MSGID,
+           "EOS updater error (%s): %s",
+           name, error_message);
 }
 
 /* The autoupdater is driven by state transitions in the updater daemon.
@@ -385,10 +462,9 @@ read_config_file (const gchar *config_path,
   config = eos_updater_load_config_file (paths, &error);
 
   if (error != NULL) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Unable to open the configuration file: %s", error->message,
-                     NULL);
+    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+             "Unable to open the configuration file: %s",
+             error->message);
     return FALSE;
   }
 
@@ -396,19 +472,16 @@ read_config_file (const gchar *config_path,
   _last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
                                                  LAST_STEP_KEY, &error);
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Unable to read key '%s' in config file", LAST_STEP_KEY,
-                     NULL);
+    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+             "Unable to read key '%s' in config file",
+             LAST_STEP_KEY);
     return FALSE;
   }
 
   if (_last_automatic_step < UPDATE_STEP_FIRST ||
       _last_automatic_step > UPDATE_STEP_LAST) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Specified last automatic step is not a valid step",
-                     NULL);
+    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+             "Specified last automatic step is not a valid step");
     return FALSE;
   }
 
@@ -418,18 +491,15 @@ read_config_file (const gchar *config_path,
                                                   INTERVAL_KEY, &error);
 
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Unable to read key '%s' in config file", INTERVAL_KEY,
-                     NULL);
+    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+             "Unable to read key '%s' in config file",
+             INTERVAL_KEY);
     return FALSE;
   }
 
   if (_update_interval_days < 0) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Specified update interval is less than zero",
-                     NULL);
+    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+             "Specified update interval is less than zero");
     return FALSE;
   }
 
@@ -446,21 +516,17 @@ read_config_file (const gchar *config_path,
                                                    &error);
 
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Unable to read key '%s' in config file",
-                     RANDOMIZED_DELAY_KEY,
-                     NULL);
+    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+             "Unable to read key '%s' in config file",
+             RANDOMIZED_DELAY_KEY);
     return FALSE;
   }
 
   /* We use G_MAXINT32 as g_random_int_range() operates on gint32. */
   if (_randomized_delay_days < 0 ||
       _randomized_delay_days > (G_MAXINT32 / SEC_PER_DAY) - 1) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Specified randomized delay is less than zero or too large",
-                     NULL);
+    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+             "Specified randomized delay is less than zero or too large");
     return FALSE;
   }
 
@@ -470,10 +536,9 @@ read_config_file (const gchar *config_path,
                                               ON_MOBILE_KEY, &error);
 
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Unable to read key '%s' in config file", ON_MOBILE_KEY,
-                     NULL);
+    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+             "Unable to read key '%s' in config file",
+             ON_MOBILE_KEY);
     return FALSE;
   }
 
@@ -524,10 +589,8 @@ is_time_to_update (guint update_interval_days,
   if (error != NULL &&
       !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
     /* Failed for some reason other than the file not being present */
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_CRIT,
-                     "MESSAGE=Failed to read attributes of updater timestamp file",
-                     NULL);
+    critical (EOS_UPDATER_STAMP_ERROR_MSGID,
+              "Failed to read attributes of updater timestamp file");
     is_time_to_update = TRUE;
     g_debug ("Time to update, due to stamp file (%s) not being queryable.",
              stamp_path);
@@ -623,10 +686,8 @@ is_online (void)
   g_object_unref (client);
 
   if (!online)
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_ONLINE_MSGID,
-                     "PRIORITY=%d", LOG_INFO,
-                     "MESSAGE=Not currently online. Not updating",
-                     NULL);
+    info (EOS_UPDATER_NOT_ONLINE_MSGID,
+          "Not currently online. Not updating");
   return online;
 }
 
@@ -765,10 +826,9 @@ main (int argc, char **argv)
 
   if (!g_option_context_parse (context, &argc, &argv, &error))
     {
-      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_INVALID_ARGS_MSGID,
-                       "PRIORITY=%d", LOG_ERR,
-                       "MESSAGE=Error parsing command line arguments: %s", error->message,
-                       NULL);
+      warning (EOS_UPDATER_INVALID_ARGS_MSGID,
+               "Error parsing command line arguments: %s",
+               error->message);
       return EXIT_INVALID_ARGUMENTS;
     }
 
@@ -789,18 +849,15 @@ main (int argc, char **argv)
     if (volume_path == NULL &&
         !update_on_mobile &&
         is_connected_through_mobile ()) {
-      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_MOBILE_CONNECTED_MSGID,
-                       "PRIORITY=%d", LOG_INFO,
-                       "MESSAGE=Connected to mobile network. Not updating",
-                       NULL);
+      info (EOS_UPDATER_MOBILE_CONNECTED_MSGID,
+            "Connected to mobile network. Not updating");
       return EXIT_OK;
     }
 
     if (!is_time_to_update (update_interval_days, randomized_delay_days)) {
-      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_NOT_TIME_MSGID,
-                       "PRIORITY=%d", LOG_INFO,
-                       "MESSAGE=Less than %s since last update. Exiting", INTERVAL_KEY,
-                       NULL);
+      info (EOS_UPDATER_NOT_TIME_MSGID,
+            "Less than %s since last update. Exiting",
+            INTERVAL_KEY);
       return EXIT_OK;
     }
   }
@@ -817,10 +874,9 @@ main (int argc, char **argv)
                      &error);
 
   if (error) {
-    sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_DAEMON_ERROR_MSGID,
-                     "PRIORITY=%d", LOG_ERR,
-                     "MESSAGE=Error getting EOS updater object: %s", error->message,
-                     NULL);
+    warning (EOS_UPDATER_DAEMON_ERROR_MSGID,
+             "Error getting EOS updater object: %s",
+             error->message);
     should_exit_failure = TRUE;
     goto out;
   }
@@ -843,10 +899,8 @@ out:
 
   /* Update the stamp file since all configured steps have succeeded. */
   update_stamp_file (update_interval_days, randomized_delay_days);
-  sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_SUCCESS_MSGID,
-                   "PRIORITY=%d", LOG_INFO,
-                   "MESSAGE=Updater finished successfully",
-                   NULL);
+  info (EOS_UPDATER_SUCCESS_MSGID,
+        "Updater finished successfully");
 
   return EXIT_OK;
 }
