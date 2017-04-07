@@ -362,8 +362,8 @@ filter_services (LanData *lan_data,
 
       if (txt_version == NULL)
         {
-          message ("service at %s has no txt records version, ignoring it",
-                   service->address);
+          g_message ("service at %s has no txt records version, ignoring it",
+                     service->address);
           continue;
         }
 
@@ -377,9 +377,9 @@ filter_services (LanData *lan_data,
         }
       else
         {
-          message ("unknown txt records version %s from service at %s, ignoring it",
-                   txt_version,
-                   service->address);
+          g_message ("unknown txt records version %s from service at %s, ignoring it",
+                     txt_version,
+                     service->address);
           continue;
         }
 
@@ -463,22 +463,22 @@ get_update_info_from_swms (LanData *lan_data,
                                 &extensions,
                                 &local_error))
         {
-          message ("Failed to fetch latest commit from %s: %s",
-                   url_override,
-                   local_error->message);
+          g_message ("Failed to fetch latest commit from %s: %s",
+                     url_override,
+                     local_error->message);
           continue;
         }
 
       if (!is_checksum_an_update (repo, checksum, &commit, &local_error))
         {
-          message ("Failed to fetch metadata for commit %s from %s: %s",
-                   checksum, url_override, local_error->message);
+          g_message ("Failed to fetch metadata for commit %s from %s: %s",
+                     checksum, url_override, local_error->message);
           continue;
         }
       else if (commit == NULL)
         {
-          message ("Commit %s from %s is not an update; ignoring",
-                   checksum, url_override);
+          g_message ("Commit %s from %s is not an update; ignoring",
+                     checksum, url_override);
           continue;
         }
 
@@ -496,9 +496,9 @@ get_update_info_from_swms (LanData *lan_data,
           actual_time = g_date_time_new_from_unix_utc (timestamp);
           actual_str = g_date_time_format (actual_time, "%FT%T%:z");
 
-          message ("The commit timestamp (%s) from %s does not match the "
-                   "timestamp declared by the host (%s). Ignoring.",
-                   declared_str, url_override, actual_str);
+          g_message ("The commit timestamp (%s) from %s does not match the "
+                     "timestamp declared by the host (%s). Ignoring.",
+                     declared_str, url_override, actual_str);
           continue;
         }
 
@@ -523,10 +523,10 @@ get_update_info_from_swms (LanData *lan_data,
             }
           else
             {
-              message ("The commit from %s has either only timestamp the same as the timestamp from latest commit"
-                       " or only checksum the same as the checksum from latest commit."
-                       " This should not happen. Ignoring.",
-                       url_override);
+              g_message ("The commit from %s has either only timestamp the same as the timestamp from latest commit"
+                         " or only checksum the same as the checksum from latest commit."
+                         " This should not happen. Ignoring.",
+                         url_override);
               continue;
             }
         }
@@ -573,14 +573,14 @@ check_lan_updates (LanData *lan_data,
                         &valid_services,
                         &child_error))
     {
-      message ("Failed to filter services: %s", child_error->message);
+      g_message ("Failed to filter services: %s", child_error->message);
       g_propagate_error (error, g_steal_pointer (&child_error));
       return;
     }
 
   if (valid_services->len == 0)
     {
-      message ("No valid LAN servers found");
+      g_message ("No valid LAN servers found");
       return;
     }
 
@@ -589,8 +589,8 @@ check_lan_updates (LanData *lan_data,
                                    &lan_data->info,
                                    &child_error))
     {
-      message ("Failed to get the latest update info: %s",
-               child_error->message);
+      g_message ("Failed to get the latest update info: %s",
+                 child_error->message);
       g_propagate_error (error, g_steal_pointer (&child_error));
       return;
     }

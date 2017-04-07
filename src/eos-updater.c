@@ -86,7 +86,7 @@ on_bus_acquired (GDBusConnection *connection,
   g_autofree gchar *ref = NULL;
   g_autofree gchar *sum = NULL;
 
-  message ("Acquired a message bus connection");
+  g_message ("Acquired a message bus connection");
 
   /* Create a new org.freedesktop.DBus.ObjectManager rooted at /com/endlessm */
   local_data->manager = g_dbus_object_manager_server_new ("/com/endlessm");
@@ -150,7 +150,7 @@ on_bus_acquired (GDBusConnection *connection,
   g_object_unref (object);
 
   /* Export all objects */
-  message ("Exporting objects");
+  g_message ("Exporting objects");
   g_dbus_object_manager_server_set_connection (local_data->manager, connection);
 }
 
@@ -159,7 +159,7 @@ on_name_acquired (GDBusConnection *connection,
                   const gchar     *name,
                   gpointer         user_data)
 {
-  message ("Acquired the name %s", name);
+  g_message ("Acquired the name %s", name);
 }
 
 static void
@@ -169,7 +169,7 @@ on_name_lost (GDBusConnection *connection,
 {
   LocalData *local_data = user_data;
 
-  message ("Lost the name %s. Exiting.", name);
+  g_message ("Lost the name %s. Exiting.", name);
   g_main_loop_quit (local_data->loop);
 }
 
@@ -332,7 +332,7 @@ main (gint argc, gchar *argv[])
 
   if (!maybe_setup_quit_file (&local_data, &error))
     {
-      message ("Failed to set up the quit file: %s", error->message);
+      g_message ("Failed to set up the quit file: %s", error->message);
       return 1;
     }
   g_main_loop_run (loop);

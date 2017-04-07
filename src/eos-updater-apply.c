@@ -45,7 +45,7 @@ apply_finished (GObject *object,
   bootver_changed = g_task_propagate_boolean (task, &error);
 
   if (!bootver_changed)
-    message ("System redeployed same boot version");
+    g_message ("System redeployed same boot version");
 
   if (error)
     {

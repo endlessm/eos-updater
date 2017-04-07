@@ -469,9 +469,9 @@ browse_new (EosAvahiDiscoverer *discoverer,
       return;
     }
 
-  message ("Found name service %s on the network; type: %s, domain: %s, "
-           "protocol: %u, interface: %u", name, type, domain, protocol,
-           interface);
+  g_message ("Found name service %s on the network; type: %s, domain: %s, "
+             "protocol: %u, interface: %u", name, type, domain, protocol,
+             interface);
 
   /* Increment (or start) the counter for the number of resolvers for this
    * @name. */

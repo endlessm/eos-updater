@@ -291,7 +291,7 @@ get_booted_refspec (gchar **booted_refspec,
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
 
-  message ("Using product branch %s", ref);
+  g_message ("Using product branch %s", ref);
 
   if (booted_refspec != NULL)
     *booted_refspec = g_steal_pointer (&refspec);
@@ -966,9 +966,9 @@ maybe_send_metric (EosMetricsInfo *metrics)
   if (metric_sent)
     return;
 
-  message ("Recording metric event %s: (%s, %s, %s)",
-           EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
-           metrics->ref);
+  g_message ("Recording metric event %s: (%s, %s, %s)",
+             EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
+             metrics->ref);
   emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
                                          EOS_UPDATER_BRANCH_SELECTED,
                                          g_variant_new ("(sssb)", metrics->vendor,
@@ -1102,17 +1102,17 @@ run_fetchers (EosMetadataFetchData *fetch_data,
           g_autofree gchar *expected = g_variant_type_dup_string (G_VARIANT_TYPE_VARDICT);
           g_autofree gchar *got = g_variant_type_dup_string (source_variant_type);
 
-          message ("Wrong type of %s fetcher configuration, expected %s, got %s",
-                   name,
-                   expected,
-                   got);
+          g_message ("Wrong type of %s fetcher configuration, expected %s, got %s",
+                     name,
+                     expected,
+                     got);
           continue;
         }
 
       if (!fetcher (fetch_data, source_variant, &info, &local_error))
         {
-          message ("Failed to poll metadata from source %s: %s",
-                   name, local_error->message);
+          g_message ("Failed to poll metadata from source %s: %s",
+                     name, local_error->message);
           continue;
         }
 
@@ -1140,7 +1140,7 @@ run_fetchers (EosMetadataFetchData *fetch_data,
         }
       else
         {
-          message ("Failed to get metrics: %s", metrics_error->message);
+          g_message ("Failed to get metrics: %s", metrics_error->message);
         }
 
       latest_update = get_latest_update (sources, source_to_update);
@@ -1266,7 +1266,7 @@ metadata_fetch_finished (GObject *object,
            */
           if (error)
             {
-              message ("No size summary data: %s", error->message);
+              g_message ("No size summary data: %s", error->message);
               g_clear_error (&error);
             }
         }

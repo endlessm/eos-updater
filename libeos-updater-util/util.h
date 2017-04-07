@@ -42,9 +42,6 @@ object_array_new (void)
   return g_ptr_array_new_with_free_func (g_object_unref);
 }
 
-#define message(_f, ...) \
-  g_log (G_LOG_DOMAIN, G_LOG_LEVEL_MESSAGE, _f, ## __VA_ARGS__)
-
 /* id returned by g_bus_own_name */
 typedef guint EosBusNameID;
 G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
