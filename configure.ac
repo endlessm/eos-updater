@@ -101,11 +101,6 @@ AS_IF([test "x$want_metrics" = 'xyes'],
 PKG_CHECK_MODULES([EOS_UPDATER],
                   [$EOS_UPDATER_MODULES])
 
-AC_PATH_PROG([XSLTPROC],[xsltproc])
-AS_IF([test "$XSLTPROC" = ""],[
-	AC_MSG_ERROR([xsltproc is required for build])
-])
-
 AC_PATH_PROG([GDBUS_CODEGEN],[gdbus-codegen])
 AS_IF([test "$GDBUS_CODEGEN" = ""],[
 	AC_MSG_ERROR([gdbus-codegen is required for build])

@@ -23,7 +23,6 @@ Build-Depends:
  libsoup2.4-dev,
  libsystemd-dev,
  ostree,
- xsltproc,
 
 Package: eos-updater
 Section: misc
