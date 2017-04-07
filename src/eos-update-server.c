@@ -103,7 +103,7 @@ typedef struct
   gchar *config_file;
 } Options;
 
-#define OPTIONS_CLEARED { 0u, NULL, 0, NULL }
+#define OPTIONS_CLEARED { 0u, NULL, 0, NULL, NULL }
 
 static gboolean
 check_option_is (const gchar *option_name,
