@@ -49,6 +49,7 @@ AM_CPPFLAGS = \
 	-DDATADIR=\""$(datadir)"\" \
 	-DPKGDATADIR=\""$(pkgdatadir)"\" \
 	-DPREFIX=\""$(prefix)"\" \
+	-DG_LOG_USE_STRUCTURED \
 	$(NULL)
 
 # Utility library
@@ -63,6 +64,7 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""libeos-updater-util"\" \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LDFLAGS = \
 	$(WARN_LDFLAGS) \
@@ -92,6 +94,7 @@ libexec_PROGRAMS += eos-updater-avahi/eos-updater-avahi
 
 eos_updater_avahi_eos_updater_avahi_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-updater-avahi"\" \
 	$(NULL)
 eos_updater_avahi_eos_updater_avahi_CFLAGS = \
 	$(WARN_CFLAGS) \
