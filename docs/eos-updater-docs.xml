@@ -19,7 +19,6 @@
   <chapter>
     <title>[Insert title here]</title>
     <xi:include href="xml/prepare-update.xml"/>
-    <xi:include href="xml/repo-server.xml"/>
 
   </chapter>
   <chapter id="object-tree">

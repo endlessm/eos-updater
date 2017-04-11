@@ -22,7 +22,7 @@ preparelib = libeos-updater-0.la
 
 noinst_LTLIBRARIES = $(dbuslib)
 lib_LTLIBRARIES = $(preparelib)
-libexec_PROGRAMS = eos-autoupdater eos-update-server
+libexec_PROGRAMS = eos-autoupdater
 dist_bin_SCRIPTS = eos-updater-ctl
 
 dist_man8_MANS += docs/eos-updater-ctl.8
@@ -80,23 +80,12 @@ libeos_updater_0_la_LIBADD = $(common_ldadd)
 libeos_updater_0_la_SOURCES = \
 	eos-prepare-usb-update.c \
 	eos-prepare-usb-update.h \
-	eos-repo-server.c \
-	eos-repo-server.h \
 	$(NULL)
 
 eosincludedir = $(includedir)/eos-updater-0
 eosinclude_HEADERS = \
 	eos-prepare-usb-update.h \
-	eos-repo-server.h \
 	$(NULL)
-
-eos_update_server_CPPFLAGS = $(common_cppflags) -DG_LOG_DOMAIN=\""eos-update-server"\"
-eos_update_server_CFLAGS = $(common_cflags) $(EOS_UPDATE_SERVER_CFLAGS)
-eos_update_server_LDFLAGS = $(WARN_LDFLAGS)
-eos_update_server_LDADD = $(common_ldadd) $(preparelib) $(EOS_UPDATE_SERVER_LIBS)
-eos_update_server_SOURCES = eos-update-server.c
-
-dist_man8_MANS += docs/eos-update-server.8
 
 bin_PROGRAMS = eos-updater eos-updater-prepare-volume
 
