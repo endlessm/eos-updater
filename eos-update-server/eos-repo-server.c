@@ -49,6 +49,7 @@ struct _EosUpdaterRepoServer
 {
   SoupServer parent_instance;
   OstreeRepo *repo;
+  gchar *root_path;  /* (not nullable) if non-empty, must start with ‘/’ and have no trailing ‘/’ */
   gchar *remote_name;
   GCancellable *cancellable;
   gchar *cached_repo_root;
@@ -67,6 +68,7 @@ G_DEFINE_TYPE_WITH_CODE (EosUpdaterRepoServer, eos_updater_repo_server, SOUP_TYP
 typedef enum
 {
   PROP_REPO = 1,
+  PROP_ROOT_PATH,
   PROP_SERVED_REMOTE,
   PROP_PENDING_REQUESTS,
   PROP_LAST_REQUEST_TIME,
@@ -140,6 +142,10 @@ eos_updater_repo_server_get_property (GObject *object,
       g_value_set_object (value, server->repo);
       break;
 
+    case PROP_ROOT_PATH:
+      g_value_set_string (value, server->root_path);
+      break;
+
     case PROP_SERVED_REMOTE:
       g_value_set_string (value, server->remote_name);
       break;
@@ -171,6 +177,25 @@ eos_updater_repo_server_set_property (GObject *object,
     case PROP_REPO:
       g_set_object (&server->repo, g_value_get_object (value));
       break;
+
+    case PROP_ROOT_PATH:
+      g_clear_pointer (&server->root_path, g_free);
+      server->root_path = g_value_dup_string (value);
+
+      g_assert (server->root_path != NULL);
+
+      /* Add a missing leading slash if the root path is non-empty. */
+      if (server->root_path[0] != '\0' && server->root_path[0] != '/')
+        {
+          g_autofree gchar *tmp = g_strconcat ("/", server->root_path, NULL);
+          g_free (server->root_path);
+          server->root_path = g_steal_pointer (&tmp);
+        }
+
+      /* Drop any trailing slash. */
+      if (strlen (server->root_path) > 1 &&
+          server->root_path[strlen (server->root_path) - 1] == '/')
+        server->root_path[strlen (server->root_path) - 1] = '\0';
 
     case PROP_SERVED_REMOTE:
       server->remote_name = g_value_dup_string (value);
@@ -205,6 +230,7 @@ eos_updater_repo_server_finalize (GObject *object)
 
   g_free (server->cached_repo_root);
   g_free (server->remote_name);
+  g_free (server->root_path);
 }
 
 static void
@@ -229,6 +255,25 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
                                           G_PARAM_READWRITE |
                                           G_PARAM_CONSTRUCT_ONLY |
                                           G_PARAM_STATIC_STRINGS);
+
+  /**
+   * EosUpdaterRepoServer:root-path:
+   *
+   * Root path to handle requests underneath. Any requests for paths not
+   * underneath this root will result in a HTTP 404 status code.
+   *
+   * It should be the empty string, or a string starting with a `/` and not
+   * ending in a `/`.
+   *
+   * Since: UNRELEASED
+   */
+  props[PROP_ROOT_PATH] = g_param_spec_string ("root-path",
+                                               "Root Path",
+                                               "Root path to handle requests underneath.",
+                                               "",
+                                               G_PARAM_READWRITE |
+                                               G_PARAM_CONSTRUCT_ONLY |
+                                               G_PARAM_STATIC_STRINGS);
 
   /**
    * EosUpdaterRepoServer:served-remote:
@@ -800,6 +845,17 @@ handle_path (EosUpdaterRepoServer *server,
 
   g_debug ("Requested %s", path);
 
+  /* Strip the server root path. */
+  if (g_str_has_prefix (path, server->root_path))
+    {
+      path += strlen (server->root_path);
+    }
+  else
+    {
+      soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+      goto out;
+    }
+
   if (strstr (path, "..") != NULL)
     soup_message_set_status (msg, SOUP_STATUS_FORBIDDEN);
   else if (g_str_has_prefix (path, "/objects/") && g_str_has_suffix (path, ".filez"))
@@ -813,6 +869,7 @@ handle_path (EosUpdaterRepoServer *server,
   else
     soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
 
+out:
   g_debug ("Returning status %u (%s)", msg->status_code, msg->reason_phrase);
 }
 
@@ -897,6 +954,7 @@ eos_updater_repo_server_initable_iface_init (GInitableIface *initable_iface)
 /**
  * eos_updater_repo_server_new:
  * @repo: A repo
+ * @root_path: Root path to serve underneath
  * @served_remote: The name of the remote
  * @cancellable: (nullable): A #GCancellable
  * @error: A location for an error
@@ -908,6 +966,7 @@ eos_updater_repo_server_initable_iface_init (GInitableIface *initable_iface)
  */
 EosUpdaterRepoServer *
 eos_updater_repo_server_new (OstreeRepo *repo,
+                             const gchar *root_path,
                              const gchar *served_remote,
                              GCancellable *cancellable,
                              GError **error)
@@ -922,6 +981,7 @@ eos_updater_repo_server_new (OstreeRepo *repo,
                          cancellable,
                          error,
                          "repo", repo,
+                         "root-path", root_path,
                          "served-remote", served_remote,
                          NULL);
 }

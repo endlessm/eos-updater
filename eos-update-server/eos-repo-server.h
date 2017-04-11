@@ -32,6 +32,7 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (EosUpdaterRepoServer, eos_updater_repo_server, EOS_UPDATER, REPO_SERVER, SoupServer)
 
 EosUpdaterRepoServer *eos_updater_repo_server_new (OstreeRepo *repo,
+                                                   const gchar *root_path,
                                                    const gchar *served_remote,
                                                    GCancellable *cancellable,
                                                    GError **error);

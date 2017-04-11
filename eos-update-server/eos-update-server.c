@@ -494,6 +494,7 @@ main (int argc, char **argv)
 
   repo = eos_updater_local_repo ();
   server = eos_updater_repo_server_new (repo,
+                                        "",
                                         options.served_remote,
                                         NULL,
                                         &error);
