@@ -64,18 +64,15 @@ G_DEFINE_TYPE_WITH_CODE (EosUpdaterRepoServer, eos_updater_repo_server, SOUP_TYP
                          G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE,
                                                 eos_updater_repo_server_initable_iface_init))
 
-enum
+typedef enum
 {
-  PROP_0,
-  PROP_REPO,
+  PROP_REPO = 1,
   PROP_SERVED_REMOTE,
   PROP_PENDING_REQUESTS,
   PROP_LAST_REQUEST_TIME,
+} EosUpdaterRepoServerProperty;
 
-  PROP_N
-};
-
-static GParamSpec *props[PROP_N] = { NULL, };
+static GParamSpec *props[PROP_LAST_REQUEST_TIME] = { NULL, };
 
 static gboolean
 generate_faked_config (OstreeRepo *repo,
@@ -137,7 +134,7 @@ eos_updater_repo_server_get_property (GObject *object,
 {
   EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (object);
 
-  switch (property_id)
+  switch ((EosUpdaterRepoServerProperty) property_id)
     {
     case PROP_REPO:
       g_value_set_object (value, server->repo);
@@ -169,7 +166,7 @@ eos_updater_repo_server_set_property (GObject *object,
 {
   EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (object);
 
-  switch (property_id)
+  switch ((EosUpdaterRepoServerProperty) property_id)
     {
     case PROP_REPO:
       g_set_object (&server->repo, g_value_get_object (value));
@@ -178,6 +175,10 @@ eos_updater_repo_server_set_property (GObject *object,
     case PROP_SERVED_REMOTE:
       server->remote_name = g_value_dup_string (value);
       break;
+
+    case PROP_PENDING_REQUESTS:
+    case PROP_LAST_REQUEST_TIME:
+      /* Read only. */
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, spec);
@@ -275,7 +276,7 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
                                                       G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (gobject_class,
-                                     PROP_N,
+                                     G_N_ELEMENTS (props),
                                      props);
 }
 
