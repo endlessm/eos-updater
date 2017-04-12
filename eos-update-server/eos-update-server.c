@@ -238,7 +238,7 @@ clear_source (guint *id)
 typedef struct
 {
   GMainLoop *loop;
-  EosUpdaterRepoServer *server_repo;
+  EusRepo *server_repo;
 
   gint timeout_seconds;
   guint timeout_id;
@@ -253,10 +253,10 @@ static void
 timeout_data_setup_timeout (TimeoutData *data);
 
 static gboolean
-no_requests_timeout (EosUpdaterRepoServer *server_repo,
-                     gint seconds)
+no_requests_timeout (EusRepo *server_repo,
+                     gint     seconds)
 {
-  guint pending_requests = eos_updater_repo_server_get_pending_requests (server_repo);
+  guint pending_requests = eus_repo_get_pending_requests (server_repo);
   gint64 last_request_time;
   gint64 monotonic_now;
   gint64 diff;
@@ -267,7 +267,7 @@ no_requests_timeout (EosUpdaterRepoServer *server_repo,
       return FALSE;
     }
 
-  last_request_time = eos_updater_repo_server_get_last_request_time (server_repo);
+  last_request_time = eus_repo_get_last_request_time (server_repo);
   monotonic_now = g_get_monotonic_time ();
   diff = monotonic_now - last_request_time;
 
@@ -346,10 +346,10 @@ timeout_data_maybe_setup_quit_file (TimeoutData *data,
 }
 
 static gboolean
-timeout_data_init (TimeoutData *data,
-                   Options *options,
-                   EosUpdaterRepoServer *server_repo,
-                   GError **error)
+timeout_data_init (TimeoutData  *data,
+                   Options      *options,
+                   EusRepo      *server_repo,
+                   GError      **error)
 {
   memset (data, 0, sizeof (*data));
   data->loop = g_main_loop_new (NULL, FALSE);
@@ -465,7 +465,7 @@ main (int argc, char **argv)
   g_autoptr(GError) error = NULL;
   g_auto(Options) options = OPTIONS_CLEARED;
   g_autoptr(SoupServer) soup_server = NULL;
-  g_autoptr(EosUpdaterRepoServer) server_repo = NULL;
+  g_autoptr(EusRepo) server_repo = NULL;
   g_auto(TimeoutData) data = TIMEOUT_DATA_CLEARED;
   g_autoptr(OstreeRepo) repo = NULL;
   gboolean advertise_updates = FALSE;
@@ -495,12 +495,8 @@ main (int argc, char **argv)
 
   repo = eos_updater_local_repo ();
   soup_server = soup_server_new (NULL, NULL);
-  server_repo = eos_updater_repo_server_new (soup_server,
-                                             repo,
-                                             "",
-                                             options.served_remote,
-                                             NULL,
-                                             &error);
+  server_repo = eus_repo_new (soup_server, repo, "", options.served_remote,
+                              NULL, &error);
   if (server_repo == NULL)
     {
       g_message ("Failed to create a server: %s", error->message);

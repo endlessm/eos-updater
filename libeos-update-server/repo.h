@@ -30,17 +30,17 @@
 
 G_BEGIN_DECLS
 
-#define EOS_UPDATER_TYPE_REPO_SERVER eos_updater_repo_server_get_type ()
-G_DECLARE_FINAL_TYPE (EosUpdaterRepoServer, eos_updater_repo_server, EOS_UPDATER, REPO_SERVER, GObject)
+#define EUS_TYPE_REPO eus_repo_get_type ()
+G_DECLARE_FINAL_TYPE (EusRepo, eus_repo, EUS, REPO, GObject)
 
-EosUpdaterRepoServer *eos_updater_repo_server_new (SoupServer    *server,
-                                                   OstreeRepo    *repo,
-                                                   const gchar   *root_path,
-                                                   const gchar   *served_remote,
-                                                   GCancellable  *cancellable,
-                                                   GError       **error);
+EusRepo *eus_repo_new (SoupServer    *server,
+                       OstreeRepo    *repo,
+                       const gchar   *root_path,
+                       const gchar   *served_remote,
+                       GCancellable  *cancellable,
+                       GError       **error);
 
-guint eos_updater_repo_server_get_pending_requests (EosUpdaterRepoServer *self);
-gint64 eos_updater_repo_server_get_last_request_time (EosUpdaterRepoServer *self);
+guint eus_repo_get_pending_requests (EusRepo *self);
+gint64 eus_repo_get_last_request_time (EusRepo *self);
 
 G_END_DECLS
