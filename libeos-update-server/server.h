@@ -1,6 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
- * Copyright © 2016 Kinvolk GmbH
  * Copyright © 2017 Endless Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
@@ -18,31 +17,31 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * Authors:
- *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  *  - Philip Withnall <withnall@endlessm.com>
  */
 
 #pragma once
 
-#include <ostree.h>
-
+#include <gio/gio.h>
+#include <glib.h>
+#include <glib-object.h>
 #include <libsoup/soup.h>
 
-#include <glib.h>
+#include <libeos-update-server/repo.h>
 
 G_BEGIN_DECLS
 
-#define EUS_TYPE_REPO eus_repo_get_type ()
-G_DECLARE_FINAL_TYPE (EusRepo, eus_repo, EUS, REPO, GObject)
+#define EUS_TYPE_SERVER eus_server_get_type ()
+G_DECLARE_FINAL_TYPE (EusServer, eus_server, EUS, SERVER, GObject)
 
-EusRepo *eus_repo_new (OstreeRepo    *repo,
-                       const gchar   *root_path,
-                       const gchar   *served_remote,
-                       GCancellable  *cancellable,
-                       GError       **error);
+EusServer *eus_server_new (SoupServer *server);
 
-void eus_repo_connect (EusRepo    *self,
-                       SoupServer *server);
-void eus_repo_disconnect (EusRepo *self);
+void eus_server_add_repo (EusServer *self,
+                          EusRepo   *repo);
+
+void eus_server_disconnect (EusServer *self);
+
+guint eus_server_get_pending_requests (EusServer *self);
+gint64 eus_server_get_last_request_time (EusServer *self);
 
 G_END_DECLS

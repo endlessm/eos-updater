@@ -150,6 +150,8 @@ libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_LIBADD = \
 libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_SOURCES = \
 	libeos-update-server/repo.c \
 	libeos-update-server/repo.h \
+	libeos-update-server/server.c \
+	libeos-update-server/server.h \
 	$(NULL)
 
 # eos-update-server program

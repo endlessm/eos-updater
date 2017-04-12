@@ -21,7 +21,7 @@
  */
 
 #include <libeos-update-server/repo.h>
-
+#include <libeos-update-server/server.h>
 #include <libeos-updater-util/config.h>
 #include <libeos-updater-util/refcounted.h>
 #include <libeos-updater-util/util.h>
@@ -238,7 +238,7 @@ clear_source (guint *id)
 typedef struct
 {
   GMainLoop *loop;
-  EusRepo *server_repo;
+  EusServer *server;
 
   gint timeout_seconds;
   guint timeout_id;
@@ -253,10 +253,10 @@ static void
 timeout_data_setup_timeout (TimeoutData *data);
 
 static gboolean
-no_requests_timeout (EusRepo *server_repo,
-                     gint     seconds)
+no_requests_timeout (EusServer *server,
+                     gint       seconds)
 {
-  guint pending_requests = eus_repo_get_pending_requests (server_repo);
+  guint pending_requests = eus_server_get_pending_requests (server);
   gint64 last_request_time;
   gint64 monotonic_now;
   gint64 diff;
@@ -267,7 +267,7 @@ no_requests_timeout (EusRepo *server_repo,
       return FALSE;
     }
 
-  last_request_time = eus_repo_get_last_request_time (server_repo);
+  last_request_time = eus_server_get_last_request_time (server);
   monotonic_now = g_get_monotonic_time ();
   diff = monotonic_now - last_request_time;
 
@@ -279,7 +279,7 @@ timeout_cb (gpointer timeout_data_ptr)
 {
   TimeoutData *data = timeout_data_ptr;
 
-  if (!no_requests_timeout (data->server_repo, data->timeout_seconds))
+  if (!no_requests_timeout (data->server, data->timeout_seconds))
     {
       g_message ("Resetting timeout");
       timeout_data_setup_timeout (data);
@@ -313,7 +313,7 @@ check_and_quit (gpointer timeout_data_ptr)
 {
   TimeoutData *data = timeout_data_ptr;
 
-  if (!no_requests_timeout (data->server_repo, data->quit_file_timeout_seconds))
+  if (!no_requests_timeout (data->server, data->quit_file_timeout_seconds))
     return EOS_QUIT_FILE_KEEP_CHECKING;
 
   g_main_loop_quit (data->loop);
@@ -348,12 +348,12 @@ timeout_data_maybe_setup_quit_file (TimeoutData *data,
 static gboolean
 timeout_data_init (TimeoutData  *data,
                    Options      *options,
-                   EusRepo      *server_repo,
+                   EusServer    *server,
                    GError      **error)
 {
   memset (data, 0, sizeof (*data));
   data->loop = g_main_loop_new (NULL, FALSE);
-  data->server_repo = g_object_ref (server_repo);
+  data->server = g_object_ref (server);
   data->timeout_seconds = options->timeout_seconds;
 
   timeout_data_setup_timeout (data);
@@ -370,7 +370,7 @@ timeout_data_clear (TimeoutData *data)
   g_clear_object (&data->quit_file);
   clear_source (&data->timeout_id);
   data->timeout_seconds = 0;
-  g_clear_object (&data->server_repo);
+  g_clear_object (&data->server);
   g_clear_pointer (&data->loop, g_main_loop_unref);
 }
 
@@ -465,7 +465,8 @@ main (int argc, char **argv)
   g_autoptr(GError) error = NULL;
   g_auto(Options) options = OPTIONS_CLEARED;
   g_autoptr(SoupServer) soup_server = NULL;
-  g_autoptr(EusRepo) server_repo = NULL;
+  g_autoptr(EusServer) eus_server = NULL;
+  g_autoptr(EusRepo) eus_repo = NULL;
   g_auto(TimeoutData) data = TIMEOUT_DATA_CLEARED;
   g_autoptr(OstreeRepo) repo = NULL;
   gboolean advertise_updates = FALSE;
@@ -495,16 +496,18 @@ main (int argc, char **argv)
 
   repo = eos_updater_local_repo ();
   soup_server = soup_server_new (NULL, NULL);
-  server_repo = eus_repo_new (soup_server, repo, "", options.served_remote,
-                              NULL, &error);
-  if (server_repo == NULL)
+  eus_repo = eus_repo_new (repo, "", options.served_remote, NULL, &error);
+
+  if (eus_repo == NULL)
     {
       g_message ("Failed to create a server: %s", error->message);
       return EXIT_FAILED;
     }
 
+  eus_server = eus_server_new (soup_server);
+  eus_server_add_repo (eus_server, eus_repo);
 
-  if (!timeout_data_init (&data, &options, server_repo, &error))
+  if (!timeout_data_init (&data, &options, eus_server, &error))
     {
       g_message ("Failed to initialize timeout data: %s", error->message);
       return EXIT_FAILED;

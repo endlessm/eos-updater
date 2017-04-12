@@ -50,16 +50,13 @@ struct _EusRepo
 {
   GObject parent_instance;
 
-  SoupServer *server;  /* owned */
+  SoupServer *server;  /* (nullable), owned*/
   OstreeRepo *repo;
   gchar *root_path;  /* (not nullable) if non-empty, must start with ‘/’ and have no trailing ‘/’ */
   gchar *remote_name;
   GCancellable *cancellable;
   gchar *cached_repo_root;
   GBytes *cached_config;
-
-  guint pending_requests;
-  gint64 last_request_time;
 };
 
 static void eus_repo_initable_iface_init (GInitableIface *initable_iface);
@@ -74,11 +71,9 @@ typedef enum
   PROP_REPO,
   PROP_ROOT_PATH,
   PROP_SERVED_REMOTE,
-  PROP_PENDING_REQUESTS,
-  PROP_LAST_REQUEST_TIME,
 } EusRepoProperty;
 
-static GParamSpec *props[PROP_LAST_REQUEST_TIME] = { NULL, };
+static GParamSpec *props[PROP_SERVED_REMOTE + 1] = { NULL, };
 
 static gboolean
 generate_faked_config (OstreeRepo *repo,
@@ -130,7 +125,9 @@ generate_faked_config (OstreeRepo *repo,
 
 static void
 eus_repo_init (EusRepo *self)
-{}
+{
+  self->cancellable = g_cancellable_new ();
+}
 
 static void
 eus_repo_get_property (GObject    *object,
@@ -158,14 +155,6 @@ eus_repo_get_property (GObject    *object,
       g_value_set_string (value, self->remote_name);
       break;
 
-    case PROP_PENDING_REQUESTS:
-      g_value_set_uint (value, self->pending_requests);
-      break;
-
-    case PROP_LAST_REQUEST_TIME:
-      g_value_set_int64 (value, self->last_request_time);
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, spec);
       break;
@@ -182,10 +171,6 @@ eus_repo_set_property (GObject      *object,
 
   switch ((EusRepoProperty) property_id)
     {
-    case PROP_SERVER:
-      g_set_object (&self->server, g_value_get_object (value));
-      break;
-
     case PROP_REPO:
       g_set_object (&self->repo, g_value_get_object (value));
       break;
@@ -213,8 +198,7 @@ eus_repo_set_property (GObject      *object,
       self->remote_name = g_value_dup_string (value);
       break;
 
-    case PROP_PENDING_REQUESTS:
-    case PROP_LAST_REQUEST_TIME:
+    case PROP_SERVER:
       /* Read only. */
 
     default:
@@ -228,17 +212,12 @@ eus_repo_dispose (GObject *object)
 {
   EusRepo *self = EUS_REPO (object);
 
-  self->pending_requests = 0;
-  self->last_request_time = 0;
+  eus_repo_disconnect (self);
+
   g_clear_object (&self->cancellable);
   g_clear_pointer (&self->cached_config, g_bytes_unref);
   g_clear_object (&self->repo);
-
-  if (self->server != NULL)
-    {
-      soup_server_remove_handler (self->server, self->root_path);
-      g_clear_object (&self->server);
-    }
+  g_clear_object (&self->server);
 }
 
 static void
@@ -272,8 +251,7 @@ eus_repo_class_init (EusRepoClass *klass)
                                             "Server",
                                             "The #SoupServer to handle requests from.",
                                             SOUP_TYPE_SERVER,
-                                            G_PARAM_READWRITE |
-                                            G_PARAM_CONSTRUCT_ONLY |
+                                            G_PARAM_READABLE |
                                             G_PARAM_STATIC_STRINGS);
 
   /**
@@ -320,38 +298,6 @@ eus_repo_class_init (EusRepoClass *klass)
                                                    G_PARAM_READWRITE |
                                                    G_PARAM_CONSTRUCT_ONLY |
                                                    G_PARAM_STATIC_STRINGS);
-
-  /**
-   * EusRepo:pending-requests:
-   *
-   * The number of pending requests. See
-   * eus_repo_get_pending_requests() for details.
-   */
-  props[PROP_PENDING_REQUESTS] = g_param_spec_uint ("pending-requests",
-                                                    "Pending requests",
-                                                    "A number of pending requests this server has at the moment",
-                                                    0,
-                                                    G_MAXUINT,
-                                                    0,
-                                                    G_PARAM_READABLE |
-                                                    G_PARAM_EXPLICIT_NOTIFY |
-                                                    G_PARAM_STATIC_STRINGS);
-
-  /**
-   * EusRepo:last-request-time:
-   *
-   * Time of the last served valid request or response. See
-   * eus_repo_get_last_request_time() for details.
-   */
-  props[PROP_LAST_REQUEST_TIME] = g_param_spec_int64 ("last-request-time",
-                                                      "Last request time",
-                                                      "A monotonic time in microseconds when the last request or response was handled",
-                                                      0,
-                                                      G_MAXINT64,
-                                                      0,
-                                                      G_PARAM_READABLE |
-                                                      G_PARAM_EXPLICIT_NOTIFY |
-                                                      G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (object_class,
                                      G_N_ELEMENTS (props),
@@ -469,30 +415,6 @@ struct _EosFilezReadData
 
   gulong finished_signal_id;
 };
-
-static void
-update_pending_requests (EusRepo *self,
-                         gint     delta)
-{
-  GObject *obj = G_OBJECT (self);
-
-  g_assert (delta >= 0 || self->pending_requests >= (guint) -delta);
-  g_assert (delta <= 0 || self->pending_requests <= G_MAXUINT - delta);
-
-  if (delta == 0)
-    return;
-
-  g_debug ("%s: Updating from %u to %u", G_STRFUNC, self->pending_requests,
-           self->pending_requests + delta);
-
-  self->pending_requests += delta;
-  self->last_request_time = g_get_monotonic_time ();
-
-  g_object_freeze_notify (obj);
-  g_object_notify_by_pspec (obj, props[PROP_PENDING_REQUESTS]);
-  g_object_notify_by_pspec (obj, props[PROP_LAST_REQUEST_TIME]);
-  g_object_thaw_notify (obj);
-}
 
 static void
 eos_filez_read_data_disconnect_and_clear_msg (EosFilezReadData *read_data)
@@ -918,39 +840,6 @@ server_cb (SoupServer *soup_server,
   handle_path (self, msg, path);
 }
 
-static void
-request_read_cb (SoupServer        *soup_server,
-                 SoupMessage       *message,
-                 SoupClientContext *client,
-                 gpointer           user_data)
-{
-  EusRepo *self = EUS_REPO (user_data);
-
-  update_pending_requests (self, 1);
-}
-
-static void
-request_finished_cb (SoupServer        *soup_server,
-                     SoupMessage       *message,
-                     SoupClientContext *client,
-                     gpointer           user_data)
-{
-  EusRepo *self = EUS_REPO (user_data);
-
-  update_pending_requests (self, -1);
-}
-
-static void
-request_aborted_cb (SoupServer        *soup_server,
-                    SoupMessage       *message,
-                    SoupClientContext *client,
-                    gpointer           user_data)
-{
-  EusRepo *self = EUS_REPO (user_data);
-
-  update_pending_requests (self, -1);
-}
-
 static gboolean
 eus_repo_initable_init (GInitable     *initable,
                         GCancellable  *cancellable,
@@ -963,16 +852,7 @@ eus_repo_initable_init (GInitable     *initable,
                               error))
     return FALSE;
 
-  g_set_object (&self->cancellable, cancellable);
   self->cached_repo_root = g_file_get_path (ostree_repo_get_path (self->repo));
-  soup_server_add_handler (self->server,
-                           self->root_path,
-                           server_cb,
-                           self,
-                           NULL);
-  g_signal_connect (self->server, "request-read", (GCallback) request_read_cb, self);
-  g_signal_connect (self->server, "request-finished", (GCallback) request_finished_cb, self);
-  g_signal_connect (self->server, "request-aborted", (GCallback) request_aborted_cb, self);
 
   return TRUE;
 }
@@ -998,14 +878,12 @@ eus_repo_initable_iface_init (GInitableIface *initable_iface)
  * Returns: (transfer full): The server.
  */
 EusRepo *
-eus_repo_new (SoupServer    *server,
-              OstreeRepo    *repo,
+eus_repo_new (OstreeRepo    *repo,
               const gchar   *root_path,
               const gchar   *served_remote,
               GCancellable  *cancellable,
               GError       **error)
 {
-  g_return_val_if_fail (SOUP_IS_SERVER (server), NULL);
   g_return_val_if_fail (OSTREE_IS_REPO (repo), NULL);
   g_return_val_if_fail (served_remote != NULL, NULL);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
@@ -1013,7 +891,6 @@ eus_repo_new (SoupServer    *server,
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   return g_initable_new (EUS_TYPE_REPO, cancellable, error,
-                         "server", server,
                          "repo", repo,
                          "root-path", root_path,
                          "served-remote", served_remote,
@@ -1021,37 +898,60 @@ eus_repo_new (SoupServer    *server,
 }
 
 /**
- * eus_repo_get_pending_requests:
- * @self: The #EusRepo
+ * eus_repo_connect:
+ * @self: an #EusRepo
+ * @server: #SoupServer to handle requests from
  *
- * Pending requests are usually requests for file objects that happen
- * asynchronously, mostly due to their larger size. Use this function
- * together with eus_repo_get_last_request_time() if
- * you want to stop the server after the timeout.
+ * Connect this #EusRepo to the @server and start handling incoming requests
+ * underneath its #EusRepo:root-path.
  *
- * Returns: Number of pending remotes.
+ * To stop handling requests, call eus_repo_disconnect(). It is an error to
+ * call eus_repo_connect() twice in a row without calling eus_repo_disconnect()
+ * inbetween.
+ *
+ * Since: UNRELEASED
  */
-guint
-eus_repo_get_pending_requests (EusRepo *self)
+void
+eus_repo_connect (EusRepo    *self,
+                  SoupServer *server)
 {
-  return self->pending_requests;
+  g_return_if_fail (EUS_IS_REPO (self));
+  g_return_if_fail (SOUP_IS_SERVER (server));
+  g_return_if_fail (self->server == NULL);
+
+  self->server = g_object_ref (server);
+
+  soup_server_add_handler (self->server,
+                           self->root_path,
+                           server_cb,
+                           self,
+                           NULL);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SERVER]);
 }
 
 /**
- * eus_repo_get_last_request_time:
- * @self: The #EusRepo
+ * eus_repo_disconnect:
+ * @self: an #EusRepo
  *
- * The result of this function is basically a result of
- * g_get_monotonic_time() at the end request and response handlers. It is
- * updated once at the start of each request, and once at the end (regardless of
- * whether the request was successful). Use this function together with
- * eus_repo_get_pending_requests() if you want to stop
- * the server after the timeout.
+ * Disconnect this #EusRepo from the #SoupServer it was connected to by calling
+ * eus_repo_connect().
  *
- * Returns: When was the last request handled
+ * This is called automatically if the #EusRepo is disposed.
+ *
+ * Since: UNRELEASED
  */
-gint64
-eus_repo_get_last_request_time (EusRepo *self)
+void
+eus_repo_disconnect (EusRepo *self)
 {
-  return self->last_request_time;
+  g_return_if_fail (EUS_IS_REPO (self));
+
+  if (self->cancellable != NULL)
+    g_cancellable_cancel (self->cancellable);
+
+  if (self->server != NULL)
+    soup_server_remove_handler (self->server, self->root_path);
+
+  g_clear_object (&self->server);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SERVER]);
 }
