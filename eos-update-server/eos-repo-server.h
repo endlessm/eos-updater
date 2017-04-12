@@ -1,6 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
  * Copyright © 2016 Kinvolk GmbH
+ * Copyright © 2017 Endless Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,6 +19,7 @@
  *
  * Authors:
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
+ *  - Philip Withnall <withnall@endlessm.com>
  */
 
 #include <ostree.h>
@@ -29,15 +31,16 @@
 G_BEGIN_DECLS
 
 #define EOS_UPDATER_TYPE_REPO_SERVER eos_updater_repo_server_get_type ()
-G_DECLARE_FINAL_TYPE (EosUpdaterRepoServer, eos_updater_repo_server, EOS_UPDATER, REPO_SERVER, SoupServer)
+G_DECLARE_FINAL_TYPE (EosUpdaterRepoServer, eos_updater_repo_server, EOS_UPDATER, REPO_SERVER, GObject)
 
-EosUpdaterRepoServer *eos_updater_repo_server_new (OstreeRepo *repo,
-                                                   const gchar *root_path,
-                                                   const gchar *served_remote,
-                                                   GCancellable *cancellable,
-                                                   GError **error);
+EosUpdaterRepoServer *eos_updater_repo_server_new (SoupServer    *server,
+                                                   OstreeRepo    *repo,
+                                                   const gchar   *root_path,
+                                                   const gchar   *served_remote,
+                                                   GCancellable  *cancellable,
+                                                   GError       **error);
 
-guint eos_updater_repo_server_get_pending_requests (EosUpdaterRepoServer *repo_server);
-gint64 eos_updater_repo_server_get_last_request_time (EosUpdaterRepoServer *repo_server);
+guint eos_updater_repo_server_get_pending_requests (EosUpdaterRepoServer *self);
+gint64 eos_updater_repo_server_get_last_request_time (EosUpdaterRepoServer *self);
 
 G_END_DECLS
