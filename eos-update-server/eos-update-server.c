@@ -20,7 +20,7 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-repo-server.h"
+#include <libeos-update-server/repo.h>
 
 #include <libeos-updater-util/config.h>
 #include <libeos-updater-util/refcounted.h>

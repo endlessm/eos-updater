@@ -22,8 +22,7 @@
  *  - Philip Withnall <withnall@endlessm.com>
  */
 
-#include "eos-repo-server.h"
-
+#include <libeos-update-server/repo.h>
 #include <libeos-updater-util/util.h>
 
 #include <string.h>
@@ -32,7 +31,7 @@
  * SECTION:repo-server
  * @title: Bare repository server
  * @short_description: Server for the EOS bare OSTree repository
- * @include: eos-repo-server.h
+ * @include: libeos-update-server/repo.h
  *
  * A server that sits on top of the bare repository and lies to
  * clients about the repositories' mode, so it is possible to do pulls

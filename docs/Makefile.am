@@ -65,8 +65,6 @@ EXTRA_HFILES=
 # Header files or dirs to ignore when scanning. Use base file/dir names
 # e.g. IGNORE_HFILES=gtkdebug.h gtkintl.h private_code
 IGNORE_HFILES=\
-	eos-repo-server.c \
-	eos-repo-server.h \
 	eos-updater-data.h \
 	eos-updater-poll.h \
 	eos-updater-poll-volume.h \
@@ -83,6 +81,7 @@ IGNORE_HFILES=\
 	eos-updater-avahi.h \
 	eos-updater-poll-common.h \
 	eos-updater-poll-volume-dbus.h \
+	libeos-update-server/repo.h \
 	libeos-updater-util/extensions.h \
 	libeos-updater-util/refcounted.h \
 	libeos-updater-util/util.h \

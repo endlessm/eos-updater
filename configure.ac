@@ -17,6 +17,7 @@ dnl Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  U
 # API versions
 m4_define([eu_api_version],[0])
 m4_define([euu_api_version],[0])
+m4_define([eus_api_version],[0])
 
 AC_INIT([eos-updater],[1.0])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -38,6 +39,7 @@ GOBJECT_INTROSPECTION_CHECK([1.30.0])
 # Versioning
 AC_SUBST([EU_API_VERSION],eu_api_version)
 AC_SUBST([EUU_API_VERSION],euu_api_version)
+AC_SUBST([EUS_API_VERSION],eus_api_version)
 
 # Compiler warnings and --disable-Werror
 AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])

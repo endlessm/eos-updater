@@ -18,7 +18,6 @@ ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 
 SUBDIRS = . src libeos-updater-util/tests data tests docs
 
-eosincludedir = $(includedir)/eos-updater-0
 sysconfexampledir = $(pkgdatadir)
 
 # Pre-defines to allow appending later
@@ -32,7 +31,6 @@ EXTRA_DIST =
 CLEANFILES =
 DISTCLEANFILES =
 MAINTAINERCLEANFILES =
-eosinclude_HEADERS =
 
 # Documentation
 EXTRA_DIST += README.md
@@ -130,10 +128,32 @@ CLEANFILES += $(eos_updater_avahi_in:%.in=%)
 
 dist_man8_MANS += eos-updater-avahi/docs/eos-updater-avahi.8
 
+# Server utility library
+noinst_LTLIBRARIES += libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la
+
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""libeos-update-server"\" \
+	$(NULL)
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_CFLAGS = \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATE_SERVER_CFLAGS) \
+	$(NULL)
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATE_SERVER_LIBS) \
+	$(NULL)
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_SOURCES = \
+	libeos-update-server/repo.c \
+	libeos-update-server/repo.h \
+	$(NULL)
+
 # eos-update-server program
 libexec_PROGRAMS += eos-update-server/eos-update-server
-
-eosinclude_HEADERS += eos-update-server/eos-repo-server.h
 
 eos_update_server_eos_update_server_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -149,12 +169,11 @@ eos_update_server_eos_update_server_LDFLAGS = \
 	$(NULL)
 eos_update_server_eos_update_server_LDADD = \
 	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la \
 	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
 	$(EOS_UPDATE_SERVER_LIBS) \
 	$(NULL)
 eos_update_server_eos_update_server_SOURCES = \
-	eos-update-server/eos-repo-server.c \
-	eos-update-server/eos-repo-server.h \
 	eos-update-server/eos-update-server.c \
 	$(NULL)
 
