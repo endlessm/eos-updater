@@ -28,8 +28,6 @@
 
 #include <ostree.h>
 
-#include <libsoup/soup.h>
-
 #include <glib.h>
 #include <glib-object.h>
 #include <gio/gio.h>
@@ -79,10 +77,6 @@ const gchar *eos_updater_get_envvar_or (const gchar *envvar,
                                         const gchar *default_value);
 
 GFile *eos_updater_get_eos_extensions_dir (OstreeRepo *repo);
-
-gboolean get_first_uri_from_server (SoupServer *server,
-                                    SoupURI **out_uri,
-                                    GError **error);
 
 gboolean eos_updater_read_file_to_bytes (GFile *file,
                                          GCancellable *cancellable,

@@ -376,6 +376,41 @@ timeout_data_clear (TimeoutData *data)
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (TimeoutData, timeout_data_clear)
 
+typedef GSList URIList;
+
+static void
+uri_list_free (URIList *uris)
+{
+  g_slist_free_full (uris, (GDestroyNotify)soup_uri_free);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (URIList, uri_list_free)
+
+static gboolean
+get_first_uri_from_server (SoupServer *server,
+                           SoupURI **out_uri,
+                           GError **error)
+{
+  g_autoptr(URIList) uris = soup_server_get_uris (server);
+  URIList *iter;
+
+  for (iter = uris; iter != NULL; iter = iter->next)
+    {
+      SoupURI *uri = iter->data;
+
+      if (uri == NULL)
+        continue;
+
+      uris = g_slist_delete_link (uris, iter);
+      *out_uri = uri;
+      return TRUE;
+    }
+
+  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                       "Server has no accessible URIs");
+  return FALSE;
+}
+
 static gboolean
 listen_local (SoupServer *server,
               Options *options,
