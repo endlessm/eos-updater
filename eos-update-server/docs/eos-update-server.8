@@ -1,6 +1,6 @@
 .\" Manpage for eos-update-server.
 .\" Documentation is under the same licence as the eos-updater package.
-.TH man 8 "27 Feb 2017" "1.0" "eos\-update\-server man page"
+.TH man 8 "13 Apr 2017" "1.0" "eos\-update\-server man page"
 .\"
 .SH NAME
 .IX Header "NAME"
@@ -16,8 +16,8 @@ eos\-update\-server — Endless OS OSTree Server
 .IX Header "DESCRIPTION"
 .\"
 \fBeos\-update\-server\fP is a HTTP server which exposes this computer’s OSTree
-repository to other computers on the network, to allow Endless OS updates to be
-shared between computers. The DNS\-SD advertisement of these updates to the
+repositories to other computers on the network, to allow Endless OS updates to be
+shared between computers. The DNS\-SD advertisement of these repositories to the
 local network is controlled by \fBeos\-updater\-avahi\fP(8) and
 \fBeos\-update\-server.conf\fP(5).
 .PP
@@ -34,6 +34,10 @@ to run \fBeos\-update\-server\fP manually.
 .PP
 If the computer has been converted to not use OSTree, advertisement of updates
 to the local network is permanently disabled.
+.PP
+\fBeos\-update\-server\fP supports serving multiple OSTree repositories; one for
+the OS and one for \fBflatpak\fP(1) apps, for example. Additional repositories
+can be configured in \fBeos\-update\-server.conf\fP(5).
 .\"
 .SH OPTIONS
 .IX Header "OPTIONS"

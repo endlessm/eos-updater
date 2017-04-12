@@ -1,6 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
  * Copyright © 2016 Kinvolk GmbH
+ * Copyright © 2017 Endless Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,6 +19,7 @@
  *
  * Authors:
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
+ *  - Philip Withnall <withnall@endlessm.com>
  */
 
 #include <libeos-update-server/repo.h>
@@ -50,9 +52,49 @@ static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos
 static const char *LOCAL_NETWORK_UPDATES_GROUP = "Local Network Updates";
 static const char *ADVERTISE_UPDATES_KEY = "AdvertiseUpdates";
 
+static const gchar *REPOSITORY_GROUP = "Repository ";  /* should be followed by an integer */
+static const gchar *PATH_KEY = "Path";
+static const gchar *REMOTE_NAME_KEY = "RemoteName";
+
+/* Store a local repository configuration loaded from the config file (basically
+ * an entire [Repository 0-9] section). This is enough information to create an
+ * #EosRepo for the repository. */
+typedef struct
+{
+  guint index;
+  gchar *path;
+  gchar *remote_name;
+} RepositoryConfig;
+
+static void
+repository_config_free (RepositoryConfig *config)
+{
+  g_free (config->remote_name);
+  g_free (config->path);
+  g_free (config);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (RepositoryConfig, repository_config_free)
+
+static RepositoryConfig *
+repository_config_new_steal (guint  index,
+                             gchar *path,
+                             gchar *remote_name)
+{
+  g_autoptr(RepositoryConfig) config = NULL;
+
+  config = g_new0 (RepositoryConfig, 1);
+  config->index = index;
+  config->path = g_steal_pointer (&path);
+  config->remote_name = g_steal_pointer (&remote_name);
+
+  return g_steal_pointer (&config);
+}
+
 static gboolean
 read_config_file (const gchar  *config_file_path,
                   gboolean     *advertise_updates,
+                  GPtrArray   **repository_configs,
                   GError      **error)
 {
   g_autoptr(GKeyFile) config = NULL;
@@ -69,6 +111,10 @@ read_config_file (const gchar  *config_file_path,
       config_file_path,
       NULL
     };
+  g_auto(GStrv) groups = NULL;
+  gsize n_groups, i;
+  gboolean _advertise_updates;
+  g_autoptr(GPtrArray) _repository_configs = NULL;
 
   g_return_val_if_fail (advertise_updates != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -81,7 +127,7 @@ read_config_file (const gchar  *config_file_path,
     return FALSE;
 
   /* Successfully loaded a file. Parse it. */
-  *advertise_updates = g_key_file_get_boolean (config,
+  _advertise_updates = g_key_file_get_boolean (config,
                                                LOCAL_NETWORK_UPDATES_GROUP,
                                                ADVERTISE_UPDATES_KEY,
                                                &local_error);
@@ -90,6 +136,51 @@ read_config_file (const gchar  *config_file_path,
       g_propagate_error (error, g_steal_pointer (&local_error));
       return FALSE;
     }
+
+  groups = g_key_file_get_groups (config, &n_groups);
+  _repository_configs = g_ptr_array_new_with_free_func ((GDestroyNotify) repository_config_free);
+
+  for (i = 0; i < n_groups; i++)
+    {
+      guint64 index;
+      g_autofree gchar *repository_path = NULL, *remote_name = NULL;
+      const gchar *end_ptr;
+
+      if (!g_str_has_prefix (groups[i], REPOSITORY_GROUP))
+        continue;
+
+      errno = 0;
+      index = g_ascii_strtoull (groups[i] + strlen (REPOSITORY_GROUP),
+                                (gchar **) &end_ptr, 10);
+
+      if (errno != 0 || end_ptr == NULL || *end_ptr != '\0' || index > G_MAXUINT)
+        {
+          g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE,
+                       "Invalid group name: %s", groups[i]);
+          return FALSE;
+        }
+
+      repository_path = g_key_file_get_string (config, groups[i], PATH_KEY,
+                                               error);
+
+      if (repository_path == NULL)
+        return FALSE;
+
+      remote_name = g_key_file_get_string (config, groups[i], REMOTE_NAME_KEY,
+                                           error);
+
+      if (remote_name == NULL)
+        return FALSE;
+
+      g_ptr_array_add (_repository_configs,
+                       repository_config_new_steal (index,
+                                                    g_steal_pointer (&repository_path),
+                                                    g_steal_pointer (&remote_name)));
+    }
+
+  /* Success. */
+  *advertise_updates = _advertise_updates;
+  *repository_configs = g_steal_pointer (&_repository_configs);
 
   return TRUE;
 }
@@ -483,6 +574,44 @@ start_listening (SoupServer *server,
   return soup_server_listen_fd (server, SD_LISTEN_FDS_START, 0, error);
 }
 
+/* Create an #EusRepo to wrap the given #OstreeRepo and add it to the
+ * #EusServer. Print an error and return %FALSE on failure. */
+static gboolean
+add_repo (EusServer   *server,
+          OstreeRepo  *repo,
+          const gchar *root_path,
+          const gchar *remote_name)
+{
+  g_autoptr(EusRepo) eus_repo = NULL;
+  g_autoptr(GError) error = NULL;
+
+  if (!ostree_repo_open (repo, NULL, &error))
+    {
+      GFile *path = ostree_repo_get_path (repo);
+      g_autofree gchar *path_str = g_file_get_path (path);
+
+      g_message ("OSTree repository at ‘%s’ could not be opened: %s",
+                 path_str, error->message);
+      return FALSE;
+    }
+
+  eus_repo = eus_repo_new (repo, root_path, remote_name, NULL, &error);
+
+  if (eus_repo == NULL)
+    {
+      GFile *path = ostree_repo_get_path (repo);
+      g_autofree gchar *path_str = g_file_get_path (path);
+
+      g_message ("Failed to create server for repo ‘%s’: %s",
+                 path_str, error->message);
+      return FALSE;
+    }
+
+  eus_server_add_repo (server, eus_repo);
+
+  return TRUE;
+}
+
 /* main() exit codes. */
 enum
 {
@@ -501,10 +630,10 @@ main (int argc, char **argv)
   g_auto(Options) options = OPTIONS_CLEARED;
   g_autoptr(SoupServer) soup_server = NULL;
   g_autoptr(EusServer) eus_server = NULL;
-  g_autoptr(EusRepo) eus_repo = NULL;
   g_auto(TimeoutData) data = TIMEOUT_DATA_CLEARED;
-  g_autoptr(OstreeRepo) repo = NULL;
   gboolean advertise_updates = FALSE;
+  g_autoptr(GPtrArray) repository_configs = NULL;
+  gsize i;
 
   setlocale (LC_ALL, "");
 
@@ -515,7 +644,8 @@ main (int argc, char **argv)
     }
 
   /* Load our configuration. */
-  if (!read_config_file (options.config_file, &advertise_updates, &error))
+  if (!read_config_file (options.config_file, &advertise_updates,
+                         &repository_configs, &error))
     {
       g_message ("Failed to load configuration file: %s", error->message);
       return EXIT_BAD_CONFIGURATION;
@@ -529,25 +659,47 @@ main (int argc, char **argv)
       return EXIT_DISABLED;
     }
 
-  repo = eos_updater_local_repo ();
+  /* Set up the server and repositories. */
   soup_server = soup_server_new (NULL, NULL);
-  eus_repo = eus_repo_new (repo, "", options.served_remote, NULL, &error);
+  eus_server = eus_server_new (soup_server);
 
-  if (eus_repo == NULL)
+  for (i = 0; i < repository_configs->len; i++)
     {
-      g_message ("Failed to create a server: %s", error->message);
-      return EXIT_FAILED;
+      const RepositoryConfig *config = g_ptr_array_index (repository_configs, i);
+      g_autoptr(GFile) ostree_repo_path = NULL;
+      g_autoptr(OstreeRepo) ostree_repo = NULL;
+      g_autofree gchar *root_path = NULL;
+
+      /* Serve the (config->index == 0) repository at (root_path == "") for
+       * backwards compatibility with the old version of eos-update-server which
+       * could only serve a single repository. It’s intended that
+       * (config->index == 0) is always the system OSTree repository (though
+       * this is not enforced). */
+      ostree_repo_path = g_file_new_for_path (config->path);
+      ostree_repo = ostree_repo_new (ostree_repo_path);
+      root_path = (config->index != 0) ? g_strdup_printf ("/%u", config->index) : g_strdup ("");
+
+      if (!add_repo (eus_server, ostree_repo, root_path, config->remote_name))
+        return EXIT_FAILED;
     }
 
-  eus_server = eus_server_new (soup_server);
-  eus_server_add_repo (eus_server, eus_repo);
+  if (repository_configs->len == 0)
+    {
+      g_autoptr(OstreeRepo) ostree_repo = NULL;
 
+      ostree_repo = ostree_repo_new_default ();
+      if (!add_repo (eus_server, ostree_repo, "", options.served_remote))
+        return EXIT_FAILED;
+    }
+
+  /* Set up exit timeout. */
   if (!timeout_data_init (&data, &options, eus_server, &error))
     {
       g_message ("Failed to initialize timeout data: %s", error->message);
       return EXIT_FAILED;
     }
 
+  /* Listen! */
   if (!start_listening (soup_server, &options, &error))
     {
       g_message ("Failed to listen: %s", error->message);
