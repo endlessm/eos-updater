@@ -21,65 +21,12 @@
  */
 
 #include <glib.h>
+#include <libeos-update-server/config.h>
 #include <libeos-updater-util/avahi-service-file.h>
-#include <libeos-updater-util/config.h>
 #include <libeos-updater-util/ostree.h>
 #include <locale.h>
 #include <ostree.h>
 #include <stdlib.h>
-
-/* Paths for the configuration file. */
-static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-update-server.conf";
-static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-update-server.conf";
-static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-update-server.conf";
-
-/* Configuration file keys. */
-static const char *LOCAL_NETWORK_UPDATES_GROUP = "Local Network Updates";
-static const char *ADVERTISE_UPDATES_KEY = "AdvertiseUpdates";
-
-static gboolean
-read_config_file (const gchar  *config_file_path,
-                  gboolean     *advertise_updates,
-                  GError      **error)
-{
-  g_autoptr(GKeyFile) config = NULL;
-  g_autoptr(GError) local_error = NULL;
-  const gchar * const default_paths[] =
-    {
-      CONFIG_FILE_PATH,
-      LOCAL_CONFIG_FILE_PATH,
-      STATIC_CONFIG_FILE_PATH,
-      NULL
-    };
-  const gchar * const override_paths[] =
-    {
-      config_file_path,
-      NULL
-    };
-
-  g_return_val_if_fail (advertise_updates != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  /* Try loading the files in order. If the user specified a configuration file
-   * on the command line, use only that. Otherwise use the normal hierarchy. */
-  config = eos_updater_load_config_file ((config_file_path != NULL) ? override_paths : default_paths,
-                                         error);
-  if (config == NULL)
-    return FALSE;
-
-  /* Successfully loaded a file. Parse it. */
-  *advertise_updates = g_key_file_get_boolean (config,
-                                               LOCAL_NETWORK_UPDATES_GROUP,
-                                               ADVERTISE_UPDATES_KEY,
-                                               &local_error);
-  if (local_error != NULL)
-    {
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
-    }
-
-  return TRUE;
-}
 
 static gboolean
 update_service_file (gboolean       advertise_updates,
@@ -302,7 +249,7 @@ main (int    argc,
     avahi_service_directory = g_strdup (eos_avahi_service_file_get_directory ());
 
   /* Load our configuration. */
-  if (!read_config_file (config_file, &advertise_updates, &error))
+  if (!eus_read_config_file (config_file, &advertise_updates, NULL, &error))
     {
       return fail (quiet, EXIT_BAD_CONFIGURATION,
                    "Failed to load configuration file: %s", error->message);

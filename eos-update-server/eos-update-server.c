@@ -22,6 +22,7 @@
  *  - Philip Withnall <withnall@endlessm.com>
  */
 
+#include <libeos-update-server/config.h>
 #include <libeos-update-server/repo.h>
 #include <libeos-update-server/server.h>
 #include <libeos-updater-util/config.h>
@@ -40,150 +41,6 @@
 
 #include <errno.h>
 #include <string.h>
-
-/* FIXME: The configuration code is shared with eos-updater-avahi and should be
- * split out into a helper library. */
-/* Paths for the configuration file. */
-static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-update-server.conf";
-static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-update-server.conf";
-static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-update-server.conf";
-
-/* Configuration file keys. */
-static const char *LOCAL_NETWORK_UPDATES_GROUP = "Local Network Updates";
-static const char *ADVERTISE_UPDATES_KEY = "AdvertiseUpdates";
-
-static const gchar *REPOSITORY_GROUP = "Repository ";  /* should be followed by an integer */
-static const gchar *PATH_KEY = "Path";
-static const gchar *REMOTE_NAME_KEY = "RemoteName";
-
-/* Store a local repository configuration loaded from the config file (basically
- * an entire [Repository 0-9] section). This is enough information to create an
- * #EosRepo for the repository. */
-typedef struct
-{
-  guint index;
-  gchar *path;
-  gchar *remote_name;
-} RepositoryConfig;
-
-static void
-repository_config_free (RepositoryConfig *config)
-{
-  g_free (config->remote_name);
-  g_free (config->path);
-  g_free (config);
-}
-
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (RepositoryConfig, repository_config_free)
-
-static RepositoryConfig *
-repository_config_new_steal (guint  index,
-                             gchar *path,
-                             gchar *remote_name)
-{
-  g_autoptr(RepositoryConfig) config = NULL;
-
-  config = g_new0 (RepositoryConfig, 1);
-  config->index = index;
-  config->path = g_steal_pointer (&path);
-  config->remote_name = g_steal_pointer (&remote_name);
-
-  return g_steal_pointer (&config);
-}
-
-static gboolean
-read_config_file (const gchar  *config_file_path,
-                  gboolean     *advertise_updates,
-                  GPtrArray   **repository_configs,
-                  GError      **error)
-{
-  g_autoptr(GKeyFile) config = NULL;
-  g_autoptr(GError) local_error = NULL;
-  const gchar * const default_paths[] =
-    {
-      CONFIG_FILE_PATH,
-      LOCAL_CONFIG_FILE_PATH,
-      STATIC_CONFIG_FILE_PATH,
-      NULL
-    };
-  const gchar * const override_paths[] =
-    {
-      config_file_path,
-      NULL
-    };
-  g_auto(GStrv) groups = NULL;
-  gsize n_groups, i;
-  gboolean _advertise_updates;
-  g_autoptr(GPtrArray) _repository_configs = NULL;
-
-  g_return_val_if_fail (advertise_updates != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  /* Try loading the files in order. If the user specified a configuration file
-   * on the command line, use only that. Otherwise use the normal hierarchy. */
-  config = eos_updater_load_config_file ((config_file_path != NULL) ? override_paths : default_paths,
-                                         error);
-  if (config == NULL)
-    return FALSE;
-
-  /* Successfully loaded a file. Parse it. */
-  _advertise_updates = g_key_file_get_boolean (config,
-                                               LOCAL_NETWORK_UPDATES_GROUP,
-                                               ADVERTISE_UPDATES_KEY,
-                                               &local_error);
-  if (local_error != NULL)
-    {
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
-    }
-
-  groups = g_key_file_get_groups (config, &n_groups);
-  _repository_configs = g_ptr_array_new_with_free_func ((GDestroyNotify) repository_config_free);
-
-  for (i = 0; i < n_groups; i++)
-    {
-      guint64 index;
-      g_autofree gchar *repository_path = NULL, *remote_name = NULL;
-      const gchar *end_ptr;
-
-      if (!g_str_has_prefix (groups[i], REPOSITORY_GROUP))
-        continue;
-
-      errno = 0;
-      index = g_ascii_strtoull (groups[i] + strlen (REPOSITORY_GROUP),
-                                (gchar **) &end_ptr, 10);
-
-      if (errno != 0 || end_ptr == NULL || *end_ptr != '\0' || index > G_MAXUINT)
-        {
-          g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE,
-                       "Invalid group name: %s", groups[i]);
-          return FALSE;
-        }
-
-      repository_path = g_key_file_get_string (config, groups[i], PATH_KEY,
-                                               error);
-
-      if (repository_path == NULL)
-        return FALSE;
-
-      remote_name = g_key_file_get_string (config, groups[i], REMOTE_NAME_KEY,
-                                           error);
-
-      if (remote_name == NULL)
-        return FALSE;
-
-      g_ptr_array_add (_repository_configs,
-                       repository_config_new_steal (index,
-                                                    g_steal_pointer (&repository_path),
-                                                    g_steal_pointer (&remote_name)));
-    }
-
-  /* Success. */
-  *advertise_updates = _advertise_updates;
-  *repository_configs = g_steal_pointer (&_repository_configs);
-
-  return TRUE;
-}
 
 typedef struct
 {
@@ -644,8 +501,8 @@ main (int argc, char **argv)
     }
 
   /* Load our configuration. */
-  if (!read_config_file (options.config_file, &advertise_updates,
-                         &repository_configs, &error))
+  if (!eus_read_config_file (options.config_file, &advertise_updates,
+                             &repository_configs, &error))
     {
       g_message ("Failed to load configuration file: %s", error->message);
       return EXIT_BAD_CONFIGURATION;
@@ -665,7 +522,7 @@ main (int argc, char **argv)
 
   for (i = 0; i < repository_configs->len; i++)
     {
-      const RepositoryConfig *config = g_ptr_array_index (repository_configs, i);
+      const EusRepoConfig *config = g_ptr_array_index (repository_configs, i);
       g_autoptr(GFile) ostree_repo_path = NULL;
       g_autoptr(OstreeRepo) ostree_repo = NULL;
       g_autofree gchar *root_path = NULL;

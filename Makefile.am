@@ -110,6 +110,7 @@ eos_updater_avahi_eos_updater_avahi_LDFLAGS = \
 	$(NULL)
 eos_updater_avahi_eos_updater_avahi_LDADD = \
 	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la \
 	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
 	$(EOS_UPDATER_AVAHI_LIBS) \
 	$(NULL)
@@ -145,9 +146,12 @@ libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_LDFLAGS = \
 	$(NULL)
 libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_LIBADD = \
 	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
 	$(EOS_UPDATE_SERVER_LIBS) \
 	$(NULL)
 libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_SOURCES = \
+	libeos-update-server/config.c \
+	libeos-update-server/config.h \
 	libeos-update-server/repo.c \
 	libeos-update-server/repo.h \
 	libeos-update-server/server.c \
