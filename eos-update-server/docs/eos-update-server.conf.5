@@ -26,13 +26,16 @@ additional repositories to serve.
 .PP
 The configuration file contains a single mandatory section,
 \fI[Local Network Updates]\fP, and zero or more optional sections,
-\fI[Repository 0–9]\fP, whose keys are described below. Each
-\fI[Repository 0–9]\fP section describes a repository to serve; if there are no
+\fI[Repository 0–65535]\fP, whose keys are described below. Each
+\fI[Repository 0–65535]\fP section describes a repository to serve; if there are no
 such sections, the default \fI/ostree/repo\fP repository is served with its
 \fIRemoteName=\fP set to the value of the \fB\-\-serve\-remote=\fP option passed
 to \fBeos\-update\-server\fP(8). Each section must be numbered uniquely; its
 index forms the root of the HTTP paths for requesting content from the
-repository.
+repository. The indexes don’t have to be ordered or contiguous, and up to 65536
+repositories are supported (the maximum index is 65535). Index 0 is treated
+specially: it indicates a root with no prefix, and is intended to be used for
+the ‘main’ repository on a server.
 .PP
 Default values are stored in
 \fI/usr/share/eos\-updater/eos\-update\-server.conf\fP, which must always
@@ -50,8 +53,8 @@ Whether to advertise and distribute updates over the local network. This may be
 \fBeos\-updater\-avahi\fP(8) are enabled; otherwise, they will both refuse to
 advertise or distribute updates.
 \"
-.SH [Repository 0–9] SECTION OPTIONS
-.IX Header "[Repository 0–9] SECTION OPTIONS"
+.SH [Repository 0–65535] SECTION OPTIONS
+.IX Header "[Repository 0–65535] SECTION OPTIONS"
 .\"
 .IP "\fIPath=\fP"
 .IX Item "Path="

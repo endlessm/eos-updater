@@ -115,7 +115,7 @@ repository_configs_contains_index (GPtrArray *repository_configs,
  *    for the `AdvertiseUpdates=` parameter
  * @out_repository_configs: (out callee-allocates) (transfer container)
  *    (element-type EusRepoConfig) (optional): return location for the
- *    `[Repository 0–9]` sections
+ *    `[Repository 0–65535]` sections
  * @error: return location for a #GError, or %NULL
  *
  * Find and load the `eos-update-server.conf` configuration file. If
@@ -129,7 +129,7 @@ repository_configs_contains_index (GPtrArray *repository_configs,
  * semantics of the options.
  *
  * Each #EusRepoConfig element in the returned @out_repository_configs array
- * contains the options from a single `[Repository 0–9]` section.
+ * contains the options from a single `[Repository 0–65535]` section.
  *
  * Returns: %TRUE on success, %FALSE otherwise
  * Since: UNRELEASED
@@ -195,7 +195,7 @@ eus_read_config_file (const gchar  *config_file_path,
       index = g_ascii_strtoull (groups[i] + strlen (REPOSITORY_GROUP),
                                 (gchar **) &end_ptr, 10);
 
-      if (errno != 0 || end_ptr == NULL || *end_ptr != '\0' || index > G_MAXUINT)
+      if (errno != 0 || end_ptr == NULL || *end_ptr != '\0' || index > G_MAXUINT16)
         {
           g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE,
                        "Invalid group name: %s", groups[i]);

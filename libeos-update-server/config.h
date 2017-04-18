@@ -32,12 +32,12 @@ G_BEGIN_DECLS
 
 /**
  * EusRepoConfig:
- * @index: index from the `[Repository 0–9]` group name
+ * @index: index from the `[Repository 0–65535]` group name
  * @path: value of the `Path=` option
  * @remote_name: value of the `RemoteName=` option
  *
  * Structure containing a local repository configuration loaded from the
- * config file (a `[Repository 0–9]` section). This is enough information to
+ * config file (a `[Repository 0–65535]` section). This is enough information to
  * create an #EosRepo for the repository.
  *
  * For more information about the config options, see the
@@ -47,7 +47,7 @@ G_BEGIN_DECLS
  */
 typedef struct
 {
-  guint index;
+  guint16 index;
   gchar *path;
   gchar *remote_name;
 } EusRepoConfig;
