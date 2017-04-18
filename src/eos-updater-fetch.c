@@ -139,7 +139,7 @@ content_fetch (GTask *task,
       goto error;
     }
 
-  message ("Fetch: %s:%s resolved to: %s", remote, ref, commit_id);
+  g_message ("Fetch: %s:%s resolved to: %s", remote, ref, commit_id);
   progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
   if (data->overridden_urls != NULL && data->overridden_urls[0] != NULL)
@@ -157,17 +157,17 @@ content_fetch (GTask *task,
   if (!repo_pull (repo, remote, commit_id, url_override, progress, cancel, &error))
     goto error;
 
-  message ("Fetch: pull() completed");
+  g_message ("Fetch: pull() completed");
 
   if (!ostree_repo_read_commit (repo, commit_id, NULL, NULL, cancel, &error))
     goto error;
 
-  message ("Fetch: commit %s cached", commit_id);
+  g_message ("Fetch: commit %s cached", commit_id);
   g_task_return_boolean (task, TRUE);
   goto cleanup;
 
  error:
-  message ("Fetch returning ERROR");
+  g_message ("Fetch returning ERROR");
   g_task_return_error (task, error);
 
  cleanup:

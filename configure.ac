@@ -84,8 +84,7 @@ PKG_CHECK_MODULES([SOUP],
                   [libsoup-2.4])
 
 PKG_CHECK_MODULES([EOS_AUTOUPDATER],
-                  [libnm >= $NM_REQUIRED_VERSION
-                   libsystemd])
+                  [libnm >= $NM_REQUIRED_VERSION])
 
 PKG_CHECK_MODULES([EOS_UPDATE_SERVER],
                   [libsystemd])

@@ -32,7 +32,7 @@ BUILT_SOURCES = \
 	eos-updater-generated.c \
 	$(NULL)
 
-libeos_updater_dbus_la_CPPFLAGS = $(common_cppflags)
+libeos_updater_dbus_la_CPPFLAGS = $(common_cppflags) -DG_LOG_DOMAIN=\""eos-updater-dbus"\"
 libeos_updater_dbus_la_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
 libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
 libeos_updater_dbus_la_SOURCES = \
@@ -60,9 +60,10 @@ common_cppflags = \
 	-DDATADIR=\""$(datadir)"\" \
 	-DPKGDATADIR=\""$(pkgdatadir)"\" \
 	-DPREFIX=\""$(prefix)"\" \
+	-DG_LOG_USE_STRUCTURED \
 	$(NULL)
 
-eos_autoupdater_CPPFLAGS = $(common_cppflags)
+eos_autoupdater_CPPFLAGS = $(common_cppflags) -DG_LOG_DOMAIN=\""eos-autoupdater"\"
 eos_autoupdater_CFLAGS = $(common_cflags) $(EOS_AUTOUPDATER_CFLAGS)
 eos_autoupdater_LDFLAGS = $(WARN_LDFLAGS)
 eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la $(EOS_AUTOUPDATER_LIBS)
@@ -72,7 +73,7 @@ dist_man8_MANS += docs/eos-autoupdater.8
 
 common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
-libeos_updater_0_la_CPPFLAGS = $(common_cppflags)
+libeos_updater_0_la_CPPFLAGS = $(common_cppflags) -DG_LOG_DOMAIN=\""libeos-updater"\"
 libeos_updater_0_la_CFLAGS = $(common_cflags)
 libeos_updater_0_la_LDFLAGS = $(WARN_LDFLAGS)
 libeos_updater_0_la_LIBADD = $(common_ldadd)
@@ -89,7 +90,7 @@ eosinclude_HEADERS = \
 	eos-repo-server.h \
 	$(NULL)
 
-eos_update_server_CPPFLAGS = $(common_cppflags)
+eos_update_server_CPPFLAGS = $(common_cppflags) -DG_LOG_DOMAIN=\""eos-update-server"\"
 eos_update_server_CFLAGS = $(common_cflags) $(EOS_UPDATE_SERVER_CFLAGS)
 eos_update_server_LDFLAGS = $(WARN_LDFLAGS)
 eos_update_server_LDADD = $(common_ldadd) $(preparelib) $(EOS_UPDATE_SERVER_LIBS)
@@ -101,6 +102,7 @@ bin_PROGRAMS = eos-updater eos-updater-prepare-volume
 
 eos_updater_prepare_volume_CPPFLAGS = \
 	$(common_cppflags) \
+	-DG_LOG_DOMAIN=\""eos-updater-prepare-volume"\" \
 	$(NULL)
 eos_updater_prepare_volume_CFLAGS = \
 	$(common_cflags) \
@@ -118,6 +120,7 @@ dist_man8_MANS += docs/eos-updater-prepare-volume.8
 
 eos_updater_CPPFLAGS = \
 	$(common_cppflags) \
+	-DG_LOG_DOMAIN=\""eos-updater"\" \
 	$(NULL)
 eos_updater_CFLAGS = \
 	$(common_cflags) \

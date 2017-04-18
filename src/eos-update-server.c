@@ -103,7 +103,7 @@ typedef struct
   gchar *config_file;
 } Options;
 
-#define OPTIONS_CLEARED { 0u, NULL, 0, NULL }
+#define OPTIONS_CLEARED { 0u, NULL, 0, NULL, NULL }
 
 static gboolean
 check_option_is (const gchar *option_name,
@@ -281,12 +281,12 @@ timeout_cb (gpointer timeout_data_ptr)
 
   if (!no_requests_timeout (data->server, data->timeout_seconds))
     {
-      message ("Resetting timeout");
+      g_message ("Resetting timeout");
       timeout_data_setup_timeout (data);
     }
   else
     {
-      message ("Timeout passed, quitting");
+      g_message ("Timeout passed, quitting");
       g_main_loop_quit (data->loop);
       data->timeout_id = 0;
     }
@@ -473,22 +473,22 @@ main (int argc, char **argv)
 
   if (!options_init (&options, &argc, &argv, &error))
     {
-      message ("Failed to initialize options: %s", error->message);
+      g_message ("Failed to initialize options: %s", error->message);
       return EXIT_INVALID_ARGUMENTS;
     }
 
   /* Load our configuration. */
   if (!read_config_file (options.config_file, &advertise_updates, &error))
     {
-      message ("Failed to load configuration file: %s", error->message);
+      g_message ("Failed to load configuration file: %s", error->message);
       return EXIT_BAD_CONFIGURATION;
     }
 
   /* Should we actually run? */
   if (!advertise_updates)
     {
-      message ("Advertising updates is disabled in the configuration file. "
-               "Exiting.");
+      g_message ("Advertising updates is disabled in the configuration file. "
+                 "Exiting.");
       return EXIT_DISABLED;
     }
 
@@ -499,20 +499,20 @@ main (int argc, char **argv)
                                         &error);
   if (server == NULL)
     {
-      message ("Failed to create a server: %s", error->message);
+      g_message ("Failed to create a server: %s", error->message);
       return EXIT_FAILED;
     }
 
 
   if (!timeout_data_init (&data, &options, server, &error))
     {
-      message ("Failed to initialize timeout data: %s", error->message);
+      g_message ("Failed to initialize timeout data: %s", error->message);
       return EXIT_FAILED;
     }
 
   if (!start_listening (SOUP_SERVER (server), &options, &error))
     {
-      message ("Failed to listen: %s", error->message);
+      g_message ("Failed to listen: %s", error->message);
       return EXIT_NO_SOCKETS;
     }
 
