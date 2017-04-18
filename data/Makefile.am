@@ -17,8 +17,6 @@
 eos_autoupdater_in = \
 	eos-autoupdater.service.in \
 	eos-autoupdater.timer.in \
-	eos-update-server.socket.in \
-	eos-update-server.service.in \
 	eos-updater.service.in \
 	$(NULL)
 
@@ -29,7 +27,6 @@ sysconfexampledir = $(pkgdatadir)
 dist_sysconfexample_DATA = \
 	eos-autoupdater.conf \
 	eos-updater.conf \
-	eos-update-server.conf \
 	$(NULL)
 
 %: %.in
@@ -51,7 +48,6 @@ CLEANFILES = $(systemdsystemunit_DATA)
 dist_man5_MANS = \
 	docs/eos-autoupdater.conf.5 \
 	docs/eos-updater.conf.5 \
-	docs/eos-update-server.conf.5 \
 	$(NULL)
 
 -include $(top_srcdir)/git.mk

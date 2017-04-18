@@ -17,6 +17,7 @@ dnl Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  U
 # API versions
 m4_define([eu_api_version],[0])
 m4_define([euu_api_version],[0])
+m4_define([eus_api_version],[0])
 
 AC_INIT([eos-updater],[1.0])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -38,6 +39,7 @@ GOBJECT_INTROSPECTION_CHECK([1.30.0])
 # Versioning
 AC_SUBST([EU_API_VERSION],eu_api_version)
 AC_SUBST([EUU_API_VERSION],euu_api_version)
+AC_SUBST([EUS_API_VERSION],eus_api_version)
 
 # Compiler warnings and --disable-Werror
 AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])
@@ -86,9 +88,7 @@ PKG_CHECK_MODULES([SOUP],
 PKG_CHECK_MODULES([EOS_AUTOUPDATER],
                   [libnm >= $NM_REQUIRED_VERSION])
 
-PKG_CHECK_MODULES([EOS_UPDATE_SERVER],
-                  [libsystemd])
-
+AX_PKG_CHECK_MODULES([EOS_UPDATE_SERVER],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4 libsystemd])
 AX_PKG_CHECK_MODULES([EOS_UPDATER_AVAHI],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION])
 AX_PKG_CHECK_MODULES([EOS_UPDATER_UTIL_TESTS],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4])
 

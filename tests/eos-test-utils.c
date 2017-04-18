@@ -1586,7 +1586,7 @@ run_update_server (GFile *repo,
   guint i;
   g_autofree gchar *eos_update_server_binary = g_test_build_filename (G_TEST_BUILT,
                                                                       "..",
-                                                                      "src",
+                                                                      "eos-update-server",
                                                                       "eos-update-server",
                                                                       NULL);
   g_autofree gchar *raw_port_file_path = g_file_get_path (port_file);

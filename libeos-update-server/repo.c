@@ -1,6 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
  * Copyright © 2016 Kinvolk GmbH
+ * Copyright © 2017 Endless Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,19 +19,19 @@
  *
  * Authors:
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
+ *  - Philip Withnall <withnall@endlessm.com>
  */
 
-#include "eos-repo-server.h"
-
+#include <libeos-update-server/repo.h>
 #include <libeos-updater-util/util.h>
 
 #include <string.h>
 
 /**
- * SECTION:repo-server
+ * SECTION:repo
  * @title: Bare repository server
  * @short_description: Server for the EOS bare OSTree repository
- * @include: eos-repo-server.h
+ * @include: libeos-update-server/repo.h
  *
  * A server that sits on top of the bare repository and lies to
  * clients about the repositories' mode, so it is possible to do pulls
@@ -41,41 +42,38 @@
  */
 
 /**
- * EosUpdaterRepoServer:
+ * EusRepo:
  *
- * A subclass of #SoupServer.
+ * A server which handles serving a single #OstreeRepo at a specified path.
  */
-struct _EosUpdaterRepoServer
+struct _EusRepo
 {
-  SoupServer parent_instance;
+  GObject parent_instance;
+
+  SoupServer *server;  /* (nullable), owned*/
   OstreeRepo *repo;
+  gchar *root_path;  /* (not nullable) if non-empty, must start with ‘/’ and have no trailing ‘/’ */
   gchar *remote_name;
   GCancellable *cancellable;
   gchar *cached_repo_root;
   GBytes *cached_config;
-
-  guint pending_requests;
-  gint64 last_request_time;
 };
 
-static void eos_updater_repo_server_initable_iface_init (GInitableIface *initable_iface);
+static void eus_repo_initable_iface_init (GInitableIface *initable_iface);
 
-G_DEFINE_TYPE_WITH_CODE (EosUpdaterRepoServer, eos_updater_repo_server, SOUP_TYPE_SERVER,
+G_DEFINE_TYPE_WITH_CODE (EusRepo, eus_repo, G_TYPE_OBJECT,
                          G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE,
-                                                eos_updater_repo_server_initable_iface_init))
+                                                eus_repo_initable_iface_init))
 
-enum
+typedef enum
 {
-  PROP_0,
+  PROP_SERVER = 1,
   PROP_REPO,
+  PROP_ROOT_PATH,
   PROP_SERVED_REMOTE,
-  PROP_PENDING_REQUESTS,
-  PROP_LAST_REQUEST_TIME,
+} EusRepoProperty;
 
-  PROP_N
-};
-
-static GParamSpec *props[PROP_N] = { NULL, };
+static GParamSpec *props[PROP_SERVED_REMOTE + 1] = { NULL, };
 
 static gboolean
 generate_faked_config (OstreeRepo *repo,
@@ -126,33 +124,35 @@ generate_faked_config (OstreeRepo *repo,
 }
 
 static void
-eos_updater_repo_server_init (EosUpdaterRepoServer *server)
-{}
+eus_repo_init (EusRepo *self)
+{
+  self->cancellable = g_cancellable_new ();
+}
 
 static void
-eos_updater_repo_server_get_property (GObject *object,
-                                      guint property_id,
-                                      GValue *value,
-                                      GParamSpec *spec)
+eus_repo_get_property (GObject    *object,
+                       guint       property_id,
+                       GValue     *value,
+                       GParamSpec *spec)
 {
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (object);
+  EusRepo *self = EUS_REPO (object);
 
-  switch (property_id)
+  switch ((EusRepoProperty) property_id)
     {
+    case PROP_SERVER:
+      g_value_set_object (value, self->server);
+      break;
+
     case PROP_REPO:
-      g_value_set_object (value, server->repo);
+      g_value_set_object (value, self->repo);
+      break;
+
+    case PROP_ROOT_PATH:
+      g_value_set_string (value, self->root_path);
       break;
 
     case PROP_SERVED_REMOTE:
-      g_value_set_string (value, server->remote_name);
-      break;
-
-    case PROP_PENDING_REQUESTS:
-      g_value_set_uint (value, server->pending_requests);
-      break;
-
-    case PROP_LAST_REQUEST_TIME:
-      g_value_set_int64 (value, server->last_request_time);
+      g_value_set_string (value, self->remote_name);
       break;
 
     default:
@@ -162,22 +162,44 @@ eos_updater_repo_server_get_property (GObject *object,
 }
 
 static void
-eos_updater_repo_server_set_property (GObject *object,
-                                      guint property_id,
-                                      const GValue *value,
-                                      GParamSpec *spec)
+eus_repo_set_property (GObject      *object,
+                       guint         property_id,
+                       const GValue *value,
+                       GParamSpec   *spec)
 {
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (object);
+  EusRepo *self = EUS_REPO (object);
 
-  switch (property_id)
+  switch ((EusRepoProperty) property_id)
     {
     case PROP_REPO:
-      g_set_object (&server->repo, g_value_get_object (value));
+      g_set_object (&self->repo, g_value_get_object (value));
       break;
 
+    case PROP_ROOT_PATH:
+      g_clear_pointer (&self->root_path, g_free);
+      self->root_path = g_value_dup_string (value);
+
+      g_assert (self->root_path != NULL);
+
+      /* Add a missing leading slash if the root path is non-empty. */
+      if (self->root_path[0] != '\0' && self->root_path[0] != '/')
+        {
+          g_autofree gchar *tmp = g_strconcat ("/", self->root_path, NULL);
+          g_free (self->root_path);
+          self->root_path = g_steal_pointer (&tmp);
+        }
+
+      /* Drop any trailing slash. */
+      if (strlen (self->root_path) > 1 &&
+          self->root_path[strlen (self->root_path) - 1] == '/')
+        self->root_path[strlen (self->root_path) - 1] = '\0';
+
     case PROP_SERVED_REMOTE:
-      server->remote_name = g_value_dup_string (value);
+      self->remote_name = g_value_dup_string (value);
       break;
+
+    case PROP_SERVER:
+      /* Read only. */
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, spec);
@@ -186,38 +208,58 @@ eos_updater_repo_server_set_property (GObject *object,
 }
 
 static void
-eos_updater_repo_server_dispose (GObject *object)
+eus_repo_dispose (GObject *object)
 {
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (object);
+  EusRepo *self = EUS_REPO (object);
 
-  server->pending_requests = 0;
-  server->last_request_time = 0;
-  g_clear_object (&server->cancellable);
-  g_clear_pointer (&server->cached_config, g_bytes_unref);
-  g_clear_object (&server->repo);
+  eus_repo_disconnect (self);
+
+  g_clear_object (&self->cancellable);
+  g_clear_pointer (&self->cached_config, g_bytes_unref);
+  g_clear_object (&self->repo);
+  g_clear_object (&self->server);
+
+  G_OBJECT_CLASS (eus_repo_parent_class)->dispose (object);
 }
 
 static void
-eos_updater_repo_server_finalize (GObject *object)
+eus_repo_finalize (GObject *object)
 {
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (object);
+  EusRepo *self = EUS_REPO (object);
 
-  g_free (server->cached_repo_root);
-  g_free (server->remote_name);
+  g_free (self->cached_repo_root);
+  g_free (self->remote_name);
+  g_free (self->root_path);
+
+  G_OBJECT_CLASS (eus_repo_parent_class)->finalize (object);
 }
 
 static void
-eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class)
+eus_repo_class_init (EusRepoClass *klass)
 {
-  GObjectClass *gobject_class = G_OBJECT_CLASS (repo_server_class);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  gobject_class->dispose = eos_updater_repo_server_dispose;
-  gobject_class->finalize = eos_updater_repo_server_finalize;
-  gobject_class->get_property = eos_updater_repo_server_get_property;
-  gobject_class->set_property = eos_updater_repo_server_set_property;
+  object_class->dispose = eus_repo_dispose;
+  object_class->finalize = eus_repo_finalize;
+  object_class->get_property = eus_repo_get_property;
+  object_class->set_property = eus_repo_set_property;
 
   /**
-   * EosUpdaterRepoServer:repo:
+   * EusRepo:server:
+   *
+   * The #SoupServer to handle requests from.
+   *
+   * Since: UNRELEASED
+   */
+  props[PROP_SERVER] = g_param_spec_object ("server",
+                                            "Server",
+                                            "The #SoupServer to handle requests from.",
+                                            SOUP_TYPE_SERVER,
+                                            G_PARAM_READABLE |
+                                            G_PARAM_STATIC_STRINGS);
+
+  /**
+   * EusRepo:repo:
    *
    * An #OstreeRepo this server sits on.
    */
@@ -230,7 +272,26 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
                                           G_PARAM_STATIC_STRINGS);
 
   /**
-   * EosUpdaterRepoServer:served-remote:
+   * EusRepo:root-path:
+   *
+   * Root path to handle requests underneath. Any requests for paths not
+   * underneath this root will result in a HTTP 404 status code.
+   *
+   * It should be the empty string, or a string starting with a `/` and not
+   * ending in a `/`.
+   *
+   * Since: UNRELEASED
+   */
+  props[PROP_ROOT_PATH] = g_param_spec_string ("root-path",
+                                               "Root Path",
+                                               "Root path to handle requests underneath.",
+                                               "",
+                                               G_PARAM_READWRITE |
+                                               G_PARAM_CONSTRUCT_ONLY |
+                                               G_PARAM_STATIC_STRINGS);
+
+  /**
+   * EusRepo:served-remote:
    *
    * The name of the remote this server serves.
    */
@@ -242,40 +303,8 @@ eos_updater_repo_server_class_init (EosUpdaterRepoServerClass *repo_server_class
                                                    G_PARAM_CONSTRUCT_ONLY |
                                                    G_PARAM_STATIC_STRINGS);
 
-  /**
-   * EosUpdaterRepoServer:pending-requests:
-   *
-   * The number of pending requests. See
-   * eos_updater_repo_server_get_pending_requests() for details.
-   */
-  props[PROP_PENDING_REQUESTS] = g_param_spec_uint ("pending-requests",
-                                                    "Pending requests",
-                                                    "A number of pending requests this server has at the moment",
-                                                    0,
-                                                    G_MAXUINT,
-                                                    0,
-                                                    G_PARAM_READABLE |
-                                                    G_PARAM_EXPLICIT_NOTIFY |
-                                                    G_PARAM_STATIC_STRINGS);
-
-  /**
-   * EosUpdaterRepoServer:last-request-time:
-   *
-   * Time of the last served valid request or response. See
-   * eos_updater_repo_server_get_last_request_time() for details.
-   */
-  props[PROP_LAST_REQUEST_TIME] = g_param_spec_int64 ("last-request-time",
-                                                      "Last request time",
-                                                      "A monotonic time in microseconds when the last request or response was handled",
-                                                      0,
-                                                      G_MAXINT64,
-                                                      0,
-                                                      G_PARAM_READABLE |
-                                                      G_PARAM_EXPLICIT_NOTIFY |
-                                                      G_PARAM_STATIC_STRINGS);
-
-  g_object_class_install_properties (gobject_class,
-                                     PROP_N,
+  g_object_class_install_properties (object_class,
+                                     G_N_ELEMENTS (props),
                                      props);
 }
 
@@ -382,7 +411,7 @@ struct _EosFilezReadData
 {
   GObject parent_instance;
 
-  EosUpdaterRepoServer *server;
+  EusRepo *server_repo;
   gpointer buffer;
   gsize buflen;
   SoupMessage *msg;
@@ -392,37 +421,13 @@ struct _EosFilezReadData
 };
 
 static void
-update_pending_requests (EosUpdaterRepoServer *server,
-                         gint                  delta)
-{
-  GObject *obj = G_OBJECT (server);
-
-  g_assert (delta >= 0 || server->pending_requests >= (guint) -delta);
-  g_assert (delta <= 0 || server->pending_requests <= G_MAXUINT - delta);
-
-  if (delta == 0)
-    return;
-
-  g_debug ("%s: Updating from %u to %u", G_STRFUNC, server->pending_requests,
-           server->pending_requests + delta);
-
-  server->pending_requests += delta;
-  server->last_request_time = g_get_monotonic_time ();
-
-  g_object_freeze_notify (obj);
-  g_object_notify_by_pspec (obj, props[PROP_PENDING_REQUESTS]);
-  g_object_notify_by_pspec (obj, props[PROP_LAST_REQUEST_TIME]);
-  g_object_thaw_notify (obj);
-}
-
-static void
 eos_filez_read_data_disconnect_and_clear_msg (EosFilezReadData *read_data)
 {
   if (read_data->finished_signal_id > 0)
     g_signal_handler_disconnect (read_data->msg, read_data->finished_signal_id);
   read_data->finished_signal_id = 0;
   g_clear_object (&read_data->msg);
-  g_clear_object (&read_data->server);
+  g_clear_object (&read_data->server_repo);
 }
 
 static void
@@ -455,8 +460,8 @@ filez_read_data_finished_cb (SoupMessage *msg,
 }
 
 static EosFilezReadData *
-filez_read_data_new (EosUpdaterRepoServer *server,
-                     gsize buflen,
+filez_read_data_new (EusRepo     *self,
+                     gsize        buflen,
                      SoupMessage *msg,
                      const gchar *filez_path)
 {
@@ -471,7 +476,7 @@ filez_read_data_new (EosUpdaterRepoServer *server,
   if (buflen < 1024)
     buflen = 1024;
   read_data = g_object_new (EOS_TYPE_FILEZ_READ_DATA, NULL);
-  read_data->server = g_object_ref (server);
+  read_data->server_repo = g_object_ref (self);
   read_data->buffer = g_malloc (buflen);
   read_data->buflen = buflen;
   read_data->msg = g_object_ref (msg);
@@ -492,19 +497,19 @@ filez_stream_read_chunk_cb (GObject *stream_object,
   gssize bytes_read = g_input_stream_read_finish (stream,
                                                   result,
                                                   &error);
-  SoupServer *server;
+  EusRepo *self;
 
   if (read_data->msg == NULL)
     /* got cancelled */
     return;
 
-  server = SOUP_SERVER (read_data->server);
+  self = read_data->server_repo;
   if (bytes_read < 0)
     {
       g_warning ("Failed to read the file %s: %s", read_data->filez_path, error->message);
       soup_message_set_status (read_data->msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
       soup_message_body_complete (read_data->msg->response_body);
-      soup_server_unpause_message (server, read_data->msg);
+      soup_server_unpause_message (self->server, read_data->msg);
       return;
     }
   if (bytes_read > 0)
@@ -518,11 +523,11 @@ filez_stream_read_chunk_cb (GObject *stream_object,
                                 SOUP_MEMORY_COPY,
                                 read_data->buffer,
                                 bytes_read);
-      soup_server_unpause_message (server, read_data->msg);
+      soup_server_unpause_message (self->server, read_data->msg);
 
       buffer = read_data->buffer;
       buflen = read_data->buflen;
-      cancellable = read_data->server->cancellable;
+      cancellable = self->cancellable;
       g_input_stream_read_async (stream,
                                  buffer,
                                  buflen,
@@ -534,11 +539,11 @@ filez_stream_read_chunk_cb (GObject *stream_object,
     }
   g_debug ("Finished reading file %s", read_data->filez_path);
   soup_message_body_complete (read_data->msg->response_body);
-  soup_server_unpause_message (server, read_data->msg);
+  soup_server_unpause_message (self->server, read_data->msg);
 }
 
 static void
-handle_objects_filez (EosUpdaterRepoServer *server,
+handle_objects_filez (EusRepo     *self,
                       SoupMessage *msg,
                       const gchar *requested_path)
 {
@@ -560,9 +565,9 @@ handle_objects_filez (EosUpdaterRepoServer *server,
     }
   g_debug ("Got checksum: %s", checksum);
 
-  if (!load_compressed_file_stream (server->repo,
+  if (!load_compressed_file_stream (self->repo,
                                     checksum,
-                                    server->cancellable,
+                                    self->cancellable,
                                     &stream,
                                     &uncompressed_size,
                                     &error))
@@ -576,7 +581,7 @@ handle_objects_filez (EosUpdaterRepoServer *server,
   soup_message_headers_set_encoding (msg->response_headers,
                                      SOUP_ENCODING_CHUNKED);
   soup_message_set_status (msg, SOUP_STATUS_OK);
-  read_data = filez_read_data_new (server,
+  read_data = filez_read_data_new (self,
                                    MIN(2 * 1024 * 1024, uncompressed_size + 1),
                                    msg,
                                    requested_path);
@@ -586,11 +591,10 @@ handle_objects_filez (EosUpdaterRepoServer *server,
                              buffer,
                              buflen,
                              G_PRIORITY_DEFAULT,
-                             server->cancellable,
+                             self->cancellable,
                              filez_stream_read_chunk_cb,
                              g_steal_pointer (&read_data));
-  soup_server_pause_message (SOUP_SERVER (server),
-                             msg);
+  soup_server_pause_message (self->server, msg);
   return;
 }
 
@@ -702,13 +706,13 @@ serve_file (SoupMessage *msg,
 }
 
 static void
-handle_as_is (EosUpdaterRepoServer *server,
+handle_as_is (EusRepo     *self,
               SoupMessage *msg,
               const gchar *requested_path)
 {
-  g_autofree gchar *raw_path = g_build_filename (server->cached_repo_root, requested_path, NULL);
+  g_autofree gchar *raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
 
-  serve_file (msg, server->cached_repo_root, raw_path, server->cancellable);
+  serve_file (msg, self->cached_repo_root, raw_path, self->cancellable);
 }
 
 static SoupBuffer *
@@ -736,14 +740,14 @@ send_bytes (SoupMessage *msg,
 }
 
 static void
-handle_config (EosUpdaterRepoServer *server,
+handle_config (EusRepo     *self,
                SoupMessage *msg)
 {
-  send_bytes (msg, server->cached_config);
+  send_bytes (msg, self->cached_config);
 }
 
 static void
-handle_refs_heads (EosUpdaterRepoServer *server,
+handle_refs_heads (EusRepo     *self,
                    SoupMessage *msg,
                    const gchar *requested_path)
 {
@@ -762,8 +766,8 @@ handle_refs_heads (EosUpdaterRepoServer *server,
 
   /* Pass through requests to things like /refs/heads/ostree/1/1/0 if they
    * exist. */
-  raw_path = g_build_filename (server->cached_repo_root, requested_path, NULL);
-  if (!serve_file_if_exists (msg, server->cached_repo_root, raw_path, server->cancellable, &served))
+  raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
+  if (!serve_file_if_exists (msg, self->cached_repo_root, raw_path, self->cancellable, &served))
     return;
 
   if (served)
@@ -776,22 +780,22 @@ handle_refs_heads (EosUpdaterRepoServer *server,
    * /refs/remotes/eos/os/eos/amd64/master. */
   head = requested_path + prefix_len; /* e.g eos2/i386 */
   g_clear_pointer (&raw_path, g_free);
-  raw_path = g_build_filename (server->cached_repo_root,
+  raw_path = g_build_filename (self->cached_repo_root,
                                "refs",
                                "remotes",
-                               server->remote_name,
+                               self->remote_name,
                                head,
                                NULL);
 
-  serve_file (msg, server->cached_repo_root, raw_path, server->cancellable);
+  serve_file (msg, self->cached_repo_root, raw_path, self->cancellable);
 }
 
 static void
-handle_path (EosUpdaterRepoServer *server,
+handle_path (EusRepo     *self,
              SoupMessage *msg,
              const gchar *path)
 {
-  if (g_cancellable_is_cancelled (server->cancellable))
+  if (g_cancellable_is_cancelled (self->cancellable))
     {
       soup_message_set_status (msg, SOUP_STATUS_SERVICE_UNAVAILABLE);
       return;
@@ -799,19 +803,31 @@ handle_path (EosUpdaterRepoServer *server,
 
   g_debug ("Requested %s", path);
 
+  /* Strip the server root path. */
+  if (g_str_has_prefix (path, self->root_path))
+    {
+      path += strlen (self->root_path);
+    }
+  else
+    {
+      soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+      goto out;
+    }
+
   if (strstr (path, "..") != NULL)
     soup_message_set_status (msg, SOUP_STATUS_FORBIDDEN);
   else if (g_str_has_prefix (path, "/objects/") && g_str_has_suffix (path, ".filez"))
-    handle_objects_filez (server, msg, path);
+    handle_objects_filez (self, msg, path);
   else if (path_is_handled_as_is (path))
-    handle_as_is (server, msg, path);
+    handle_as_is (self, msg, path);
   else if (g_strcmp0 (path, "/config") == 0)
-    handle_config (server, msg);
+    handle_config (self, msg);
   else if (g_str_has_prefix (path, "/refs/heads/"))
-    handle_refs_heads (server, msg, path);
+    handle_refs_heads (self, msg, path);
   else
     soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
 
+out:
   g_debug ("Returning status %u (%s)", msg->status_code, msg->reason_phrase);
 }
 
@@ -823,93 +839,54 @@ server_cb (SoupServer *soup_server,
            SoupClientContext *context,
            gpointer user_data)
 {
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
+  EusRepo *self = EUS_REPO (user_data);
 
-  handle_path (server, msg, path);
-}
-
-static void
-request_read_cb (SoupServer        *soup_server,
-                 SoupMessage       *message,
-                 SoupClientContext *client,
-                 gpointer           user_data)
-{
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
-
-  update_pending_requests (server, 1);
-}
-
-static void
-request_finished_cb (SoupServer        *soup_server,
-                     SoupMessage       *message,
-                     SoupClientContext *client,
-                     gpointer           user_data)
-{
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
-
-  update_pending_requests (server, -1);
-}
-
-static void
-request_aborted_cb (SoupServer        *soup_server,
-                    SoupMessage       *message,
-                    SoupClientContext *client,
-                    gpointer           user_data)
-{
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (soup_server);
-
-  update_pending_requests (server, -1);
+  handle_path (self, msg, path);
 }
 
 static gboolean
-eos_updater_repo_server_initable_init (GInitable     *initable,
-                                       GCancellable  *cancellable,
-                                       GError       **error)
+eus_repo_initable_init (GInitable     *initable,
+                        GCancellable  *cancellable,
+                        GError       **error)
 {
-  EosUpdaterRepoServer *server = EOS_UPDATER_REPO_SERVER (initable);
+  EusRepo *self = EUS_REPO (initable);
 
-  if (!generate_faked_config (server->repo,
-                              &server->cached_config,
+  if (!generate_faked_config (self->repo,
+                              &self->cached_config,
                               error))
     return FALSE;
 
-  g_set_object (&server->cancellable, cancellable);
-  server->cached_repo_root = g_file_get_path (ostree_repo_get_path (server->repo));
-  soup_server_add_handler (SOUP_SERVER (server),
-                           NULL,
-                           server_cb,
-                           NULL,
-                           NULL);
-  g_signal_connect (server, "request-read", (GCallback) request_read_cb, NULL);
-  g_signal_connect (server, "request-finished", (GCallback) request_finished_cb, NULL);
-  g_signal_connect (server, "request-aborted", (GCallback) request_aborted_cb, NULL);
+  self->cached_repo_root = g_file_get_path (ostree_repo_get_path (self->repo));
 
   return TRUE;
 }
 
 static void
-eos_updater_repo_server_initable_iface_init (GInitableIface *initable_iface)
+eus_repo_initable_iface_init (GInitableIface *initable_iface)
 {
-  initable_iface->init = eos_updater_repo_server_initable_init;
+  initable_iface->init = eus_repo_initable_init;
 }
 
 /**
- * eos_updater_repo_server_new:
+ * eus_repo_new:
+ * @server: #SoupServer to handle requests from
  * @repo: A repo
+ * @root_path: Root path to serve underneath
  * @served_remote: The name of the remote
  * @cancellable: (nullable): A #GCancellable
  * @error: A location for an error
  *
- * Creates an #EosUpdaterRepoServer, which will serve the contents of
+ * Creates an #EusRepo, which will serve the contents of
  * the @repo from the remote @served_remote.
  *
  * Returns: (transfer full): The server.
  */
-EosUpdaterRepoServer *
-eos_updater_repo_server_new (OstreeRepo *repo,
-                             const gchar *served_remote,
-                             GCancellable *cancellable,
-                             GError **error)
+EusRepo *
+eus_repo_new (OstreeRepo    *repo,
+              const gchar   *root_path,
+              const gchar   *served_remote,
+              GCancellable  *cancellable,
+              GError       **error)
 {
   g_return_val_if_fail (OSTREE_IS_REPO (repo), NULL);
   g_return_val_if_fail (served_remote != NULL, NULL);
@@ -917,46 +894,68 @@ eos_updater_repo_server_new (OstreeRepo *repo,
                         NULL);
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
-  return g_initable_new (EOS_UPDATER_TYPE_REPO_SERVER,
-                         cancellable,
-                         error,
+  return g_initable_new (EUS_TYPE_REPO, cancellable, error,
                          "repo", repo,
+                         "root-path", root_path,
                          "served-remote", served_remote,
                          NULL);
 }
 
 /**
- * eos_updater_repo_server_get_pending_requests:
- * @repo_server: The #EosUpdaterRepoServer
+ * eus_repo_connect:
+ * @self: an #EusRepo
+ * @server: #SoupServer to handle requests from
  *
- * Pending requests are usually requests for file objects that happen
- * asynchronously, mostly due to their larger size. Use this function
- * together with eos_updater_repo_server_get_last_request_time() if
- * you want to stop the server after the timeout.
+ * Connect this #EusRepo to the @server and start handling incoming requests
+ * underneath its #EusRepo:root-path.
  *
- * Returns: Number of pending remotes.
+ * To stop handling requests, call eus_repo_disconnect(). It is an error to
+ * call eus_repo_connect() twice in a row without calling eus_repo_disconnect()
+ * inbetween.
+ *
+ * Since: UNRELEASED
  */
-guint
-eos_updater_repo_server_get_pending_requests (EosUpdaterRepoServer *repo_server)
+void
+eus_repo_connect (EusRepo    *self,
+                  SoupServer *server)
 {
-  return repo_server->pending_requests;
+  g_return_if_fail (EUS_IS_REPO (self));
+  g_return_if_fail (SOUP_IS_SERVER (server));
+  g_return_if_fail (self->server == NULL);
+
+  self->server = g_object_ref (server);
+
+  soup_server_add_handler (self->server,
+                           self->root_path,
+                           server_cb,
+                           self,
+                           NULL);
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SERVER]);
 }
 
 /**
- * eos_updater_repo_server_get_last_request_time:
- * @repo_server: The #EosUpdaterRepoServer
+ * eus_repo_disconnect:
+ * @self: an #EusRepo
  *
- * The result of this function is basically a result of
- * g_get_monotonic_time() at the end request and response handlers. It is
- * updated once at the start of each request, and once at the end (regardless of
- * whether the request was successful). Use this function together with
- * eos_updater_repo_server_get_pending_requests() if you want to stop
- * the server after the timeout.
+ * Disconnect this #EusRepo from the #SoupServer it was connected to by calling
+ * eus_repo_connect().
  *
- * Returns: When was the last request handled
+ * This is called automatically if the #EusRepo is disposed.
+ *
+ * Since: UNRELEASED
  */
-gint64
-eos_updater_repo_server_get_last_request_time (EosUpdaterRepoServer *repo_server)
+void
+eus_repo_disconnect (EusRepo *self)
 {
-  return repo_server->last_request_time;
+  g_return_if_fail (EUS_IS_REPO (self));
+
+  if (self->cancellable != NULL)
+    g_cancellable_cancel (self->cancellable);
+
+  if (self->server != NULL)
+    soup_server_remove_handler (self->server, self->root_path);
+
+  g_clear_object (&self->server);
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_SERVER]);
 }

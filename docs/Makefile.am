@@ -55,8 +55,8 @@ FIXXREF_OPTIONS=
 # Used for dependencies. The docs will be rebuilt if any of these change.
 # e.g. HFILE_GLOB=$(top_srcdir)/gtk/*.h
 # e.g. CFILE_GLOB=$(top_srcdir)/gtk/*.c
-HFILE_GLOB=$(top_srcdir)/src/eos-prepare-usb-update.h $(top_srcdir)/src/eos-repo-server.h
-CFILE_GLOB=$(top_srcdir)/src/eos-prepare-usb-update.c $(top_srcdir)/src/eos-repo-server.c
+HFILE_GLOB=$(top_srcdir)/src/eos-prepare-usb-update.h
+CFILE_GLOB=$(top_srcdir)/src/eos-prepare-usb-update.c
 
 # Extra header to include when scanning, which are not under DOC_SOURCE_DIR
 # e.g. EXTRA_HFILES=$(top_srcdir}/contrib/extra.h
@@ -81,6 +81,7 @@ IGNORE_HFILES=\
 	eos-updater-avahi.h \
 	eos-updater-poll-common.h \
 	eos-updater-poll-volume-dbus.h \
+	libeos-update-server/repo.h \
 	libeos-updater-util/extensions.h \
 	libeos-updater-util/refcounted.h \
 	libeos-updater-util/util.h \

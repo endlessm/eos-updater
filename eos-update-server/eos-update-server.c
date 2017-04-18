@@ -1,6 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
  * Copyright © 2016 Kinvolk GmbH
+ * Copyright © 2017 Endless Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,10 +19,12 @@
  *
  * Authors:
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
+ *  - Philip Withnall <withnall@endlessm.com>
  */
 
-#include "eos-repo-server.h"
-
+#include <libeos-update-server/config.h>
+#include <libeos-update-server/repo.h>
+#include <libeos-update-server/server.h>
 #include <libeos-updater-util/config.h>
 #include <libeos-updater-util/refcounted.h>
 #include <libeos-updater-util/util.h>
@@ -38,61 +41,6 @@
 
 #include <errno.h>
 #include <string.h>
-
-/* FIXME: The configuration code is shared with eos-updater-avahi and should be
- * split out into a helper library. */
-/* Paths for the configuration file. */
-static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-update-server.conf";
-static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-update-server.conf";
-static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-update-server.conf";
-
-/* Configuration file keys. */
-static const char *LOCAL_NETWORK_UPDATES_GROUP = "Local Network Updates";
-static const char *ADVERTISE_UPDATES_KEY = "AdvertiseUpdates";
-
-static gboolean
-read_config_file (const gchar  *config_file_path,
-                  gboolean     *advertise_updates,
-                  GError      **error)
-{
-  g_autoptr(GKeyFile) config = NULL;
-  g_autoptr(GError) local_error = NULL;
-  const gchar * const default_paths[] =
-    {
-      CONFIG_FILE_PATH,
-      LOCAL_CONFIG_FILE_PATH,
-      STATIC_CONFIG_FILE_PATH,
-      NULL
-    };
-  const gchar * const override_paths[] =
-    {
-      config_file_path,
-      NULL
-    };
-
-  g_return_val_if_fail (advertise_updates != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  /* Try loading the files in order. If the user specified a configuration file
-   * on the command line, use only that. Otherwise use the normal hierarchy. */
-  config = eos_updater_load_config_file ((config_file_path != NULL) ? override_paths : default_paths,
-                                         error);
-  if (config == NULL)
-    return FALSE;
-
-  /* Successfully loaded a file. Parse it. */
-  *advertise_updates = g_key_file_get_boolean (config,
-                                               LOCAL_NETWORK_UPDATES_GROUP,
-                                               ADVERTISE_UPDATES_KEY,
-                                               &local_error);
-  if (local_error != NULL)
-    {
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
-    }
-
-  return TRUE;
-}
 
 typedef struct
 {
@@ -238,7 +186,7 @@ clear_source (guint *id)
 typedef struct
 {
   GMainLoop *loop;
-  EosUpdaterRepoServer *server;
+  EusServer *server;
 
   gint timeout_seconds;
   guint timeout_id;
@@ -253,10 +201,10 @@ static void
 timeout_data_setup_timeout (TimeoutData *data);
 
 static gboolean
-no_requests_timeout (EosUpdaterRepoServer *server,
-                     gint seconds)
+no_requests_timeout (EusServer *server,
+                     gint       seconds)
 {
-  guint pending_requests = eos_updater_repo_server_get_pending_requests (server);
+  guint pending_requests = eus_server_get_pending_requests (server);
   gint64 last_request_time;
   gint64 monotonic_now;
   gint64 diff;
@@ -267,7 +215,7 @@ no_requests_timeout (EosUpdaterRepoServer *server,
       return FALSE;
     }
 
-  last_request_time = eos_updater_repo_server_get_last_request_time (server);
+  last_request_time = eus_server_get_last_request_time (server);
   monotonic_now = g_get_monotonic_time ();
   diff = monotonic_now - last_request_time;
 
@@ -346,10 +294,10 @@ timeout_data_maybe_setup_quit_file (TimeoutData *data,
 }
 
 static gboolean
-timeout_data_init (TimeoutData *data,
-                   Options *options,
-                   EosUpdaterRepoServer *server,
-                   GError **error)
+timeout_data_init (TimeoutData  *data,
+                   Options      *options,
+                   EusServer    *server,
+                   GError      **error)
 {
   memset (data, 0, sizeof (*data));
   data->loop = g_main_loop_new (NULL, FALSE);
@@ -375,6 +323,41 @@ timeout_data_clear (TimeoutData *data)
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (TimeoutData, timeout_data_clear)
+
+typedef GSList URIList;
+
+static void
+uri_list_free (URIList *uris)
+{
+  g_slist_free_full (uris, (GDestroyNotify)soup_uri_free);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (URIList, uri_list_free)
+
+static gboolean
+get_first_uri_from_server (SoupServer *server,
+                           SoupURI **out_uri,
+                           GError **error)
+{
+  g_autoptr(URIList) uris = soup_server_get_uris (server);
+  URIList *iter;
+
+  for (iter = uris; iter != NULL; iter = iter->next)
+    {
+      SoupURI *uri = iter->data;
+
+      if (uri == NULL)
+        continue;
+
+      uris = g_slist_delete_link (uris, iter);
+      *out_uri = uri;
+      return TRUE;
+    }
+
+  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                       "Server has no accessible URIs");
+  return FALSE;
+}
 
 static gboolean
 listen_local (SoupServer *server,
@@ -448,6 +431,44 @@ start_listening (SoupServer *server,
   return soup_server_listen_fd (server, SD_LISTEN_FDS_START, 0, error);
 }
 
+/* Create an #EusRepo to wrap the given #OstreeRepo and add it to the
+ * #EusServer. Print an error and return %FALSE on failure. */
+static gboolean
+add_repo (EusServer   *server,
+          OstreeRepo  *repo,
+          const gchar *root_path,
+          const gchar *remote_name)
+{
+  g_autoptr(EusRepo) eus_repo = NULL;
+  g_autoptr(GError) error = NULL;
+
+  if (!ostree_repo_open (repo, NULL, &error))
+    {
+      GFile *path = ostree_repo_get_path (repo);
+      g_autofree gchar *path_str = g_file_get_path (path);
+
+      g_message ("OSTree repository at ‘%s’ could not be opened: %s",
+                 path_str, error->message);
+      return FALSE;
+    }
+
+  eus_repo = eus_repo_new (repo, root_path, remote_name, NULL, &error);
+
+  if (eus_repo == NULL)
+    {
+      GFile *path = ostree_repo_get_path (repo);
+      g_autofree gchar *path_str = g_file_get_path (path);
+
+      g_message ("Failed to create server for repo ‘%s’: %s",
+                 path_str, error->message);
+      return FALSE;
+    }
+
+  eus_server_add_repo (server, eus_repo);
+
+  return TRUE;
+}
+
 /* main() exit codes. */
 enum
 {
@@ -464,10 +485,12 @@ main (int argc, char **argv)
 {
   g_autoptr(GError) error = NULL;
   g_auto(Options) options = OPTIONS_CLEARED;
-  g_autoptr(EosUpdaterRepoServer) server = NULL;
+  g_autoptr(SoupServer) soup_server = NULL;
+  g_autoptr(EusServer) eus_server = NULL;
   g_auto(TimeoutData) data = TIMEOUT_DATA_CLEARED;
-  g_autoptr(OstreeRepo) repo = NULL;
   gboolean advertise_updates = FALSE;
+  g_autoptr(GPtrArray) repository_configs = NULL;
+  gsize i;
 
   setlocale (LC_ALL, "");
 
@@ -478,7 +501,8 @@ main (int argc, char **argv)
     }
 
   /* Load our configuration. */
-  if (!read_config_file (options.config_file, &advertise_updates, &error))
+  if (!eus_read_config_file (options.config_file, &advertise_updates,
+                             &repository_configs, &error))
     {
       g_message ("Failed to load configuration file: %s", error->message);
       return EXIT_BAD_CONFIGURATION;
@@ -492,25 +516,48 @@ main (int argc, char **argv)
       return EXIT_DISABLED;
     }
 
-  repo = eos_updater_local_repo ();
-  server = eos_updater_repo_server_new (repo,
-                                        options.served_remote,
-                                        NULL,
-                                        &error);
-  if (server == NULL)
+  /* Set up the server and repositories. */
+  soup_server = soup_server_new (NULL, NULL);
+  eus_server = eus_server_new (soup_server);
+
+  for (i = 0; i < repository_configs->len; i++)
     {
-      g_message ("Failed to create a server: %s", error->message);
-      return EXIT_FAILED;
+      const EusRepoConfig *config = g_ptr_array_index (repository_configs, i);
+      g_autoptr(GFile) ostree_repo_path = NULL;
+      g_autoptr(OstreeRepo) ostree_repo = NULL;
+      g_autofree gchar *root_path = NULL;
+
+      /* Serve the (config->index == 0) repository at (root_path == "") for
+       * backwards compatibility with the old version of eos-update-server which
+       * could only serve a single repository. It’s intended that
+       * (config->index == 0) is always the system OSTree repository (though
+       * this is not enforced). */
+      ostree_repo_path = g_file_new_for_path (config->path);
+      ostree_repo = ostree_repo_new (ostree_repo_path);
+      root_path = (config->index != 0) ? g_strdup_printf ("/%u", config->index) : g_strdup ("");
+
+      if (!add_repo (eus_server, ostree_repo, root_path, config->remote_name))
+        return EXIT_FAILED;
     }
 
+  if (repository_configs->len == 0)
+    {
+      g_autoptr(OstreeRepo) ostree_repo = NULL;
 
-  if (!timeout_data_init (&data, &options, server, &error))
+      ostree_repo = ostree_repo_new_default ();
+      if (!add_repo (eus_server, ostree_repo, "", options.served_remote))
+        return EXIT_FAILED;
+    }
+
+  /* Set up exit timeout. */
+  if (!timeout_data_init (&data, &options, eus_server, &error))
     {
       g_message ("Failed to initialize timeout data: %s", error->message);
       return EXIT_FAILED;
     }
 
-  if (!start_listening (SOUP_SERVER (server), &options, &error))
+  /* Listen! */
+  if (!start_listening (soup_server, &options, &error))
     {
       g_message ("Failed to listen: %s", error->message);
       return EXIT_NO_SOCKETS;

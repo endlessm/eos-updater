@@ -1,6 +1,6 @@
 .\" Manpage for eos-update-server.conf.
 .\" Documentation is under the same licence as the eos-updater package.
-.TH man 5 "28 Feb 2017" "1.0" "eos\-update\-server.conf man page"
+.TH man 5 "13 Apr 2017" "1.0" "eos\-update\-server.conf man page"
 .\"
 .SH NAME
 .IX Header "NAME"
@@ -21,10 +21,21 @@ eos\-update\-server.conf — Endless OS OSTree Server Configuration
 \fBeos\-update\-server.conf\fP provides the configuration for
 \fBeos\-update\-server\fP(8) and \fBeos\-updater\-avahi\fP(8). It determines
 whether the server and its DNS\-SD adverts are enabled to distribute Endless OS
-updates to other computers on the local network.
+updates to other computers on the local network, and the details of any
+additional repositories to serve.
 .PP
-The configuration file contains a single section, \fI[Local Network Updates]\fP,
-whose keys are described below.
+The configuration file contains a single mandatory section,
+\fI[Local Network Updates]\fP, and zero or more optional sections,
+\fI[Repository 0–65535]\fP, whose keys are described below. Each
+\fI[Repository 0–65535]\fP section describes a repository to serve; if there are no
+such sections, the default \fI/ostree/repo\fP repository is served with its
+\fIRemoteName=\fP set to the value of the \fB\-\-serve\-remote=\fP option passed
+to \fBeos\-update\-server\fP(8). Each section must be numbered uniquely; its
+index forms the root of the HTTP paths for requesting content from the
+repository. The indexes don’t have to be ordered or contiguous, and up to 65536
+repositories are supported (the maximum index is 65535). Index 0 is treated
+specially: it indicates a root with no prefix, and is intended to be used for
+the ‘main’ repository on a server.
 .PP
 Default values are stored in
 \fI/usr/share/eos\-updater/eos\-update\-server.conf\fP, which must always
@@ -41,6 +52,21 @@ Whether to advertise and distribute updates over the local network. This may be
 \fItrue\fP or \fIfalse\fP. If \fItrue\fP, \fBeos\-update\-server\fP(8) and
 \fBeos\-updater\-avahi\fP(8) are enabled; otherwise, they will both refuse to
 advertise or distribute updates.
+\"
+.SH [Repository 0–65535] SECTION OPTIONS
+.IX Header "[Repository 0–65535] SECTION OPTIONS"
+.\"
+.IP "\fIPath=\fP"
+.IX Item "Path="
+Path to the repository on the local file system which is to be served over the
+network.
+.\"
+.IP "\fIRemoteName=\fP"
+.IX Item "RemoteName="
+Name of the OSTree remote to mirror as the local repository. If a head ref is
+requested which is not in the local repository, it will be resolved using this
+remote. If the default repository configuration is used, the value of the
+\fB\-\-serve\-remote=\fP option to \fBeos\-update\-server\fP(8) will be used.
 .\"
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"

@@ -18,10 +18,14 @@ ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 
 SUBDIRS = . src libeos-updater-util/tests data tests docs
 
+sysconfexampledir = $(pkgdatadir)
+
 # Pre-defines to allow appending later
 libexec_PROGRAMS =
 noinst_LTLIBRARIES =
 systemdsystemunit_DATA =
+dist_sysconfexample_DATA =
+dist_man5_MANS =
 dist_man8_MANS =
 EXTRA_DIST =
 CLEANFILES =
@@ -106,6 +110,7 @@ eos_updater_avahi_eos_updater_avahi_LDFLAGS = \
 	$(NULL)
 eos_updater_avahi_eos_updater_avahi_LDADD = \
 	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la \
 	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
 	$(EOS_UPDATER_AVAHI_LIBS) \
 	$(NULL)
@@ -124,6 +129,74 @@ CLEANFILES += $(eos_updater_avahi_in:%.in=%)
 
 dist_man8_MANS += eos-updater-avahi/docs/eos-updater-avahi.8
 
+# Server utility library
+noinst_LTLIBRARIES += libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la
+
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""libeos-update-server"\" \
+	$(NULL)
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_CFLAGS = \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATE_SERVER_CFLAGS) \
+	$(NULL)
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(EOS_UPDATE_SERVER_LIBS) \
+	$(NULL)
+libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_SOURCES = \
+	libeos-update-server/config.c \
+	libeos-update-server/config.h \
+	libeos-update-server/repo.c \
+	libeos-update-server/repo.h \
+	libeos-update-server/server.c \
+	libeos-update-server/server.h \
+	$(NULL)
+
+# eos-update-server program
+libexec_PROGRAMS += eos-update-server/eos-update-server
+
+eos_update_server_eos_update_server_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-update-server"\" \
+	$(NULL)
+eos_update_server_eos_update_server_CFLAGS = \
+	$(WARN_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(EOS_UPDATE_SERVER_CFLAGS) \
+	$(NULL)
+eos_update_server_eos_update_server_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_update_server_eos_update_server_LDADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(EOS_UPDATE_SERVER_LIBS) \
+	$(NULL)
+eos_update_server_eos_update_server_SOURCES = \
+	eos-update-server/eos-update-server.c \
+	$(NULL)
+
+eos_update_server_in = \
+	eos-update-server/eos-update-server.socket.in \
+	eos-update-server/eos-update-server.service.in \
+	$(NULL)
+
+systemdsystemunit_DATA += $(eos_update_server_in:%.in=%)
+EXTRA_DIST += $(eos_update_server_in)
+CLEANFILES += $(eos_update_server_in:%.in=%)
+
+dist_sysconfexample_DATA += eos-update-server/eos-update-server.conf
+
+dist_man5_MANS += eos-update-server/docs/eos-update-server.conf.5
+dist_man8_MANS += eos-update-server/docs/eos-update-server.8
+
 # Generic systemd rules
 edit = sed \
 	-e 's|[@]bindir[@]|$(bindir)|g' \
@@ -132,10 +205,13 @@ edit = sed \
 	-e 's|[@]pkgdatadir[@]|$(pkgdatadir)|g' \
 	-e 's|[@]prefix[@]|$(prefix)|g' \
 	-e 's|[@]sbindir[@]|$(sbindir)|g' \
+	-e 's|[@]server_port[@]|$(server_port)|g' \
 	-e 's|[@]sysconfdir[@]|$(sysconfdir)|g' \
 	$(NULL)
 
 %.service: %.service.in Makefile
+	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
+%.socket: %.socket.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 %.path: %.path.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
