@@ -218,6 +218,8 @@ eus_repo_dispose (GObject *object)
   g_clear_pointer (&self->cached_config, g_bytes_unref);
   g_clear_object (&self->repo);
   g_clear_object (&self->server);
+
+  G_OBJECT_CLASS (eus_repo_parent_class)->dispose (object);
 }
 
 static void
@@ -228,6 +230,8 @@ eus_repo_finalize (GObject *object)
   g_free (self->cached_repo_root);
   g_free (self->remote_name);
   g_free (self->root_path);
+
+  G_OBJECT_CLASS (eus_repo_parent_class)->finalize (object);
 }
 
 static void
