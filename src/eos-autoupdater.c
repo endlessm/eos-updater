@@ -111,8 +111,9 @@ get_stamp_dir (void)
  * harm in the stamp file not being updated: it just means we’re going to check
  * again for updates sooner than otherwise. */
 static void
-update_stamp_file (guint update_interval_days,
-                   guint randomized_delay_days)
+update_stamp_file (guint64 last_successful_update_secs,
+                   guint   update_interval_days,
+                   guint   randomized_delay_days)
 {
   const gchar *stamp_dir = get_stamp_dir ();
   g_autofree gchar *stamp_path = NULL;
@@ -120,6 +121,7 @@ update_stamp_file (guint update_interval_days,
   g_autoptr(GError) error = NULL;
   GTimeVal mtime;
   g_autofree gchar *next_update = NULL;
+  g_autoptr(GFileInfo) file_info = NULL;
 
   if (g_mkdir_with_parents (stamp_dir, 0755) != 0) {
     int saved_errno = errno;
@@ -132,7 +134,8 @@ update_stamp_file (guint update_interval_days,
     return;
   }
 
-  g_get_current_time (&mtime);
+  mtime.tv_sec = last_successful_update_secs;
+  mtime.tv_usec = 0;
 
   stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
   stamp_file = g_file_new_for_path (stamp_path);
@@ -151,36 +154,34 @@ update_stamp_file (guint update_interval_days,
    * the mtime either being now, or some number of days in the future. Setting
    * the mtime to the future should not be a problem, as the stamp file is only
    * accessed by eos-autoupdater, so the semantics of the mtime are clear. */
+  file_info = g_file_query_info (stamp_file, G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                                 G_FILE_QUERY_INFO_NONE, NULL, &error);
+  if (error != NULL)
+    {
+      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                       "PRIORITY=%d", LOG_CRIT,
+                       "MESSAGE=Failed to get stamp file info: %s", error->message,
+                       NULL);
+      return;
+    }
+
   if (randomized_delay_days > 0)
     {
-      g_autoptr(GFileInfo) file_info = NULL;
-      gint32 actual_delay_days;
-
-      file_info = g_file_query_info (stamp_file, G_FILE_ATTRIBUTE_TIME_MODIFIED,
-                                     G_FILE_QUERY_INFO_NONE, NULL, &error);
-      if (error != NULL)
-        {
-          sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                           "PRIORITY=%d", LOG_CRIT,
-                           "MESSAGE=Failed to get stamp file info: %s", error->message,
-                           NULL);
-          return;
-        }
-
-      actual_delay_days = g_random_int_range (0, randomized_delay_days + 1);
+      gint32 actual_delay_days = g_random_int_range (0, randomized_delay_days + 1);
       mtime.tv_sec += actual_delay_days * SEC_PER_DAY;
-      g_file_info_set_modification_time (file_info, &mtime);
+    }
 
-      g_file_set_attributes_from_info (stamp_file, file_info,
-                                       G_FILE_QUERY_INFO_NONE, NULL, &error);
-      if (error != NULL)
-        {
-          sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
-                           "PRIORITY=%d", LOG_CRIT,
-                           "MESSAGE=Failed to set stamp file info: %s", error->message,
-                           NULL);
-          return;
-        }
+  g_file_info_set_modification_time (file_info, &mtime);
+
+  g_file_set_attributes_from_info (stamp_file, file_info,
+                                   G_FILE_QUERY_INFO_NONE, NULL, &error);
+  if (error != NULL)
+    {
+      sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_STAMP_ERROR_MSGID,
+                       "PRIORITY=%d", LOG_CRIT,
+                       "MESSAGE=Failed to set stamp file info: %s", error->message,
+                       NULL);
+      return;
     }
 
   /* A little bit of help for debuggers. */
@@ -538,10 +539,29 @@ is_time_to_update (guint update_interval_days,
      * computer’s run eos-autoupdater. In order to avoid a thundering herd of
      * computers requesting updates when a lab is first turned on, create a
      * stamp file with a random delay applied, and check again for updates
-     * later. */
-    g_debug ("Not time to update, due to stamp file not being present.");
-    update_stamp_file (update_interval_days, randomized_delay_days);
-    is_time_to_update = FALSE;
+     * later. To do this, we fake the date of the most recent successful update
+     * to be @update_interval_days in the past, so only the
+     * @randomized_delay_days is taken into account for triggering the next
+     * update. */
+    if (randomized_delay_days > 0)
+      {
+        guint64 last_successful_update_secs;
+
+        g_debug ("Not time to update, due to stamp file not being present, but %s is set to %u days.",
+                 RANDOMIZED_DELAY_KEY, randomized_delay_days);
+        last_successful_update_secs = g_get_real_time () / G_USEC_PER_SEC;
+        if (last_successful_update_secs >= update_interval_days * SEC_PER_DAY)
+          last_successful_update_secs -= update_interval_days * SEC_PER_DAY;
+
+        update_stamp_file (last_successful_update_secs,
+                           update_interval_days, randomized_delay_days);
+        is_time_to_update = FALSE;
+      }
+    else
+      {
+        g_debug ("Time to update, due to stamp file not being present.");
+        is_time_to_update = TRUE;
+      }
   } else {
     guint64 next_update_time_secs, update_interval_secs;
 
@@ -834,7 +854,8 @@ out:
     return EXIT_FAILED;
 
   /* Update the stamp file since all configured steps have succeeded. */
-  update_stamp_file (update_interval_days, randomized_delay_days);
+  update_stamp_file (g_get_real_time () / G_USEC_PER_SEC,
+                     update_interval_days, randomized_delay_days);
   sd_journal_send ("MESSAGE_ID=%s", EOS_UPDATER_SUCCESS_MSGID,
                    "PRIORITY=%d", LOG_INFO,
                    "MESSAGE=Updater finished successfully",
