@@ -268,13 +268,16 @@ metadata_fetch (GTask *task,
 
   /* Check we’re not on a dev-converted system. */
   deployment = eos_updater_get_booted_deployment (&error);
-  if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+  if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
+      g_error_matches (error, G_IO_ERROR, G_IO_ERROR_FAILED))
     {
       g_task_return_new_error (task, EOS_UPDATER_ERROR,
                                EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
                                "Not an OSTree-based system: cannot update it.");
       return;
     }
+
+  g_clear_error (&error);
 
   /* Work out which sources to poll. */
   if (!read_config (get_config_file_path (), &config, &error))

@@ -108,7 +108,8 @@ on_bus_acquired (GDBusConnection *connection,
       eos_updater_set_update_id (updater, "");
       eos_updater_clear_error (updater, EOS_UPDATER_STATE_READY);
     }
-  else if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+  else if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
+           g_error_matches (error, G_IO_ERROR, G_IO_ERROR_FAILED))
     {
       g_clear_error (&error);
       g_set_error (&error, EOS_UPDATER_ERROR,
