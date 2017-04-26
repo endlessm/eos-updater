@@ -29,7 +29,6 @@
 #include <libeos-updater-util/util.h>
 #include <libsoup/soup.h>
 #include <string.h>
-#include <errno.h>
 
 typedef enum
 {
@@ -243,20 +242,13 @@ check_dl_time (LanData *lan_data,
                GDateTime **utc_out)
 {
   gint64 utc_time;
-  gchar *utc_str_end = NULL;
   g_autoptr(GDateTime) utc = NULL;
 
   g_assert (dl_time != NULL);
 
   if (dl_time[0] == '\0')
     return FALSE;
-  errno = 0;
-  utc_time = g_ascii_strtoll (dl_time, &utc_str_end, 10);
-  if (errno == EINVAL)
-    return FALSE;
-  if (errno == ERANGE)
-    return FALSE;
-  if (*utc_str_end != '\0')
+  if (!eos_string_to_signed (dl_time, 10, G_MININT64, G_MAXINT64, &utc_time, NULL))
     return FALSE;
   utc = g_date_time_new_from_unix_utc (utc_time);
   if (utc == NULL)
@@ -328,12 +320,8 @@ static guint
 parse_txt_version (const gchar *txt_version)
 {
   guint64 v;
-  const gchar *end = NULL;
 
-  errno = 0;
-  v = g_ascii_strtoull (txt_version, (gchar **)&end, 10);
-
-  if (errno != 0 || end == NULL || *end != '\0' || end == txt_version || v > G_MAXUINT)
+  if (!eos_string_to_unsigned (txt_version, 10, 1, G_MAXUINT, &v, NULL))
     return 0;
 
   return v;

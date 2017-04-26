@@ -101,4 +101,18 @@ EosQuitFile *eos_updater_setup_quit_file (const gchar *path,
                                           guint timeout_seconds,
                                           GError **error);
 
+gboolean eos_string_to_signed (const gchar  *str,
+                               guint         base,
+                               gint64        min,
+                               gint64        max,
+                               gint64       *out_num,
+                               GError      **error);
+
+gboolean eos_string_to_unsigned (const gchar  *str,
+                                 guint         base,
+                                 guint64       min,
+                                 guint64       max,
+                                 guint64      *out_num,
+                                 GError      **error);
+
 G_END_DECLS

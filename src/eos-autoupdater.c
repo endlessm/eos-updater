@@ -20,6 +20,7 @@
 #include "eos-updater-types.h"
 #include "eos-updater-generated.h"
 #include <libeos-updater-util/config.h>
+#include <libeos-updater-util/util.h>
 
 #include <gio/gio.h>
 #include <glib.h>
@@ -788,7 +789,6 @@ get_dbus_timeout (void)
 {
   const gchar *value = NULL;
   gint64 timeout;
-  gchar *str_end = NULL;
 
   value = get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT",
                          NULL);
@@ -796,13 +796,7 @@ get_dbus_timeout (void)
   if (value == NULL || value[0] == '\0')
     return -1;
 
-  errno = 0;
-  timeout = g_ascii_strtoll (value, &str_end, 10);
-  if (errno != 0 ||
-      str_end == NULL ||
-      *str_end != '\0' ||
-      timeout > G_MAXINT ||
-      timeout < 0)
+  if (!eos_string_to_signed (value, 10, 0, G_MAXINT, &timeout, NULL))
     return -1;
 
   return timeout;
