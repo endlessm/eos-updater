@@ -392,6 +392,7 @@ get_summary (EosExtensions *extensions,
   g_autoptr(GFile) ext_dir = eos_updater_get_eos_extensions_dir (repo);
   g_autoptr(GFile) summary = g_file_get_child (ext_dir, "eos-summary");
   g_autoptr(GFile) summary_sig = g_file_get_child (ext_dir, "eos-summary.sig");
+  g_autoptr(GFileInfo) summary_info = NULL;
 
   if (!eos_updater_read_file_to_bytes (summary,
                                        cancellable,
@@ -414,6 +415,25 @@ get_summary (EosExtensions *extensions,
         return FALSE;
       }
 
+  g_clear_error (&local_error);
+  summary_info = g_file_query_info (summary,
+                                    G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                                    G_FILE_QUERY_INFO_NONE,
+                                    cancellable,
+                                    &local_error);
+  if (summary_info == NULL)
+    {
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+    }
+  else
+    {
+      extensions->summary_modification_time_secs = g_file_info_get_attribute_uint64 (summary_info,
+                                                                                     G_FILE_ATTRIBUTE_TIME_MODIFIED);
+    }
   return TRUE;
 }
 
