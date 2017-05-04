@@ -44,6 +44,42 @@ gboolean eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
                                         GCancellable  *cancellable,
                                         GError       **error);
 
+/* new DNS-SD records format for ostree */
+/* TXT records' values are basically serialized GVariants. Below all
+ * the keys and their GVariant types are described.
+ *
+ * The TXT records are served for the service type
+ * "_ostree_repo._tcp".
+ *
+ * Common fields for all versions of TXT records:
+ *
+ * - version, describes the version of the TXT records format:
+ *   - key: "v"
+ *   - type: "y" (byte)
+ *   - contents: a version number (note: it is not an ascii digit)
+ *
+ * Fields for version 1 of TXT records:
+ *
+ * - refs bloom filter, a Bloom filter that contains all the refs the host has
+ *   - key: "rb"
+ *   - type: "(yyay)" (tuple containing a byte, a byte and an array of bytes)
+ *   - contents: first byte is the "k" parameter, second byte is the
+ *               hash id, an array of bytes are the bloom filter bits
+ *
+ * - repository index, a number identifying an OSTree repository
+ *   - key: "ri"
+ *   - type: "q" (big-endian uint16)
+ *   - contents: it gets appended to the host's URL as "/%u"
+ *
+ * - summary timestamp,
+ *   - key: "st",
+ *   - type: "t" (big-endian uint64)
+ *   - contents: a unix utc timestamp of the summary in seconds,
+ *               ideally telling when the original summary was
+ *               created, otherwise it could also be the modification
+ *               time of the summary file on host
+ */
+
 /**
  * EOS_OSTREE_AVAHI_OPTION_FORCE_VERSION_Y:
  *
