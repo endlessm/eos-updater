@@ -76,6 +76,7 @@ check_record_size (const gchar  *key,
 
 static gboolean
 handle_text_record (GString      *records_str,
+                    gsize        *total_size,
                     const gchar  *key,
                     GVariant     *text_value,
                     GError      **error)
@@ -91,6 +92,11 @@ handle_text_record (GString      *records_str,
   if (!check_record_size (key, record_size, error))
     return FALSE;
 
+  /* txt records are pascal strings, so one byte for length and then
+   * payload.
+   */
+  g_assert (total_size != NULL);
+  *total_size += 1 + record_size;
   escaped_key = g_markup_escape_text (key, key_length);
   escaped_value = g_markup_escape_text (value_string, value_string_length);
   g_string_append_printf (records_str,
@@ -102,6 +108,7 @@ handle_text_record (GString      *records_str,
 
 static gboolean
 handle_binary_record (GString      *records_str,
+                      gsize        *total_size,
                       const gchar  *key,
                       GVariant     *binary_value,
                       GError      **error)
@@ -119,6 +126,11 @@ handle_binary_record (GString      *records_str,
   if (!check_record_size (key, record_size, error))
     return FALSE;
 
+  /* txt records are pascal strings, so one byte for length and then
+   * payload.
+   */
+  g_assert (total_size != NULL);
+  *total_size += 1 + record_size;
   escaped_key = g_markup_escape_text (key, key_length);
   encoded_value = g_base64_encode (value_data, value_data_length);
   escaped_value = g_markup_escape_text (encoded_value, -1);
@@ -129,9 +141,115 @@ handle_binary_record (GString      *records_str,
   return TRUE;
 }
 
+static gboolean
+get_and_check_txt_records_size_level (GVariantDict  *options_dict,
+                                      guint8        *out_size_level,
+                                      GError       **error)
+{
+  guint8 size_level = EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_SINGLE_DNS_MESSAGE;
+
+  g_variant_dict_lookup (options_dict, EOS_OSTREE_AVAHI_OPTION_TXT_RECORDS_SIZE_LEVEL_Y,
+                         "y", &size_level);
+  switch (size_level)
+    {
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_CUSTOM:
+      if (!g_variant_dict_lookup (options_dict,
+                                  EOS_OSTREE_AVAHI_OPTION_TXT_RECORDS_CUSTOM_SIZE_T,
+                                  "t",
+                                  NULL))
+        {
+          g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                               "custom size level set, but no custom size "
+                               "limit passed to the options or it is of wrong type");
+          return FALSE;
+        }
+      /* fall through */
+
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_SUPPORT_FAULTY_HARDWARE:
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_SINGLE_DNS_MESSAGE:
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_SINGLE_ETHERNET_PACKET:
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_SINGLE_MULTICAST_DNS_PACKET:
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_16_BIT_LIMIT:
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_ABSOLUTELY_LAX:
+      if (out_size_level)
+        *out_size_level = size_level;
+      return TRUE;
+
+    default:
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "unknown value %" G_GUINT16_FORMAT " for the %s option",
+                   (guint16) size_level,
+                   EOS_OSTREE_AVAHI_OPTION_TXT_RECORDS_SIZE_LEVEL_Y);
+      return FALSE;
+    }
+}
+
+static gboolean
+validate_total_size (gsize          total_size,
+                     GVariantDict  *options_dict,
+                     GError       **error)
+{
+  guint8 size_level;
+  guint64 limit;
+
+  if (!get_and_check_txt_records_size_level (options_dict, &size_level, error))
+    return FALSE;
+
+  switch (size_level)
+    {
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_CUSTOM:
+      {
+        gboolean result = g_variant_dict_lookup (options_dict,
+                                                 EOS_OSTREE_AVAHI_OPTION_TXT_RECORDS_CUSTOM_SIZE_T,
+                                                 "t",
+                                                 &limit);
+        g_assert (result);
+      }
+      break;
+
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_SUPPORT_FAULTY_HARDWARE:
+      limit = 256;
+      break;
+
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_SINGLE_DNS_MESSAGE:
+      limit = 400;
+      break;
+
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_SINGLE_ETHERNET_PACKET:
+      limit = 1300;
+      break;
+
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_SINGLE_MULTICAST_DNS_PACKET:
+      limit = 8900;
+      break;
+
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_FIT_16_BIT_LIMIT:
+      limit = G_MAXUINT16;
+      break;
+
+    case EOS_OSTREE_AVAHI_SIZE_LEVEL_ABSOLUTELY_LAX:
+      return TRUE;
+
+    default:
+      g_assert_not_reached ();
+    }
+
+  if (total_size > limit)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "TXT records of size %" G_GSIZE_FORMAT " break "
+                   "the limit of %" G_GUINT64_FORMAT " bytes",
+                   total_size, limit);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 static gchar *
-txt_records_to_string (GVariant  *txt_records,
-                       GError   **error)
+txt_records_to_string (GVariant      *txt_records,
+                       GVariantDict  *options_dict,
+                       GError       **error)
 {
   GVariantIter iter;
   g_autoptr(GString) str = NULL;
@@ -150,12 +268,12 @@ txt_records_to_string (GVariant  *txt_records,
       switch (txt_value_type)
         {
         case TXT_VALUE_TYPE_TEXT:
-          if (!handle_text_record (str, txt_key, txt_value, error))
+          if (!handle_text_record (str, &total_size, txt_key, txt_value, error))
             return FALSE;
           break;
 
         case TXT_VALUE_TYPE_BINARY:
-          if (!handle_binary_record (str, txt_key, txt_value, error))
+          if (!handle_binary_record (str, &total_size, txt_key, txt_value, error))
             return FALSE;
           break;
 
@@ -164,19 +282,26 @@ txt_records_to_string (GVariant  *txt_records,
         }
     }
 
+  if (!validate_total_size (total_size,
+                            options_dict,
+                            error))
+    return NULL;
+
   return g_string_free (g_steal_pointer (&str), FALSE);
 }
 
 static GBytes *
-generate_from_avahi_service_template (const gchar  *name,
-                                      const gchar  *type,
-                                      guint16       port,
-                                      GVariant     *txt_records,
-                                      GError      **error)
+generate_from_avahi_service_template (const gchar   *name,
+                                      const gchar   *type,
+                                      guint16        port,
+                                      GVariant      *txt_records,
+                                      GVariantDict  *options_dict,
+                                      GError       **error)
 {
   g_autofree gchar *service_group = NULL;
   gsize service_group_len;  /* bytes, not including trailing nul */
   g_autofree gchar *txt_records_str = txt_records_to_string (txt_records,
+                                                             options_dict,
                                                              error);
   g_autofree gchar *type_escaped = NULL;
   g_autofree gchar *name_escaped = NULL;
@@ -207,6 +332,7 @@ generate_avahi_service_template_to_file (GFile         *path,
                                          const gchar   *type,
                                          guint16        port,
                                          GVariant      *txt_records,
+                                         GVariantDict  *options_dict,
                                          GCancellable  *cancellable,
                                          GError       **error)
 {
@@ -219,6 +345,7 @@ generate_avahi_service_template_to_file (GFile         *path,
                                                    type,
                                                    port,
                                                    reffed_txt_records,
+                                                   options_dict,
                                                    error);
   if (contents == NULL)
     return FALSE;
@@ -245,6 +372,7 @@ generate_v1_service_file (const gchar   *ostree_path,
   g_autofree gchar *timestamp_str = NULL;
   const GVariantType *records_type = G_VARIANT_TYPE ("a(sv)");
   g_auto(GVariantBuilder) records_builder = G_VARIANT_BUILDER_INIT (records_type);
+  g_auto(GVariantDict) empty_options_dict = G_VARIANT_DICT_INIT (NULL);
 
   timestamp_str = g_date_time_format (head_commit_timestamp, "%s");
   g_variant_builder_add (&records_builder, "(sv)",
@@ -262,6 +390,7 @@ generate_v1_service_file (const gchar   *ostree_path,
                                                   EOS_UPDATER_AVAHI_SERVICE_TYPE,
                                                   EOS_AVAHI_PORT,
                                                   g_variant_builder_end (&records_builder),
+                                                  &empty_options_dict,
                                                   cancellable,
                                                   error);
 }
