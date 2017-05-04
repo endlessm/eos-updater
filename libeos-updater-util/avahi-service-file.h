@@ -182,4 +182,20 @@ typedef enum
     EOS_OSTREE_AVAHI_SIZE_LEVEL_ABSOLUTELY_LAX
   } EosOstreeAvahiSizeLevel;
 
+gboolean eos_ostree_avahi_service_file_check_options (GVariant  *options,
+                                                      GError   **error);
+gboolean eos_ostree_avahi_service_file_generate (const gchar         *avahi_service_directory,
+                                                 const gchar *const  *refs_to_advertise,
+                                                 GDateTime           *summary_timestamp,
+                                                 GVariant            *options,
+                                                 GCancellable        *cancellable,
+                                                 GError             **error);
+gboolean eos_ostree_avahi_service_file_delete (const gchar   *avahi_service_directory,
+                                               guint16        repository_index,
+                                               GCancellable  *cancellable,
+                                               GError       **error);
+gboolean eos_ostree_avahi_service_file_cleanup_directory (const gchar   *avahi_service_directory,
+                                                          GCancellable  *cancellable,
+                                                          GError       **error);
+
 G_END_DECLS
