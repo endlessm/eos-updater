@@ -344,6 +344,23 @@ eos_avahi_service_file_generate (const gchar   *avahi_service_directory,
                                    service_file, cancellable, error);
 }
 
+static gboolean
+delete_file_if_exists (GFile         *file,
+                       GCancellable  *cancellable,
+                       GError       **error)
+{
+  g_autoptr(GError) local_error = NULL;
+
+  if (!g_file_delete (file, cancellable, &local_error) &&
+      !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 /**
  * eos_avahi_service_file_delete:
  * @avahi_service_directory: path to the directory containing `.service` files
@@ -362,7 +379,6 @@ eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
                                GError       **error)
 {
   g_autoptr(GFile) service_file = NULL;
-  g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (avahi_service_directory != NULL, FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
@@ -371,12 +387,8 @@ eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
 
   service_file = get_service_file (avahi_service_directory);
 
-  if (!g_file_delete (service_file, cancellable, &local_error) &&
-      !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
-    {
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
-    }
+  if (!delete_file_if_exists (service_file, cancellable, error))
+    return FALSE;
 
   return TRUE;
 }
