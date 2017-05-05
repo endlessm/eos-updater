@@ -117,6 +117,13 @@ Describes the DNS\-SD record for Avahi to advertise to the local network. No
 advertisement will be made if this file is not present. This is the file which
 \fBeos\-updater\-avahi\fP adds, updates and removes when run.
 .\"
+.IP \fI/etc/avahi/services/eos\-ostree\-updater\-[0–65535].service\fP 4
+.IX Item "/etc/avahi/services/eos-ostree-updater\-[0–65535].service"
+Similarly to the \fI/etc/avahi/services/eos\-updater.service\fP file,
+it describes the DNS\-SD record for Avahi, but a different format is
+used. Many files can exist, one for each advertised repository. These
+files are managed by \fBeos\-updater\-avahi\fP.
+.\"
 .IP \fI/etc/eos\-updater/eos\-update\-server.conf\fP 4
 .IX Item "/etc/eos\-updater/eos\-update\-server.conf"
 .IX Item "/usr/local/share/eos\-updater/eos\-update\-server.conf"
