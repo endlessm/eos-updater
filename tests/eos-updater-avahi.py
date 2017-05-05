@@ -43,6 +43,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         self._main_context = GLib.main_context_default()
         self.__timed_out = False
         self.__service_file = '/etc/avahi/services/eos-updater.service'
+        self.__new_service_file = '/etc/avahi/services/eos-ostree-updater-0.service'
         self.__config_file = '/etc/eos-updater/eos-update-server.conf'
 
     def tearDown(self):
@@ -55,6 +56,10 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             pass
         try:
             os.unlink(self.__config_file)
+        except OSError:
+            pass
+        try:
+            os.unlink(self.__new_service_file)
         except OSError:
             pass
 
@@ -97,10 +102,11 @@ class TestEosUpdaterAvahi(unittest.TestCase):
     def test_disabled_by_default(self):
         """Test Avahi adverts are disabled by default, on a clean install."""
         self.assertFalse(os.path.isfile(self.__service_file))
+        self.assertFalse(os.path.isfile(self.__new_service_file))
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_enable_via_configuration_file(self):
-        """Test enabling the configuration file creates the .service file."""
+        """Test enabling the configuration file creates the .service files."""
         os.makedirs('/etc/eos-updater/', mode=0o755, exist_ok=True)
         with open(self.__config_file, 'w') as conf_file:
             conf_file.write(
@@ -109,11 +115,12 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: os.path.isfile(self.__service_file))
+            lambda s: os.path.isfile(self.__service_file) and os.path.isfile(self.__new_service_file)
+        )
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_disable_via_configuration_file(self):
-        """Test disabling the configuration file deletes the .service file."""
+        """Test disabling the configuration file deletes the .service files."""
         os.makedirs('/etc/eos-updater/', mode=0o755, exist_ok=True)
         with open(self.__config_file, 'w') as conf_file:
             conf_file.write(
@@ -122,7 +129,8 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: not os.path.isfile(self.__service_file))
+            lambda s: not os.path.isfile(self.__service_file) and not os.path.isfile(self.__new_service_file)
+        )
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_update_on_ostree_update(self):
