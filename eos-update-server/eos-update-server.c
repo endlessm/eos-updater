@@ -79,20 +79,16 @@ local_port_goption (const gchar *option_name,
                     GError **error)
 {
   guint64 number;
-  const gchar *endptr = NULL;
-  int saved_errno;
   Options* options = options_ptr;
+  g_autoptr(GError) local_error = NULL;
 
   if (!check_option_is (option_name, "--local-port", "-p", error))
     return FALSE;
 
-  errno = 0;
-  number = g_ascii_strtoull (value, (gchar **)&endptr, 10);
-  saved_errno = errno;
-  if (saved_errno != 0 || number == 0 || *endptr != '\0' || number > G_MAXUINT16)
+  if (!eos_string_to_unsigned (value, 10, 1, G_MAXUINT16, &number, &local_error))
     {
       g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
-                   "Invalid port number %s", value);
+                   "Invalid port number %s: %s", value, local_error->message);
       return FALSE;
     }
   options->local_port = number;

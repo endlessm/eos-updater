@@ -22,12 +22,12 @@
  *  - Philip Withnall <withnall@endlessm.com>
  */
 
-#include <errno.h>
 #include <gio/gio.h>
 #include <glib.h>
 #include <glib-object.h>
 #include <libeos-update-server/config.h>
 #include <libeos-updater-util/config.h>
+#include <libeos-updater-util/util.h>
 #include <string.h>
 
 /**
@@ -186,20 +186,21 @@ eus_read_config_file (const gchar  *config_file_path,
     {
       guint64 index;
       g_autofree gchar *repository_path = NULL, *remote_name = NULL;
-      const gchar *end_ptr;
 
       if (!g_str_has_prefix (groups[i], REPOSITORY_GROUP))
         continue;
 
-      errno = 0;
-      index = g_ascii_strtoull (groups[i] + strlen (REPOSITORY_GROUP),
-                                (gchar **) &end_ptr, 10);
-
-      if (errno != 0 || end_ptr == NULL || *end_ptr != '\0' || index > G_MAXUINT16)
+      if (!eos_string_to_unsigned (groups[i] + strlen (REPOSITORY_GROUP),
+                                   10,
+                                   0,
+                                   G_MAXUINT16,
+                                   &index,
+                                   &local_error))
         {
           g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE,
-                       "Invalid group name: %s", groups[i]);
+                       "Invalid group name %s: %s", groups[i], local_error->message);
           return FALSE;
+
         }
 
       repository_path = g_key_file_get_string (config, groups[i], PATH_KEY,

@@ -55,10 +55,12 @@ test_programs = \
 	avahi-service-file \
 	config \
 	ostree \
+	util \
 	$(NULL)
 
 avahi_service_file_SOURCES = avahi-service-file.c
 config_SOURCES = config.c
 ostree_SOURCES = ostree.c
+util_SOURCES = util.c
 
 -include $(top_srcdir)/git.mk
