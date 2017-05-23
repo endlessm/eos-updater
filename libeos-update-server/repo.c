@@ -627,9 +627,19 @@ path_is_handled_as_is (const gchar *requested_path)
     }
 
   if (g_str_has_prefix (requested_path, "/deltas/") ||
-      g_str_has_prefix (requested_path, "/extensions/") ||
-      g_str_equal (requested_path, "/summary") ||
-      g_str_equal (requested_path, "/summary.sig"))
+      g_str_has_prefix (requested_path, "/extensions/"))
+    return TRUE;
+
+  return FALSE;
+}
+
+static gboolean
+path_is_summary (const gchar *path)
+{
+  if (g_str_equal (path, "/summary") ||
+      g_str_equal (path, "/summary.sig") ||
+      g_str_equal (path, "/extensions/eos/eos-summary") ||
+      g_str_equal (path, "/extensions/eos/eos-summary.sig"))
     return TRUE;
 
   return FALSE;
@@ -749,6 +759,40 @@ handle_config (EusRepo     *self,
 }
 
 static void
+handle_summary (EusRepo     *self,
+                SoupMessage *msg,
+                const gchar *requested_path)
+{
+  g_autofree gchar *eos_raw_path = NULL;
+
+  if (g_str_has_prefix (requested_path, "/summary"))
+    {
+      g_autofree gchar *raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
+      g_autofree gchar *eos_summary_path = NULL;
+      gboolean served = FALSE;
+
+      if (!serve_file_if_exists (msg,
+                                 self->cached_repo_root,
+                                 raw_path,
+                                 self->cancellable,
+                                 &served))
+        return;
+      if (served)
+        return;
+
+      eos_summary_path = g_strconcat ("/extensions/eos/eos-", requested_path + 1, NULL);
+      eos_raw_path = g_build_filename (self->cached_repo_root, eos_summary_path, NULL);
+      g_debug ("no %s, falling back to %s", requested_path, eos_summary_path);
+    }
+  else
+    {
+      eos_raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
+    }
+
+  serve_file (msg, self->cached_repo_root, eos_raw_path, self->cancellable);
+}
+
+static void
 handle_refs_heads (EusRepo     *self,
                    SoupMessage *msg,
                    const gchar *requested_path)
@@ -822,8 +866,10 @@ handle_path (EusRepo     *self,
     handle_objects_filez (self, msg, path);
   else if (path_is_handled_as_is (path))
     handle_as_is (self, msg, path);
-  else if (g_strcmp0 (path, "/config") == 0)
+  else if (g_str_equal (path, "/config"))
     handle_config (self, msg);
+  else if (path_is_summary (path))
+    handle_summary (self, msg, path);
   else if (g_str_has_prefix (path, "/refs/heads/"))
     handle_refs_heads (self, msg, path);
   else
