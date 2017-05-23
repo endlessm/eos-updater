@@ -523,15 +523,20 @@ main (int argc, char **argv)
       g_autoptr(OstreeRepo) ostree_repo = NULL;
       g_autofree gchar *root_path = NULL;
 
-      /* Serve the (config->index == 0) repository at (root_path == "") for
-       * backwards compatibility with the old version of eos-update-server which
+      /* Serve the (config->index == 0) repository at both
+       * (root_path="/0") and (root_path == "") for backwards
+       * compatibility with the old version of eos-update-server which
        * could only serve a single repository. It’s intended that
-       * (config->index == 0) is always the system OSTree repository (though
-       * this is not enforced). */
+       * (config->index == 0) is always the system OSTree repository
+       * (though this is not enforced).
+       */
       ostree_repo_path = g_file_new_for_path (config->path);
       ostree_repo = ostree_repo_new (ostree_repo_path);
-      root_path = (config->index != 0) ? g_strdup_printf ("/%u", config->index) : g_strdup ("");
+      if (config->index == 0)
+        if (!add_repo (eus_server, ostree_repo, "", config->remote_name))
+          return EXIT_FAILED;
 
+      root_path = g_strdup_printf ("/%u", config->index);
       if (!add_repo (eus_server, ostree_repo, root_path, config->remote_name))
         return EXIT_FAILED;
     }
@@ -541,7 +546,14 @@ main (int argc, char **argv)
       g_autoptr(OstreeRepo) ostree_repo = NULL;
 
       ostree_repo = ostree_repo_new_default ();
+      /* Serve the default repository at both (root_path="/0") and
+       * (root_path == "") for backwards compatibility with the old
+       * version of eos-update-server which could only serve a single
+       * repository.
+       */
       if (!add_repo (eus_server, ostree_repo, "", options.served_remote))
+        return EXIT_FAILED;
+      if (!add_repo (eus_server, ostree_repo, "/0", options.served_remote))
         return EXIT_FAILED;
     }
 
