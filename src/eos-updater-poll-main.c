@@ -37,20 +37,17 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
   g_autoptr(EosUpdateInfo) info = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
-  g_autofree gchar *remote = NULL;
-  g_autofree gchar *ref = NULL;
   g_autoptr(EosExtensions) extensions = NULL;
 
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_booted_refspec (&refspec, &remote, &ref, error))
+  if (!get_booted_refspec (&refspec, NULL, NULL, error))
     return FALSE;
 
   if (!fetch_latest_commit (repo,
                             g_task_get_cancellable (fetch_data->task),
-                            remote,
-                            ref,
+                            refspec,
                             NULL,
                             &checksum,
                             &extensions,

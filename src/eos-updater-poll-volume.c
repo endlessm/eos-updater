@@ -87,8 +87,6 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
   g_autofree gchar *repo_url = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
-  g_autofree gchar *remote = NULL;
-  g_autofree gchar *ref = NULL;
   g_autoptr(EosExtensions) extensions = NULL;
   const gchar *urls[] = { repo_url, NULL };
 
@@ -108,13 +106,12 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
                              error))
     return FALSE;
 
-  if (!get_booted_refspec (&refspec, &remote, &ref, error))
+  if (!get_booted_refspec (&refspec, NULL, NULL, error))
     return FALSE;
 
   if (!fetch_latest_commit (repo,
                             cancellable,
-                            remote,
-                            ref,
+                            refspec,
                             repo_url,
                             &checksum,
                             &extensions,
