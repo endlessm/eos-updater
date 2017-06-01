@@ -417,6 +417,7 @@ get_update_info_from_swms (LanData *lan_data,
 {
   guint idx;
   g_autofree gchar *refspec = NULL;
+  g_autofree gchar *new_refspec = NULL;
   g_autofree gchar *latest_checksum = NULL;
   guint64 latest_timestamp = 0;
   g_autoptr(GPtrArray) swms_with_latest_commit = NULL;
@@ -457,6 +458,7 @@ get_update_info_from_swms (LanData *lan_data,
                                 refspec,
                                 url_override,
                                 &checksum,
+                                &new_refspec,
                                 &extensions,
                                 &local_error))
         {
@@ -545,8 +547,8 @@ get_update_info_from_swms (LanData *lan_data,
     {
       *out_info = eos_update_info_new (latest_checksum,
                                        latest_commit,
-                                       refspec,  /* for upgrade */
-                                       refspec,  /* original */
+                                       new_refspec,
+                                       refspec,
                                        (const gchar * const *)g_ptr_array_free (g_steal_pointer (&urls),
                                                                                 FALSE),
                                        latest_extensions);

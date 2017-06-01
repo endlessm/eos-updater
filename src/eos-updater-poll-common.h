@@ -122,6 +122,7 @@ gboolean fetch_latest_commit (OstreeRepo *repo,
                               const gchar *refspec,
                               const gchar *url_override,
                               gchar **out_checksum,
+                              gchar **out_new_refspec,
                               EosExtensions **out_extensions,
                               GError **error);
 

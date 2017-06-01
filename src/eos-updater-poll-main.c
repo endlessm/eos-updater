@@ -34,6 +34,7 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
 {
   OstreeRepo *repo = fetch_data->data->repo;
   g_autofree gchar *refspec = NULL;
+  g_autofree gchar *new_refspec = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
@@ -50,6 +51,7 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
                             refspec,
                             NULL,
                             &checksum,
+                            &new_refspec,
                             &extensions,
                             error))
     return FALSE;
@@ -60,8 +62,8 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
   if (commit != NULL)
     info = eos_update_info_new (checksum,
                                 commit,
-                                refspec,  /* for upgrade */
-                                refspec,  /* original */
+                                new_refspec,
+                                refspec,
                                 NULL,
                                 extensions);
 
