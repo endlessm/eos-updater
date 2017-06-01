@@ -717,6 +717,7 @@ fetch_latest_commit (OstreeRepo *repo,
                      const gchar *refspec,
                      const gchar *url_override,
                      gchar **out_checksum,
+                     gchar **out_new_refspec,
                      EosExtensions **out_extensions,
                      GError **error)
 {
@@ -724,6 +725,10 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autoptr(GVariant) summary = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) options = NULL;
+  g_autoptr(GVariant) commit = NULL;
+  g_autoptr(GVariant) rebase = NULL;
+  g_autoptr(GVariant) metadata = NULL;
+  g_autoptr(EosExtensions) extensions = NULL;
   g_autofree gchar *remote_name = NULL;
   g_autofree gchar *ref = NULL;
 
@@ -731,6 +736,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
   g_return_val_if_fail (refspec != NULL, FALSE);
   g_return_val_if_fail (out_checksum != NULL, FALSE);
+  g_return_val_if_fail (out_new_refspec != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
@@ -745,14 +751,59 @@ fetch_latest_commit (OstreeRepo *repo,
                                       error))
     return FALSE;
 
-  return fetch_commit_checksum (repo,
-                                cancellable,
-                                remote_name,
-                                ref,
-                                url_override,
-                                out_checksum,
-                                out_extensions,
-                                error);
+  if (!fetch_commit_checksum (repo,
+                              cancellable,
+                              remote_name,
+                              ref,
+                              url_override,
+                              &checksum,
+                              &extensions,
+                              error))
+    return FALSE;
+
+  if (!ostree_repo_load_variant (repo,
+                                 OSTREE_OBJECT_TYPE_COMMIT,
+                                 checksum,
+                                 &commit,
+                                 error))
+    return FALSE;
+
+  /* If this is a redirect commit, follow it and fetch the new ref instead */
+  metadata = g_variant_get_child_value (commit, 0);
+  rebase = g_variant_lookup_value (metadata, "ostree.endoflife-rebase", G_VARIANT_TYPE_STRING);
+
+  if (rebase != NULL)
+    {
+      g_clear_pointer (&ref, g_free);
+      ref = g_variant_dup_string (rebase, NULL);
+
+      g_clear_pointer (&options, g_variant_unref);
+      options = get_repo_pull_options (url_override, ref);
+      if (!ostree_repo_pull_with_options (repo,
+                                          remote_name,
+                                          options,
+                                          NULL,
+                                          cancellable,
+                                          error))
+        return FALSE;
+
+      g_clear_object (&extensions);
+      g_clear_pointer (&checksum, g_free);
+      if (!fetch_commit_checksum (repo,
+                                  cancellable,
+                                  remote_name,
+                                  ref,
+                                  url_override,
+                                  &checksum,
+                                  &extensions,
+                                  error))
+        return FALSE;
+    }
+
+  *out_checksum = g_steal_pointer (&checksum);
+  *out_extensions = g_steal_pointer (&extensions);
+  *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
+  return TRUE;
 }
 
 static SoupURI *
