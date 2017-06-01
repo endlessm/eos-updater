@@ -714,8 +714,7 @@ fetch_commit_checksum (OstreeRepo *repo,
 gboolean
 fetch_latest_commit (OstreeRepo *repo,
                      GCancellable *cancellable,
-                     const gchar *remote_name,
-                     const gchar *ref,
+                     const gchar *refspec,
                      const gchar *url_override,
                      gchar **out_checksum,
                      EosExtensions **out_extensions,
@@ -725,13 +724,17 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autoptr(GVariant) summary = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) options = NULL;
+  g_autofree gchar *remote_name = NULL;
+  g_autofree gchar *ref = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
-  g_return_val_if_fail (remote_name != NULL, FALSE);
-  g_return_val_if_fail (ref != NULL, FALSE);
+  g_return_val_if_fail (refspec != NULL, FALSE);
   g_return_val_if_fail (out_checksum != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
+    return FALSE;
 
   options = get_repo_pull_options (url_override, ref);
   if (!ostree_repo_pull_with_options (repo,

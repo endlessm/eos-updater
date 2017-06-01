@@ -405,8 +405,6 @@ get_update_info_from_swms (LanData *lan_data,
 {
   guint idx;
   g_autofree gchar *refspec = NULL;
-  g_autofree gchar *remote = NULL;
-  g_autofree gchar *ref = NULL;
   g_autofree gchar *latest_checksum = NULL;
   guint64 latest_timestamp = 0;
   g_autoptr(GPtrArray) swms_with_latest_commit = NULL;
@@ -415,7 +413,7 @@ get_update_info_from_swms (LanData *lan_data,
   g_autoptr(EosExtensions) latest_extensions = NULL;
   OstreeRepo *repo = lan_data->fetch_data->data->repo;
 
-  if (!get_booted_refspec (&refspec, &remote, &ref, error))
+  if (!get_booted_refspec (&refspec, NULL, NULL, error))
     return FALSE;
 
   swms_with_latest_commit = object_array_new ();
@@ -444,8 +442,7 @@ get_update_info_from_swms (LanData *lan_data,
 
       if (!fetch_latest_commit (repo,
                                 cancellable,
-                                remote,
-                                ref,
+                                refspec,
                                 url_override,
                                 &checksum,
                                 &extensions,
