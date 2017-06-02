@@ -149,7 +149,7 @@ apply_internal (EosUpdater *updater,
                                                osname,
                                                new_deployment,
                                                booted_deployment,
-                                               0,
+                                               OSTREE_SYSROOT_SIMPLE_WRITE_DEPLOYMENT_FLAGS_NO_CLEAN,
                                                cancel,
                                                error))
     return FALSE;
@@ -165,6 +165,15 @@ apply_internal (EosUpdater *updater,
     g_warning ("Failed to save repository extensions: %s",
                local_error->message);
   g_clear_object (&data->extensions);
+  g_clear_error (&local_error);
+
+  /* FIXME: Cleaning up after update should be non-fatal, since we've
+   * already successfully deployed the new OS. This clearly is a
+   * workaround for a more serious issue, likely related to concurrent
+   * prunes (https://phabricator.endlessm.com/T16736). */
+  if (!ostree_sysroot_cleanup (sysroot, cancel, &local_error))
+    g_warning ("Failed to clean up the sysroot after successful deployment: %s",
+               local_error->message);
   g_clear_error (&local_error);
 
   *out_bootversion_changed = bootversion != newbootver;
