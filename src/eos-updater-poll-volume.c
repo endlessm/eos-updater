@@ -83,12 +83,11 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
   GCancellable *cancellable = g_task_get_cancellable (fetch_data->task);
   g_autoptr(OstreeRepo) volume_repo = NULL;
   g_autofree gchar *refspec = NULL;
+  g_autofree gchar *new_refspec = NULL;
   g_autofree gchar *raw_volume_path = NULL;
   g_autofree gchar *repo_url = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
-  g_autofree gchar *remote = NULL;
-  g_autofree gchar *ref = NULL;
   g_autoptr(EosExtensions) extensions = NULL;
   const gchar *urls[] = { repo_url, NULL };
 
@@ -108,15 +107,15 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
                              error))
     return FALSE;
 
-  if (!get_booted_refspec (&refspec, &remote, &ref, error))
+  if (!get_booted_refspec (&refspec, NULL, NULL, error))
     return FALSE;
 
   if (!fetch_latest_commit (repo,
                             cancellable,
-                            remote,
-                            ref,
+                            refspec,
                             repo_url,
                             &checksum,
+                            &new_refspec,
                             &extensions,
                             error))
     return FALSE;
@@ -127,8 +126,8 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
   if (commit != NULL)
     *out_info = eos_update_info_new (checksum,
                                      commit,
-                                     refspec,  /* for upgrade */
-                                     refspec,  /* original */
+                                     new_refspec,
+                                     refspec,
                                      urls,
                                      extensions);
 

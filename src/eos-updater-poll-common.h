@@ -119,10 +119,10 @@ gboolean get_booted_refspec (gchar **booted_refspec,
 
 gboolean fetch_latest_commit (OstreeRepo *repo,
                               GCancellable *cancellable,
-                              const gchar *remote_name,
-                              const gchar *ref,
+                              const gchar *refspec,
                               const gchar *url_override,
                               gchar **out_checksum,
+                              gchar **out_new_refspec,
                               EosExtensions **out_extensions,
                               GError **error);
 
