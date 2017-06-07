@@ -75,6 +75,25 @@ update_progress (OstreeAsyncProgress *progress,
     eos_updater_set_downloaded_bytes (updater, bytes);
 }
 
+static GVariant *
+get_options_for_pull (const gchar *ref,
+                      const gchar *url_override,
+                      gboolean     disable_static_deltas)
+{
+  g_auto(GVariantBuilder) builder = { { { 0, } } };
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+  g_variant_builder_add (&builder, "{s@v}", "refs",
+                         g_variant_new_variant (g_variant_new_strv (&ref, 1)));
+  if (url_override != NULL)
+    g_variant_builder_add (&builder, "{s@v}", "override-url",
+                           g_variant_new_variant (g_variant_new_string (url_override)));
+  g_variant_builder_add (&builder, "{s@v}", "disable-static-deltas",
+                         g_variant_new_variant (g_variant_new_boolean (disable_static_deltas)));
+
+  return g_variant_builder_end (&builder);
+}
+
 static gboolean
 repo_pull (OstreeRepo *self,
            const gchar *remote_name,
@@ -84,20 +103,34 @@ repo_pull (OstreeRepo *self,
            GCancellable *cancellable,
            GError **error)
 {
-  g_auto(GVariantBuilder) builder = { { { 0, } } };
-  g_autoptr(GVariant) options = NULL;
+  g_autoptr(GVariant) options = get_options_for_pull (ref, url_override, FALSE);
+  g_autoptr(GError) local_error = NULL;
 
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  g_variant_builder_add (&builder, "{s@v}", "refs",
-                         g_variant_new_variant (g_variant_new_strv (&ref, 1)));
-  if (url_override != NULL)
-    g_variant_builder_add (&builder, "{s@v}", "override-url",
-                           g_variant_new_variant (g_variant_new_string (url_override)));
+  /* FIXME: progress bar will go crazy here if it fails */
+  if (!ostree_repo_pull_with_options (self, remote_name, options,
+                                      progress, cancellable, &local_error))
+    {
+      g_autoptr(GVariant) fallback_options = NULL;
 
-  options = g_variant_ref_sink (g_variant_builder_end (&builder));
-  return ostree_repo_pull_with_options (self, remote_name, options,
-                                        progress, cancellable, error);
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        {
+          g_propagate_error (error, local_error);
+          return FALSE;
+        }
 
+      g_warning ("Pulling %s from %s (%s) failed because some object was not found; "
+                 "will try again, this time without static deltas: %s",
+                 ref,
+                 remote_name,
+                 (url_override != NULL) ? url_override : "not overridden",
+                 local_error->message);
+      fallback_options = get_options_for_pull (ref, url_override, TRUE);
+
+      return ostree_repo_pull_with_options (self, remote_name, fallback_options,
+                                            progress, cancellable, error);
+    }
+
+  return TRUE;
 }
 
 static void
