@@ -23,7 +23,7 @@ Build-Depends:
  libsoup2.4-dev,
  libsystemd-dev,
  ostree,
- ostree-tests (>= 2017.6)
+ ostree-tests (>= 2017.6),
 
 Package: eos-updater
 Section: misc
