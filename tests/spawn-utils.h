@@ -125,6 +125,20 @@ typedef struct
   const gchar *value;
 } CmdArg;
 
+static inline GArray *
+cmd_arg_array_new (void)
+{
+  return g_array_new (/* zero-terminated: */ FALSE,
+                      /* cleared: */ FALSE,
+                      sizeof (CmdArg));
+}
+
+static inline CmdArg *
+cmd_arg_array_raw (GArray *cmd_arg_array)
+{
+  return (CmdArg *) cmd_arg_array->data;
+}
+
 gchar **
 build_cmd_args (CmdArg *args);
 
