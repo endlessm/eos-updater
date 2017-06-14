@@ -351,6 +351,96 @@ prepare_sysroot_contents (GFile *repo,
 }
 
 static gboolean
+static gboolean
+fill_all_commits_dir (GFile *all_commits_dir,
+                      guint commit_no,
+                      GError **error)
+{
+  const gchar *dirnames[] = { "a", "b", "c" };
+  const gchar *filenames[] = { "x", "y", "z" };
+  guint iter;
+
+  {
+    g_autofree gchar *commit_dirname = g_strdup_printf ("commit%u.dir", commit_no);
+    g_autoptr(GFile) commit_dir = g_file_get_child (all_commits_dir, commit_dirname);
+    if (!create_directory (commit_dir, error))
+      return FALSE;
+  }
+
+  for (iter = 0; iter <= commit_no; ++iter)
+    {
+      g_autofree gchar *commit_dirname = g_strdup_printf ("commit%u.dir", iter);
+      g_autoptr(GFile) commit_dir = g_file_get_child (all_commits_dir, commit_dirname);
+      guint dir_iter;
+
+      g_assert_true (g_file_query_exists (commit_dir, NULL));
+
+      for (dir_iter = 0; dir_iter < G_N_ELEMENTS (dirnames); ++dir_iter)
+        {
+          g_autoptr(GFile) dir = g_file_get_child (commit_dir, dirnames[dir_iter]);
+          guint file_iter;
+
+          if (!create_directory (dir, error))
+            return FALSE;
+
+          for (file_iter = 0; file_iter < G_N_ELEMENTS (filenames); ++file_iter)
+            {
+              g_autofree gchar *commit_filename = g_strdup_printf ("%s.%u", filenames[file_iter], commit_no);
+              g_autoptr(GFile) file = g_file_get_child (dir, commit_filename);
+              g_autoptr(GBytes) contents = g_bytes_new (commit_filename, strlen (commit_filename));
+
+              if (!create_file (file, contents, error))
+                return FALSE;
+            }
+        }
+    }
+
+  return TRUE;
+}
+
+static GFile *
+get_all_commits_dir_for_tree_root (GFile *tree_root)
+{
+  const gchar *all_commits_dirname = "for-all-commits";
+
+  return g_file_get_child (tree_root, all_commits_dirname);
+}
+
+static gboolean
+create_commit_files_and_directories (GFile *tree_root,
+                                     guint commit_no,
+                                     GError **error)
+{
+  g_autofree gchar *commit_filename = NULL;
+  g_autoptr(GFile) commit_file = NULL;
+  g_autoptr(GFile) all_commits_dir = NULL;
+
+  commit_filename = get_commit_filename (commit_no);
+  commit_file = g_file_get_child (tree_root, commit_filename);
+  if (!create_file (commit_file, NULL, error))
+    return FALSE;
+
+  all_commits_dir = get_all_commits_dir_for_tree_root (tree_root);
+  if (commit_no > 0)
+    {
+      if (!g_file_query_exists (all_commits_dir, NULL))
+        {
+          g_autofree gchar *path = g_file_get_path (all_commits_dir);
+          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                       "expected the directory %s to exist", path);
+          return FALSE;
+        }
+    }
+  else
+    {
+      if (!create_directory (all_commits_dir, error))
+        return FALSE;
+    }
+
+  return fill_all_commits_dir (all_commits_dir, commit_no, error);
+}
+
+static gboolean
 prepare_commit (GFile *repo,
                 GFile *tree_root,
                 guint commit_no,
@@ -360,8 +450,6 @@ prepare_commit (GFile *repo,
                 gchar **checksum,
                 GError **error)
 {
-  g_autofree gchar *commit_filename = NULL;
-  g_autoptr(GFile) commit_file = NULL;
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GDateTime) timestamp = NULL;
   const guint commit_max = 10;
@@ -373,11 +461,14 @@ prepare_commit (GFile *repo,
                    "exceeded commit limit %u with %u", commit_max, commit_no);
       return FALSE;
     }
-  commit_filename = get_commit_filename (commit_no);
-  commit_file = g_file_get_child (tree_root, commit_filename);
 
-  if (g_file_query_exists (commit_file, NULL))
-    return TRUE;
+  {
+    g_autofree gchar *commit_filename = get_commit_filename (commit_no);
+    g_autoptr(GFile) commit_file = g_file_get_child (tree_root, commit_filename);
+
+    if (g_file_query_exists (commit_file, NULL))
+      return TRUE;
+  }
 
   if (commit_no > 0)
     {
@@ -397,7 +488,7 @@ prepare_commit (GFile *repo,
                                    error))
       return FALSE;
 
-  if (!create_file (commit_file, NULL, error))
+  if (!create_commit_files_and_directories (tree_root, commit_no, error))
     return FALSE;
 
   subject = g_strdup_printf ("Test commit %u", commit_no);
