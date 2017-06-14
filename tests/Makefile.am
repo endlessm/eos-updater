@@ -68,6 +68,7 @@ uninstalled_test_programs = \
 	test-update-from-main \
 	test-update-from-lan \
 	test-update-from-volume \
+	test-update-cleanup-workaround \
 	$(NULL)
 
 AM_TESTS_ENVIRONMENT = \
@@ -115,6 +116,12 @@ test_update_from_volume_CFLAGS = $(test_cflags)
 test_update_from_volume_LDFLAGS = $(test_ldflags)
 test_update_from_volume_LDADD = $(test_ldadd)
 test_update_from_volume_SOURCES = test-update-from-volume.c
+
+test_update_cleanup_workaround_CPPFLAGS = $(test_cppflags)
+test_update_cleanup_workaround_CFLAGS = $(test_cflags)
+test_update_cleanup_workaround_LDFLAGS = $(test_ldflags)
+test_update_cleanup_workaround_LDADD = $(test_ldadd)
+test_update_cleanup_workaround_SOURCES = test-update-cleanup-workaround.c
 
 dist_uninstalled_test_data = \
 	gpghome/C1EB8F4E.asc \
