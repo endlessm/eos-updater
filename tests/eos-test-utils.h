@@ -224,6 +224,8 @@ GFile *eos_test_client_get_repo (EosTestClient *client);
 
 GFile *eos_test_client_get_sysroot (EosTestClient *client);
 
+const gchar *eos_test_client_get_big_file_path (void);
+
 typedef enum _UpdateStep {
   UPDATE_STEP_NONE,
   UPDATE_STEP_POLL,

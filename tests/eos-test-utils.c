@@ -351,6 +351,23 @@ prepare_sysroot_contents (GFile *repo,
 }
 
 static gboolean
+generate_big_file_for_delta_update (GFile *all_commits_dir,
+                                    guint commit_no,
+                                    GError **error)
+{
+  gsize byte_count = 10 * 1024 * 1024 + 1;
+  g_autofree gchar *data = g_malloc (byte_count);
+  g_autoptr(GFile) big_file = NULL;
+  g_autoptr(GBytes) contents = NULL;
+
+  memset (data, 'x', byte_count);
+  data[byte_count / 2] = 'a' + commit_no;
+  big_file = g_file_get_child (all_commits_dir, "bigfile");
+  contents = g_bytes_new_take (g_steal_pointer (&data), byte_count);
+
+  return create_file (big_file, contents, error);
+}
+
 static gboolean
 fill_all_commits_dir (GFile *all_commits_dir,
                       guint commit_no,
@@ -437,7 +454,34 @@ create_commit_files_and_directories (GFile *tree_root,
         return FALSE;
     }
 
+  if (!generate_big_file_for_delta_update (all_commits_dir, commit_no, error))
+    return FALSE;
+
   return fill_all_commits_dir (all_commits_dir, commit_no, error);
+}
+
+static gboolean
+get_current_commit_checksum (GFile *repo,
+                             const gchar *ref,
+                             gchar **out_checksum,
+                             GError **error)
+{
+  g_autofree gchar *head_rel_path = NULL;
+  g_autoptr(GFile) head = NULL;
+  g_autoptr(GBytes) bytes = NULL;
+
+  g_assert_nonnull (out_checksum);
+
+  head_rel_path = g_build_filename ("refs", "heads", ref, NULL);
+  head = g_file_get_child (repo, head_rel_path);
+  if (!load_to_bytes (head,
+                      &bytes,
+                      error))
+    return FALSE;
+
+  *out_checksum = g_strstrip (g_strndup (g_bytes_get_data (bytes, NULL),
+                                         g_bytes_get_size (bytes)));
+  return TRUE;
 }
 
 static gboolean
@@ -508,19 +552,7 @@ prepare_commit (GFile *repo,
     return FALSE;
 
   if (checksum != NULL)
-    {
-      g_autofree gchar *head_rel_path = g_build_filename ("refs", "heads", ref, NULL);
-      g_autoptr(GFile) head = g_file_get_child (repo, head_rel_path);
-      g_autoptr(GBytes) bytes = NULL;
-
-      if (!load_to_bytes (head,
-                          &bytes,
-                          error))
-        return FALSE;
-
-      *checksum = g_strndup (g_bytes_get_data (bytes, NULL),
-                             g_bytes_get_size (bytes));
-    }
+    return get_current_commit_checksum (repo, ref, checksum, error);
 
   return TRUE;
 }
@@ -618,6 +650,20 @@ generate_ref_file (GFile *repo,
 }
 
 static gboolean
+generate_delta_files (GFile *repo,
+                      const gchar *from,
+                      const gchar *to,
+                      GError **error)
+{
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+
+  if (!ostree_static_delta_generate (repo, from, to, &cmd, error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+static gboolean
 update_commits (EosTestSubserver *subserver,
                 GError **error)
 {
@@ -629,21 +675,50 @@ update_commits (EosTestSubserver *subserver,
   g_hash_table_iter_init (&iter, subserver->ref_to_commit);
   while (g_hash_table_iter_next (&iter, &ref_ptr, &commit_ptr))
     {
+      const gchar *ref = ref_ptr;
       guint commit = GPOINTER_TO_UINT (commit_ptr);
       g_autofree gchar *checksum = NULL;
+      g_autofree gchar *old_checksum = NULL;
 
-      if (!prepare_commit (subserver->repo,
-                           subserver->tree,
-                           commit,
-                           ref_ptr,
-                           subserver->gpg_home,
-                           subserver->keyid,
-                           &checksum,
-                           error))
-        return FALSE;
+      if (commit > 0)
+        {
+          if (!get_current_commit_checksum (subserver->repo,
+                                            ref,
+                                            &old_checksum,
+                                            error))
+            return FALSE;
+
+          if (!prepare_commit (subserver->repo,
+                               subserver->tree,
+                               commit,
+                               ref,
+                               subserver->gpg_home,
+                               subserver->keyid,
+                               &checksum,
+                               error))
+            return FALSE;
+
+          if (!generate_delta_files (subserver->repo,
+                                     old_checksum,
+                                     checksum,
+                                     error))
+            return FALSE;
+        }
+      else
+        {
+          if (!prepare_commit (subserver->repo,
+                               subserver->tree,
+                               commit,
+                               ref,
+                               subserver->gpg_home,
+                               subserver->keyid,
+                               &checksum,
+                               error))
+            return FALSE;
+        }
 
       if (!generate_ref_file (subserver->repo,
-                              ref_ptr,
+                              ref,
                               checksum,
                               subserver->gpg_home,
                               subserver->keyid,
@@ -2175,6 +2250,12 @@ GFile *
 eos_test_client_get_sysroot (EosTestClient *client)
 {
   return get_sysroot_for_client (client->root);
+}
+
+const gchar *
+eos_test_client_get_big_file_path (void)
+{
+  return "/for-all-commits/bigfile";
 }
 
 static void
