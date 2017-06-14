@@ -49,6 +49,8 @@ libeos_updater_test_la_SOURCES = \
 	ostree-spawn.h \
 	eos-test-utils.c \
 	eos-test-utils.h \
+	eos-test-convenience.c \
+	eos-test-convenience.h \
 	$(NULL)
 
 @VALGRIND_CHECK_RULES@
