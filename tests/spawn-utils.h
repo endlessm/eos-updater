@@ -45,6 +45,8 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (CmdResult, cmd_result_free)
 gboolean cmd_result_ensure_ok (CmdResult *cmd,
                                GError **error);
 
+gboolean cmd_result_ensure_ok_verbose (CmdResult *cmd);
+
 gboolean cmd_result_ensure_all_ok_verbose (GPtrArray *cmds);
 
 gchar *cmd_result_dump (CmdResult *cmd);

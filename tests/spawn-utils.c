@@ -69,6 +69,17 @@ cmd_result_ensure_ok (CmdResult *cmd,
 }
 
 gboolean
+cmd_result_ensure_ok_verbose (CmdResult *cmd)
+{
+  g_autoptr(GError) error = NULL;
+
+  if (cmd_result_ensure_ok (cmd, &error))
+    return TRUE;
+
+  return FALSE;
+}
+
+gboolean
 cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
 {
   guint idx;
@@ -77,15 +88,9 @@ cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
   for (idx = 0; idx < cmds->len; ++idx)
     {
       CmdResult *cmd = g_ptr_array_index (cmds, idx);
-      g_autoptr(GError) error = NULL;
-      g_autofree gchar *msg = NULL;
 
-      if (cmd_result_ensure_ok (cmd, &error))
-        continue;
-
-      msg = g_strdup_printf ("%s failure:\n%s", cmd->cmdline, error->message);
-      g_test_message ("%s", msg);
-      ok = FALSE;
+      if (!cmd_result_ensure_ok_verbose (cmd))
+        ok = FALSE;
     }
 
   return ok;
