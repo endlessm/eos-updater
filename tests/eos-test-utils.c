@@ -2082,6 +2082,19 @@ eos_test_client_has_commit (EosTestClient *client,
 }
 
 gboolean
+eos_test_client_get_deployments (EosTestClient *client,
+                                 const gchar *osname,
+                                 gchar ***out_ids,
+                                 GError **error)
+{
+  g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
+
+  g_assert_nonnull (out_ids);
+
+  return get_deploy_ids (sysroot, osname, out_ids, error);
+}
+
+gboolean
 eos_test_client_prepare_volume (EosTestClient *client,
                                 GFile *volume_path,
                                 GError **error)
@@ -2148,6 +2161,20 @@ eos_test_client_prepare_volume (EosTestClient *client,
     }
 
   return TRUE;
+}
+
+GFile *
+eos_test_client_get_repo (EosTestClient *client)
+{
+  g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
+
+  return get_repo_for_sysroot (sysroot);
+}
+
+GFile *
+eos_test_client_get_sysroot (EosTestClient *client)
+{
+  return get_sysroot_for_client (client->root);
 }
 
 static void
