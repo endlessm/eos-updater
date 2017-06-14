@@ -288,6 +288,73 @@ ostree_prune (GFile *repo,
                                     error);
 }
 
+gboolean
+ostree_static_delta_generate (GFile *repo,
+                              const gchar *from,
+                              const gchar *to,
+                              CmdResult *cmd,
+                              GError **error)
+{
+  CmdArg args[] =
+    {
+      { NULL, "static-delta" },
+      { NULL, "generate" },
+      { "from", from },
+      { "to", to },
+      { NULL, NULL }
+    };
+
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
+}
+
+gboolean
+ostree_ls (GFile *repo,
+           OstreeLsFlags flags,
+           const gchar *ref,
+           const gchar * const *paths,
+           CmdResult *cmd,
+           GError **error)
+{
+  g_autoptr(GArray) args = cmd_arg_array_new ();
+  CmdArg ls = { NULL, "ls" };
+  CmdArg dir_only = { "dironly", NULL };
+  CmdArg recursive = { "recursive", NULL };
+  CmdArg checksum = { "checksum", NULL };
+  CmdArg xattrs = { "xattrs", NULL };
+  CmdArg nul_filenames_only = { "nul-filenames-only", NULL };
+  CmdArg ref_arg = { NULL, ref };
+  CmdArg terminator = { NULL, NULL };
+  const gchar * const * iter;
+
+  g_array_append_val (args, ls);
+  if ((flags & OSTREE_LS_DIR_ONLY) == OSTREE_LS_DIR_ONLY)
+    g_array_append_val (args, dir_only);
+  if ((flags & OSTREE_LS_RECURSIVE) == OSTREE_LS_RECURSIVE)
+    g_array_append_val (args, recursive);
+  if ((flags & OSTREE_LS_CHECKSUM) == OSTREE_LS_CHECKSUM)
+    g_array_append_val (args, checksum);
+  if ((flags & OSTREE_LS_XATTRS) == OSTREE_LS_XATTRS)
+    g_array_append_val (args, xattrs);
+  if ((flags & OSTREE_LS_NUL_FILENAMES_ONLY) == OSTREE_LS_NUL_FILENAMES_ONLY)
+    g_array_append_val (args, nul_filenames_only);
+  g_array_append_val (args, ref_arg);
+  for (iter = paths; *iter != NULL; ++iter)
+    {
+      CmdArg path_arg = { NULL, *iter };
+
+      g_array_append_val (args, path_arg);
+    }
+  g_array_append_val (args, terminator);
+
+  return spawn_ostree_in_repo_args (repo,
+                                    cmd_arg_array_raw (args),
+                                    cmd,
+                                    error);
+}
+
 static gboolean
 ostree_admin_spawn_in_sysroot (GFile *sysroot,
                                const gchar *admin_subcommand,

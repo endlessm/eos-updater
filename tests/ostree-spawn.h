@@ -93,6 +93,28 @@ gboolean ostree_prune (GFile *repo,
                        CmdResult *cmd,
                        GError **error);
 
+gboolean ostree_static_delta_generate (GFile *repo,
+                                       const gchar *from,
+                                       const gchar *to,
+                                       CmdResult *cmd,
+                                       GError **error);
+
+typedef enum
+  {
+    OSTREE_LS_DIR_ONLY,
+    OSTREE_LS_RECURSIVE,
+    OSTREE_LS_CHECKSUM,
+    OSTREE_LS_XATTRS,
+    OSTREE_LS_NUL_FILENAMES_ONLY,
+  } OstreeLsFlags;
+
+gboolean ostree_ls (GFile *repo,
+                    OstreeLsFlags flags,
+                    const gchar *ref,
+                    const gchar * const *paths,
+                    CmdResult *cmd,
+                    GError **error);
+
 gboolean ostree_deploy (GFile *sysroot,
                         const gchar *osname,
                         const gchar *refspec,
