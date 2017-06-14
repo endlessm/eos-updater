@@ -144,13 +144,24 @@ test_spawn_cwd_async (const gchar *cwd,
   g_auto(GStrv) merged_env = merge_parent_and_child_env (envp);
   g_autofree gchar *argv_joined = g_strjoinv (" ", (gchar **) argv);
   g_autofree gchar *envp_joined = join_envp_for_logging ((const gchar * const *) merged_env);
+  g_autofree gchar *wd = NULL;
+  const gchar *real_cwd;
 
   if (!autoreap && cmd != NULL)
     flags |= G_SPAWN_DO_NOT_REAP_CHILD;
 
+  if (cwd == NULL)
+    {
+      wd = g_get_current_dir ();
+      real_cwd = wd;
+    }
+  else
+    {
+      real_cwd = cwd;
+    }
   g_test_message ("Spawning ‘%s’ in ‘%s’ with environment:\n%s",
                   argv_joined,
-                  cwd,
+                  real_cwd,
                   envp_joined);
 
   if (cmd != NULL)
