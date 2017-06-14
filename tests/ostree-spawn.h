@@ -69,6 +69,30 @@ gboolean ostree_remote_add (GFile *repo,
                             CmdResult *cmd,
                             GError **error);
 
+gboolean ostree_ref_create (GFile *repo,
+                            const gchar *ref_name,
+                            const gchar *commit_id,
+                            CmdResult *cmd,
+                            GError **error);
+
+gboolean ostree_ref_delete (GFile *repo,
+                            const gchar *ref_name,
+                            CmdResult *cmd,
+                            GError **error);
+
+typedef enum
+  {
+    OSTREE_PRUNE_REFS_ONLY = 1 << 0,
+    OSTREE_PRUNE_NO_PRUNE  = 1 << 1,
+    OSTREE_PRUNE_VERBOSE   = 1 << 2,
+  } OstreePruneFlags;
+
+gboolean ostree_prune (GFile *repo,
+                       OstreePruneFlags flags,
+                       gint depth_opt,
+                       CmdResult *cmd,
+                       GError **error);
+
 gboolean ostree_deploy (GFile *sysroot,
                         const gchar *osname,
                         const gchar *refspec,
@@ -87,6 +111,11 @@ gboolean ostree_os_init (GFile *sysroot,
 gboolean ostree_status (GFile *sysroot,
                         CmdResult *cmd,
                         GError **error);
+
+gboolean ostree_undeploy (GFile *sysroot,
+                          int deployment_index,
+                          CmdResult *cmd,
+                          GError **error);
 
 /* due to some bug I don't know where (either my fault, or ostree
  * trivial-httpd's in lackluster or just cursory daemonizing or

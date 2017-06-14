@@ -215,6 +215,79 @@ ostree_remote_add (GFile *repo,
                                     error);
 }
 
+gboolean
+ostree_ref_create (GFile *repo,
+                   const gchar *ref_name,
+                   const gchar *commit_id,
+                   CmdResult *cmd,
+                   GError **error)
+{
+  CmdArg args[] =
+    {
+      { NULL, "refs" },
+      { "create", ref_name },
+      { NULL, commit_id },
+      { NULL, NULL }
+    };
+
+    return spawn_ostree_in_repo_args (repo,
+                                      args,
+                                      cmd,
+                                      error);
+}
+
+gboolean
+ostree_ref_delete (GFile *repo,
+                   const gchar *ref_name,
+                   CmdResult *cmd,
+                   GError **error)
+{
+  CmdArg args[] =
+    {
+      { NULL, "refs" },
+      { "delete", NULL },
+      { NULL, ref_name },
+      { NULL, NULL }
+    };
+
+    return spawn_ostree_in_repo_args (repo,
+                                      args,
+                                      cmd,
+                                      error);
+}
+
+gboolean
+ostree_prune (GFile *repo,
+              OstreePruneFlags flags,
+              gint depth_opt,
+              CmdResult *cmd,
+              GError **error)
+{
+  g_autoptr(GArray) args = cmd_arg_array_new ();
+  g_autofree gchar *depth_str = g_strdup_printf ("%d", depth_opt);
+  CmdArg prune = { NULL, "prune" };
+  CmdArg refs_only = { "refs-only", NULL };
+  CmdArg no_prune = { "no-prune", NULL };
+  CmdArg verbose = { "verbose", NULL };
+  CmdArg depth = { "depth", depth_str };
+  CmdArg terminator = { NULL, NULL };
+
+  g_array_append_val (args, prune);
+  if ((flags & OSTREE_PRUNE_REFS_ONLY) == OSTREE_PRUNE_REFS_ONLY)
+    g_array_append_val (args, refs_only);
+  if ((flags & OSTREE_PRUNE_NO_PRUNE) == OSTREE_PRUNE_NO_PRUNE)
+    g_array_append_val (args, no_prune);
+  if ((flags & OSTREE_PRUNE_VERBOSE) == OSTREE_PRUNE_VERBOSE)
+    g_array_append_val (args, verbose);
+  g_array_append_val (args, depth);
+  g_array_append_val (args, terminator);
+
+  return spawn_ostree_in_repo_args (repo,
+                                    cmd_arg_array_raw (args),
+                                    cmd,
+                                    error);
+}
+
 static gboolean
 ostree_admin_spawn_in_sysroot (GFile *sysroot,
                                const gchar *admin_subcommand,
@@ -323,6 +396,25 @@ ostree_status (GFile *sysroot,
   return ostree_admin_spawn_in_sysroot (sysroot,
                                         "status",
                                         NULL,
+                                        cmd,
+                                        error);
+}
+
+gboolean
+ostree_undeploy (GFile *sysroot,
+                 int deployment_index,
+                 CmdResult *cmd,
+                 GError **error)
+{
+  g_autofree gchar *index_str = g_strdup_printf ("%d", deployment_index);
+  const gchar *args[] = {
+    index_str,
+    NULL
+  };
+
+  return ostree_admin_spawn_in_sysroot (sysroot,
+                                        "undeploy",
+                                        args,
                                         cmd,
                                         error);
 }
