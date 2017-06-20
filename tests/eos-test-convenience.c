@@ -20,10 +20,21 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
+/* Functions here implement the common actions the test implementer
+ * may want to execute (like set up a server or a client or update
+ * either one). These are of a higher level than the functions in
+ * eos-test-utils.
+ */
+
 #include "eos-test-convenience.h"
 
 #include <string.h>
 
+/* This initializes the EtcData structure. In the beginning, nothing
+ * is available. Use etc_set_up_server() and
+ * etc_set_up_client_synced_to_server() to get the server and client
+ * fields filled.
+ */
 void
 etc_data_init (EtcData *data,
                EosUpdaterFixture *fixture)
@@ -37,6 +48,8 @@ etc_data_init (EtcData *data,
   data->client = NULL;
 }
 
+/* Clear all the fields, but do not free the passed data pointer.
+ */
 void
 etc_data_clear (EtcData *data)
 {
@@ -49,6 +62,10 @@ etc_data_clear (EtcData *data)
   g_clear_object (&data->client);
 }
 
+/* Set up a server with a single subserver with the default vendor,
+ * product and ostree path. The subserver will contain one commit
+ * (0). This sets the server and subserver fields in data.
+ */
 void
 etc_set_up_server (EtcData *data)
 {
@@ -78,6 +95,10 @@ etc_set_up_server (EtcData *data)
   data->subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (data->server->subservers, 0)));
 }
 
+/* Set up a client, that is in sync with the server. Needs to be
+ * called after the server is set up. This sets the client field in
+ * data.
+ */
 void
 etc_set_up_client_synced_to_server (EtcData *data)
 {
@@ -101,6 +122,8 @@ etc_set_up_client_synced_to_server (EtcData *data)
   g_assert_no_error (error);
 }
 
+/* Update the server to the new commit.
+ */
 void
 etc_update_server (EtcData *data,
                    guint commit)
@@ -122,6 +145,8 @@ etc_update_server (EtcData *data,
   g_assert_no_error (error);
 }
 
+/* Pulls the updates from the server using eos-updater and autoupdater.
+ */
 void
 etc_update_client (EtcData *data)
 {
@@ -176,6 +201,13 @@ etc_update_client (EtcData *data)
   g_assert_true (has_commit);
 }
 
+/* Deletes an object from a repositories' objects directory. The repo
+ * should be a GFile pointing to the ostree repository, and the object
+ * should describe what will be removed.  The object string should
+ * look like a filename formatted as <HASH>.<TYPE>, where <HASH> is 64
+ * characters of the object checksum and <TYPE> should describe an
+ * ostree object type (dirtree, dirmeta, commit, file, …).
+ */
 void
 etc_delete_object (GFile *repo,
                    const gchar *object)

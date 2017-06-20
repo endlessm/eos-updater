@@ -30,6 +30,10 @@
 #include <locale.h>
 #include <string.h>
 
+/* Finds an old deployment to figure out the commit id on which the
+ * deployment was based on and creates a ref that references the
+ * commit id.
+ */
 static void
 save_old_deployment_commit_in_ref (EtcData *data,
                                    const gchar *ref)
@@ -107,6 +111,10 @@ delete_ref (EtcData *data,
   g_assert_true (cmd_result_ensure_ok_verbose (&ref_deleted));
 }
 
+/* Runs the "ostree prune" with a mode that does no pruning, but
+ * prints what items would be pruned if it could do it. Then remove
+ * some of the dirtree objects from that list (at most 3).
+ */
 static void
 delete_some_old_dirtree_objects (EtcData *data)
 {
@@ -148,6 +156,9 @@ delete_some_old_dirtree_objects (EtcData *data)
   g_assert_cmpint (removed, >, 0);
 }
 
+/* Corrupt a repository on the client side, so that pruning may fail
+ * and make sure that eos-updater can cope with it.
+ */
 static void
 test_update_cleanup_workaround (EosUpdaterFixture *fixture,
                                 gconstpointer user_data)

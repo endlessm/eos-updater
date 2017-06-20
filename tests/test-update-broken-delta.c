@@ -30,6 +30,9 @@
 #include <locale.h>
 #include <string.h>
 
+/* Finds the big file in the deployment to figure out its checksum, so
+ * it can then remove it from client's repository.
+ */
 static void
 delete_big_file_object_from_client_repo (EtcData *data)
 {
@@ -82,6 +85,10 @@ delete_big_file_object_from_client_repo (EtcData *data)
   etc_delete_object (client_repo, object);
 }
 
+/* Corrupt a repository on the client side, so that using static delta
+ * files is impossible and make sure that eos-updater can cope with
+ * it.
+ */
 static void
 test_update_broken_delta (EosUpdaterFixture *fixture,
                           gconstpointer user_data)

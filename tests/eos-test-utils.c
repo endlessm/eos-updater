@@ -351,6 +351,11 @@ prepare_sysroot_contents (GFile *repo,
   return TRUE;
 }
 
+/* Generate a 10mb file at <tree root>/all-commits-dir/bigfile filled
+ * with 'x' characters. One middle byte is set to something else,
+ * depending on commit number. This is to make sure that the generated
+ * delta file for this big file is way smaller than the bigfile.
+ */
 static gboolean
 generate_big_file_for_delta_update (GFile *all_commits_dir,
                                     guint commit_number,
@@ -371,6 +376,13 @@ generate_big_file_for_delta_update (GFile *all_commits_dir,
   return create_file (big_file, contents, error);
 }
 
+/* Fills the all-commits-dir directory with some files and
+ * directories, so we have plenty of ostree objects in the
+ * repository. The generated structure of directories and files fit
+ * the following scheme for a commit X:
+ *
+ * /for-all-commits/commit(0…X).dir/{a,b,c}/{x,y,z}.X
+ */
 static gboolean
 fill_all_commits_dir (GFile *all_commits_dir,
                       guint commit_number,
@@ -428,6 +440,11 @@ get_all_commits_dir_for_tree_root (GFile *tree_root)
   return g_file_get_child (tree_root, all_commits_dirname);
 }
 
+/* Generate some files are directories specific for the given commit
+ * number. This includes the commitX file at the toplevel, a plenty of
+ * directories and small files, and a big file inside the
+ * all-commits-dir directory.
+ */
 static gboolean
 create_commit_files_and_directories (GFile *tree_root,
                                      guint commit_number,
@@ -465,6 +482,9 @@ create_commit_files_and_directories (GFile *tree_root,
   return fill_all_commits_dir (all_commits_dir, commit_number, error);
 }
 
+/* Parse <repo>/refs/heads/<ref> to get the commit checksum of the
+ * latest commit in ref.
+ */
 static gboolean
 get_current_commit_checksum (GFile *repo,
                              const gchar *ref,
@@ -489,6 +509,9 @@ get_current_commit_checksum (GFile *repo,
   return TRUE;
 }
 
+/* Prepare a commit. It will prepare a sysroot environment and commits
+ * from 0 to the given commit_number.
+ */
 static gboolean
 prepare_commit (GFile *repo,
                 GFile *tree_root,
@@ -668,6 +691,10 @@ generate_delta_files (GFile *repo,
   return cmd_result_ensure_ok (&cmd, error);
 }
 
+/* Updates the subserver to a new commit number in the ref_to_commit
+ * hash table.  This involves creating the commits, generating ref
+ * files and delta files, and updating the summary.
+ */
 static gboolean
 update_commits (EosTestSubserver *subserver,
                 GError **error)

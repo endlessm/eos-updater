@@ -26,6 +26,10 @@
 
 G_BEGIN_DECLS
 
+/* Holds the single server and client, used by the functions
+ * below. Normally you define a variable of this type on the stack and
+ * pass an address to it to the etc_ functions.
+ */
 typedef struct
 {
   EosUpdaterFixture *fixture;
