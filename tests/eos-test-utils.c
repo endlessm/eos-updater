@@ -496,7 +496,7 @@ prepare_commit (GFile *repo,
                 const gchar *ref,
                 GFile *gpg_home,
                 const gchar *keyid,
-                gchar **checksum,
+                gchar **out_checksum,
                 GError **error)
 {
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
@@ -556,8 +556,8 @@ prepare_commit (GFile *repo,
   if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  if (checksum != NULL)
-    return get_current_commit_checksum (repo, ref, checksum, error);
+  if (out_checksum != NULL)
+    return get_current_commit_checksum (repo, ref, out_checksum, error);
 
   return TRUE;
 }
