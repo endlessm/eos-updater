@@ -692,33 +692,24 @@ update_commits (EosTestSubserver *subserver,
                                             &old_checksum,
                                             error))
             return FALSE;
+        }
 
-          if (!prepare_commit (subserver->repo,
-                               subserver->tree,
-                               commit_number,
-                               ref,
-                               subserver->gpg_home,
-                               subserver->keyid,
-                               &checksum,
-                               error))
-            return FALSE;
+      if (!prepare_commit (subserver->repo,
+                           subserver->tree,
+                           commit_number,
+                           ref,
+                           subserver->gpg_home,
+                           subserver->keyid,
+                           &checksum,
+                           error))
+        return FALSE;
 
+      if (commit_number > 0)
+        {
           if (!generate_delta_files (subserver->repo,
                                      old_checksum,
                                      checksum,
                                      error))
-            return FALSE;
-        }
-      else
-        {
-          if (!prepare_commit (subserver->repo,
-                               subserver->tree,
-                               commit,
-                               ref,
-                               subserver->gpg_home,
-                               subserver->keyid,
-                               &checksum,
-                               error))
             return FALSE;
         }
 
