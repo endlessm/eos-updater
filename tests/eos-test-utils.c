@@ -37,6 +37,7 @@ const gchar *const default_product = "PRODUCT";
 const gchar *const default_ref = "REF";
 const gchar *const default_ostree_path = "OSTREE/PATH";
 const gchar *const default_remote_name = "REMOTE";
+const guint max_commit_number = 10;
 
 void
 eos_updater_fixture_setup (EosUpdaterFixture *fixture,
@@ -201,9 +202,9 @@ eos_test_subserver_new (GFile *gpg_home,
 }
 
 static gchar *
-get_commit_filename (guint commit_no)
+get_commit_filename (guint commit_number)
 {
-  return g_strdup_printf ("commit%u", commit_no);
+  return g_strdup_printf ("commit%u", commit_number);
 }
 
 static gchar *
@@ -350,40 +351,202 @@ prepare_sysroot_contents (GFile *repo,
   return TRUE;
 }
 
+/* Generate a 10mb file at <tree root>/all-commits-dir/bigfile filled
+ * with 'x' characters. One middle byte is set to something else,
+ * depending on commit number. This is to make sure that the generated
+ * delta file for this big file is way smaller than the bigfile.
+ */
 static gboolean
-prepare_commit (GFile *repo,
-                GFile *tree_root,
-                guint commit_no,
-                const gchar *ref,
-                GFile *gpg_home,
-                const gchar *keyid,
-                gchar **checksum,
-                GError **error)
+generate_big_file_for_delta_update (GFile *all_commits_dir,
+                                    guint commit_number,
+                                    GError **error)
+{
+  const gsize byte_count = 10 * 1024 * 1024 + 1;
+  g_autofree gchar *data = NULL;
+  g_autoptr(GFile) big_file = NULL;
+  g_autoptr(GBytes) contents = NULL;
+
+  g_assert_cmpint (commit_number, <=, max_commit_number);
+  data = g_malloc (byte_count);
+  memset (data, 'x', byte_count);
+  data[byte_count / 2] = 'a' + commit_number;
+  big_file = g_file_get_child (all_commits_dir, "bigfile");
+  contents = g_bytes_new_take (g_steal_pointer (&data), byte_count);
+
+  return create_file (big_file, contents, error);
+}
+
+/* Fills the all-commits-dir directory with some files and
+ * directories, so we have plenty of ostree objects in the
+ * repository. The generated structure of directories and files fit
+ * the following scheme for a commit X:
+ *
+ * /for-all-commits/commit(0…X).dir/{a,b,c}/{x,y,z}.X
+ */
+static gboolean
+fill_all_commits_dir (GFile *all_commits_dir,
+                      guint commit_number,
+                      GError **error)
+{
+  const gchar *dirnames[] = { "a", "b", "c" };
+  const gchar *filenames[] = { "x", "y", "z" };
+  guint iter;
+
+  g_assert_cmpint (commit_number, <=, max_commit_number);
+
+  {
+    g_autofree gchar *commit_dirname = g_strdup_printf ("commit%u.dir", commit_number);
+    g_autoptr(GFile) commit_dir = g_file_get_child (all_commits_dir, commit_dirname);
+    if (!create_directory (commit_dir, error))
+      return FALSE;
+  }
+
+  for (iter = 0; iter <= commit_number; ++iter)
+    {
+      g_autofree gchar *commit_dirname = g_strdup_printf ("commit%u.dir", iter);
+      g_autoptr(GFile) commit_dir = g_file_get_child (all_commits_dir, commit_dirname);
+      guint dir_iter;
+
+      g_assert_true (g_file_query_exists (commit_dir, NULL));
+
+      for (dir_iter = 0; dir_iter < G_N_ELEMENTS (dirnames); ++dir_iter)
+        {
+          g_autoptr(GFile) dir = g_file_get_child (commit_dir, dirnames[dir_iter]);
+          guint file_iter;
+
+          if (!create_directory (dir, error))
+            return FALSE;
+
+          for (file_iter = 0; file_iter < G_N_ELEMENTS (filenames); ++file_iter)
+            {
+              g_autofree gchar *commit_filename = g_strdup_printf ("%s.%u", filenames[file_iter], commit_number);
+              g_autoptr(GFile) file = g_file_get_child (dir, commit_filename);
+              g_autoptr(GBytes) contents = g_bytes_new (commit_filename, strlen (commit_filename));
+
+              if (!create_file (file, contents, error))
+                return FALSE;
+            }
+        }
+    }
+
+  return TRUE;
+}
+
+static GFile *
+get_all_commits_dir_for_tree_root (GFile *tree_root)
+{
+  const gchar *all_commits_dirname = "for-all-commits";
+
+  return g_file_get_child (tree_root, all_commits_dirname);
+}
+
+/* Generate some files are directories specific for the given commit
+ * number. This includes the commitX file at the toplevel, a plenty of
+ * directories and small files, and a big file inside the
+ * all-commits-dir directory.
+ */
+static gboolean
+create_commit_files_and_directories (GFile *tree_root,
+                                     guint commit_number,
+                                     GError **error)
 {
   g_autofree gchar *commit_filename = NULL;
   g_autoptr(GFile) commit_file = NULL;
+  g_autoptr(GFile) all_commits_dir = NULL;
+
+  commit_filename = get_commit_filename (commit_number);
+  commit_file = g_file_get_child (tree_root, commit_filename);
+  if (!create_file (commit_file, NULL, error))
+    return FALSE;
+
+  all_commits_dir = get_all_commits_dir_for_tree_root (tree_root);
+  if (commit_number > 0)
+    {
+      if (!g_file_query_exists (all_commits_dir, NULL))
+        {
+          g_autofree gchar *path = g_file_get_path (all_commits_dir);
+          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                       "expected the directory %s to exist", path);
+          return FALSE;
+        }
+    }
+  else
+    {
+      if (!create_directory (all_commits_dir, error))
+        return FALSE;
+    }
+
+  if (!generate_big_file_for_delta_update (all_commits_dir, commit_number, error))
+    return FALSE;
+
+  return fill_all_commits_dir (all_commits_dir, commit_number, error);
+}
+
+/* Parse <repo>/refs/heads/<ref> to get the commit checksum of the
+ * latest commit in ref.
+ */
+static gboolean
+get_current_commit_checksum (GFile *repo,
+                             const gchar *ref,
+                             gchar **out_checksum,
+                             GError **error)
+{
+  g_autofree gchar *head_rel_path = NULL;
+  g_autoptr(GFile) head = NULL;
+  g_autoptr(GBytes) bytes = NULL;
+
+  g_assert_nonnull (out_checksum);
+
+  head_rel_path = g_build_filename ("refs", "heads", ref, NULL);
+  head = g_file_get_child (repo, head_rel_path);
+  if (!load_to_bytes (head,
+                      &bytes,
+                      error))
+    return FALSE;
+
+  *out_checksum = g_strstrip (g_strndup (g_bytes_get_data (bytes, NULL),
+                                         g_bytes_get_size (bytes)));
+  return TRUE;
+}
+
+/* Prepare a commit. It will prepare a sysroot environment and commits
+ * from 0 to the given commit_number.
+ */
+static gboolean
+prepare_commit (GFile *repo,
+                GFile *tree_root,
+                guint commit_number,
+                const gchar *ref,
+                GFile *gpg_home,
+                const gchar *keyid,
+                gchar **out_checksum,
+                GError **error)
+{
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GDateTime) timestamp = NULL;
-  const guint commit_max = 10;
   g_autofree gchar *subject = NULL;
 
-  if (commit_no > commit_max)
+  if (commit_number > max_commit_number)
     {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "exceeded commit limit %u with %u", commit_max, commit_no);
+                   "exceeded commit limit %u with %u",
+                   max_commit_number, commit_number);
       return FALSE;
     }
-  commit_filename = get_commit_filename (commit_no);
-  commit_file = g_file_get_child (tree_root, commit_filename);
 
-  if (g_file_query_exists (commit_file, NULL))
-    return TRUE;
+  {
+    g_autofree gchar *commit_filename = get_commit_filename (commit_number);
+    g_autoptr(GFile) commit_file = g_file_get_child (tree_root, commit_filename);
 
-  if (commit_no > 0)
+    if (g_file_query_exists (commit_file, NULL))
+      return TRUE;
+  }
+
+  if (commit_number > 0)
     {
       if (!prepare_commit (repo,
                            tree_root,
-                           commit_no - 1,
+                           commit_number - 1,
                            ref,
                            gpg_home,
                            keyid,
@@ -397,11 +560,11 @@ prepare_commit (GFile *repo,
                                    error))
       return FALSE;
 
-  if (!create_file (commit_file, NULL, error))
+  if (!create_commit_files_and_directories (tree_root, commit_number, error))
     return FALSE;
 
-  subject = g_strdup_printf ("Test commit %u", commit_no);
-  timestamp = days_ago (commit_max - commit_no);
+  subject = g_strdup_printf ("Test commit %u", commit_number);
+  timestamp = days_ago (max_commit_number - commit_number);
   if (!ostree_commit (repo,
                       tree_root,
                       subject,
@@ -416,20 +579,8 @@ prepare_commit (GFile *repo,
   if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  if (checksum != NULL)
-    {
-      g_autofree gchar *head_rel_path = g_build_filename ("refs", "heads", ref, NULL);
-      g_autoptr(GFile) head = g_file_get_child (repo, head_rel_path);
-      g_autoptr(GBytes) bytes = NULL;
-
-      if (!load_to_bytes (head,
-                          &bytes,
-                          error))
-        return FALSE;
-
-      *checksum = g_strndup (g_bytes_get_data (bytes, NULL),
-                             g_bytes_get_size (bytes));
-    }
+  if (out_checksum != NULL)
+    return get_current_commit_checksum (repo, ref, out_checksum, error);
 
   return TRUE;
 }
@@ -527,6 +678,24 @@ generate_ref_file (GFile *repo,
 }
 
 static gboolean
+generate_delta_files (GFile *repo,
+                      const gchar *from,
+                      const gchar *to,
+                      GError **error)
+{
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+
+  if (!ostree_static_delta_generate (repo, from, to, &cmd, error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+/* Updates the subserver to a new commit number in the ref_to_commit
+ * hash table.  This involves creating the commits, generating ref
+ * files and delta files, and updating the summary.
+ */
+static gboolean
 update_commits (EosTestSubserver *subserver,
                 GError **error)
 {
@@ -538,21 +707,41 @@ update_commits (EosTestSubserver *subserver,
   g_hash_table_iter_init (&iter, subserver->ref_to_commit);
   while (g_hash_table_iter_next (&iter, &ref_ptr, &commit_ptr))
     {
-      guint commit = GPOINTER_TO_UINT (commit_ptr);
+      const gchar *ref = ref_ptr;
+      guint commit_number = GPOINTER_TO_UINT (commit_ptr);
       g_autofree gchar *checksum = NULL;
+      g_autofree gchar *old_checksum = NULL;
+
+      if (commit_number > 0)
+        {
+          if (!get_current_commit_checksum (subserver->repo,
+                                            ref,
+                                            &old_checksum,
+                                            error))
+            return FALSE;
+        }
 
       if (!prepare_commit (subserver->repo,
                            subserver->tree,
-                           commit,
-                           ref_ptr,
+                           commit_number,
+                           ref,
                            subserver->gpg_home,
                            subserver->keyid,
                            &checksum,
                            error))
         return FALSE;
 
+      if (commit_number > 0)
+        {
+          if (!generate_delta_files (subserver->repo,
+                                     old_checksum,
+                                     checksum,
+                                     error))
+            return FALSE;
+        }
+
       if (!generate_ref_file (subserver->repo,
-                              ref_ptr,
+                              ref,
                               checksum,
                               subserver->gpg_home,
                               subserver->keyid,
@@ -758,7 +947,7 @@ eos_test_server_new_quick (GFile *server_root,
                            const gchar *vendor,
                            const gchar *product,
                            const gchar *ref,
-                           guint commit,
+                           guint commit_number,
                            GFile *gpg_home,
                            const gchar *keyid,
                            const gchar *ostree_path,
@@ -769,7 +958,9 @@ eos_test_server_new_quick (GFile *server_root,
   g_autoptr(GHashTable) ref_to_commit = eos_test_subserver_ref_to_commit_new ();
 
   g_ptr_array_add (devices, eos_test_device_new (vendor, product, ref));
-  g_hash_table_insert (ref_to_commit, g_strdup (ref), GUINT_TO_POINTER (commit));
+  g_hash_table_insert (ref_to_commit,
+                       g_strdup (ref),
+                       GUINT_TO_POINTER (commit_number));
   g_ptr_array_add (subservers, eos_test_subserver_new (gpg_home,
                                                        keyid,
                                                        ostree_path,
@@ -1962,7 +2153,7 @@ get_deployment_dir (GFile *sysroot,
 gboolean
 eos_test_client_has_commit (EosTestClient *client,
                             const gchar *osname,
-                            guint commit_no,
+                            guint commit_number,
                             gboolean *out_result,
                             GError **error)
 {
@@ -1975,7 +2166,7 @@ eos_test_client_has_commit (EosTestClient *client,
 
   for (iter = ids; *iter != NULL; ++iter)
     {
-      g_autofree gchar *commit_filename = get_commit_filename (commit_no);
+      g_autofree gchar *commit_filename = get_commit_filename (commit_number);
       g_autoptr(GFile) dir = get_deployment_dir (sysroot, osname, *iter);
       g_autoptr(GFile) commit_file = g_file_get_child (dir, commit_filename);
 
@@ -1988,6 +2179,19 @@ eos_test_client_has_commit (EosTestClient *client,
 
   *out_result = FALSE;
   return TRUE;
+}
+
+gboolean
+eos_test_client_get_deployments (EosTestClient *client,
+                                 const gchar *osname,
+                                 gchar ***out_ids,
+                                 GError **error)
+{
+  g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
+
+  g_assert_nonnull (out_ids);
+
+  return get_deploy_ids (sysroot, osname, out_ids, error);
 }
 
 gboolean
@@ -2057,6 +2261,26 @@ eos_test_client_prepare_volume (EosTestClient *client,
     }
 
   return TRUE;
+}
+
+GFile *
+eos_test_client_get_repo (EosTestClient *client)
+{
+  g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
+
+  return get_repo_for_sysroot (sysroot);
+}
+
+GFile *
+eos_test_client_get_sysroot (EosTestClient *client)
+{
+  return get_sysroot_for_client (client->root);
+}
+
+const gchar *
+eos_test_client_get_big_file_path (void)
+{
+  return "/for-all-commits/bigfile";
 }
 
 static void

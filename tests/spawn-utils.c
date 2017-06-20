@@ -69,6 +69,17 @@ cmd_result_ensure_ok (CmdResult *cmd,
 }
 
 gboolean
+cmd_result_ensure_ok_verbose (CmdResult *cmd)
+{
+  g_autoptr(GError) error = NULL;
+
+  if (cmd_result_ensure_ok (cmd, &error))
+    return TRUE;
+
+  return FALSE;
+}
+
+gboolean
 cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
 {
   guint idx;
@@ -77,15 +88,9 @@ cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
   for (idx = 0; idx < cmds->len; ++idx)
     {
       CmdResult *cmd = g_ptr_array_index (cmds, idx);
-      g_autoptr(GError) error = NULL;
-      g_autofree gchar *msg = NULL;
 
-      if (cmd_result_ensure_ok (cmd, &error))
-        continue;
-
-      msg = g_strdup_printf ("%s failure:\n%s", cmd->cmdline, error->message);
-      g_test_message ("%s", msg);
-      ok = FALSE;
+      if (!cmd_result_ensure_ok_verbose (cmd))
+        ok = FALSE;
     }
 
   return ok;
@@ -139,13 +144,24 @@ test_spawn_cwd_async (const gchar *cwd,
   g_auto(GStrv) merged_env = merge_parent_and_child_env (envp);
   g_autofree gchar *argv_joined = g_strjoinv (" ", (gchar **) argv);
   g_autofree gchar *envp_joined = join_envp_for_logging ((const gchar * const *) merged_env);
+  g_autofree gchar *wd = NULL;
+  const gchar *real_cwd;
 
   if (!autoreap && cmd != NULL)
     flags |= G_SPAWN_DO_NOT_REAP_CHILD;
 
+  if (cwd == NULL)
+    {
+      wd = g_get_current_dir ();
+      real_cwd = wd;
+    }
+  else
+    {
+      real_cwd = cwd;
+    }
   g_test_message ("Spawning ‘%s’ in ‘%s’ with environment:\n%s",
                   argv_joined,
-                  cwd,
+                  real_cwd,
                   envp_joined);
 
   if (cmd != NULL)

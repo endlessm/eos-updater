@@ -45,6 +45,8 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (CmdResult, cmd_result_free)
 gboolean cmd_result_ensure_ok (CmdResult *cmd,
                                GError **error);
 
+gboolean cmd_result_ensure_ok_verbose (CmdResult *cmd);
+
 gboolean cmd_result_ensure_all_ok_verbose (GPtrArray *cmds);
 
 gchar *cmd_result_dump (CmdResult *cmd);
@@ -122,6 +124,20 @@ typedef struct
   const gchar *flag_name;
   const gchar *value;
 } CmdArg;
+
+static inline GArray *
+cmd_arg_array_new (void)
+{
+  return g_array_new (/* zero-terminated: */ FALSE,
+                      /* cleared: */ FALSE,
+                      sizeof (CmdArg));
+}
+
+static inline CmdArg *
+cmd_arg_array_raw (GArray *cmd_arg_array)
+{
+  return (CmdArg *) cmd_arg_array->data;
+}
 
 gchar **
 build_cmd_args (CmdArg *args);
