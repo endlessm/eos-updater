@@ -43,6 +43,14 @@ content_fetch_finished (GObject *object,
 
   if (error)
     {
+      if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_FAILED))
+        {
+          g_autofree gchar *old_message = g_strdup (error->message);
+          g_clear_error (&error);
+          g_set_error (&error, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_FETCHING,
+                       "Error fetching update: %s", old_message);
+        }
+
       eos_updater_set_error (updater, error);
       g_clear_error (&error);
     }
