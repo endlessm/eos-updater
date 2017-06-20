@@ -201,9 +201,9 @@ eos_test_subserver_new (GFile *gpg_home,
 }
 
 static gchar *
-get_commit_filename (guint commit_no)
+get_commit_filename (guint commit_number)
 {
-  return g_strdup_printf ("commit%u", commit_no);
+  return g_strdup_printf ("commit%u", commit_number);
 }
 
 static gchar *
@@ -352,7 +352,7 @@ prepare_sysroot_contents (GFile *repo,
 
 static gboolean
 generate_big_file_for_delta_update (GFile *all_commits_dir,
-                                    guint commit_no,
+                                    guint commit_number,
                                     GError **error)
 {
   gsize byte_count = 10 * 1024 * 1024 + 1;
@@ -361,7 +361,7 @@ generate_big_file_for_delta_update (GFile *all_commits_dir,
   g_autoptr(GBytes) contents = NULL;
 
   memset (data, 'x', byte_count);
-  data[byte_count / 2] = 'a' + commit_no;
+  data[byte_count / 2] = 'a' + commit_number;
   big_file = g_file_get_child (all_commits_dir, "bigfile");
   contents = g_bytes_new_take (g_steal_pointer (&data), byte_count);
 
@@ -370,7 +370,7 @@ generate_big_file_for_delta_update (GFile *all_commits_dir,
 
 static gboolean
 fill_all_commits_dir (GFile *all_commits_dir,
-                      guint commit_no,
+                      guint commit_number,
                       GError **error)
 {
   const gchar *dirnames[] = { "a", "b", "c" };
@@ -378,13 +378,13 @@ fill_all_commits_dir (GFile *all_commits_dir,
   guint iter;
 
   {
-    g_autofree gchar *commit_dirname = g_strdup_printf ("commit%u.dir", commit_no);
+    g_autofree gchar *commit_dirname = g_strdup_printf ("commit%u.dir", commit_number);
     g_autoptr(GFile) commit_dir = g_file_get_child (all_commits_dir, commit_dirname);
     if (!create_directory (commit_dir, error))
       return FALSE;
   }
 
-  for (iter = 0; iter <= commit_no; ++iter)
+  for (iter = 0; iter <= commit_number; ++iter)
     {
       g_autofree gchar *commit_dirname = g_strdup_printf ("commit%u.dir", iter);
       g_autoptr(GFile) commit_dir = g_file_get_child (all_commits_dir, commit_dirname);
@@ -402,7 +402,7 @@ fill_all_commits_dir (GFile *all_commits_dir,
 
           for (file_iter = 0; file_iter < G_N_ELEMENTS (filenames); ++file_iter)
             {
-              g_autofree gchar *commit_filename = g_strdup_printf ("%s.%u", filenames[file_iter], commit_no);
+              g_autofree gchar *commit_filename = g_strdup_printf ("%s.%u", filenames[file_iter], commit_number);
               g_autoptr(GFile) file = g_file_get_child (dir, commit_filename);
               g_autoptr(GBytes) contents = g_bytes_new (commit_filename, strlen (commit_filename));
 
@@ -425,20 +425,20 @@ get_all_commits_dir_for_tree_root (GFile *tree_root)
 
 static gboolean
 create_commit_files_and_directories (GFile *tree_root,
-                                     guint commit_no,
+                                     guint commit_number,
                                      GError **error)
 {
   g_autofree gchar *commit_filename = NULL;
   g_autoptr(GFile) commit_file = NULL;
   g_autoptr(GFile) all_commits_dir = NULL;
 
-  commit_filename = get_commit_filename (commit_no);
+  commit_filename = get_commit_filename (commit_number);
   commit_file = g_file_get_child (tree_root, commit_filename);
   if (!create_file (commit_file, NULL, error))
     return FALSE;
 
   all_commits_dir = get_all_commits_dir_for_tree_root (tree_root);
-  if (commit_no > 0)
+  if (commit_number > 0)
     {
       if (!g_file_query_exists (all_commits_dir, NULL))
         {
@@ -454,10 +454,10 @@ create_commit_files_and_directories (GFile *tree_root,
         return FALSE;
     }
 
-  if (!generate_big_file_for_delta_update (all_commits_dir, commit_no, error))
+  if (!generate_big_file_for_delta_update (all_commits_dir, commit_number, error))
     return FALSE;
 
-  return fill_all_commits_dir (all_commits_dir, commit_no, error);
+  return fill_all_commits_dir (all_commits_dir, commit_number, error);
 }
 
 static gboolean
@@ -487,7 +487,7 @@ get_current_commit_checksum (GFile *repo,
 static gboolean
 prepare_commit (GFile *repo,
                 GFile *tree_root,
-                guint commit_no,
+                guint commit_number,
                 const gchar *ref,
                 GFile *gpg_home,
                 const gchar *keyid,
@@ -499,26 +499,26 @@ prepare_commit (GFile *repo,
   const guint commit_max = 10;
   g_autofree gchar *subject = NULL;
 
-  if (commit_no > commit_max)
+  if (commit_number > commit_max)
     {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "exceeded commit limit %u with %u", commit_max, commit_no);
+                   "exceeded commit limit %u with %u", commit_max, commit_number);
       return FALSE;
     }
 
   {
-    g_autofree gchar *commit_filename = get_commit_filename (commit_no);
+    g_autofree gchar *commit_filename = get_commit_filename (commit_number);
     g_autoptr(GFile) commit_file = g_file_get_child (tree_root, commit_filename);
 
     if (g_file_query_exists (commit_file, NULL))
       return TRUE;
   }
 
-  if (commit_no > 0)
+  if (commit_number > 0)
     {
       if (!prepare_commit (repo,
                            tree_root,
-                           commit_no - 1,
+                           commit_number - 1,
                            ref,
                            gpg_home,
                            keyid,
@@ -532,11 +532,11 @@ prepare_commit (GFile *repo,
                                    error))
       return FALSE;
 
-  if (!create_commit_files_and_directories (tree_root, commit_no, error))
+  if (!create_commit_files_and_directories (tree_root, commit_number, error))
     return FALSE;
 
-  subject = g_strdup_printf ("Test commit %u", commit_no);
-  timestamp = days_ago (commit_max - commit_no);
+  subject = g_strdup_printf ("Test commit %u", commit_number);
+  timestamp = days_ago (commit_max - commit_number);
   if (!ostree_commit (repo,
                       tree_root,
                       subject,
@@ -676,11 +676,11 @@ update_commits (EosTestSubserver *subserver,
   while (g_hash_table_iter_next (&iter, &ref_ptr, &commit_ptr))
     {
       const gchar *ref = ref_ptr;
-      guint commit = GPOINTER_TO_UINT (commit_ptr);
+      guint commit_number = GPOINTER_TO_UINT (commit_ptr);
       g_autofree gchar *checksum = NULL;
       g_autofree gchar *old_checksum = NULL;
 
-      if (commit > 0)
+      if (commit_number > 0)
         {
           if (!get_current_commit_checksum (subserver->repo,
                                             ref,
@@ -690,7 +690,7 @@ update_commits (EosTestSubserver *subserver,
 
           if (!prepare_commit (subserver->repo,
                                subserver->tree,
-                               commit,
+                               commit_number,
                                ref,
                                subserver->gpg_home,
                                subserver->keyid,
@@ -924,7 +924,7 @@ eos_test_server_new_quick (GFile *server_root,
                            const gchar *vendor,
                            const gchar *product,
                            const gchar *ref,
-                           guint commit,
+                           guint commit_number,
                            GFile *gpg_home,
                            const gchar *keyid,
                            const gchar *ostree_path,
@@ -935,7 +935,9 @@ eos_test_server_new_quick (GFile *server_root,
   g_autoptr(GHashTable) ref_to_commit = eos_test_subserver_ref_to_commit_new ();
 
   g_ptr_array_add (devices, eos_test_device_new (vendor, product, ref));
-  g_hash_table_insert (ref_to_commit, g_strdup (ref), GUINT_TO_POINTER (commit));
+  g_hash_table_insert (ref_to_commit,
+                       g_strdup (ref),
+                       GUINT_TO_POINTER (commit_number));
   g_ptr_array_add (subservers, eos_test_subserver_new (gpg_home,
                                                        keyid,
                                                        ostree_path,
@@ -2128,7 +2130,7 @@ get_deployment_dir (GFile *sysroot,
 gboolean
 eos_test_client_has_commit (EosTestClient *client,
                             const gchar *osname,
-                            guint commit_no,
+                            guint commit_number,
                             gboolean *out_result,
                             GError **error)
 {
@@ -2141,7 +2143,7 @@ eos_test_client_has_commit (EosTestClient *client,
 
   for (iter = ids; *iter != NULL; ++iter)
     {
-      g_autofree gchar *commit_filename = get_commit_filename (commit_no);
+      g_autofree gchar *commit_filename = get_commit_filename (commit_number);
       g_autoptr(GFile) dir = get_deployment_dir (sysroot, osname, *iter);
       g_autoptr(GFile) commit_file = g_file_get_child (dir, commit_filename);
 

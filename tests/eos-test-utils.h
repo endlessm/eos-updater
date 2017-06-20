@@ -131,7 +131,7 @@ EosTestServer *eos_test_server_new_quick (GFile *server_root,
                                           const gchar *vendor,
                                           const gchar *product,
                                           const gchar *ref,
-                                          guint commit,
+                                          guint commit_number,
                                           GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
@@ -207,7 +207,7 @@ gboolean eos_test_client_store_definition (EosTestClient *client,
 
 gboolean eos_test_client_has_commit (EosTestClient *client,
                                      const gchar *osname,
-                                     guint commit_no,
+                                     guint commit_number,
                                      gboolean *out_has_commit,
                                      GError **error);
 
