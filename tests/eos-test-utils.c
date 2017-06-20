@@ -37,6 +37,7 @@ const gchar *const default_product = "PRODUCT";
 const gchar *const default_ref = "REF";
 const gchar *const default_ostree_path = "OSTREE/PATH";
 const gchar *const default_remote_name = "REMOTE";
+const guint max_commit_number = 10;
 
 void
 eos_updater_fixture_setup (EosUpdaterFixture *fixture,
@@ -355,11 +356,13 @@ generate_big_file_for_delta_update (GFile *all_commits_dir,
                                     guint commit_number,
                                     GError **error)
 {
-  gsize byte_count = 10 * 1024 * 1024 + 1;
-  g_autofree gchar *data = g_malloc (byte_count);
+  const gsize byte_count = 10 * 1024 * 1024 + 1;
+  g_autofree gchar *data = NULL;
   g_autoptr(GFile) big_file = NULL;
   g_autoptr(GBytes) contents = NULL;
 
+  g_assert_cmpint (commit_number, <=, max_commit_number);
+  data = g_malloc (byte_count);
   memset (data, 'x', byte_count);
   data[byte_count / 2] = 'a' + commit_number;
   big_file = g_file_get_child (all_commits_dir, "bigfile");
@@ -376,6 +379,8 @@ fill_all_commits_dir (GFile *all_commits_dir,
   const gchar *dirnames[] = { "a", "b", "c" };
   const gchar *filenames[] = { "x", "y", "z" };
   guint iter;
+
+  g_assert_cmpint (commit_number, <=, max_commit_number);
 
   {
     g_autofree gchar *commit_dirname = g_strdup_printf ("commit%u.dir", commit_number);
@@ -496,13 +501,13 @@ prepare_commit (GFile *repo,
 {
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GDateTime) timestamp = NULL;
-  const guint commit_max = 10;
   g_autofree gchar *subject = NULL;
 
-  if (commit_number > commit_max)
+  if (commit_number > max_commit_number)
     {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "exceeded commit limit %u with %u", commit_max, commit_number);
+                   "exceeded commit limit %u with %u",
+                   max_commit_number, commit_number);
       return FALSE;
     }
 
@@ -536,7 +541,7 @@ prepare_commit (GFile *repo,
     return FALSE;
 
   subject = g_strdup_printf ("Test commit %u", commit_number);
-  timestamp = days_ago (commit_max - commit_number);
+  timestamp = days_ago (max_commit_number - commit_number);
   if (!ostree_commit (repo,
                       tree_root,
                       subject,
