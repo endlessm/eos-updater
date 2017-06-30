@@ -664,7 +664,7 @@ get_and_check_bloom_hash_func_id (GVariantDict         *options_dict,
 
   switch (bloom_hash_id)
     {
-    case EOS_OSTREE_AVAHI_BLOOM_HASH_ID_STR:
+    case EOS_OSTREE_AVAHI_BLOOM_HASH_ID_OSTREE_COLLECTION_REF:
       if (out_bloom_hash_func_id)
         *out_bloom_hash_func_id = bloom_hash_id;
       return TRUE;
@@ -679,8 +679,8 @@ get_and_check_bloom_hash_func_id (GVariantDict         *options_dict,
 static guint8
 hash_func_to_id (OstreeBloomHashFunc hash_func)
 {
-  if (hash_func == ostree_str_bloom_hash)
-    return EOS_OSTREE_AVAHI_BLOOM_HASH_ID_STR;
+  if (hash_func == ostree_collection_ref_bloom_hash)
+    return EOS_OSTREE_AVAHI_BLOOM_HASH_ID_OSTREE_COLLECTION_REF;
 
   g_assert_not_reached ();
 }
@@ -690,8 +690,8 @@ id_to_hash_func (guint8 id)
 {
   switch (id)
     {
-    case EOS_OSTREE_AVAHI_BLOOM_HASH_ID_STR:
-      return ostree_str_bloom_hash;
+    case EOS_OSTREE_AVAHI_BLOOM_HASH_ID_OSTREE_COLLECTION_REF:
+      return ostree_collection_ref_bloom_hash;
 
     default:
       g_assert_not_reached ();
@@ -726,20 +726,20 @@ get_clean_bloom_filter (GVariantDict  *options_dict,
 }
 
 static gboolean
-get_bloom_filter_data (const gchar *const  *refs_to_advertise,
-                       GVariantDict        *options_dict,
-                       guint8              *out_bloom_k,
-                       guint8              *out_bloom_hash_func_id,
-                       GBytes             **out_bloom_filter_bits,
-                       GError             **error)
+get_bloom_filter_data (OstreeCollectionRef **refs_to_advertise,
+                       GVariantDict         *options_dict,
+                       guint8               *out_bloom_k,
+                       guint8               *out_bloom_hash_func_id,
+                       GBytes              **out_bloom_filter_bits,
+                       GError              **error)
 {
   g_autoptr(OstreeBloom) filter = NULL;
-  const gchar *const *iter;
+  OstreeCollectionRef **iter;
 
   if (!get_clean_bloom_filter (options_dict, &filter, error))
     return FALSE;
 
-  for (iter = refs_to_advertise; iter != NULL && *iter != NULL; ++iter)
+  for (iter = refs_to_advertise; *iter != NULL; ++iter)
     ostree_bloom_add_element (filter, *iter);
 
   g_assert (out_bloom_k != NULL);
@@ -878,12 +878,12 @@ get_unix_summary_timestamp (GDateTime  *summary_timestamp,
 }
 
 static gboolean
-generate_ostree_avahi_v1_service_file (const gchar         *avahi_service_directory,
-                                       const gchar *const  *refs_to_advertise,
-                                       GDateTime           *summary_timestamp,
-                                       GVariantDict        *options_dict,
-                                       GCancellable        *cancellable,
-                                       GError             **error)
+generate_ostree_avahi_v1_service_file (const gchar          *avahi_service_directory,
+                                       OstreeCollectionRef **refs_to_advertise,
+                                       GDateTime            *summary_timestamp,
+                                       GVariantDict         *options_dict,
+                                       GCancellable         *cancellable,
+                                       GError              **error)
 {
   guint8 bloom_k;
   guint8 bloom_hash_func_id;
@@ -1053,12 +1053,12 @@ eos_ostree_avahi_service_file_check_options (GVariant  *options,
  * Returns: %TRUE on success, %FALSE otherwise
  */
 gboolean
-eos_ostree_avahi_service_file_generate (const gchar         *avahi_service_directory,
-                                        const gchar *const  *refs_to_advertise,
-                                        GDateTime           *summary_timestamp,
-                                        GVariant            *options,
-                                        GCancellable        *cancellable,
-                                        GError             **error)
+eos_ostree_avahi_service_file_generate (const gchar          *avahi_service_directory,
+                                        OstreeCollectionRef **refs_to_advertise,
+                                        GDateTime            *summary_timestamp,
+                                        GVariant             *options,
+                                        GCancellable         *cancellable,
+                                        GError              **error)
 {
   g_autoptr(GVariant) reffed_options = (options != NULL) ? g_variant_ref_sink (options) : NULL;
   g_auto(GVariantDict) options_dict = G_VARIANT_DICT_INIT (reffed_options);

@@ -31,22 +31,22 @@
 #include <stdlib.h>
 
 static gboolean
-get_refs (OstreeRepo     *repo,
-          gchar        ***out_refs,
-          GCancellable   *cancellable,
-          GError        **error)
+get_refs (OstreeRepo            *repo,
+          OstreeCollectionRef ***out_refs,
+          GCancellable          *cancellable,
+          GError               **error)
 {
   g_autoptr(GHashTable) refs = NULL;
   GHashTableIter iter;
-  gchar *key;
+  OstreeCollectionRef *key;
   gchar *value;
   g_autoptr(GPtrArray) refs_array = NULL;
 
-  if (!ostree_repo_list_refs (repo,
-                              NULL, /* no prefix filtering */
-                              &refs,
-                              cancellable,
-                              error))
+  if (!ostree_repo_list_collection_refs (repo,
+                                         /* match_collection_id: */ NULL,
+                                         &refs,
+                                         cancellable,
+                                         error))
     return FALSE;
 
   if (g_hash_table_size (refs) == 0)
@@ -55,23 +55,18 @@ get_refs (OstreeRepo     *repo,
                            "no refs to advertise");
       return FALSE;
     }
-  refs_array = g_ptr_array_new_full (g_hash_table_size (refs) + 1, g_free);
+  refs_array = g_ptr_array_new_full (g_hash_table_size (refs) + 1, ostree_collection_ref_free);
   g_hash_table_iter_init (&iter, refs);
   while (g_hash_table_iter_next (&iter, (gpointer *)&key, (gpointer *)&value))
     {
-      g_autofree gchar *refspec = g_steal_pointer (&key);
-      g_autofree gchar *ref = NULL;
-
       g_hash_table_iter_steal (&iter);
       g_free (g_steal_pointer (&value));
-      if (!ostree_parse_refspec (refspec, NULL, &ref, error))
-        return FALSE;
-      g_ptr_array_add (refs_array, g_steal_pointer (&ref));
+      g_ptr_array_add (refs_array, key);
     }
   g_ptr_array_add (refs_array, NULL);
 
   g_assert (out_refs);
-  *out_refs = (gchar **)g_ptr_array_free (g_steal_pointer (&refs_array), FALSE);
+  *out_refs = (OstreeCollectionRef **)g_ptr_array_free (g_steal_pointer (&refs_array), FALSE);
   return TRUE;
 }
 
@@ -172,14 +167,14 @@ get_summary_timestamp (OstreeRepo    *repo,
 }
 
 static gboolean
-get_refs_and_summary_timestamp (OstreeSysroot   *sysroot,
-                                gchar         ***out_refs,
-                                GDateTime      **out_summary_timestamp,
-                                GCancellable    *cancellable,
-                                GError         **error)
+get_refs_and_summary_timestamp (OstreeSysroot         *sysroot,
+                                OstreeCollectionRef ***out_refs,
+                                GDateTime            **out_summary_timestamp,
+                                GCancellable          *cancellable,
+                                GError               **error)
 {
   g_autoptr(OstreeRepo) repo = NULL;
-  g_auto(GStrv) refs = NULL;
+  g_auto(OstreeCollectionRefv) refs = NULL;
   g_autoptr(GDateTime) summary_timestamp = NULL;
 
   if (!ostree_sysroot_get_repo (sysroot,
@@ -280,7 +275,7 @@ update_service_file (gboolean       advertise_updates,
   if (!delete)
     {
       g_autoptr(GDateTime) summary_timestamp = NULL;
-      g_auto(GStrv) refs = NULL;
+      g_auto(OstreeCollectionRefv) refs = NULL;
 
       if (!get_refs_and_summary_timestamp (sysroot,
                                            &refs,
@@ -300,7 +295,7 @@ update_service_file (gboolean       advertise_updates,
           return FALSE;
         }
       if (!eos_ostree_avahi_service_file_generate (avahi_service_directory,
-                                                   (const gchar *const *) refs,
+                                                   refs,
                                                    summary_timestamp,
                                                    NULL, /* no options, use defaults */
                                                    cancellable,

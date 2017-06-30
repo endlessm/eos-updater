@@ -29,10 +29,31 @@
 
 G_BEGIN_DECLS
 
-/* TODO: Docs */
+/**
+ * OstreeBloom:
+ *
+ * An implementation of a [bloom filter](https://en.wikipedia.org/wiki/Bloom_filter)
+ * which is suitable for building a filter and looking keys up in an existing
+ * filter.
+ *
+ * Since: 2017.8
+ */
 typedef struct _OstreeBloom OstreeBloom;
 
-/* TODO: Docs */
+/**
+ * OstreeBloomHashFunc:
+ * @element: a pointer to the element to hash
+ * @k: hash function parameter
+ *
+ * Function prototype for a
+ * [universal hash function](https://en.wikipedia.org/wiki/Universal_hashing),
+ * parameterised on @k, which hashes @element to a #guint64 hash value.
+ *
+ * It is up to the implementer of the hash function whether %NULL is valid for
+ * @element.
+ *
+ * Since: 2017.8
+ */
 typedef guint64 (*OstreeBloomHashFunc) (gconstpointer element,
                                         guint8        k);
 
@@ -80,4 +101,7 @@ G_GNUC_INTERNAL
 guint64 ostree_str_bloom_hash (gconstpointer element,
                                guint8        k);
 
+G_GNUC_INTERNAL
+guint64 ostree_collection_ref_bloom_hash (gconstpointer element,
+                                          guint8        k);
 G_END_DECLS

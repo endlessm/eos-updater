@@ -27,6 +27,8 @@
 #include <gio/gio.h>
 #include <glib.h>
 
+#include "ostree-ref.h"
+
 G_BEGIN_DECLS
 
 extern const gchar * const EOS_UPDATER_AVAHI_SERVICE_TYPE;
@@ -60,7 +62,8 @@ gboolean eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
  *
  * Fields for version 1 of TXT records:
  *
- * - refs bloom filter, a Bloom filter that contains all the refs the host has
+ * - refs bloom filter, a Bloom filter that contains all the
+ *   collection refs the host has
  *   - key: "rb"
  *   - type: "(yyay)" (tuple containing a byte, a byte and an array of bytes)
  *   - contents: first byte is the "k" parameter, second byte is the
@@ -109,7 +112,7 @@ gboolean eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
  * #EosOstreeAvahiBloomHashId for possible values.
  *
  * Default value of this option (if not overridden) is
- * %EOS_OSTREE_AVAHI_BLOOM_HASH_ID_STR.
+ * %EOS_OSTREE_AVAHI_BLOOM_HASH_ID_OSTREE_COLLECTION_REF.
  */
 #define EOS_OSTREE_AVAHI_OPTION_BLOOM_HASH_ID_Y "bloom-hash-id"
 /**
@@ -181,14 +184,16 @@ gboolean eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
 
 /**
  * EosOstreeAvahiBloomHashId:
- * @EOS_OSTREE_AVAHI_BLOOM_HASH_ID_STR: Use ostree_str_bloom_hash() for hashing; it takes nul-terminated strings as an input.
+ * @EOS_OSTREE_AVAHI_BLOOM_HASH_ID_OSTREE_COLLECTION_REF: Use
+ * ostree_collection_ref_bloom_hash() for hashing; it takes
+ * #OstreeCollectionRef instance as an input.
  *
  * Possible values for the
  * %EOS_OSTREE_AVAHI_OPTION_BLOOM_HASH_ID_Y option.
  */
 typedef enum
   {
-    EOS_OSTREE_AVAHI_BLOOM_HASH_ID_STR = 1
+    EOS_OSTREE_AVAHI_BLOOM_HASH_ID_OSTREE_COLLECTION_REF = 1
   } EosOstreeAvahiBloomHashId;
 
 /**
@@ -220,12 +225,12 @@ typedef enum
 
 gboolean eos_ostree_avahi_service_file_check_options (GVariant  *options,
                                                       GError   **error);
-gboolean eos_ostree_avahi_service_file_generate (const gchar         *avahi_service_directory,
-                                                 const gchar *const  *refs_to_advertise,
-                                                 GDateTime           *summary_timestamp,
-                                                 GVariant            *options,
-                                                 GCancellable        *cancellable,
-                                                 GError             **error);
+gboolean eos_ostree_avahi_service_file_generate (const gchar          *avahi_service_directory,
+                                                 OstreeCollectionRef **refs_to_advertise,
+                                                 GDateTime            *summary_timestamp,
+                                                 GVariant             *options,
+                                                 GCancellable         *cancellable,
+                                                 GError              **error);
 gboolean eos_ostree_avahi_service_file_delete (const gchar   *avahi_service_directory,
                                                guint16        repository_index,
                                                GCancellable  *cancellable,
