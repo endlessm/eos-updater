@@ -75,6 +75,7 @@ struct _EosExtensions
 
   GBytes *summary;
   GBytes *summary_sig;
+  guint64 summary_modification_time_secs; /* since the Unix epoch, UTC */
   GPtrArray *refs;
 };
 
