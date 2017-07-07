@@ -31,6 +31,7 @@
 #include <string.h>
 
 #include "ostree-bloom-private.h"
+#include "ostree-ref.h"
 
 /**
  * SECTION:bloom
