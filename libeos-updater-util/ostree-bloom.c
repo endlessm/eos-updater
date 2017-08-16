@@ -601,3 +601,33 @@ ostree_str_bloom_hash (gconstpointer element,
 
   return le64toh (out_le.u64);
 }
+
+/**
+ * ostree_collection_ref_bloom_hash:
+ * @element: element to calculate the hash for
+ * @k: hash function index
+ *
+ * A universal hash function implementation for #OstreeCollectionRef.
+ * It expects @element to be a pointer to a #OstreeCollectionRef, and
+ * expects @k to be in the range `[0, k_max)`, where `k_max` is the
+ * `k` value used to construct the bloom filter. The output range from
+ * this hash function could be any value in #guint64.
+ *
+ * This function does not allow %NULL as a valid value for @element.
+ *
+ * Reference:
+ *  - https://www.131002.net/siphash/
+ *
+ * Returns: hash of the #OstreeCollectionRef at @element using
+ * parameter @k
+ *
+ * Since: 2017.8
+ */
+guint64
+ostree_collection_ref_bloom_hash (gconstpointer element,
+                                  guint8        k)
+{
+  const OstreeCollectionRef *ref = element;
+
+  return ostree_str_bloom_hash (ref->collection_id, k) ^ ostree_str_bloom_hash (ref->ref_name, k);
+}

@@ -101,4 +101,7 @@ G_GNUC_INTERNAL
 guint64 ostree_str_bloom_hash (gconstpointer element,
                                guint8        k);
 
+G_GNUC_INTERNAL
+guint64 ostree_collection_ref_bloom_hash (gconstpointer element,
+                                          guint8        k);
 G_END_DECLS
