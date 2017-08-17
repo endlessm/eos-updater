@@ -765,6 +765,9 @@ is_connected_through_mobile (void)
 #if NM_CHECK_VERSION(1, 6, 0)
     case NM_DEVICE_TYPE_MACSEC:
 #endif
+#if NM_CHECK_VERSION(1, 7, 2)
+    case NM_DEVICE_TYPE_DUMMY:
+#endif
     default:
       break;
     }
