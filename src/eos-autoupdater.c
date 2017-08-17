@@ -443,11 +443,10 @@ read_config_file (const gchar *config_path,
                   guint *randomized_delay_days,
                   gboolean *update_on_mobile)
 {
-  g_autoptr(GKeyFile) config = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
   g_autoptr(GError) error = NULL;
   gint _update_interval_days;
   gint _randomized_delay_days;
-  gint _last_automatic_step;
   const gchar * const paths[] =
     {
       config_path,  /* typically CONFIG_FILE_PATH unless testing */
@@ -460,50 +459,40 @@ read_config_file (const gchar *config_path,
   g_return_val_if_fail (update_interval_days != NULL, FALSE);
   g_return_val_if_fail (update_on_mobile != NULL, FALSE);
 
-  /* Try loading the files in order */
-  config = eos_updater_load_config_file (paths, &error);
+  /* Load the config files. */
+  config = euu_config_file_new (paths);
 
-  if (error != NULL) {
-    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-             "Unable to open the configuration file: %s",
-             error->message);
-    return FALSE;
-  }
+  last_automatic_step = (UpdateStep) euu_config_file_get_uint (config,
+                                                               AUTOMATIC_GROUP,
+                                                               LAST_STEP_KEY,
+                                                               UPDATE_STEP_FIRST,
+                                                               UPDATE_STEP_LAST,
+                                                               &error);
+  if (g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE))
+    {
+      warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+               "Specified last automatic step is not a valid step");
+      return FALSE;
+    }
+  else if (error != NULL)
+    {
+      warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+               "Unable to read key '%s' in config file",
+               LAST_STEP_KEY);
+      return FALSE;
+    }
 
-  /* Successfully loaded a file. Parse it. */
-  _last_automatic_step = g_key_file_get_integer (config, AUTOMATIC_GROUP,
-                                                 LAST_STEP_KEY, &error);
-  if (error) {
-    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-             "Unable to read key '%s' in config file",
-             LAST_STEP_KEY);
-    return FALSE;
-  }
+  _update_interval_days = euu_config_file_get_uint (config, AUTOMATIC_GROUP,
+                                                    INTERVAL_KEY, 0, G_MAXUINT,
+                                                    &error);
 
-  if (_last_automatic_step < UPDATE_STEP_FIRST ||
-      _last_automatic_step > UPDATE_STEP_LAST) {
-    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-             "Specified last automatic step is not a valid step");
-    return FALSE;
-  }
-
-  last_automatic_step = (UpdateStep) _last_automatic_step;
-
-  _update_interval_days = g_key_file_get_integer (config, AUTOMATIC_GROUP,
-                                                  INTERVAL_KEY, &error);
-
-  if (error) {
-    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-             "Unable to read key '%s' in config file",
-             INTERVAL_KEY);
-    return FALSE;
-  }
-
-  if (_update_interval_days < 0) {
-    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-             "Specified update interval is less than zero");
-    return FALSE;
-  }
+  if (error != NULL)
+    {
+      warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+               "Unable to read key '%s' in config file",
+               INTERVAL_KEY);
+      return FALSE;
+    }
 
   /* This should always be true, as the RHS is out of range for a guint (it’s
    * around 10^14 days, which should be a long enough update period for anyone).
@@ -513,36 +502,38 @@ read_config_file (const gchar *config_path,
 
   *update_interval_days = (guint) _update_interval_days;
 
-  _randomized_delay_days = g_key_file_get_integer (config, AUTOMATIC_GROUP,
-                                                   RANDOMIZED_DELAY_KEY,
-                                                   &error);
-
-  if (error) {
-    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-             "Unable to read key '%s' in config file",
-             RANDOMIZED_DELAY_KEY);
-    return FALSE;
-  }
-
   /* We use G_MAXINT32 as g_random_int_range() operates on gint32. */
-  if (_randomized_delay_days < 0 ||
-      _randomized_delay_days > (G_MAXINT32 / SEC_PER_DAY) - 1) {
-    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-             "Specified randomized delay is less than zero or too large");
-    return FALSE;
-  }
+  _randomized_delay_days = euu_config_file_get_uint (config, AUTOMATIC_GROUP,
+                                                     RANDOMIZED_DELAY_KEY,
+                                                     0, (G_MAXINT32 / SEC_PER_DAY) - 1,
+                                                     &error);
+
+  if (g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE))
+    {
+      warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+               "Specified randomized delay is less than zero or too large");
+      return FALSE;
+    }
+  else if (error != NULL)
+    {
+      warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+               "Unable to read key '%s' in config file",
+               RANDOMIZED_DELAY_KEY);
+      return FALSE;
+    }
 
   *randomized_delay_days = (guint) _randomized_delay_days;
 
-  *update_on_mobile = g_key_file_get_boolean (config, AUTOMATIC_GROUP,
-                                              ON_MOBILE_KEY, &error);
+  *update_on_mobile = euu_config_file_get_boolean (config, AUTOMATIC_GROUP,
+                                                   ON_MOBILE_KEY, &error);
 
-  if (error) {
-    warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-             "Unable to read key '%s' in config file",
-             ON_MOBILE_KEY);
-    return FALSE;
-  }
+  if (error)
+    {
+      warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+               "Unable to read key '%s' in config file",
+               ON_MOBILE_KEY);
+      return FALSE;
+    }
 
   return TRUE;
 }

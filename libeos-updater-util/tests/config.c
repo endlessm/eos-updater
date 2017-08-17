@@ -51,12 +51,22 @@ setup (Fixture       *fixture,
 
   fixture->key_file1_path = g_build_filename (fixture->tmp_dir, "key-file1",
                                               NULL);
-  g_file_set_contents (fixture->key_file1_path, "[Test]\nFile=1", -1, &error);
+  g_file_set_contents (fixture->key_file1_path,
+                       "[Test]\n"
+                       "File=1\n"
+                       "File1=true\n"
+                       "[Group1]\n",
+                       -1, &error);
   g_assert_no_error (error);
 
   fixture->key_file2_path = g_build_filename (fixture->tmp_dir, "key-file2",
                                               NULL);
-  g_file_set_contents (fixture->key_file2_path, "[Test]\nFile=2", -1, &error);
+  g_file_set_contents (fixture->key_file2_path,
+                       "[Test]\n"
+                       "File=2\n"
+                       "File2=true\n"
+                       "[Group2]\n",
+                       -1, &error);
   g_assert_no_error (error);
 
   fixture->key_file_nonexistent_path = g_build_filename (fixture->tmp_dir,
@@ -108,20 +118,19 @@ test_config_file_load_one (Fixture       *fixture,
                            gconstpointer  user_data G_GNUC_UNUSED)
 {
   g_autoptr(GError) error = NULL;
-  g_autoptr(GKeyFile) key_file = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
   const gchar * const paths[] =
     {
       fixture->key_file1_path,
       NULL
     };
-  gint loaded_file;
+  guint loaded_file;
 
-  key_file = eos_updater_load_config_file (paths, &error);
-  g_assert_no_error (error);
+  config = euu_config_file_new (paths);
 
-  loaded_file = g_key_file_get_integer (key_file, "Test", "File", &error);
+  loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
   g_assert_no_error (error);
-  g_assert_cmpint (loaded_file, ==, 1);
+  g_assert_cmpuint (loaded_file, ==, 1);
 }
 
 /* Test that priority ordering of configuration files works. */
@@ -130,21 +139,20 @@ test_config_file_load_many (Fixture       *fixture,
                             gconstpointer  user_data G_GNUC_UNUSED)
 {
   g_autoptr(GError) error = NULL;
-  g_autoptr(GKeyFile) key_file = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
   const gchar * const paths[] =
     {
       fixture->key_file1_path,
       fixture->key_file2_path,
       NULL
     };
-  gint loaded_file;
+  guint loaded_file;
 
-  key_file = eos_updater_load_config_file (paths, &error);
-  g_assert_no_error (error);
+  config = euu_config_file_new (paths);
 
-  loaded_file = g_key_file_get_integer (key_file, "Test", "File", &error);
+  loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
   g_assert_no_error (error);
-  g_assert_cmpint (loaded_file, ==, 1);
+  g_assert_cmpuint (loaded_file, ==, 1);
 }
 
 /* Test that error reporting from an unreadable file reports an error. */
@@ -153,7 +161,7 @@ test_config_file_unreadable (Fixture       *fixture,
                              gconstpointer  user_data G_GNUC_UNUSED)
 {
   g_autoptr(GError) error = NULL;
-  g_autoptr(GKeyFile) key_file = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
   g_autofree gchar *temp = NULL;
   const gchar * const paths[] =
     {
@@ -172,9 +180,10 @@ test_config_file_unreadable (Fixture       *fixture,
       return;
     }
 
-  key_file = eos_updater_load_config_file (paths, &error);
+  config = euu_config_file_new (paths);
+
+  euu_config_file_get_uint (config, "Any", "Thing", 0, G_MAXUINT, &error);
   g_assert_error (error, G_FILE_ERROR, G_FILE_ERROR_ACCES);
-  g_assert_null (key_file);
 }
 
 /* Test that error reporting from an invalid file reports an error. */
@@ -183,7 +192,7 @@ test_config_file_invalid (Fixture       *fixture,
                           gconstpointer  user_data G_GNUC_UNUSED)
 {
   g_autoptr(GError) error = NULL;
-  g_autoptr(GKeyFile) key_file = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
   const gchar * const paths[] =
     {
       fixture->key_file_invalid_path,
@@ -191,9 +200,10 @@ test_config_file_invalid (Fixture       *fixture,
       NULL
     };
 
-  key_file = eos_updater_load_config_file (paths, &error);
+  config = euu_config_file_new (paths);
+
+  euu_config_file_get_uint (config, "Any", "Thing", 0, G_MAXUINT, &error);
   g_assert_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_PARSE);
-  g_assert_null (key_file);
 }
 
 /* Test that multiple non-existent paths are handled correctly. */
@@ -202,7 +212,7 @@ test_config_file_nonexistent (Fixture       *fixture,
                               gconstpointer  user_data G_GNUC_UNUSED)
 {
   g_autoptr(GError) error = NULL;
-  g_autoptr(GKeyFile) key_file = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
   const gchar * const paths[] =
     {
       fixture->key_file_nonexistent_path,
@@ -212,20 +222,19 @@ test_config_file_nonexistent (Fixture       *fixture,
       fixture->key_file1_path,
       NULL
     };
-  gint loaded_file;
+  guint loaded_file;
 
-  key_file = eos_updater_load_config_file (paths, &error);
-  g_assert_no_error (error);
+  config = euu_config_file_new (paths);
 
-  loaded_file = g_key_file_get_integer (key_file, "Test", "File", &error);
+  loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
   g_assert_no_error (error);
-  g_assert_cmpint (loaded_file, ==, 1);
+  g_assert_cmpuint (loaded_file, ==, 1);
 }
 
 /* Test that if no configuration files are found, we abort. */
 static void
-test_config_file_fallback (Fixture       *fixture,
-                           gconstpointer  user_data G_GNUC_UNUSED)
+test_config_file_fallback_per_file (Fixture       *fixture,
+                                    gconstpointer  user_data G_GNUC_UNUSED)
 {
   const gchar * const paths[] =
     {
@@ -236,7 +245,10 @@ test_config_file_fallback (Fixture       *fixture,
 
   if (g_test_subprocess ())
     {
-      eos_updater_load_config_file (paths, NULL);
+      g_autoptr(EuuConfigFile) config = NULL;
+
+      config = euu_config_file_new (paths);
+      euu_config_file_get_uint (config, "Any", "Thing", 0, G_MAXUINT, NULL);
       g_assert_not_reached ();
     }
   else
@@ -246,6 +258,66 @@ test_config_file_fallback (Fixture       *fixture,
       g_test_trap_assert_stderr ("*ERROR **: Configuration file * not found. "
                                  "The program is not installed correctly.*");
     }
+}
+
+/* Test that loading a key from the second file works if it’s not set in the
+ * first. */
+static void
+test_config_file_fallback_per_key (Fixture       *fixture,
+                                   gconstpointer  user_data G_GNUC_UNUSED)
+{
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
+  const gchar * const paths[] =
+    {
+      fixture->key_file1_path,
+      fixture->key_file2_path,
+      NULL
+    };
+  guint loaded_file;
+  gboolean file1_key, file2_key;
+
+  config = euu_config_file_new (paths);
+
+  loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
+  g_assert_no_error (error);
+  g_assert_cmpuint (loaded_file, ==, 1);
+
+  file1_key = euu_config_file_get_boolean (config, "Test", "File1", &error);
+  g_assert_no_error (error);
+  g_assert_true (file1_key);
+
+  file2_key = euu_config_file_get_boolean (config, "Test", "File2", &error);
+  g_assert_no_error (error);
+  g_assert_true (file2_key);
+}
+
+/* Test that the groups from all loaded files are returned. */
+static void
+test_config_file_groups (Fixture       *fixture,
+                         gconstpointer  user_data G_GNUC_UNUSED)
+{
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
+  const gchar * const paths[] =
+    {
+      fixture->key_file1_path,
+      fixture->key_file2_path,
+      NULL
+    };
+  g_auto(GStrv) groups = NULL;
+  gsize n_groups;
+
+  config = euu_config_file_new (paths);
+
+  groups = euu_config_file_get_groups (config, &n_groups, &error);
+  g_assert_no_error (error);
+  g_assert_cmpuint (n_groups, ==, 3);
+  g_assert_nonnull (groups);
+  g_assert_cmpstr (groups[0], ==, "Group1");
+  g_assert_cmpstr (groups[1], ==, "Group2");
+  g_assert_cmpstr (groups[2], ==, "Test");
+  g_assert_null (groups[3]);
 }
 
 int
@@ -266,8 +338,12 @@ main (int   argc,
               test_config_file_invalid, teardown);
   g_test_add ("/config/nonexistent", Fixture, NULL, setup,
               test_config_file_nonexistent, teardown);
-  g_test_add ("/config/fallback", Fixture, NULL, setup,
-              test_config_file_fallback, teardown);
+  g_test_add ("/config/fallback/per-file", Fixture, NULL, setup,
+              test_config_file_fallback_per_file, teardown);
+  g_test_add ("/config/fallback/per-key", Fixture, NULL, setup,
+              test_config_file_fallback_per_key, teardown);
+  g_test_add ("/config/groups", Fixture, NULL, setup,
+              test_config_file_groups, teardown);
 
   return g_test_run ();
 }

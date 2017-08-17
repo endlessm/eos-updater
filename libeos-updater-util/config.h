@@ -27,10 +27,37 @@
 #pragma once
 
 #include <glib.h>
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
-GKeyFile *eos_updater_load_config_file (const gchar * const  *key_file_paths,
-                                        GError              **error);
+#define EUU_TYPE_CONFIG_FILE euu_config_file_get_type ()
+G_DECLARE_FINAL_TYPE (EuuConfigFile, euu_config_file, EUU, CONFIG_FILE, GObject)
+
+EuuConfigFile *euu_config_file_new (const gchar * const *key_file_paths);
+
+guint euu_config_file_get_uint (EuuConfigFile  *self,
+                                const gchar    *group_name,
+                                const gchar    *key_name,
+                                guint           min_value,
+                                guint           max_value,
+                                GError        **error);
+gboolean euu_config_file_get_boolean (EuuConfigFile  *self,
+                                      const gchar    *group_name,
+                                      const gchar    *key_name,
+                                      GError        **error);
+gchar *euu_config_file_get_string (EuuConfigFile  *self,
+                                   const gchar    *group_name,
+                                   const gchar    *key_name,
+                                   GError        **error);
+gchar **euu_config_file_get_strv (EuuConfigFile  *self,
+                                  const gchar    *group_name,
+                                  const gchar    *key_name,
+                                  gsize          *n_elements_out,
+                                  GError        **error);
+
+gchar **euu_config_file_get_groups (EuuConfigFile  *self,
+                                    gsize          *n_groups_out,
+                                    GError        **error);
 
 G_END_DECLS
