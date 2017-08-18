@@ -27,6 +27,23 @@
 #include <unistd.h>
 
 static gboolean
+rm_file_ignore_noent (GFile         *file,
+                      GCancellable  *cancellable,
+                      GError       **error)
+{
+  g_autoptr(GError) local_error = NULL;
+
+  if (g_file_delete (file, cancellable, &local_error))
+    return TRUE;
+
+  if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+    return TRUE;
+
+  g_propagate_error (error, g_steal_pointer (&local_error));
+  return FALSE;
+}
+
+static gboolean
 rm_rf_internal (GFile *topdir,
                 GError **error)
 {
@@ -48,7 +65,7 @@ rm_rf_internal (GFile *topdir,
       return FALSE;
     }
   if (g_file_info_get_file_type (top_info) != G_FILE_TYPE_DIRECTORY)
-    return g_file_delete (topdir, NULL, error);
+    return rm_file_ignore_noent (topdir, NULL, error);
 
   g_queue_push_head (&queue, g_object_ref (topdir));
   dir_stack = g_list_prepend (dir_stack, g_object_ref (topdir));
@@ -84,7 +101,7 @@ rm_rf_internal (GFile *topdir,
               g_queue_push_head (&queue, g_object_ref (child));
               dir_stack = g_list_prepend (dir_stack, g_object_ref (child));
             }
-          else if (!g_file_delete (child, NULL, error))
+          else if (!rm_file_ignore_noent (child, NULL, error))
             return FALSE;
         }
     }
@@ -96,7 +113,7 @@ rm_rf_internal (GFile *topdir,
 
       dir_stack = g_list_remove_link (dir_stack, first);
       g_list_free_1 (first);
-      if (!g_file_delete (dir, NULL, error))
+      if (!rm_file_ignore_noent (dir, NULL, error))
         return FALSE;
     }
 

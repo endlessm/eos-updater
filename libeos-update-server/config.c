@@ -140,7 +140,7 @@ eus_read_config_file (const gchar  *config_file_path,
                       GPtrArray   **out_repository_configs,
                       GError      **error)
 {
-  g_autoptr(GKeyFile) config = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
   g_autoptr(GError) local_error = NULL;
   const gchar * const default_paths[] =
     {
@@ -152,6 +152,7 @@ eus_read_config_file (const gchar  *config_file_path,
   const gchar * const override_paths[] =
     {
       config_file_path,
+      STATIC_CONFIG_FILE_PATH,
       NULL
     };
   g_auto(GStrv) groups = NULL;
@@ -161,25 +162,26 @@ eus_read_config_file (const gchar  *config_file_path,
 
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  /* Try loading the files in order. If the user specified a configuration file
-   * on the command line, use only that. Otherwise use the normal hierarchy. */
-  config = eos_updater_load_config_file ((config_file_path != NULL) ? override_paths : default_paths,
-                                         error);
-  if (config == NULL)
-    return FALSE;
+  config = euu_config_file_new ((config_file_path != NULL) ? override_paths : default_paths);
 
-  /* Successfully loaded a file. Parse it. */
-  advertise_updates = g_key_file_get_boolean (config,
-                                              LOCAL_NETWORK_UPDATES_GROUP,
-                                              ADVERTISE_UPDATES_KEY,
-                                              &local_error);
+  advertise_updates = euu_config_file_get_boolean (config,
+                                                   LOCAL_NETWORK_UPDATES_GROUP,
+                                                   ADVERTISE_UPDATES_KEY,
+                                                   &local_error);
   if (local_error != NULL)
     {
       g_propagate_error (error, g_steal_pointer (&local_error));
       return FALSE;
     }
 
-  groups = g_key_file_get_groups (config, &n_groups);
+  /* Load all the repositories configured in all the config files. Note that
+   * this means it’s currently impossible to disable a repository config from
+   * one config file in another config file which has higher priority. If that’s
+   * seen as necessary in the future, we could add a Disabled=true key, for
+   * example. */
+  groups = euu_config_file_get_groups (config, &n_groups, error);
+  if (groups == NULL)
+    return FALSE;
   repository_configs = g_ptr_array_new_with_free_func ((GDestroyNotify) eus_repo_config_free);
 
   for (i = 0; i < n_groups; i++)
@@ -203,14 +205,14 @@ eus_read_config_file (const gchar  *config_file_path,
 
         }
 
-      repository_path = g_key_file_get_string (config, groups[i], PATH_KEY,
-                                               error);
+      repository_path = euu_config_file_get_string (config, groups[i], PATH_KEY,
+                                                    error);
 
       if (repository_path == NULL)
         return FALSE;
 
-      remote_name = g_key_file_get_string (config, groups[i], REMOTE_NAME_KEY,
-                                           error);
+      remote_name = euu_config_file_get_string (config, groups[i],
+                                                REMOTE_NAME_KEY, error);
 
       if (remote_name == NULL)
         return FALSE;

@@ -194,6 +194,8 @@ eus_repo_set_property (GObject      *object,
           self->root_path[strlen (self->root_path) - 1] == '/')
         self->root_path[strlen (self->root_path) - 1] = '\0';
 
+      break;
+
     case PROP_SERVED_REMOTE:
       self->remote_name = g_value_dup_string (value);
       break;

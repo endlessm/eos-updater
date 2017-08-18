@@ -134,7 +134,7 @@ read_config (const gchar *config_file_path,
              SourcesConfig *sources_config,
              GError **error)
 {
-  g_autoptr(GKeyFile) config = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
   g_auto(GStrv) download_order_strv = NULL;
   g_autofree gchar *group_name = NULL;
   const gchar * const paths[] =
@@ -145,17 +145,13 @@ read_config (const gchar *config_file_path,
       NULL
     };
 
-  /* Try loading the files in order. */
-  config = eos_updater_load_config_file (paths, error);
-  if (config == NULL)
-    return FALSE;
+  /* Load the config file. */
+  config = euu_config_file_new (paths);
 
   /* Parse the options. */
-  download_order_strv = g_key_file_get_string_list (config,
-                                                    DOWNLOAD_GROUP,
-                                                    ORDER_KEY,
-                                                    NULL,
-                                                    error);
+  download_order_strv = euu_config_file_get_strv (config,
+                                                  DOWNLOAD_GROUP, ORDER_KEY,
+                                                  NULL, error);
   if (download_order_strv == NULL)
     return FALSE;
 
@@ -168,10 +164,10 @@ read_config (const gchar *config_file_path,
                                  EOS_UPDATER_DOWNLOAD_VOLUME,
                                  &group_name))
     {
-      sources_config->volume_path = g_key_file_get_string (config,
-                                                           group_name,
-                                                           "Path",
-                                                           error);
+      sources_config->volume_path = euu_config_file_get_string (config,
+                                                                group_name,
+                                                                "Path",
+                                                                error);
 
       if (sources_config->volume_path == NULL)
         return FALSE;
