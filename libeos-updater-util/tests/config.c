@@ -23,6 +23,7 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <libeos-updater-util/config.h>
+#include <libeos-updater-util/tests/resources.h>
 #include <locale.h>
 #include <string.h>
 #include <sys/types.h>
@@ -36,6 +37,10 @@ typedef struct
   gchar *key_file_nonexistent_path;
   gchar *key_file_unreadable_path;
   gchar *key_file_invalid_path;
+
+  GResource *default_resource;  /* unowned */
+  const gchar *default_path;
+  const gchar *default_path_invalid;
 } Fixture;
 
 /* Set up a temporary directory with various test configuration files in. */
@@ -87,6 +92,10 @@ setup (Fixture       *fixture,
   g_file_set_contents (fixture->key_file_invalid_path, "really not valid", -1,
                        &error);
   g_assert_no_error (error);
+
+  fixture->default_resource = euu_tests_resources_get_resource ();
+  fixture->default_path = "/com/endlessm/Updater/config/config-test.conf";
+  fixture->default_path_invalid = "/com/endlessm/Updater/config/config-test-invalid.conf";
 }
 
 static void
@@ -126,7 +135,7 @@ test_config_file_load_one (Fixture       *fixture,
     };
   guint loaded_file;
 
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, fixture->default_resource, fixture->default_path);
 
   loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
   g_assert_no_error (error);
@@ -148,7 +157,7 @@ test_config_file_load_many (Fixture       *fixture,
     };
   guint loaded_file;
 
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, fixture->default_resource, fixture->default_path);
 
   loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
   g_assert_no_error (error);
@@ -180,7 +189,7 @@ test_config_file_unreadable (Fixture       *fixture,
       return;
     }
 
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, fixture->default_resource, fixture->default_path);
 
   euu_config_file_get_uint (config, "Any", "Thing", 0, G_MAXUINT, &error);
   g_assert_error (error, G_FILE_ERROR, G_FILE_ERROR_ACCES);
@@ -200,7 +209,7 @@ test_config_file_invalid (Fixture       *fixture,
       NULL
     };
 
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, fixture->default_resource, fixture->default_path);
 
   euu_config_file_get_uint (config, "Any", "Thing", 0, G_MAXUINT, &error);
   g_assert_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_PARSE);
@@ -224,7 +233,7 @@ test_config_file_nonexistent (Fixture       *fixture,
     };
   guint loaded_file;
 
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, fixture->default_resource, fixture->default_path);
 
   loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
   g_assert_no_error (error);
@@ -247,16 +256,16 @@ test_config_file_fallback_per_file (Fixture       *fixture,
     {
       g_autoptr(EuuConfigFile) config = NULL;
 
-      config = euu_config_file_new (paths);
-      euu_config_file_get_uint (config, "Any", "Thing", 0, G_MAXUINT, NULL);
+      config = euu_config_file_new (paths, fixture->default_resource,
+                                    fixture->default_path_invalid);
       g_assert_not_reached ();
     }
   else
     {
       g_test_trap_subprocess (NULL, 0, 0);
       g_test_trap_assert_failed ();
-      g_test_trap_assert_stderr ("*ERROR **: Configuration file * not found. "
-                                 "The program is not installed correctly.*");
+      g_test_trap_assert_stderr ("*ERROR*euu_config_file_constructed: "
+                                 "assertion failed (error == NULL)*");
     }
 }
 
@@ -277,7 +286,7 @@ test_config_file_fallback_per_key (Fixture       *fixture,
   guint loaded_file;
   gboolean file1_key, file2_key;
 
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, fixture->default_resource, fixture->default_path);
 
   loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
   g_assert_no_error (error);
@@ -308,16 +317,17 @@ test_config_file_groups (Fixture       *fixture,
   g_auto(GStrv) groups = NULL;
   gsize n_groups;
 
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, fixture->default_resource, fixture->default_path);
 
   groups = euu_config_file_get_groups (config, &n_groups, &error);
   g_assert_no_error (error);
-  g_assert_cmpuint (n_groups, ==, 3);
+  g_assert_cmpuint (n_groups, ==, 4);
   g_assert_nonnull (groups);
-  g_assert_cmpstr (groups[0], ==, "Group1");
-  g_assert_cmpstr (groups[1], ==, "Group2");
-  g_assert_cmpstr (groups[2], ==, "Test");
-  g_assert_null (groups[3]);
+  g_assert_cmpstr (groups[0], ==, "DefaultGroup");
+  g_assert_cmpstr (groups[1], ==, "Group1");
+  g_assert_cmpstr (groups[2], ==, "Group2");
+  g_assert_cmpstr (groups[3], ==, "Test");
+  g_assert_null (groups[4]);
 }
 
 int

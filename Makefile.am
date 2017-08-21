@@ -31,6 +31,7 @@ EXTRA_DIST =
 CLEANFILES =
 DISTCLEANFILES =
 MAINTAINERCLEANFILES =
+BUILT_SOURCES =
 
 # Documentation
 EXTRA_DIST += README.md
@@ -156,6 +157,30 @@ libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_SOURCES = \
 	libeos-update-server/repo.h \
 	libeos-update-server/server.c \
 	libeos-update-server/server.h \
+	$(NULL)
+nodist_libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_SOURCES = \
+	$(libeos_update_server_resource_sources) \
+	$(NULL)
+
+libeos_update_server_resource_sources = \
+	libeos-update-server/resources.c \
+	libeos-update-server/resources.h \
+	$(NULL)
+libeos_update_server_resource_deps = $(shell glib-compile-resources --sourcedir=$(top_srcdir)/libeos-update-server --generate-dependencies $(top_srcdir)/libeos-update-server/libeos-update-server.gresource.xml)
+libeos-update-server/resources.c: libeos-update-server/libeos-update-server.gresource.xml $(libeos_update_server_resource_deps)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) \
+		--c-name=eus_resources --generate-source --internal \
+		--sourcedir=$(top_srcdir)/libeos-update-server --target=$@ $<
+libeos-update-server/resources.h: libeos-update-server/libeos-update-server.gresource.xml $(libeos_update_server_resource_deps)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) \
+		--c-name=eus_resources --generate-header --internal \
+		--sourcedir=$(top_srcdir)/libeos-update-server --target=$@ $<
+
+BUILT_SOURCES += $(libeos_update_server_resource_sources)
+CLEANFILES += $(libeos_update_server_resource_sources)
+EXTRA_DIST += \
+	libeos-update-server/libeos-update-server.gresource.xml \
+	$(libeos_update_server_resource_deps) \
 	$(NULL)
 
 # eos-update-server program

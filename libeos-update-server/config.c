@@ -26,6 +26,7 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <libeos-update-server/config.h>
+#include <libeos-update-server/resources.h>
 #include <libeos-updater-util/config.h>
 #include <libeos-updater-util/util.h>
 #include <string.h>
@@ -162,7 +163,9 @@ eus_read_config_file (const gchar  *config_file_path,
 
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  config = euu_config_file_new ((config_file_path != NULL) ? override_paths : default_paths);
+  config = euu_config_file_new ((config_file_path != NULL) ? override_paths : default_paths,
+                                eus_resources_get_resource (),
+                                "/com/endlessm/Updater/config/eos-update-server.conf");
 
   advertise_updates = euu_config_file_get_boolean (config,
                                                    LOCAL_NETWORK_UPDATES_GROUP,

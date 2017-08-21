@@ -60,7 +60,30 @@ test_programs = \
 
 avahi_service_file_SOURCES = avahi-service-file.c
 config_SOURCES = config.c
+nodist_config_SOURCES = $(config_resource_sources)
 ostree_SOURCES = ostree.c
 util_SOURCES = util.c
+
+# Resources for the config test.
+config_resource_sources = \
+	resources.c \
+	resources.h \
+	$(NULL)
+config_resource_deps = $(shell glib-compile-resources --sourcedir=$(top_srcdir)/libeos-updater-util/tests --generate-dependencies $(top_srcdir)/libeos-updater-util/tests/config.gresource.xml)
+resources.c: config.gresource.xml $(config_resource_deps)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) \
+		--c-name=euu_tests_resources --generate-source --internal \
+		--sourcedir=$(top_srcdir)/libeos-updater-util/tests --target=$@ $<
+resources.h: config.gresource.xml $(config_resource_deps)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) \
+		--c-name=euu_tests_resources --generate-header --internal \
+		--sourcedir=$(top_srcdir)/libeos-updater-util/tests --target=$@ $<
+
+BUILT_SOURCES += $(config_resource_sources)
+CLEANFILES += $(config_resource_sources)
+EXTRA_DIST += \
+	config.gresource.xml \
+	$(config_resource_deps) \
+	$(NULL)
 
 -include $(top_srcdir)/git.mk
