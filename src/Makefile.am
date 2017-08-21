@@ -15,6 +15,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
+EXTRA_DIST =
 dist_man8_MANS =
 
 dbuslib = libeos-updater-dbus.la
@@ -68,6 +69,7 @@ eos_autoupdater_CFLAGS = $(common_cflags) $(EOS_AUTOUPDATER_CFLAGS)
 eos_autoupdater_LDFLAGS = $(WARN_LDFLAGS)
 eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la $(EOS_AUTOUPDATER_LIBS)
 eos_autoupdater_SOURCES = eos-autoupdater.c
+nodist_eos_autoupdater_SOURCES = $(eos_updater_resource_sources)
 
 dist_man8_MANS += docs/eos-autoupdater.8
 
@@ -144,6 +146,9 @@ eos_updater_SOURCES = \
 	eos-updater-poll-volume.h \
 	eos-updater.c \
 	$(NULL)
+nodist_eos_updater_SOURCES = \
+	$(eos_updater_resource_sources) \
+	$(NULL)
 
 dist_man8_MANS += docs/eos-updater.8
 
@@ -167,7 +172,27 @@ eos-updater-generated.h: com.endlessm.Updater.xml
 	   --c-generate-autocleanup all            \
 	   $<
 
+# Resource handling.
+eos_updater_resource_sources = \
+	resources.c \
+	resources.h \
+	$(NULL)
+eos_updater_resource_deps = $(shell glib-compile-resources --sourcedir=$(top_srcdir)/src --generate-dependencies $(top_srcdir)/src/eos-updater.gresource.xml)
+resources.c: eos-updater.gresource.xml $(eos_updater_resource_deps)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) \
+		--c-name=eos_updater_resources --generate-source --internal \
+		--sourcedir=$(top_srcdir)/src --target=$@ $<
+resources.h: eos-updater.gresource.xml $(eos_updater_resource_deps)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) \
+		--c-name=eos_updater_resources --generate-header --internal \
+		--sourcedir=$(top_srcdir)/src --target=$@ $<
 
+BUILT_SOURCES += $(eos_updater_resource_sources)
+CLEANFILES += $(eos_updater_resource_sources)
+EXTRA_DIST += \
+	eos-updater.gresource.xml \
+	$(eos_updater_resource_deps) \
+	$(NULL)
 
 -include $(INTROSPECTION_MAKEFILE)
 INTROSPECTION_GIRS =

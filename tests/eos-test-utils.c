@@ -1851,6 +1851,18 @@ run_update_server (GFile *repo,
 
   if (!g_file_query_exists (port_file, NULL))
     {
+      CmdResult cmd_result = { 0, };
+
+      /* Check if the process crashed or exited first. */
+      if (!reap_async_cmd (cmd, &cmd_result, error) ||
+          !cmd_result_ensure_ok (&cmd_result, error))
+        {
+          cmd_result_clear (&cmd_result);
+          return FALSE;
+        }
+
+      cmd_result_clear (&cmd_result);
+
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT,
                    "Timed out waiting for eos-update-server to create port file.");
       return FALSE;

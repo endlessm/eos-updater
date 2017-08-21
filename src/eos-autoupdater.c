@@ -19,6 +19,7 @@
 
 #include "eos-updater-types.h"
 #include "eos-updater-generated.h"
+#include "resources.h"
 #include <libeos-updater-util/config.h>
 #include <libeos-updater-util/util.h>
 
@@ -460,7 +461,8 @@ read_config_file (const gchar *config_path,
   g_return_val_if_fail (update_on_mobile != NULL, FALSE);
 
   /* Load the config files. */
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, eos_updater_resources_get_resource (),
+                                "/com/endlessm/Updater/config/eos-autoupdater.conf");
 
   last_automatic_step = (UpdateStep) euu_config_file_get_uint (config,
                                                                AUTOMATIC_GROUP,

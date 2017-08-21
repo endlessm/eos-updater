@@ -24,6 +24,7 @@
  *  - Philip Withnall <withnall@endlessm.com>
  */
 
+#include <gio/gio.h>
 #include <glib.h>
 #include <glib-object.h>
 #include <libeos-updater-util/config.h>
@@ -35,9 +36,11 @@
  *
  * This represents a configuration file, loaded from one or more layered
  * configuration files following the same schema. For each schema, there must
- * always be one canonical copy of the configuration file installed in a
- * read-only location on the system, which is passed as the final path to
- * euu_config_file_new(); ultimately, default values are loaded from this.
+ * always be one canonical copy of the configuration file compiled into the
+ * program as a #GResource; ultimately, default values are loaded from this.
+ * It is advised that a copy of this default configuration file is also
+ * installed in a read-only location on the system, so users can inspect and
+ * copy from the default configuration.
  *
  * When queried for keys, an #EuuConfigFile instance will return the value from
  * the first configuration file in its hierarchy which contains that key.
@@ -59,6 +62,10 @@ struct _EuuConfigFile
   gchar **paths;  /* (array length=n_paths); final element is always the default path */
   gsize n_paths;
   GPtrArray *key_files;  /* (element-type GKeyFile); same indexing as paths */
+
+  GResource *default_resource;
+  gchar *default_path;
+  GKeyFile *default_key_file;
 };
 
 G_DEFINE_TYPE (EuuConfigFile, euu_config_file, G_TYPE_OBJECT)
@@ -66,9 +73,11 @@ G_DEFINE_TYPE (EuuConfigFile, euu_config_file, G_TYPE_OBJECT)
 typedef enum
 {
   PROP_PATHS = 1,
+  PROP_DEFAULT_RESOURCE,
+  PROP_DEFAULT_PATH,
 } EuuConfigFileProperty;
 
-static GParamSpec *props[PROP_PATHS + 1] = { NULL, };
+static GParamSpec *props[PROP_DEFAULT_PATH + 1] = { NULL, };
 
 static void
 euu_config_file_init (EuuConfigFile *self)
@@ -90,6 +99,14 @@ euu_config_file_get_property (GObject    *object,
       g_value_set_boxed (value, self->paths);
       break;
 
+    case PROP_DEFAULT_RESOURCE:
+      g_value_set_boxed (value, self->default_resource);
+      break;
+
+    case PROP_DEFAULT_PATH:
+      g_value_set_string (value, self->default_path);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, spec);
       break;
@@ -108,10 +125,25 @@ euu_config_file_set_property (GObject      *object,
     {
     case PROP_PATHS:
       /* Construct-only; must be non-empty */
+      g_assert (self->paths == NULL);
       self->paths = g_value_dup_boxed (value);
       g_assert (self->paths != NULL);
       self->n_paths = g_strv_length (self->paths);
       g_assert (self->n_paths > 0);
+      break;
+
+    case PROP_DEFAULT_RESOURCE:
+      /* Construct-only. Must be non-%NULL. */
+      g_assert (self->default_resource == NULL);
+      self->default_resource = g_value_dup_boxed (value);
+      g_assert (self->default_resource != NULL);
+      break;
+
+    case PROP_DEFAULT_PATH:
+      /* Construct only; must be non-%NULL. */
+      g_assert (self->default_path == NULL);
+      self->default_path = g_value_dup_string (value);
+      g_assert (self->default_path != NULL);
       break;
 
     default:
@@ -121,12 +153,41 @@ euu_config_file_set_property (GObject      *object,
 }
 
 static void
+euu_config_file_constructed (GObject *object)
+{
+  EuuConfigFile *self = EUU_CONFIG_FILE (object);
+  g_autoptr(GBytes) bytes = NULL;
+  g_autoptr(GError) error = NULL;
+
+  /* Chain up. */
+  G_OBJECT_CLASS (euu_config_file_parent_class)->constructed (object);
+
+  /* Load the default config file from the given resource. It’s a fatal error
+   * if this fails. We load this in the constructor to ensure we fail early,
+   * rather than conditionally on accessing something from the config file. */
+  g_assert (self->default_resource != NULL);
+  g_assert (self->default_path != NULL);
+
+  bytes = g_resource_lookup_data (self->default_resource, self->default_path,
+                                  G_RESOURCE_LOOKUP_FLAGS_NONE, &error);
+  g_assert_no_error (error);
+
+  self->default_key_file = g_key_file_new ();
+  g_key_file_load_from_bytes (self->default_key_file, bytes,
+                              G_KEY_FILE_NONE, &error);
+  g_assert_no_error (error);
+}
+
+static void
 euu_config_file_finalize (GObject *object)
 {
   EuuConfigFile *self = EUU_CONFIG_FILE (object);
 
   g_clear_pointer (&self->paths, g_strfreev);
   g_clear_pointer (&self->key_files, g_ptr_array_unref);
+  g_clear_pointer (&self->default_resource, g_resource_unref);
+  g_clear_pointer (&self->default_path, g_free);
+  g_clear_pointer (&self->default_key_file, g_key_file_unref);
 
   G_OBJECT_CLASS (euu_config_file_parent_class)->finalize (object);
 }
@@ -136,6 +197,7 @@ euu_config_file_class_init (EuuConfigFileClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
+  object_class->constructed = euu_config_file_constructed;
   object_class->finalize = euu_config_file_finalize;
   object_class->get_property = euu_config_file_get_property;
   object_class->set_property = euu_config_file_set_property;
@@ -158,6 +220,39 @@ euu_config_file_class_init (EuuConfigFileClass *klass)
                                           G_PARAM_CONSTRUCT_ONLY |
                                           G_PARAM_STATIC_STRINGS);
 
+  /**
+   * EuuConfigFile:default-resource:
+   *
+   * #GResource containing the default configuration file.
+   *
+   * Since: UNRELEASED
+   */
+  props[PROP_DEFAULT_RESOURCE] = g_param_spec_boxed ("default-resource",
+                                                     "Default Resource",
+                                                     "GResource containing the "
+                                                     "default configuration file.",
+                                                     G_TYPE_RESOURCE,
+                                                     G_PARAM_READWRITE |
+                                                     G_PARAM_CONSTRUCT_ONLY |
+                                                     G_PARAM_STATIC_STRINGS);
+
+  /**
+   * EuuConfigFile:default-path:
+   *
+   * Path to the default configuration file in #EuuConfigFile:default-resource.
+   *
+   * Since: UNRELEASED
+   */
+  props[PROP_DEFAULT_PATH] = g_param_spec_string ("default-path",
+                                                  "Default Path",
+                                                  "Path to the default "
+                                                  "configuration file in "
+                                                  "#EuuConfigFile:default-resource.",
+                                                  NULL,
+                                                  G_PARAM_READWRITE |
+                                                  G_PARAM_CONSTRUCT_ONLY |
+                                                  G_PARAM_STATIC_STRINGS);
+
   g_object_class_install_properties (object_class,
                                      G_N_ELEMENTS (props),
                                      props);
@@ -167,6 +262,9 @@ euu_config_file_class_init (EuuConfigFileClass *klass)
  * euu_config_file_new:
  * @key_file_paths: (array zero-terminated=1): %NULL-terminated ordered
  *    collection of paths of configuration files to load; must be non-empty
+ * @default_resource: (transfer none): #GResource containing the default
+ *    configuration
+ * @default_path: path to the default configuration file in @default_resource
  *
  * Create a new #EuuConfigFile representing the configuration loaded from the
  * given collection of @key_file_paths, which must all follow the same schema.
@@ -179,13 +277,19 @@ euu_config_file_class_init (EuuConfigFileClass *klass)
  * Since: UNRELEASED
  */
 EuuConfigFile *
-euu_config_file_new (const gchar * const *key_file_paths)
+euu_config_file_new (const gchar * const *key_file_paths,
+                     GResource           *default_resource,
+                     const gchar         *default_path)
 {
   g_return_val_if_fail (key_file_paths != NULL, NULL);
   g_return_val_if_fail (key_file_paths[0] != NULL, NULL);
+  g_return_val_if_fail (default_resource != NULL, NULL);
+  g_return_val_if_fail (default_path != NULL, NULL);
 
   return g_object_new (EUU_TYPE_CONFIG_FILE,
                        "paths", key_file_paths,
+                       "default-resource", default_resource,
+                       "default-path", default_path,
                        NULL);
 }
 
@@ -196,9 +300,20 @@ euu_config_file_ensure_loaded (EuuConfigFile  *self,
                                GError        **error)
 {
   g_autoptr(GError) local_error = NULL;
-  const gchar *path = self->paths[idx];
-  gboolean is_default = (idx == self->n_paths - 1);
+  const gchar *path = (idx < self->n_paths) ? self->paths[idx] : self->default_path;
+  gboolean is_default = (idx == self->n_paths);
   GKeyFile *key_file = NULL;
+
+  g_return_val_if_fail (idx <= self->n_paths, FALSE);
+
+  /* Handle the default key file as a special case, with an index just off the
+   * end of the array. */
+  if (is_default)
+    {
+      if (key_file_out != NULL)
+        *key_file_out = self->default_key_file;
+      return TRUE;
+    }
 
   if (idx < self->key_files->len)
     key_file = g_ptr_array_index (self->key_files, idx);
@@ -210,8 +325,7 @@ euu_config_file_ensure_loaded (EuuConfigFile  *self,
       g_key_file_load_from_file (key_file, path, G_KEY_FILE_NONE, &local_error);
     }
 
-  if (!is_default &&
-      g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+  if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
     {
       /* File doesn’t exist. Don’t propagate the error. */
       g_debug ("Configuration file ‘%s’ not found.", path);
@@ -219,14 +333,6 @@ euu_config_file_ensure_loaded (EuuConfigFile  *self,
     }
   else if (local_error != NULL)
     {
-      /* The default config file should always be loadable, as it should be
-       * installed as part of the package. */
-      if (is_default)
-        {
-          g_error ("Configuration file ‘%s’ not found. The program is not "
-                   "installed correctly.");
-          g_assert_not_reached ();
-        }
       g_propagate_error (error, g_steal_pointer (&local_error));
       return FALSE;
     }
@@ -249,9 +355,11 @@ euu_config_file_get_file_for_key (EuuConfigFile  *self,
   const gchar *path;
   gsize i;
 
-  for (i = 0; i < self->n_paths; i++)
+  /* Deliberately iterate on (i == self->n_paths) — it’s a special case for
+   * euu_config_file_ensure_loaded() which loads the default config file. */
+  for (i = 0; i <= self->n_paths; i++)
     {
-      path = self->paths[i];
+      path = (i < self->n_paths) ? self->paths[i] : self->default_path;
 
       if (!euu_config_file_ensure_loaded (self, i, &key_file, error))
         return FALSE;
@@ -485,7 +593,9 @@ euu_config_file_get_groups (EuuConfigFile  *self,
 
   groups = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
-  for (i = 0; i < self->n_paths; i++)
+  /* Deliberately iterate on (i == self->n_paths) — it’s a special case for
+   * euu_config_file_ensure_loaded() which loads the default config file. */
+  for (i = 0; i <= self->n_paths; i++)
     {
       GKeyFile *key_file;
       g_auto(GStrv) file_groups = NULL;

@@ -29,6 +29,7 @@
 #include "eos-updater-poll-main.h"
 #include "eos-updater-poll-volume.h"
 #include "eos-updater-poll.h"
+#include "resources.h"
 
 #include <libeos-updater-util/config.h>
 #include <libeos-updater-util/util.h>
@@ -146,7 +147,8 @@ read_config (const gchar *config_file_path,
     };
 
   /* Load the config file. */
-  config = euu_config_file_new (paths);
+  config = euu_config_file_new (paths, eos_updater_resources_get_resource (),
+                                "/com/endlessm/Updater/config/eos-updater.conf");
 
   /* Parse the options. */
   download_order_strv = euu_config_file_get_strv (config,

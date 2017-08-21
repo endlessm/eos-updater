@@ -115,6 +115,11 @@ AS_IF([test "$GPG" = ""],[
 	AC_MSG_ERROR([gpg is required for tests])
 ])
 
+AC_PATH_PROG([GLIB_COMPILE_RESOURCES],[glib-compile-resources])
+AS_IF([test "$GLIB_COMPILE_RESOURCES" == ""],[
+	AC_MSG_ERROR([glib-compile-resources not found])
+])
+
 # Code coverage
 AX_CODE_COVERAGE
 

@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <gio/gio.h>
 #include <glib.h>
 #include <glib-object.h>
 
@@ -34,7 +35,9 @@ G_BEGIN_DECLS
 #define EUU_TYPE_CONFIG_FILE euu_config_file_get_type ()
 G_DECLARE_FINAL_TYPE (EuuConfigFile, euu_config_file, EUU, CONFIG_FILE, GObject)
 
-EuuConfigFile *euu_config_file_new (const gchar * const *key_file_paths);
+EuuConfigFile *euu_config_file_new (const gchar * const *key_file_paths,
+                                    GResource           *default_resource,
+                                    const gchar         *default_path);
 
 guint euu_config_file_get_uint (EuuConfigFile  *self,
                                 const gchar    *group_name,
