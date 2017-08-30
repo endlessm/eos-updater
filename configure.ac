@@ -120,6 +120,14 @@ AS_IF([test "$GLIB_COMPILE_RESOURCES" == ""],[
 	AC_MSG_ERROR([glib-compile-resources not found])
 ])
 
+# Ensure we have the libOSTree experimental API available
+ostree_features=$($PKG_CONFIG --variable=features ostree-1)
+AS_CASE(["$ostree_features"],
+      [*experimental*],[have_ostree_experimental=yes])
+AS_IF([test "x$have_ostree_experimental" != "xyes"],
+    [AC_MSG_ERROR([Experimental API not found in ostree-1, which is needed for --enable-p2p. OSTree must be compiled with --enable-experimental-api.])])
+AC_DEFINE([OSTREE_ENABLE_EXPERIMENTAL_API],[1],[Define if libOSTree experimental API should be enabled])
+
 # Code coverage
 AX_CODE_COVERAGE
 
