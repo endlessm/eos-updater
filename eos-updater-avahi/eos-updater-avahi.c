@@ -45,6 +45,7 @@ get_refs (OstreeRepo            *repo,
   if (!ostree_repo_list_collection_refs (repo,
                                          /* match_collection_id: */ NULL,
                                          &refs,
+                                         OSTREE_REPO_LIST_REFS_EXT_NONE,
                                          cancellable,
                                          error))
     return FALSE;
