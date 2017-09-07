@@ -1,7 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
- * Copyright © 2013 Collabora Ltd.
- * Copyright © 2016 Kinvolk GmbH
  * Copyright © 2017 Endless Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
@@ -19,24 +17,19 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * Authors:
- *  - Vivek Dasmohapatra <vivek@etla.org>
- *  - Krzesimir Nowak <krzesimir@kinvolk.io>
- *  - Philip Withnall <withnall@endlessm.com>
+ *  - Sam Spilsbury <sam@endlessm.com>
  */
 
 #pragma once
 
 #include <glib.h>
 
-#include <libeos-updater-util/types.h>
-
-#include "eos-updater-generated.h"
-
 G_BEGIN_DECLS
 
-void eos_updater_set_error (EosUpdater *updater,
-                            const GError *error);
-void eos_updater_clear_error (EosUpdater *updater,
-                              EosUpdaterState state);
+typedef enum {
+  EU_INSTALLER_MODE_PERFORM = 0,
+  EU_INSTALLER_MODE_STAMP = 1,
+  EU_INSTALLER_MODE_CHECK = 2
+} EosUpdaterInstallerMode;
 
 G_END_DECLS

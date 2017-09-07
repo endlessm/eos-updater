@@ -28,8 +28,14 @@
 #include <ostree.h>
 #include <string.h>
 
+#include <libeos-updater-util/util.h>
+
 #ifndef GPG_BINARY
 #error "GPG_BINARY is not defined"
+#endif
+
+#ifndef FLATPAK_BINARY
+#error FLATPAK_BINARY is not defined
 #endif
 
 const gchar *const default_vendor = "VENDOR";
@@ -163,7 +169,9 @@ eos_test_subserver_new (const gchar *collection_id,
                         GFile *gpg_home,
                         const gchar *keyid,
                         const gchar *ostree_path,
-                        GHashTable *ref_to_commit)
+                        GHashTable *ref_to_commit,
+                        GHashTable *additional_directories_for_commit,
+                        GHashTable *additional_files_for_commit)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
@@ -172,6 +180,8 @@ eos_test_subserver_new (const gchar *collection_id,
   subserver->keyid = g_strdup (keyid);
   subserver->ostree_path = g_strdup (ostree_path);
   subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
+  subserver->additional_directories_for_commit = additional_directories_for_commit ? g_hash_table_ref (additional_directories_for_commit) : NULL;
+  subserver->additional_files_for_commit = additional_files_for_commit ? g_hash_table_ref (additional_files_for_commit) : NULL;
 
   return subserver;
 }
@@ -298,23 +308,25 @@ get_sysroot_dirs (const gchar *kernel_version)
 }
 
 static gboolean
-prepare_sysroot_contents (GFile *repo,
-                          GFile *tree_root,
-                          GError **error)
+create_directories (GFile *tree_root, GStrv directories, GError **error)
 {
-  const gchar *kernel_version = "4.6";
-  g_autoptr(GPtrArray) files = get_sysroot_files (kernel_version);
-  guint idx;
-  g_auto(GStrv) dirs = get_sysroot_dirs (kernel_version);
   gchar **iter;
 
-  for (iter = dirs; *iter != NULL; ++iter)
+  for (iter = directories; *iter != NULL; ++iter)
     {
       g_autoptr(GFile) path = g_file_get_child (tree_root, *iter);
 
       if (!create_directory (path, error))
         return FALSE;
     }
+
+  return TRUE;
+}
+
+static gboolean
+create_files (GFile *tree_root, GPtrArray *files, GError **error)
+{
+  guint idx;
 
   for (idx = 0; idx < files->len; ++idx)
     {
@@ -327,6 +339,42 @@ prepare_sysroot_contents (GFile *repo,
       if (!create_file (path, bytes, error))
         return FALSE;
     }
+
+  return TRUE;
+}
+
+static gboolean
+create_additional_directories_for_commit (GFile *tree_root, GStrv dirs, GError **error)
+{
+  if (!dirs)
+    return TRUE;
+
+  return create_directories (tree_root, dirs, error);
+}
+
+static gboolean
+create_additional_files_for_commit (GFile *tree_root, GPtrArray *files, GError **error)
+{
+  if (!files)
+    return TRUE;
+
+  return create_files (tree_root, files, error);
+}
+
+static gboolean
+prepare_sysroot_contents (GFile   *repo,
+                          GFile   *tree_root,
+                          GError **error)
+{
+  const gchar *kernel_version = "4.6";
+  g_autoptr(GPtrArray) files = get_sysroot_files (kernel_version);
+  g_auto(GStrv) dirs = get_sysroot_dirs (kernel_version);
+
+  if (!create_directories (tree_root, dirs, error))
+    return FALSE;
+
+  if (!create_files (tree_root, files, error))
+    return FALSE;
 
   return TRUE;
 }
@@ -489,6 +537,15 @@ get_current_commit_checksum (GFile *repo,
   return TRUE;
 }
 
+static gpointer
+maybe_hashtable_lookup (GHashTable *table, gpointer key)
+{
+  if (!table)
+    return NULL;
+
+  return g_hash_table_lookup (table, key);
+}
+
 /* Prepare a commit. It will prepare a sysroot environment and commits
  * from 0 to the given commit_number.
  */
@@ -499,6 +556,8 @@ prepare_commit (GFile *repo,
                 const OstreeCollectionRef *collection_ref,
                 GFile *gpg_home,
                 const gchar *keyid,
+                GHashTable *additional_directories_for_commit,
+                GHashTable *additional_files_for_commit,
                 gchar **out_checksum,
                 GError **error)
 {
@@ -530,6 +589,8 @@ prepare_commit (GFile *repo,
                            collection_ref,
                            gpg_home,
                            keyid,
+                           additional_directories_for_commit,
+                           additional_files_for_commit,
                            NULL,
                            error))
         return FALSE;
@@ -543,8 +604,21 @@ prepare_commit (GFile *repo,
   if (!create_commit_files_and_directories (tree_root, commit_number, error))
     return FALSE;
 
+  if (!create_additional_directories_for_commit (tree_root,
+                                                 maybe_hashtable_lookup (additional_directories_for_commit,
+                                                                         GUINT_TO_POINTER (commit_number)),
+                                                 error))
+    return FALSE;
+
+  if (!create_additional_files_for_commit (tree_root,
+                                           maybe_hashtable_lookup (additional_files_for_commit,
+                                                                   GUINT_TO_POINTER (commit_number)),
+                                           error))
+    return FALSE;
+
   subject = g_strdup_printf ("Test commit %u", commit_number);
   timestamp = days_ago (max_commit_number - commit_number);
+
   if (!ostree_commit (repo,
                       tree_root,
                       subject,
@@ -615,6 +689,8 @@ update_commits (EosTestSubserver *subserver,
                            collection_ref,
                            subserver->gpg_home,
                            subserver->keyid,
+                           subserver->additional_directories_for_commit,
+                           subserver->additional_files_for_commit,
                            &checksum,
                            error))
         return FALSE;
@@ -832,6 +908,8 @@ eos_test_server_new_quick (GFile *server_root,
                            GFile *gpg_home,
                            const gchar *keyid,
                            const gchar *ostree_path,
+                           GHashTable *additional_directories_for_commit,
+                           GHashTable *additional_files_for_commit,
                            GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
@@ -844,7 +922,9 @@ eos_test_server_new_quick (GFile *server_root,
                                                        gpg_home,
                                                        keyid,
                                                        ostree_path,
-                                                       ref_to_commit));
+                                                       ref_to_commit,
+                                                       additional_directories_for_commit,
+                                                       additional_files_for_commit));
 
   return eos_test_server_new (server_root,
                               subservers,
@@ -1137,6 +1217,18 @@ updater_hw_file (GFile *updater_dir)
   return g_file_get_child (updater_dir, "hw");
 }
 
+static GFile *
+flatpak_upgrade_state (GFile *updater_dir)
+{
+  return g_file_get_child (updater_dir, "flatpak-deployments");
+}
+
+static GFile *
+get_flatpak_user_dir_for_updater_dir (GFile *client_root)
+{
+  return g_file_get_child (client_root, "flatpak-user");
+}
+
 static gboolean
 prepare_updater_dir (GFile *updater_dir,
                      GKeyFile *config_file,
@@ -1279,6 +1371,8 @@ spawn_updater (GFile *sysroot,
                GFile *config_file,
                GFile *hw_file,
                GFile *quit_file,
+               GFile *flatpak_upgrade_state_dir,
+               GFile *flatpak_installation_dir,
                const gchar *osname,
                CmdAsyncResult *cmd,
                GError **error)
@@ -1296,6 +1390,8 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_QUIT_FILE", NULL, quit_file },
       { "EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS", "yes", NULL },
       { "EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME", osname, NULL },
+      { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
+      { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
@@ -1351,12 +1447,16 @@ spawn_updater_simple (GFile *sysroot,
   g_autoptr(GFile) config_file_path = updater_config_file (updater_dir);
   g_autoptr(GFile) hw_file_path = updater_hw_file (updater_dir);
   g_autoptr(GFile) quit_file_path = updater_quit_file (updater_dir);
+  g_autoptr(GFile) flatpak_upgrade_state_dir_path = flatpak_upgrade_state (updater_dir);
+  g_autoptr(GFile) flatpak_installation_dir_path = get_flatpak_user_dir_for_updater_dir (updater_dir);
 
   return spawn_updater (sysroot,
                         repo,
                         config_file_path,
                         hw_file_path,
                         quit_file_path,
+                        flatpak_upgrade_state_dir_path,
+                        flatpak_installation_dir_path,
                         osname,
                         cmd,
                         error);
@@ -1748,6 +1848,481 @@ get_update_server_dir (GFile *client_root)
 {
   return g_file_get_child (client_root, "update-server");
 }
+
+static gboolean
+test_spawn_flatpak_cmd_in_local_env (GFile                *updater_dir,
+                                     const gchar * const  *argv,
+                                     CmdResult            *cmd,
+                                     GError              **error)
+{
+  g_autoptr(GFile) flatpak_user_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  CmdEnvVar envv[] =
+    {
+      { "FLATPAK_USER_DIR", NULL, flatpak_user_dir },
+      { "OSTREE_SYSROOT_DEBUG", "no-xattrs", NULL },
+      { NULL, NULL, NULL }
+    };
+  g_auto(GStrv) envp = build_cmd_env (envv);
+
+  return test_spawn (argv, (const gchar * const *) envp, cmd, error);
+}
+
+static gboolean
+flatpak_remote_add (GFile        *updater_dir,
+                    const gchar  *repo_name,
+                    const gchar  *repo_directory,
+                    GError      **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  CmdArg args[] =
+    {
+      { NULL, FLATPAK_BINARY },
+      { NULL, "remote-add" },
+      { "user", NULL },
+      { "no-gpg-verify", NULL },
+      { NULL, repo_name },
+      { NULL, repo_directory },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
+
+  if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
+                                            (const gchar * const *) argv,
+                                            &cmd,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+gboolean
+flatpak_install (GFile        *updater_dir,
+                 const gchar  *remote,
+                 const gchar  *app_id,
+                 GError      **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  CmdArg args[] =
+    {
+      { NULL, FLATPAK_BINARY },
+      { NULL, "install" },
+      { "user", NULL },
+      { NULL, remote },
+      { NULL, app_id },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
+
+  if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
+                                            (const gchar * const *) argv,
+                                            &cmd,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+gboolean
+flatpak_uninstall (GFile        *updater_dir,
+                   const gchar  *app_id,
+                   GError      **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  CmdArg args[] =
+    {
+      { NULL, FLATPAK_BINARY },
+      { NULL, "uninstall" },
+      { "user", NULL },
+      { NULL, app_id },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
+
+  if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
+                                            (const gchar * const *) argv,
+                                            &cmd,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+static gboolean
+flatpak_build_init (GFile        *updater_dir,
+                    const gchar  *bundle_path,
+                    const gchar  *app_id,
+                    const gchar  *runtime_name,
+                    GError      **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  CmdArg args[] =
+    {
+      { NULL, FLATPAK_BINARY },
+      { NULL, "build-init" },
+      { NULL, bundle_path },
+      { NULL, app_id },
+      /* Once as the SDK, once as the Runtime */
+      { NULL, runtime_name },
+      { NULL, runtime_name },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
+
+  if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
+                                            (const gchar * const *) argv,
+                                            &cmd,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+static gboolean
+flatpak_build_export (GFile        *updater_dir,
+                      const gchar  *bundle_path,
+                      const gchar  *repo_path,
+                      GError      **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  CmdArg args[] =
+    {
+      { NULL, FLATPAK_BINARY },
+      { NULL, "build-export" },
+      { NULL, repo_path },
+      { NULL, bundle_path },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
+
+  if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
+                                            (const gchar * const *) argv,
+                                            &cmd,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+static gboolean
+flatpak_build_finish (GFile        *updater_dir,
+                      const gchar  *bundle_path,
+                      const gchar  *binary,
+                      GError      **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  CmdArg args[] =
+    {
+      { NULL, FLATPAK_BINARY },
+      { NULL, "build-finish" },
+      { NULL, bundle_path },
+      { "command", binary },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
+
+  if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
+                                            (const gchar * const *) argv,
+                                            &cmd,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+static gboolean
+flatpak_list (GFile      *updater_dir,
+              CmdResult  *cmd,
+              GError    **error)
+{
+  CmdArg args[] =
+    {
+      { NULL, FLATPAK_BINARY },
+      { NULL, "list" },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
+
+  g_return_val_if_fail (cmd != NULL, FALSE);
+
+  if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
+                                            (const gchar * const *) argv,
+                                            cmd,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (cmd, error);
+}
+
+static gboolean
+populate_flatpak_app (GFile        *updater_dir,
+                      GFile        *app_directory_path,
+                      const gchar  *app_name,
+                      const gchar  *runtime_name,
+                      const gchar  *repo_directory,
+                      GError      **error)
+{
+  g_autofree gchar *app_bin_dir = g_build_filename (g_file_get_path (app_directory_path),
+                                                    "files",
+                                                    "bin",
+                                                    NULL);
+  g_autofree gchar *app_executable = g_build_filename (app_bin_dir, "test", NULL);
+  g_autoptr(GFile) app_bin_path = g_file_new_for_path (app_bin_dir);
+
+  if (!flatpak_build_init (updater_dir,
+                           g_file_get_path (app_directory_path),
+                           app_name,
+                           runtime_name,
+                           error))
+    return FALSE;
+
+  if (!g_file_make_directory_with_parents (app_bin_path, NULL, error))
+    return FALSE;
+
+  if (!g_file_set_contents (app_executable, "#!/bin/bash\nexit 0\n", -1, error))
+    return FALSE;
+
+  if (!flatpak_build_finish (updater_dir,
+                             g_file_get_path (app_directory_path),
+                             "test",
+                             error))
+    return FALSE;
+
+  if (!flatpak_build_export (updater_dir,
+                             g_file_get_path (app_directory_path),
+                             repo_directory,
+                             error))
+    return FALSE;
+
+  return TRUE;
+}
+
+static gboolean
+populate_runtime (GFile        *updater_dir,
+                  GFile        *runtime_directory_path,
+                  const gchar  *repo_directory,
+                  const gchar  *runtime_name,
+                  GError      **error)
+{
+  g_autofree gchar *metadata_path = g_build_filename (g_file_get_path (runtime_directory_path),
+                                                      "metadata",
+                                                      NULL);
+  g_autofree gchar *files_dir = g_build_filename (g_file_get_path (runtime_directory_path),
+                                                  "files",
+                                                  NULL);
+  g_autoptr(GFile) files_dir_path = g_file_new_for_path (files_dir);
+  g_autofree gchar *usr_dir = g_build_filename (g_file_get_path (runtime_directory_path),
+                                                "usr",
+                                                NULL);
+  g_autoptr(GFile) usr_dir_path = g_file_new_for_path (usr_dir);
+  g_autoptr(GKeyFile) metadata = g_key_file_new ();
+
+  g_key_file_set_string (metadata, "Runtime", "name", runtime_name);
+
+  if (!g_file_make_directory_with_parents (runtime_directory_path, NULL, error))
+    return FALSE;
+
+  if (!g_file_make_directory_with_parents (files_dir_path, NULL, error))
+    return FALSE;
+
+  if (!g_file_make_directory_with_parents (usr_dir_path, NULL, error))
+    return FALSE;
+
+  if (!g_key_file_save_to_file (metadata, metadata_path, error))
+    return FALSE;
+
+  if (!flatpak_build_export (updater_dir,
+                             g_file_get_path (runtime_directory_path),
+                             repo_directory,
+                             error))
+    return FALSE;
+
+  return TRUE;
+}
+
+gboolean
+eos_test_run_flatpak_installer (GFile        *client_root,
+                                const gchar  *deployment_csum,
+                                const gchar  *remote,
+                                GError      **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_autofree gchar *eos_flatpak_installer_binary = g_test_build_filename (G_TEST_BUILT,
+                                                                          "..",
+                                                                          "eos-updater-flatpak-installer",
+                                                                          "eos-updater-flatpak-installer",
+                                                                          NULL);
+  g_autoptr(GFile) updater_dir = g_file_get_child (client_root, "updater");
+  g_autoptr(GFile) flatpak_installation_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  g_autoptr(GFile) flatpak_upgrade_state_dir = flatpak_upgrade_state (updater_dir);
+  g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
+  g_autofree gchar *sysroot_path = g_file_get_path (sysroot);
+  g_autofree gchar *deployment_id = g_strdup_printf("%s.0", deployment_csum);
+  g_autofree gchar *deployment_datadir = g_build_filename (sysroot_path,
+                                                           "ostree",
+                                                           "deploy",
+                                                           remote,
+                                                           "deploy",
+                                                           deployment_id,
+                                                           "usr",
+                                                           "share",
+                                                           NULL);
+  g_autoptr(GFile) datadir = g_file_new_for_path (deployment_datadir);
+
+  CmdArg args[] = {
+    { NULL, eos_flatpak_installer_binary },
+    { NULL, NULL }
+  };
+  CmdEnvVar envv[] =
+    {
+      { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
+      { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
+      { "EOS_UPDATER_TEST_OSTREE_DATADIR", NULL, datadir },
+      { NULL, NULL, NULL }
+    };
+
+  g_auto(GStrv) argv = build_cmd_args (args);
+  g_auto(GStrv) envp = build_cmd_env (envv);
+
+  if (!test_spawn ((const gchar * const *) argv,
+                   (const gchar * const *) envp,
+                   &cmd,
+                   error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+static GStrv
+g_hash_set_to_strv (GHashTable *string_hash_set)
+{
+  GStrv strv = g_new0 (gchar *, g_hash_table_size (string_hash_set) + 1);
+  GList *iter = g_hash_table_get_keys (string_hash_set);
+  gsize i = 0;
+
+  for (; iter; iter = iter->next, ++i)
+    strv[i] = g_strdup (iter->data);
+
+  return strv;
+}
+
+GStrv
+eos_test_get_installed_flatpaks (GFile   *updater_dir,
+                                 GError **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(GStrv) installed_flatpaks_lines = NULL;
+  GStrv installed_flatpaks_lines_iter = NULL;
+  g_autoptr(GHashTable) installed_flatpaks_set = g_hash_table_new_full (g_str_hash,
+                                                                        g_str_equal,
+                                                                        g_free,
+                                                                        NULL);
+  g_autoptr(GRegex) flatpak_id_regex = g_regex_new ("(.*?)/.*?/.*?", 0, 0, error);
+
+  if (!flatpak_id_regex)
+    return FALSE;
+
+  if (!flatpak_list (updater_dir, &cmd, error))
+    return FALSE;
+
+  installed_flatpaks_lines = g_strsplit (cmd.standard_output, "\n", -1);
+  for (installed_flatpaks_lines_iter = installed_flatpaks_lines;
+       *installed_flatpaks_lines_iter;
+       ++installed_flatpaks_lines_iter)
+    {
+      g_autoptr(GMatchInfo) match_info = NULL;
+      g_autofree gchar *matched_flatpak_name = NULL;
+
+      if (!g_regex_match (flatpak_id_regex,
+                          *installed_flatpaks_lines_iter,
+                          0,
+                          &match_info))
+        continue;
+
+      matched_flatpak_name = g_match_info_fetch (match_info, 1);
+
+      if (!matched_flatpak_name)
+        continue;
+
+      g_hash_table_add (installed_flatpaks_set,
+                        g_steal_pointer (&matched_flatpak_name));
+    }
+
+  return g_hash_set_to_strv (installed_flatpaks_set);
+}
+
+gboolean
+eos_test_setup_flatpak_repo (GFile        *updater_dir,
+                             const gchar  *repo_name,
+                             const gchar **flatpak_names,
+                             GError      **error)
+{
+  /* A few steps here:
+   * 1. Create a runtime (org.test.Runtime)
+   * 2. Install the runtime
+   * 3. Build and export each app in the repo
+   * 4. Add the repo to the user installation
+   *
+   * Note that while testing, the updater will need to use the user repository
+   * since the system one is locked down even if the directory is overridden.
+   */
+  g_autoptr(GFile) flatpak_build_directory_path = g_file_get_child (updater_dir,
+                                                                    "flatpak");
+  g_autoptr(GFile) runtime_directory_path = g_file_get_child (flatpak_build_directory_path,
+                                                          "runtime");
+  g_autofree gchar *apps_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+                                                       "apps",
+                                                       NULL);
+  g_autofree gchar *repo_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+                                                       "repo",
+                                                       NULL);
+  g_autofree gchar *runtime_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+                                                          "runtime",
+                                                          NULL);
+  const gchar **flatpak_name_iter = flatpak_names;
+
+  if (!g_file_make_directory_with_parents (flatpak_build_directory_path, NULL, error))
+    return FALSE;
+
+  if (!populate_runtime (updater_dir,
+                         runtime_directory_path,
+                         repo_directory,
+                         "org.test.Runtime",
+                         error))
+    return FALSE;
+
+  if (!flatpak_remote_add (updater_dir,
+                           "test-repo",
+                           repo_directory,
+                           error))
+    return FALSE;
+
+  if (!flatpak_install (updater_dir,
+                        "test-repo",
+                        "org.test.Runtime",
+                        error))
+    return FALSE;
+
+  /* Now that we have our runtime installed, lets go ahead and build and export
+   * all the apps into our repo */
+  for (; *flatpak_name_iter; ++flatpak_name_iter)
+    {
+      g_autofree gchar *app_dir = g_build_filename (apps_directory,
+                                                    *flatpak_name_iter,
+                                                    NULL);
+      g_autoptr(GFile) app_path = g_file_new_for_path (app_dir);
+
+      if (!populate_flatpak_app (updater_dir,
+                                 app_path,
+                                 *flatpak_name_iter,
+                                 "org.test.Runtime",
+                                 repo_directory,
+                                 error))
+        return FALSE;
+    }
+
+  return TRUE;
+}
+
 
 gboolean
 eos_test_client_run_update_server (EosTestClient *client,
