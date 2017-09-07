@@ -220,13 +220,13 @@ static const gchar *const os_release =
   "VERSION_ID=\"2.6.1\"\n"
   "PRETTY_NAME=\"Endless 2.6.1\"\n";
 
-typedef struct
+struct _SimpleFile
 {
   gchar *rel_path;
   gchar *contents;
-} SimpleFile;
+};
 
-static SimpleFile *
+SimpleFile *
 simple_file_new_steal (gchar *rel_path,
                        gchar *contents)
 {
@@ -238,7 +238,7 @@ simple_file_new_steal (gchar *rel_path,
   return file;
 }
 
-static void
+void
 simple_file_free (gpointer file_ptr)
 {
   SimpleFile *file = file_ptr;
