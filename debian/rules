@@ -30,6 +30,7 @@ override_dh_strip:
 # Don't start the services on install
 override_dh_systemd_start:
 	dh_systemd_start -peos-updater --no-start eos-autoupdater.service eos-update-server.service
+	dh_systemd_start -peos-updater --no-start eos-updater-flatpak-installer.service
 	dh_systemd_start -peos-updater eos-autoupdater.timer eos-update-server.socket eos-updater-avahi.path
 
 override_dh_install:

@@ -60,11 +60,35 @@ AM_CPPFLAGS = \
 # Utility library
 noinst_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
+enum_header_files = \
+	libeos-updater-util/flatpak.h \
+	eos-updater-flatpak-installer/installer.h \
+	$(NULL)
+enum_template_h_file = libeos-updater-util/enums.h.in
+enum_template_c_file = libeos-updater-util/enums.c.in
+enum_sources = \
+	libeos-updater-util/enums.h \
+	libeos-updater-util/enums.c \
+	$(NULL)
+
+# FIXME: We can't use the --output switch as documented in https://git.gnome.org/browse/glib/commit/?id=cd97f93bf7c44cb5736f6cbcb4db773ca592e462
+# until https://bugzilla.gnome.org/show_bug.cgi?id=789637 is fixed
+libeos-updater-util/enums.h:
+	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) > $@
+
+libeos-updater-util/enums.c:
+	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) > $@
+
+BUILT_SOURCES += $(enum_sources)
+CLEANFILES += $(enum_sources)
+EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
+
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(STD_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(WARN_CFLAGS) \
+	$(FLATPAK_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(SOUP_CFLAGS) \
@@ -78,6 +102,7 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LDFLAGS = \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LIBADD = \
 	$(CODE_COVERAGE_LIBS) \
+	$(FLATPAK_LIBS) \
 	$(GIO_LIBS) \
 	$(OSTREE_LIBS) \
 	$(SOUP_LIBS) \
@@ -87,13 +112,18 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/avahi-service-file.h \
 	libeos-updater-util/config.c \
 	libeos-updater-util/config.h \
+	libeos-updater-util/flatpak.c \
+	libeos-updater-util/flatpak.h \
 	libeos-updater-util/ostree-bloom-private.h \
 	libeos-updater-util/ostree-bloom.c \
 	libeos-updater-util/ostree.c \
 	libeos-updater-util/ostree.h \
 	libeos-updater-util/refcounted.h \
+	libeos-updater-util/types.c \
+	libeos-updater-util/types.h \
 	libeos-updater-util/util.c \
 	libeos-updater-util/util.h \
+	$(enum_sources) \
 	$(NULL)
 
 # eos-updater-avahi program
@@ -132,7 +162,10 @@ systemdsystemunit_DATA += $(eos_updater_avahi_in:%.in=%)
 EXTRA_DIST += $(eos_updater_avahi_in)
 CLEANFILES += $(eos_updater_avahi_in:%.in=%)
 
-dist_man8_MANS += eos-updater-avahi/docs/eos-updater-avahi.8
+dist_man8_MANS += \
+	eos-updater-avahi/docs/eos-updater-avahi.8 \
+	eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8 \
+	$(NULL)
 
 # Server utility library
 noinst_LTLIBRARIES += libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la
@@ -190,7 +223,7 @@ EXTRA_DIST += \
 	$(NULL)
 
 # eos-update-server program
-libexec_PROGRAMS += eos-update-server/eos-update-server
+libexec_PROGRAMS += eos-update-server/eos-update-server eos-updater-flatpak-installer/eos-updater-flatpak-installer
 
 eos_update_server_eos_update_server_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -234,6 +267,30 @@ dist_man8_MANS += eos-update-server/docs/eos-update-server.8
 dist_bin_SCRIPTS += eos-updater-prepare-volume/eos-updater-prepare-volume
 
 dist_man8_MANS += eos-updater-prepare-volume/docs/eos-updater-prepare-volume.8
+
+# eos-updater-install-flatpaks program
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-updater-flatpak-installer"\" \
+	-DLOCALSTATEDIR=\""$(localstatedir)"\"
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_CFLAGS = \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_CFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
+	eos-updater-flatpak-installer/main.c \
+	$(NULL)
 
 # Generic systemd rules
 edit = sed \

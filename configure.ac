@@ -81,6 +81,9 @@ AVAHI_REQUIRED_VERSION=0.6.31
 NM_REQUIRED_VERSION=1.2.0
 FLATPAK_REQUIRED_VERSION=0.9.8
 
+PKG_CHECK_MODULES([FLATPAK],
+                  [flatpak >= $FLATPAK_REQUIRED_VERSION])
+
 PKG_CHECK_MODULES([GIO],
                   [gio-unix-2.0 >= $GLIB_REQUIRED_VERSION])
 
@@ -94,6 +97,7 @@ PKG_CHECK_MODULES([EOS_AUTOUPDATER],
                   [libnm >= $NM_REQUIRED_VERSION])
 
 AX_PKG_CHECK_MODULES([EOS_UPDATE_SERVER],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4 libsystemd])
+
 AX_PKG_CHECK_MODULES([EOS_UPDATER_AVAHI],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION])
 AX_PKG_CHECK_MODULES([EOS_UPDATER_UTIL_TESTS],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4])
 AX_PKG_CHECK_MODULES([EOS_UPDATER_FLATPAK_INSTALLER],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION])
@@ -121,9 +125,19 @@ AS_IF([test "$GPG" = ""],[
 	AC_MSG_ERROR([gpg is required for tests])
 ])
 
+AC_PATH_PROG([FLATPAK],[flatpak])
+AS_IF([test "$FLATPAK" = ""],[
+	AC_MSG_ERROR([flatpak is required for tests])
+])
+
 AC_PATH_PROG([GLIB_COMPILE_RESOURCES],[glib-compile-resources])
 AS_IF([test "$GLIB_COMPILE_RESOURCES" == ""],[
 	AC_MSG_ERROR([glib-compile-resources not found])
+])
+
+AC_PATH_PROG([GLIB_MKENUMS],[glib-mkenums])
+AS_IF([test "$GLIB_MKENUMS" == ""],[
+  AC_MSG_ERROR([glib-mkenums not found])
 ])
 
 # Ensure we have the libOSTree experimental API available
