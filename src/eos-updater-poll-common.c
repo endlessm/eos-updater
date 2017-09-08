@@ -721,8 +721,6 @@ fetch_latest_commit (OstreeRepo *repo,
                      EosExtensions **out_extensions,
                      GError **error)
 {
-  g_autoptr(GBytes) summary_bytes = NULL;
-  g_autoptr(GVariant) summary = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) options = NULL;
   g_autoptr(GVariant) commit = NULL;
