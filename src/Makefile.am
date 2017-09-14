@@ -56,6 +56,7 @@ common_cflags = \
 	$(GIO_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	$(OSTREE_CFLAGS) \
+	$(FLATPAK_CFLAGS) \
 	$(NULL)
 common_cppflags = \
 	-I$(top_srcdir) \
@@ -79,7 +80,7 @@ nodist_eos_autoupdater_SOURCES = $(eos_updater_resource_sources)
 
 dist_man8_MANS += docs/eos-autoupdater.8
 
-common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
+common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(FLATPAK_LIBS) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
 bin_PROGRAMS = eos-updater
 
