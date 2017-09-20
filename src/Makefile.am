@@ -51,8 +51,8 @@ nodist_libeos_updater_dbus_la_SOURCES = $(BUILT_SOURCES)
 
 common_cflags = \
 	$(AM_CFLAGS) \
-	$(WARN_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	$(OSTREE_CFLAGS) \

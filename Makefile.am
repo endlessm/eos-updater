@@ -106,8 +106,8 @@ eos_updater_avahi_eos_updater_avahi_CPPFLAGS = \
 	$(NULL)
 eos_updater_avahi_eos_updater_avahi_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(WARN_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
 	$(EOS_UPDATER_AVAHI_CFLAGS) \
 	$(NULL)
 eos_updater_avahi_eos_updater_avahi_LDFLAGS = \
@@ -197,8 +197,8 @@ eos_update_server_eos_update_server_CPPFLAGS = \
 	$(NULL)
 eos_update_server_eos_update_server_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(WARN_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
 	$(EOS_UPDATE_SERVER_CFLAGS) \
 	$(NULL)
 eos_update_server_eos_update_server_LDFLAGS = \
