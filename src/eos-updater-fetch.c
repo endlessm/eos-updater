@@ -208,7 +208,7 @@ content_fetch (GTask *task,
   goto cleanup;
 
  error:
-  g_message ("Fetch returning ERROR");
+  g_message ("Fetch: error: %s", error->message);
   g_task_return_error (task, error);
 
  cleanup:
