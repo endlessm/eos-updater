@@ -35,6 +35,7 @@ libeos_updater_test_la_CPPFLAGS = \
 	$(NULL)
 libeos_updater_test_la_CFLAGS = \
 	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(GIO_CFLAGS) \
@@ -91,6 +92,7 @@ test_cppflags = \
 	$(NULL)
 test_cflags = \
 	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(NULL)
