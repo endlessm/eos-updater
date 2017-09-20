@@ -61,6 +61,7 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(GIO_CFLAGS) \
@@ -104,6 +105,7 @@ eos_updater_avahi_eos_updater_avahi_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\""eos-updater-avahi"\" \
 	$(NULL)
 eos_updater_avahi_eos_updater_avahi_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(EOS_UPDATER_AVAHI_CFLAGS) \
@@ -140,6 +142,7 @@ libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\""libeos-update-server"\" \
 	$(NULL)
 libeos_update_server_libeos_update_server_@EUS_API_VERSION@_la_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(EOS_UPDATE_SERVER_CFLAGS) \
@@ -193,6 +196,7 @@ eos_update_server_eos_update_server_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\""eos-update-server"\" \
 	$(NULL)
 eos_update_server_eos_update_server_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(EOS_UPDATE_SERVER_CFLAGS) \

@@ -34,6 +34,7 @@ libeos_updater_test_la_CPPFLAGS = \
 	-I$(top_builddir)/src \
 	$(NULL)
 libeos_updater_test_la_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(GIO_CFLAGS) \
@@ -89,6 +90,7 @@ test_cppflags = \
 	-DG_LOG_DOMAIN=\"eos-updater-tests\" \
 	$(NULL)
 test_cflags = \
+	$(AM_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(NULL)
