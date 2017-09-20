@@ -90,45 +90,17 @@ get_config_file_path (void)
 typedef struct
 {
   GArray *download_order;
-
-  gchar *volume_path;
 } SourcesConfig;
 
-#define SOURCES_CONFIG_CLEARED { NULL, NULL }
+#define SOURCES_CONFIG_CLEARED { NULL }
 
 static void
 sources_config_clear (SourcesConfig *config)
 {
   g_clear_pointer (&config->download_order, g_array_unref);
-  g_clear_pointer (&config->volume_path, g_free);
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (SourcesConfig, sources_config_clear)
-
-static gboolean
-sources_config_has_source (SourcesConfig *config,
-                           EosUpdaterDownloadSource source,
-                           gchar **out_group_name)
-{
-  gsize idx;
-
-  for (idx = 0; idx < config->download_order->len; ++idx)
-    {
-      EosUpdaterDownloadSource config_source = g_array_index (config->download_order,
-                                                              EosUpdaterDownloadSource,
-                                                              idx);
-
-      if (config_source == source)
-        {
-          *out_group_name = g_strdup_printf ("Source \"%s\"",
-                                             download_source_to_string (source));
-          return TRUE;
-        }
-    }
-
-  *out_group_name = NULL;
-  return FALSE;
-}
 
 static gboolean
 read_config (const gchar *config_file_path,
@@ -161,19 +133,6 @@ read_config (const gchar *config_file_path,
                                &sources_config->download_order,
                                error))
     return FALSE;
-
-  if (sources_config_has_source (sources_config,
-                                 EOS_UPDATER_DOWNLOAD_VOLUME,
-                                 &group_name))
-    {
-      sources_config->volume_path = euu_config_file_get_string (config,
-                                                                group_name,
-                                                                "Path",
-                                                                error);
-
-      if (sources_config->volume_path == NULL)
-        return FALSE;
-    }
 
   return TRUE;
 }
@@ -229,9 +188,6 @@ get_fetchers (SourcesConfig *config,
 
         case EOS_UPDATER_DOWNLOAD_VOLUME:
           add_fetcher (fetchers, metadata_fetch_from_volume);
-          g_variant_dict_insert_value (&dict_builder,
-                                       VOLUME_FETCHER_PATH_KEY,
-                                       g_variant_new_string (config->volume_path));
           break;
 
         default:
@@ -287,7 +243,6 @@ metadata_fetch (GTask *task,
   get_fetchers (&config, &fetchers, &source_variants);
   info = run_fetchers (fetch_data,
                        fetchers,
-                       source_variants,
                        config.download_order);
 
   g_task_return_pointer (task,

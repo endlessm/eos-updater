@@ -158,7 +158,6 @@ EosTestClient *eos_test_client_new (GFile *client_root,
 
 gboolean eos_test_client_run_updater (EosTestClient *client,
                                       DownloadSource *order,
-                                      GVariant **source_variants,
                                       gsize n_sources,
                                       CmdAsyncResult *cmd,
                                       GError **error);

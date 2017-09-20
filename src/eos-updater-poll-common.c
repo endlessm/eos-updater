@@ -936,7 +936,6 @@ get_latest_update (GArray *sources,
 EosUpdateInfo *
 run_fetchers (EosMetadataFetchData *fetch_data,
               GPtrArray *fetchers,
-              GPtrArray *source_variants,
               GArray *sources)
 {
   guint idx;
@@ -947,36 +946,20 @@ run_fetchers (EosMetadataFetchData *fetch_data,
 
   g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), NULL);
   g_return_val_if_fail (fetchers != NULL, NULL);
-  g_return_val_if_fail (source_variants != NULL, NULL);
   g_return_val_if_fail (sources != NULL, NULL);
-  g_return_val_if_fail (fetchers->len == source_variants->len, NULL);
-  g_return_val_if_fail (source_variants->len == sources->len, NULL);
+  g_return_val_if_fail (fetchers->len == sources->len, NULL);
 
   for (idx = 0; idx < fetchers->len; ++idx)
     {
       MetadataFetcher fetcher = g_ptr_array_index (fetchers, idx);
-      GVariant *source_variant = g_ptr_array_index (source_variants, idx);
       g_autoptr(EosUpdateInfo) info = NULL;
       EosUpdaterDownloadSource source = g_array_index (sources,
                                                        EosUpdaterDownloadSource,
                                                        idx);
       const gchar *name = download_source_to_string (source);
       g_autoptr(GError) local_error = NULL;
-      const GVariantType *source_variant_type = g_variant_get_type (source_variant);
 
-      if (!g_variant_type_equal (source_variant_type, G_VARIANT_TYPE_VARDICT))
-        {
-          g_autofree gchar *expected = g_variant_type_dup_string (G_VARIANT_TYPE_VARDICT);
-          g_autofree gchar *got = g_variant_type_dup_string (source_variant_type);
-
-          g_message ("Wrong type of %s fetcher configuration, expected %s, got %s",
-                     name,
-                     expected,
-                     got);
-          continue;
-        }
-
-      if (!fetcher (fetch_data, source_variant, &info, &local_error))
+      if (!fetcher (fetch_data, &info, &local_error))
         {
           g_message ("Failed to poll metadata from source %s: %s",
                      name, local_error->message);

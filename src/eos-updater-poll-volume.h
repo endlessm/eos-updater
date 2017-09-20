@@ -28,10 +28,7 @@
 
 G_BEGIN_DECLS
 
-extern const gchar *const VOLUME_FETCHER_PATH_KEY;
-
 gboolean metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
-                                     GVariant *source_variant,
                                      EosUpdateInfo **out_info,
                                      GError **error);
 

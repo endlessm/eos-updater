@@ -28,7 +28,6 @@
 
 gboolean
 metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
-                          GVariant *source_variant,
                           EosUpdateInfo **out_info,
                           GError **error)
 {

@@ -47,7 +47,6 @@ test_update_from_volume (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) cmds = NULL;
   gboolean has_commit;
   DownloadSource volume_source = DOWNLOAD_VOLUME;
-  g_autoptr(GVariant) volume_source_variant = NULL;
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
    * afterwards we hit unsupported syscalls in qemu-user when running in an
@@ -105,10 +104,8 @@ test_update_from_volume (EosUpdaterFixture *fixture,
                                   &error);
   g_assert_no_error (error);
 
-  volume_source_variant = g_variant_new_take_string (g_file_get_path (volume_path));
   eos_test_client_run_updater (client1,
                                &volume_source,
-                               &volume_source_variant,
                                1,
                                &updater_cmd,
                                &error);

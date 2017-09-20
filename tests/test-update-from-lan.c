@@ -50,7 +50,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) cmds_to_free = NULL;
   gboolean has_commit;
   DownloadSource lan_source = DOWNLOAD_LAN;
-  g_autoptr(GVariant) lan_source_variant = NULL;
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
    * afterwards we hit unsupported syscalls in qemu-user when running in an
@@ -142,7 +141,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
 
   eos_test_client_run_updater (client,
                                &lan_source,
-                               &lan_source_variant,
                                1,
                                &updater_cmd,
                                &error);

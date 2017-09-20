@@ -94,7 +94,6 @@ volume_metadata_fetch (GTask *task,
   g_array_append_val (download_order, volume_source);
   info = run_fetchers (fetch_data,
                        fetchers,
-                       source_variants,
                        download_order);
 
   g_task_return_pointer (task,
