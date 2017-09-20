@@ -398,6 +398,13 @@ ostree_bloom_get_hash_func (OstreeBloom *bloom)
   return bloom->hash_func;
 }
 
+/* Ignore some warnings from the SipHash code rather than modifying it. */
+_Pragma ("GCC diagnostic push")
+_Pragma ("GCC diagnostic ignored \"-Wpragmas\"")
+_Pragma ("GCC diagnostic ignored \"-Wswitch-default\"")
+_Pragma ("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+_Pragma ("GCC diagnostic ignored \"-Wdeclaration-after-statement\"")
+
 /* SipHash code adapted from https://github.com/veorq/SipHash/blob/master/siphash.c */
 
 /*
@@ -560,6 +567,8 @@ static int siphash(const uint8_t *in, const size_t inlen, const uint8_t *k,
 }
 
 /* End SipHash copied code. */
+
+_Pragma ("GCC diagnostic pop")
 
 /**
  * ostree_str_bloom_hash:
