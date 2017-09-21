@@ -65,7 +65,7 @@ def signal_emitted(proxy, signal, parameters):
     if signal != "StateChanged":
         return
     state = UPDATER_STATES[parameters[0]]
-    print("======= State changed to: " + state + " =======")
+    print("======= State changed to: " + state + " =======", flush=True)
 
 
 def dump_daemon_properties(proxy):
@@ -76,14 +76,14 @@ def dump_daemon_properties(proxy):
     for x in proxy.get_cached_property_names():
         if x != "State":
             print(" " + x + ": " + str(proxy.get_cached_property(x)))
-    print("")
+    print("", flush=True)
 
 
 def name_appeared_cb(connection, name, name_owner):
     global current_proxy
 
     print("======= Ownership =======")
-    print("%s appeared as %s" % (name, name_owner))
+    print("%s appeared as %s" % (name, name_owner), flush=True)
 
     proxy = Gio.DBusProxy.new_sync(connection,
                                    Gio.DBusProxyFlags.NONE,
@@ -110,7 +110,7 @@ def name_vanished_cb(connection, name):
     current_proxy = None
 
     print("======= Ownership =======")
-    print("%s disappeared" % name)
+    print("%s disappeared" % name, flush=True)
 
 
 def command_dbus(command, block, quiet=False):
@@ -126,7 +126,7 @@ def command_dbus(command, block, quiet=False):
 
         new_state = UPDATER_STATES[parameters[0]]
         if not quiet:
-            print('Changed state to ' + new_state)
+            print('Changed state to ' + new_state, flush=True)
 
         if new_state == in_progress_state:
             seen_in_progress_state = True
@@ -295,7 +295,7 @@ def command_server(server_command, quiet=False):
     # present. If not, we need to apply an update to download one.
     if new_state and not os.path.exists(EOS_SUMMARY):
         if not quiet:
-            print('Triggering update to download OSTree summary file…')
+            print('Triggering update to download OSTree summary file…', flush=True)
         return command_update(quiet=True)
 
     return 0
