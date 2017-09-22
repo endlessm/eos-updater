@@ -2221,9 +2221,9 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                 GFile *volume_path,
                                 GError **error)
 {
-  g_autofree gchar *eos_updater_prepare_volume_binary = g_test_build_filename (G_TEST_BUILT,
+  g_autofree gchar *eos_updater_prepare_volume_binary = g_test_build_filename (G_TEST_DIST,
                                                                                "..",
-                                                                               "src",
+                                                                               "eos-updater-prepare-volume",
                                                                                "eos-updater-prepare-volume",
                                                                                NULL);
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);

@@ -25,6 +25,7 @@ libexec_PROGRAMS =
 noinst_LTLIBRARIES =
 systemdsystemunit_DATA =
 dist_sysconfexample_DATA =
+dist_bin_SCRIPTS =
 dist_man5_MANS =
 dist_man8_MANS =
 EXTRA_DIST =
@@ -40,8 +41,7 @@ EXTRA_DIST += README.md
 AM_DISTCHECK_CONFIGURE_FLAGS = --with-systemdsystemunitdir='$${libdir}/systemd/system' --enable-introspection
 
 pkgconfigdir = $(libdir)/pkgconfig
-
-pkgconfig_DATA = eos-updater-0.pc
+pkgconfig_DATA =
 
 # Common compilation options
 AM_CPPFLAGS = \
@@ -231,6 +231,11 @@ dist_sysconfexample_DATA += eos-update-server/eos-update-server.conf
 
 dist_man5_MANS += eos-update-server/docs/eos-update-server.conf.5
 dist_man8_MANS += eos-update-server/docs/eos-update-server.8
+
+# eos-updater-prepare-volume utility
+dist_bin_SCRIPTS += eos-updater-prepare-volume/eos-updater-prepare-volume
+
+dist_man8_MANS += eos-updater-prepare-volume/docs/eos-updater-prepare-volume.8
 
 # Generic systemd rules
 edit = sed \

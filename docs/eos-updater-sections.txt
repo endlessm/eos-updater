@@ -1,5 +1,0 @@
-<SECTION>
-<FILE>prepare-update</FILE>
-eos_updater_prepare_volume_from_sysroot
-eos_updater_prepare_volume
-</SECTION>
