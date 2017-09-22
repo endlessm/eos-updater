@@ -34,7 +34,13 @@ BUILT_SOURCES = \
 	$(NULL)
 
 libeos_updater_dbus_la_CPPFLAGS = $(common_cppflags) -DG_LOG_DOMAIN=\""eos-updater-dbus"\"
-libeos_updater_dbus_la_CFLAGS = $(WARN_CFLAGS) $(CODE_COVERAGE_CFLAGS) $(GIO_CFLAGS)
+libeos_updater_dbus_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(GIO_CFLAGS) \
+	$(NULL)
 libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
 libeos_updater_dbus_la_SOURCES = \
 	eos-updater-object.c \
@@ -45,8 +51,10 @@ libeos_updater_dbus_la_SOURCES = \
 nodist_libeos_updater_dbus_la_SOURCES = $(BUILT_SOURCES)
 
 common_cflags = \
-	$(WARN_CFLAGS) \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	$(OSTREE_CFLAGS) \

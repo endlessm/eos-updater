@@ -27,8 +27,9 @@ AM_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"libeos-updater-util-tests\" \
 	$(NULL)
 AM_CFLAGS = \
-	$(WARN_CFLAGS) \
+	$(STD_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
 	$(EOS_UPDATER_UTIL_TESTS_CFLAGS) \
 	$(NULL)
 AM_LDFLAGS = \

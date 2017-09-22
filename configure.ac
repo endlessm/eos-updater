@@ -44,6 +44,10 @@ AC_SUBST([EUS_API_VERSION],eus_api_version)
 # Compiler warnings and --disable-Werror
 AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])
 
+# Enable C99
+AX_APPEND_COMPILE_FLAGS([-std=c99],[STD_CFLAGS])
+AC_SUBST([STD_CFLAGS])
+
 # Valgrind support for tests
 AX_VALGRIND_CHECK
 
