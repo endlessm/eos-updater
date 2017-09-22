@@ -122,7 +122,7 @@ repo_pull (OstreeRepo *self,
 
       if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
-          g_propagate_error (error, local_error);
+          g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
         }
 
