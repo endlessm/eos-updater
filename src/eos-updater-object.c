@@ -41,17 +41,29 @@ void
 eos_updater_set_error (EosUpdater *updater,
                        const GError *error)
 {
-  gint code = error ? error->code : -1;
-  const gchar *msg = (error && error->message) ? error->message : "Unspecified";
-  g_autofree gchar *error_name = g_dbus_error_encode_gerror (error);
+  g_autoptr(GError) local_error = NULL;
+  g_autofree gchar *error_name = NULL;
 
   g_warn_if_fail (error != NULL);
 
-  g_message ("Changing to error state: %s, %d, %s", error_name, code, msg);
+  if (error == NULL)
+    {
+      /* This case should never be hit. If it is, there’s a bug in eos-updater;
+       * but we’d prefer eos-updater to continue running and report some error
+       * state rather than abort or not report any error state. */
+      g_set_error_literal (&local_error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                           "Error in updater: error state set without appropriate message");
+      error = local_error;
+    }
+
+  error_name = g_dbus_error_encode_gerror (error);
+
+  g_message ("Changing to error state: %s, %d, %s",
+             error_name, error->code, error->message);
 
   eos_updater_set_error_name (updater, error_name);
-  eos_updater_set_error_code (updater, code);
-  eos_updater_set_error_message (updater, msg);
+  eos_updater_set_error_code (updater, error->code);
+  eos_updater_set_error_message (updater, error->message);
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
 }
 
