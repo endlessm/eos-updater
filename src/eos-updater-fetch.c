@@ -209,7 +209,7 @@ content_fetch (GTask *task,
 
  error:
   g_message ("Fetch: error: %s", error->message);
-  g_task_return_error (task, error);
+  g_task_return_error (task, g_steal_pointer (&error));
 
  cleanup:
   if (progress)
