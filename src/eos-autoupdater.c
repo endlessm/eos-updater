@@ -121,9 +121,11 @@ log_with_msgid (const gchar *msgid,
   g_autofree gchar *message = NULL;
   /* Apparently the version of GCC in Endless ignores the
    * G_GNUC_PRINTF annotation that has a zero as the second parameter,
-   * so it suggests to use this attribute. */
+   * so it suggests to use this attribute. Similarly, so does Clang 4. */
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpragmas"
 #pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
   gint message_length = g_vasprintf (&message, format, args);
 #pragma GCC diagnostic pop
   const GLogField fields[] = {
