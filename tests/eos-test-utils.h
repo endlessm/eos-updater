@@ -54,10 +54,11 @@ extern const gchar *const default_ostree_path;
 extern const gchar *const default_remote_name;
 
 #define EOS_TEST_TYPE_DEVICE eos_test_device_get_type ()
-EOS_DECLARE_REFCOUNTED (EosTestDevice,
-                        eos_test_device,
-                        EOS_TEST,
-                        DEVICE)
+G_DECLARE_FINAL_TYPE (EosTestDevice,
+                      eos_test_device,
+                      EOS_TEST,
+                      DEVICE,
+                      GObject)
 
 struct _EosTestDevice
 {
@@ -73,10 +74,11 @@ EosTestDevice *eos_test_device_new (const gchar *vendor,
                                     const gchar *ref);
 
 #define EOS_TEST_TYPE_SUBSERVER eos_test_subserver_get_type ()
-EOS_DECLARE_REFCOUNTED (EosTestSubserver,
-                        eos_test_subserver,
-                        EOS_TEST,
-                        SUBSERVER)
+G_DECLARE_FINAL_TYPE (EosTestSubserver,
+                      eos_test_subserver,
+                      EOS_TEST,
+                      SUBSERVER,
+                      GObject)
 
 struct _EosTestSubserver
 {
@@ -109,10 +111,11 @@ gboolean eos_test_subserver_update (EosTestSubserver *subserver,
                                     GError **error);
 
 #define EOS_TEST_TYPE_SERVER eos_test_server_get_type ()
-EOS_DECLARE_REFCOUNTED (EosTestServer,
-                        eos_test_server,
-                        EOS_TEST,
-                        SERVER)
+G_DECLARE_FINAL_TYPE (EosTestServer,
+                      eos_test_server,
+                      EOS_TEST,
+                      SERVER,
+                      GObject)
 
 struct _EosTestServer
 {
@@ -138,10 +141,11 @@ EosTestServer *eos_test_server_new_quick (GFile *server_root,
                                           GError **error);
 
 #define EOS_TEST_TYPE_CLIENT eos_test_client_get_type ()
-EOS_DECLARE_REFCOUNTED (EosTestClient,
-                        eos_test_client,
-                        EOS_TEST,
-                        CLIENT)
+G_DECLARE_FINAL_TYPE (EosTestClient,
+                      eos_test_client,
+                      EOS_TEST,
+                      CLIENT,
+                      GObject)
 
 struct _EosTestClient
 {
@@ -234,10 +238,11 @@ typedef enum _UpdateStep {
 } UpdateStep;
 
 #define EOS_TEST_TYPE_AUTOUPDATER eos_test_autoupdater_get_type ()
-EOS_DECLARE_REFCOUNTED (EosTestAutoupdater,
-                        eos_test_autoupdater,
-                        EOS_TEST,
-                        AUTOUPDATER)
+G_DECLARE_FINAL_TYPE (EosTestAutoupdater,
+                      eos_test_autoupdater,
+                      EOS_TEST,
+                      AUTOUPDATER,
+                      GObject)
 
 struct _EosTestAutoupdater
 {

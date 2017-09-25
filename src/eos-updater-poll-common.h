@@ -41,10 +41,11 @@ is_checksum_an_update (OstreeRepo *repo,
                        GError **error);
 
 #define EOS_TYPE_METRICS_INFO eos_metrics_info_get_type ()
-EOS_DECLARE_REFCOUNTED (EosMetricsInfo,
-                        eos_metrics_info,
-                        EOS,
-                        METRICS_INFO)
+G_DECLARE_FINAL_TYPE (EosMetricsInfo,
+                      eos_metrics_info,
+                      EOS,
+                      METRICS_INFO,
+                      GObject)
 
 struct _EosMetricsInfo
 {
@@ -59,10 +60,11 @@ EosMetricsInfo *
 eos_metrics_info_new (const gchar *booted_ref);
 
 #define EOS_TYPE_UPDATE_INFO eos_update_info_get_type ()
-EOS_DECLARE_REFCOUNTED (EosUpdateInfo,
-                        eos_update_info,
-                        EOS,
-                        UPDATE_INFO)
+G_DECLARE_FINAL_TYPE (EosUpdateInfo,
+                      eos_update_info,
+                      EOS,
+                      UPDATE_INFO,
+                      GObject)
 
 struct _EosUpdateInfo
 {
@@ -88,10 +90,11 @@ GDateTime *
 eos_update_info_get_commit_timestamp (EosUpdateInfo *info);
 
 #define EOS_TYPE_METADATA_FETCH_DATA eos_metadata_fetch_data_get_type ()
-EOS_DECLARE_REFCOUNTED (EosMetadataFetchData,
-                        eos_metadata_fetch_data,
-                        EOS,
-                        METADATA_FETCH_DATA)
+G_DECLARE_FINAL_TYPE (EosMetadataFetchData,
+                      eos_metadata_fetch_data,
+                      EOS,
+                      METADATA_FETCH_DATA,
+                      GObject)
 
 struct _EosMetadataFetchData
 {
