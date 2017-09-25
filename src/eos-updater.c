@@ -81,9 +81,6 @@ on_bus_acquired (GDBusConnection *connection,
   EosUpdater *updater = NULL;
   LocalData *local_data = user_data;
   GError *error = NULL;
-
-  g_autofree gchar *src = NULL;
-  g_autofree gchar *ref = NULL;
   g_autofree gchar *sum = NULL;
 
   g_message ("Acquired a message bus connection");

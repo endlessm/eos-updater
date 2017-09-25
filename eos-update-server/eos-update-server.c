@@ -102,7 +102,6 @@ serve_remote_goption (const gchar *option_name,
                       GError **error)
 {
   Options* options = options_ptr;
-  g_autoptr(GError) local_error = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *test_refspec = g_strdup_printf ("%s:test", value);
 

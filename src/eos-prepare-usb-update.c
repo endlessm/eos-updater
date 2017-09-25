@@ -346,7 +346,6 @@ run_pull_task_func (GTask *task,
   g_autoptr(GError) local_error = NULL;
   const gchar *refs[] = { pull_data->refspec->ref };
   const gchar *override_commit_ids[] = { pull_data->commit_id };
-  g_autoptr(ScopedMainContext) context = scoped_main_context_new ();
   OstreeRepoPullFlags pull_flags = OSTREE_REPO_PULL_FLAGS_MIRROR;
 
   g_variant_builder_init (&builder, G_VARIANT_TYPE_VARDICT);
@@ -412,7 +411,6 @@ do_pull (OstreeRepo *source_repo,
   g_autoptr(ScopedMainContext) context = scoped_main_context_new ();
   g_autoptr(GMainLoop) loop = NULL;
   g_autofree gchar *source_uri = NULL;
-  g_autoptr(GError) local_error = NULL;
   g_autoptr(EosPullData) pull_data = NULL;
 
   source_uri = g_file_get_uri (ostree_repo_get_path (source_repo));
