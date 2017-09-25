@@ -107,6 +107,8 @@ ensure_coherency (OstreeRepo *repo,
   g_auto(GStrv) refs = NULL;
   g_autofree gchar *ref_commit_id = NULL;
 
+  g_return_val_if_fail (EOS_IS_REFSPEC (refspec), FALSE);
+
   remotes = ostree_repo_remote_list (repo, NULL);
   if (!strv_contains (remotes, refspec->remote))
     {
@@ -329,7 +331,9 @@ pull_ready (GObject *object,
             GAsyncResult *res,
             gpointer pull_data_ptr)
 {
-  g_autoptr(EosPullData) pull_data = EOS_PULL_DATA (pull_data_ptr);
+  g_autoptr(EosPullData) pull_data = pull_data_ptr;
+
+  g_return_if_fail (EOS_IS_PULL_DATA (pull_data));
 
   g_task_propagate_boolean (G_TASK (res), &pull_data->error);
   g_main_loop_quit (pull_data->loop);

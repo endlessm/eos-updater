@@ -265,6 +265,8 @@ time_check (LanData *lan_data,
 {
   g_autoptr(GDateTime) txt_utc = NULL;
 
+  g_return_val_if_fail (EOS_IS_SERVICE_WITH_METADATA (swm), FALSE);
+
   if (check_dl_time (lan_data, dl_time, &txt_utc))
     {
       swm->declared_head_commit_timestamp = g_steal_pointer (&txt_utc);
