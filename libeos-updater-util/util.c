@@ -180,7 +180,6 @@ eos_updater_save_or_delete  (GBytes *contents,
                              GError **error)
 {
   g_autoptr(GFile) target = g_file_get_child (dir, filename);
-  g_autoptr(GFile) target_parent = g_file_get_parent (target);
 
   if (contents == NULL)
     return delete_files_and_empty_parents (dir, target, cancellable, error);
