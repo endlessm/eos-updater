@@ -340,8 +340,10 @@ address_to_string (const AvahiAddress *address,
   switch (address->proto)
     {
     case AVAHI_PROTO_INET6:
-      if (IN6_IS_ADDR_LINKLOCAL (address->data.data) ||
-          IN6_IS_ADDR_LOOPBACK (address->data.data))
+      /* Cast to void* to avoid a -Wcast-align warning. AvahiIPv6Address.address
+       * should be guaranteed to be 16-byte aligned. */
+      if (IN6_IS_ADDR_LINKLOCAL ((void *) address->data.ipv6.address) ||
+          IN6_IS_ADDR_LOOPBACK ((void *) address->data.ipv6.address))
         return g_strdup_printf ("%s%%%d", address_string, interface);
       /* else fall through */
     case AVAHI_PROTO_INET:
