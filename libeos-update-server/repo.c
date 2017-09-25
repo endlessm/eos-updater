@@ -404,10 +404,11 @@ load_compressed_file_stream (OstreeRepo *repo,
 }
 
 #define EOS_TYPE_FILEZ_READ_DATA eos_filez_read_data_get_type ()
-EOS_DECLARE_REFCOUNTED (EosFilezReadData,
-                        eos_filez_read_data,
-                        EOS,
-                        FILEZ_READ_DATA)
+G_DECLARE_FINAL_TYPE (EosFilezReadData,
+                      eos_filez_read_data,
+                      EOS,
+                      FILEZ_READ_DATA,
+                      GObject)
 
 struct _EosFilezReadData
 {

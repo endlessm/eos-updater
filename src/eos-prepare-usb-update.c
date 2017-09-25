@@ -49,10 +49,11 @@ repo_get_raw_path (OstreeRepo *repo)
 }
 
 #define EOS_TYPE_REFSPEC eos_refspec_get_type ()
-EOS_DECLARE_REFCOUNTED (EosRefspec,
-                        eos_refspec,
-                        EOS,
-                        REFSPEC)
+G_DECLARE_FINAL_TYPE (EosRefspec,
+                      eos_refspec,
+                      EOS,
+                      REFSPEC,
+                      GObject)
 
 struct _EosRefspec
 {
@@ -265,10 +266,11 @@ scoped_main_context_free (ScopedMainContext *context)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (ScopedMainContext, scoped_main_context_free)
 
 #define EOS_TYPE_PULL_DATA eos_pull_data_get_type ()
-EOS_DECLARE_REFCOUNTED (EosPullData,
-                        eos_pull_data,
-                        EOS,
-                        PULL_DATA)
+G_DECLARE_FINAL_TYPE (EosPullData,
+                      eos_pull_data,
+                      EOS,
+                      PULL_DATA,
+                      GObject)
 
 struct _EosPullData
 {

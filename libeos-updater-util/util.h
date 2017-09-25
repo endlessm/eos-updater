@@ -84,7 +84,7 @@ gboolean eos_updater_read_file_to_bytes (GFile *file,
                                          GError **error);
 
 #define EOS_TYPE_QUIT_FILE eos_quit_file_get_type ()
-EOS_DECLARE_REFCOUNTED (EosQuitFile, eos_quit_file, EOS, QUIT_FILE)
+G_DECLARE_FINAL_TYPE (EosQuitFile, eos_quit_file, EOS, QUIT_FILE, GObject)
 
 typedef enum
 {

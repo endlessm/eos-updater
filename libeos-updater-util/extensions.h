@@ -33,10 +33,11 @@
 G_BEGIN_DECLS
 
 #define EOS_TYPE_REF eos_ref_get_type ()
-EOS_DECLARE_REFCOUNTED (EosRef,
-                        eos_ref,
-                        EOS,
-                        REF)
+G_DECLARE_FINAL_TYPE (EosRef,
+                      eos_ref,
+                      EOS,
+                      REF,
+                      GObject)
 
 struct _EosRef
 {
@@ -64,10 +65,11 @@ gboolean eos_ref_save (EosRef *ref,
                        GError **error);
 
 #define EOS_TYPE_EXTENSIONS eos_extensions_get_type ()
-EOS_DECLARE_REFCOUNTED (EosExtensions,
-                        eos_extensions,
-                        EOS,
-                        EXTENSIONS)
+G_DECLARE_FINAL_TYPE (EosExtensions,
+                      eos_extensions,
+                      EOS,
+                      EXTENSIONS,
+                      GObject)
 
 struct _EosExtensions
 {
