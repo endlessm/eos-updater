@@ -385,7 +385,8 @@ static void
 quit_clear_user_data (EosQuitFile *quit_file)
 {
   gpointer user_data = g_steal_pointer (&quit_file->user_data);
-  GDestroyNotify notify = g_steal_pointer (&quit_file->notify);
+  GDestroyNotify notify = quit_file->notify;
+  quit_file->notify = NULL;
 
   if (notify != NULL)
     notify (user_data);
