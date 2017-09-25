@@ -136,7 +136,9 @@ cmd_arg_array_new (void)
 static inline CmdArg *
 cmd_arg_array_raw (GArray *cmd_arg_array)
 {
-  return (CmdArg *) cmd_arg_array->data;
+  /* void* cast needed to avoid -Wcast-align. The allocation should be
+   * sizeof(CmdArg)-aligned as per cmd_arg_array_new(). */
+  return (CmdArg *) ((void *) cmd_arg_array->data);
 }
 
 gchar **
