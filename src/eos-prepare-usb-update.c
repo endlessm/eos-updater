@@ -49,10 +49,11 @@ repo_get_raw_path (OstreeRepo *repo)
 }
 
 #define EOS_TYPE_REFSPEC eos_refspec_get_type ()
-EOS_DECLARE_REFCOUNTED (EosRefspec,
-                        eos_refspec,
-                        EOS,
-                        REFSPEC)
+G_DECLARE_FINAL_TYPE (EosRefspec,
+                      eos_refspec,
+                      EOS,
+                      REFSPEC,
+                      GObject)
 
 struct _EosRefspec
 {
@@ -105,6 +106,8 @@ ensure_coherency (OstreeRepo *repo,
   g_auto(GStrv) remotes = NULL;
   g_auto(GStrv) refs = NULL;
   g_autofree gchar *ref_commit_id = NULL;
+
+  g_return_val_if_fail (EOS_IS_REFSPEC (refspec), FALSE);
 
   remotes = ostree_repo_remote_list (repo, NULL);
   if (!strv_contains (remotes, refspec->remote))
@@ -265,10 +268,11 @@ scoped_main_context_free (ScopedMainContext *context)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (ScopedMainContext, scoped_main_context_free)
 
 #define EOS_TYPE_PULL_DATA eos_pull_data_get_type ()
-EOS_DECLARE_REFCOUNTED (EosPullData,
-                        eos_pull_data,
-                        EOS,
-                        PULL_DATA)
+G_DECLARE_FINAL_TYPE (EosPullData,
+                      eos_pull_data,
+                      EOS,
+                      PULL_DATA,
+                      GObject)
 
 struct _EosPullData
 {
@@ -327,7 +331,9 @@ pull_ready (GObject *object,
             GAsyncResult *res,
             gpointer pull_data_ptr)
 {
-  g_autoptr(EosPullData) pull_data = EOS_PULL_DATA (pull_data_ptr);
+  g_autoptr(EosPullData) pull_data = pull_data_ptr;
+
+  g_return_if_fail (EOS_IS_PULL_DATA (pull_data));
 
   g_task_propagate_boolean (G_TASK (res), &pull_data->error);
   g_main_loop_quit (pull_data->loop);
@@ -346,7 +352,6 @@ run_pull_task_func (GTask *task,
   g_autoptr(GError) local_error = NULL;
   const gchar *refs[] = { pull_data->refspec->ref };
   const gchar *override_commit_ids[] = { pull_data->commit_id };
-  g_autoptr(ScopedMainContext) context = scoped_main_context_new ();
   OstreeRepoPullFlags pull_flags = OSTREE_REPO_PULL_FLAGS_MIRROR;
 
   g_variant_builder_init (&builder, G_VARIANT_TYPE_VARDICT);
@@ -412,7 +417,6 @@ do_pull (OstreeRepo *source_repo,
   g_autoptr(ScopedMainContext) context = scoped_main_context_new ();
   g_autoptr(GMainLoop) loop = NULL;
   g_autofree gchar *source_uri = NULL;
-  g_autoptr(GError) local_error = NULL;
   g_autoptr(EosPullData) pull_data = NULL;
 
   source_uri = g_file_get_uri (ostree_repo_get_path (source_repo));

@@ -443,7 +443,6 @@ eos_extensions_new_from_repo (OstreeRepo *repo,
                               GError **error)
 {
   g_autoptr(EosExtensions) extensions = NULL;
-  g_autoptr(GPtrArray) refs = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), NULL);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),

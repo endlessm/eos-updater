@@ -404,10 +404,11 @@ load_compressed_file_stream (OstreeRepo *repo,
 }
 
 #define EOS_TYPE_FILEZ_READ_DATA eos_filez_read_data_get_type ()
-EOS_DECLARE_REFCOUNTED (EosFilezReadData,
-                        eos_filez_read_data,
-                        EOS,
-                        FILEZ_READ_DATA)
+G_DECLARE_FINAL_TYPE (EosFilezReadData,
+                      eos_filez_read_data,
+                      EOS,
+                      FILEZ_READ_DATA,
+                      GObject)
 
 struct _EosFilezReadData
 {
@@ -425,6 +426,8 @@ struct _EosFilezReadData
 static void
 eos_filez_read_data_disconnect_and_clear_msg (EosFilezReadData *read_data)
 {
+  g_return_if_fail (EOS_IS_FILEZ_READ_DATA (read_data));
+
   if (read_data->finished_signal_id > 0)
     g_signal_handler_disconnect (read_data->msg, read_data->finished_signal_id);
   read_data->finished_signal_id = 0;

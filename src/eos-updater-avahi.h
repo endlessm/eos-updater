@@ -31,7 +31,7 @@
 G_BEGIN_DECLS
 
 #define EOS_TYPE_AVAHI_SERVICE eos_avahi_service_get_type ()
-EOS_DECLARE_REFCOUNTED (EosAvahiService, eos_avahi_service, EOS, AVAHI_SERVICE)
+G_DECLARE_FINAL_TYPE (EosAvahiService, eos_avahi_service, EOS, AVAHI_SERVICE, GObject)
 
 struct _EosAvahiService
 {
@@ -45,7 +45,7 @@ struct _EosAvahiService
 };
 
 #define EOS_TYPE_AVAHI_DISCOVERER eos_avahi_discoverer_get_type ()
-EOS_DECLARE_REFCOUNTED (EosAvahiDiscoverer, eos_avahi_discoverer, EOS, AVAHI_DISCOVERER)
+G_DECLARE_FINAL_TYPE (EosAvahiDiscoverer, eos_avahi_discoverer, EOS, AVAHI_DISCOVERER, GObject)
 
 typedef void
 (*EosAvahiDiscovererCallback) (EosAvahiDiscoverer *discoverer,

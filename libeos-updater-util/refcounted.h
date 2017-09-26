@@ -26,9 +26,6 @@
 
 G_BEGIN_DECLS
 
-#define EOS_DECLARE_REFCOUNTED(ModuleObjName, module_obj_name, MODULE, OBJ_NAME) \
-  G_DECLARE_FINAL_TYPE (ModuleObjName, module_obj_name, MODULE, OBJ_NAME, GObject)
-
 #define EOS_DEFINE_REFCOUNTED(TYPE_NAME, TypeName, type_name, dispose_impl_func, finalize_impl_func) \
   G_DEFINE_TYPE (TypeName, type_name, G_TYPE_OBJECT)                    \
                                                                         \

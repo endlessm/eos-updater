@@ -1144,7 +1144,6 @@ iterate_and_remove_ostree_service_files (GFileEnumerator  *enumerator,
     {
       GFileInfo *file_info;
       GFile* file;
-      g_autoptr(GError) local_error = NULL;
       g_autoptr(GMatchInfo) match_info = NULL;
       g_autofree gchar *matched_repository_index = NULL;
       const gchar *filename;

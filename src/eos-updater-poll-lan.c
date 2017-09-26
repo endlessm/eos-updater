@@ -188,10 +188,11 @@ get_unique_txt_record (gchar **txt_records,
 }
 
 #define EOS_TYPE_SERVICE_WITH_METADATA eos_service_with_metadata_get_type ()
-EOS_DECLARE_REFCOUNTED (EosServiceWithMetadata,
-                        eos_service_with_metadata,
-                        EOS,
-                        SERVICE_WITH_METADATA)
+G_DECLARE_FINAL_TYPE (EosServiceWithMetadata,
+                      eos_service_with_metadata,
+                      EOS,
+                      SERVICE_WITH_METADATA,
+                      GObject)
 
 struct _EosServiceWithMetadata
 {
@@ -263,6 +264,8 @@ time_check (LanData *lan_data,
             const gchar *dl_time)
 {
   g_autoptr(GDateTime) txt_utc = NULL;
+
+  g_return_val_if_fail (EOS_IS_SERVICE_WITH_METADATA (swm), FALSE);
 
   if (check_dl_time (lan_data, dl_time, &txt_utc))
     {
