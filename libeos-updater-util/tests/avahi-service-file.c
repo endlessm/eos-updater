@@ -583,7 +583,11 @@ test_avahi_ostree_options_check (void)
     {
       g_autoptr(GError) error = NULL;
       const TestOptions *test_data = &test_options[idx];
-      gboolean result = eos_ostree_avahi_service_file_check_options (avahi_ostree_test_options_to_variant (&test_data->options), &error);
+      gboolean result;
+
+      g_test_message ("Test %" G_GSIZE_FORMAT, idx);
+
+      result = eos_ostree_avahi_service_file_check_options (avahi_ostree_test_options_to_variant (&test_data->options), &error);
 
       if (test_data->success)
         {
@@ -706,6 +710,8 @@ test_avahi_ostree_service_file_generate (Fixture       *fixture,
       g_autoptr(GDateTime) timestamp = g_date_time_new (utc_tz,
                                                         test_data->summary_timestamp_year,
                                                         1, 1, 0, 0, 0);
+
+      g_test_message ("Test %" G_GSIZE_FORMAT, idx);
 
       g_assert_nonnull (timestamp);
       result = eos_ostree_avahi_service_file_generate (fixture->tmp_dir,
