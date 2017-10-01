@@ -58,7 +58,7 @@ typedef enum _UpdateStep {
 #define UPDATE_STEP_FIRST UPDATE_STEP_NONE
 #define UPDATE_STEP_LAST UPDATE_STEP_APPLY
 
-#define SEC_PER_DAY (3600ll * 24)
+#define SEC_PER_DAY (3600l * 24)
 
 /* This file is touched whenever the updater starts */
 static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/lib/eos-updater";
@@ -218,7 +218,9 @@ update_stamp_file (guint64 last_successful_update_secs,
     return;
   }
 
-  mtime.tv_sec = last_successful_update_secs;
+  /* This will be subject to year 2038 problems on 32-bit architectures.
+   * FIXME: Fix that by dropping use of #GTimeVal. */
+  mtime.tv_sec = (glong) last_successful_update_secs;
   mtime.tv_usec = 0;
 
   stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
@@ -249,8 +251,8 @@ update_stamp_file (guint64 last_successful_update_secs,
 
   if (randomized_delay_days > 0)
     {
-      gint32 actual_delay_days = g_random_int_range (0, randomized_delay_days + 1);
-      mtime.tv_sec += actual_delay_days * SEC_PER_DAY;
+      gint32 actual_delay_days = g_random_int_range (0, (gint32) randomized_delay_days + 1);
+      mtime.tv_sec += (glong) actual_delay_days * (glong) SEC_PER_DAY;
     }
 
   g_file_info_set_modification_time (file_info, &mtime);
@@ -266,7 +268,7 @@ update_stamp_file (guint64 last_successful_update_secs,
     }
 
   /* A little bit of help for debuggers. */
-  mtime.tv_sec += update_interval_days * SEC_PER_DAY;
+  mtime.tv_sec += (glong) update_interval_days * (glong) SEC_PER_DAY;
   next_update = g_time_val_to_iso8601 (&mtime);
   g_debug ("Wrote stamp file. Next update at %s", next_update);
 }
@@ -448,8 +450,8 @@ read_config_file (const gchar *config_path,
 {
   g_autoptr(EuuConfigFile) config = NULL;
   g_autoptr(GError) error = NULL;
-  gint _update_interval_days;
-  gint _randomized_delay_days;
+  guint _update_interval_days;
+  guint _randomized_delay_days;
   const gchar * const paths[] =
     {
       config_path,  /* typically CONFIG_FILE_PATH unless testing */
@@ -502,7 +504,10 @@ read_config_file (const gchar *config_path,
    * around 10^14 days, which should be a long enough update period for anyone).
    * We use G_MAXUINT64 rather than G_MAXUINT because the time calculation in
    * is_time_to_update() uses guint64 variables. */
+_Pragma ("GCC diagnostic push")
+_Pragma ("GCC diagnostic ignored \"-Wtype-limits\"")
   g_assert ((guint64) _update_interval_days <= G_MAXUINT64 / SEC_PER_DAY);
+_Pragma ("GCC diagnostic pop")
 
   *update_interval_days = (guint) _update_interval_days;
 
@@ -526,7 +531,7 @@ read_config_file (const gchar *config_path,
       return FALSE;
     }
 
-  *randomized_delay_days = (guint) _randomized_delay_days;
+  *randomized_delay_days = _randomized_delay_days;
 
   *update_on_mobile = euu_config_file_get_boolean (config, AUTOMATIC_GROUP,
                                                    ON_MOBILE_KEY, &error);
@@ -606,7 +611,7 @@ is_time_to_update (guint update_interval_days,
 
         g_debug ("Not time to update, due to stamp file not being present, but %s is set to %u days.",
                  RANDOMIZED_DELAY_KEY, randomized_delay_days);
-        last_successful_update_secs = g_get_real_time () / G_USEC_PER_SEC;
+        last_successful_update_secs = (guint64) g_get_real_time () / G_USEC_PER_SEC;
         if (last_successful_update_secs >= update_interval_days * SEC_PER_DAY)
           last_successful_update_secs -= update_interval_days * SEC_PER_DAY;
 
@@ -630,7 +635,7 @@ is_time_to_update (guint update_interval_days,
 
     /* Guaranteed not to overflow, as we check update_interval_days when
      * loading it. */
-    update_interval_secs = update_interval_days * SEC_PER_DAY;
+    update_interval_secs = (guint64) update_interval_days * SEC_PER_DAY;
 
     /* next_update_time_secs = last_update_time_secs + update_interval_secs */
     if (!g_uint64_checked_add (&next_update_time_secs, last_update_time_secs,
@@ -797,7 +802,7 @@ get_dbus_timeout (void)
   if (!eos_string_to_signed (value, 10, 0, G_MAXINT, &timeout, NULL))
     return -1;
 
-  return timeout;
+  return (gint) timeout;
 }
 
 /* main() exit codes. */
@@ -910,7 +915,7 @@ out:
     return EXIT_FAILED;
 
   /* Update the stamp file since all configured steps have succeeded. */
-  update_stamp_file (g_get_real_time () / G_USEC_PER_SEC,
+  update_stamp_file ((guint64) g_get_real_time () / G_USEC_PER_SEC,
                      update_interval_days, randomized_delay_days);
   info (EOS_UPDATER_SUCCESS_MSGID,
         "Updater finished successfully");

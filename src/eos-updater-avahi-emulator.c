@@ -100,7 +100,7 @@ fill_service_from_key_file (EosAvahiService *service,
                    "port number %d is invalid", port);
       return FALSE;
     }
-  service->port = port;
+  service->port = (guint16) port;
 
   service->txt = g_key_file_get_string_list (keyfile,
                                              "service",

@@ -99,8 +99,8 @@ handle_text_record (GString      *records_str,
    */
   g_assert (total_size != NULL);
   *total_size += 1 + record_size;
-  escaped_key = g_markup_escape_text (key, key_length);
-  escaped_value = g_markup_escape_text (value_string, value_string_length);
+  escaped_key = g_markup_escape_text (key, (gssize) key_length);
+  escaped_value = g_markup_escape_text (value_string, (gssize) value_string_length);
   g_string_append_printf (records_str,
                           "    <txt-record>%s=%s</txt-record>\n",
                           escaped_key,
@@ -133,7 +133,7 @@ handle_binary_record (GString      *records_str,
    */
   g_assert (total_size != NULL);
   *total_size += 1 + record_size;
-  escaped_key = g_markup_escape_text (key, key_length);
+  escaped_key = g_markup_escape_text (key, (gssize) key_length);
   encoded_value = g_base64_encode (value_data, value_data_length);
   escaped_value = g_markup_escape_text (encoded_value, -1);
   g_string_append_printf (records_str,
@@ -765,7 +765,12 @@ get_version_variant (guint8 version)
 static GVariant *
 get_summary_timestamp_variant (guint64 summary_timestamp)
 {
+  /* FIXME: Disable diagnostics for GUINT64_TO_BE():
+   * https://bugzilla.gnome.org/show_bug.cgi?id=788384 */
+_Pragma ("GCC diagnostic push")
+_Pragma ("GCC diagnostic ignored \"-Wsign-conversion\"")
   GVariant *variant = g_variant_new ("t", GUINT64_TO_BE (summary_timestamp));
+_Pragma ("GCC diagnostic pop")
 
   g_assert (g_variant_is_of_type (variant,
                                   EOS_OSTREE_AVAHI_V1_SUMMARY_TIMESTAMP_VARIANT_TYPE));

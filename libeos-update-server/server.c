@@ -255,15 +255,20 @@ update_pending_requests (EusServer *self,
   GObject *obj = G_OBJECT (self);
 
   g_assert (delta >= 0 || self->pending_requests >= (guint) -delta);
-  g_assert (delta <= 0 || self->pending_requests <= G_MAXUINT - delta);
+  g_assert (delta <= 0 || self->pending_requests <= G_MAXUINT - (guint) delta);
 
   if (delta == 0)
     return;
 
-  g_debug ("%s: Updating from %u to %u", G_STRFUNC, self->pending_requests,
-           self->pending_requests + delta);
+  g_debug ("%s: Updating from %u by %d", G_STRFUNC, self->pending_requests, delta);
 
-  self->pending_requests += delta;
+  /* Silence a -Wconversion warning. @delta may be negative, but
+   * @pending_requests may be outside the range we can losslessly cast to
+   * (gint), so we have to do everything in terms of (guint)s. */
+  if (delta > 0)
+    self->pending_requests += (guint) delta;
+  else
+    self->pending_requests -= (guint) -delta;
   self->last_request_time = g_get_monotonic_time ();
 
   g_object_freeze_notify (obj);

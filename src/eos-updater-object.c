@@ -62,7 +62,7 @@ eos_updater_set_error (EosUpdater *updater,
              error_name, error->code, error->message);
 
   eos_updater_set_error_name (updater, error_name);
-  eos_updater_set_error_code (updater, error->code);
+  eos_updater_set_error_code (updater, (guint) error->code);
   eos_updater_set_error_message (updater, error->message);
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
 }

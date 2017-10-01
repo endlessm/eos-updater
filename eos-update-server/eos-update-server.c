@@ -91,7 +91,7 @@ local_port_goption (const gchar *option_name,
                    "Invalid port number %s: %s", value, local_error->message);
       return FALSE;
     }
-  options->local_port = number;
+  options->local_port = (guint16) number;
   return TRUE;
 }
 
@@ -242,7 +242,7 @@ timeout_data_setup_timeout (TimeoutData *data)
 {
   clear_source (&data->timeout_id);
   if (data->timeout_seconds > 0)
-    data->timeout_id = g_timeout_add_seconds (data->timeout_seconds, timeout_cb, data);
+    data->timeout_id = g_timeout_add_seconds ((guint) data->timeout_seconds, timeout_cb, data);
 }
 
 static const gchar *
@@ -269,7 +269,7 @@ timeout_data_maybe_setup_quit_file (TimeoutData *data,
 {
   const gchar *filename = quit_file_name ();
   g_autoptr(EosQuitFile) quit_file = NULL;
-  gint timeout_seconds = 5;
+  guint timeout_seconds = 5;
 
   if (filename == NULL)
     return TRUE;
@@ -284,7 +284,7 @@ timeout_data_maybe_setup_quit_file (TimeoutData *data,
     return FALSE;
 
   data->quit_file = g_steal_pointer (&quit_file);
-  data->quit_file_timeout_seconds = timeout_seconds;
+  data->quit_file_timeout_seconds = (gint) timeout_seconds;
   return TRUE;
 }
 

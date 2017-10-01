@@ -128,7 +128,7 @@ test_util_strtonum_usual (void)
                                            data->max,
                                            &value64,
                                            &error);
-            value = value64;
+            value = (gint) value64;
             g_assert_cmpint (value, ==, value64);
             break;
           }
@@ -136,14 +136,16 @@ test_util_strtonum_usual (void)
         case UNSIGNED:
           {
             guint64 value64 = 0;
+            g_assert_cmpint (data->min, >=, 0);
+            g_assert_cmpint (data->max, >=, 0);
             result = eos_string_to_unsigned (data->str,
                                              data->base,
-                                             data->min,
-                                             data->max,
+                                             (guint64) data->min,
+                                             (guint64) data->max,
                                              &value64,
                                              &error);
-            value = value64;
-            g_assert_cmpint (value, ==, value64);
+            value = (gint) value64;
+            g_assert_cmpuint ((guint64) value, ==, value64);
             break;
           }
 
@@ -219,7 +221,7 @@ test_util_strtonum_pathological (void)
                                          &uvalue,
                                          &error));
   g_assert_no_error (error);
-  g_assert_cmpint (uvalue, ==, G_MAXUINT64);
+  g_assert_cmpuint (uvalue, ==, G_MAXUINT64);
 
   g_assert_true (eos_string_to_signed (max_int64,
                                        10,

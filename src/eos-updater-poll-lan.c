@@ -327,7 +327,7 @@ parse_txt_version (const gchar *txt_version)
   if (!eos_string_to_unsigned (txt_version, 10, 1, G_MAXUINT, &v, NULL))
     return 0;
 
-  return v;
+  return (guint) v;
 }
 
 static gboolean
@@ -483,7 +483,7 @@ get_update_info_from_swms (LanData *lan_data,
 
           declared_str = g_date_time_format (swm->declared_head_commit_timestamp,
                                              "%FT%T%:z");
-          actual_time = g_date_time_new_from_unix_utc (timestamp);
+          actual_time = g_date_time_new_from_unix_utc ((gint64) timestamp);
           actual_str = g_date_time_format (actual_time, "%FT%T%:z");
 
           g_message ("The commit timestamp (%s) from %s does not match the "

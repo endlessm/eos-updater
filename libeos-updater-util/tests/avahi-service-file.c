@@ -785,9 +785,10 @@ test_avahi_ostree_cleanup_directory (Fixture       *fixture,
   g_autoptr(GPtrArray) invalid_files = g_ptr_array_new_with_free_func (g_free);
   g_autoptr(GError) error = NULL;
 
+  g_assert (max <= 10);  /* for the (char) conversion below */
   for (idx = 0; idx < max; ++idx)
     {
-      const gchar repo_index[] = { '0' + idx, '\0' };
+      const gchar repo_index[] = { (gchar) ('0' + idx), '\0' };
       g_autofree gchar *filename = ostree_service_file (repo_index);
 
       g_ptr_array_add (valid_files, g_build_filename (fixture->tmp_dir,

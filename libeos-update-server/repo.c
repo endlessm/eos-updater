@@ -361,7 +361,7 @@ load_compressed_file_stream (OstreeRepo *repo,
                              const gchar *checksum,
                              GCancellable *cancellable,
                              GInputStream **out_input,
-                             guint64 *out_uncompressed_size,
+                             goffset *out_uncompressed_size,
                              GError **error)
 {
   g_autoptr(GInputStream) bare = NULL;
@@ -527,7 +527,7 @@ filez_stream_read_chunk_cb (GObject *stream_object,
       soup_message_body_append (read_data->msg->response_body,
                                 SOUP_MEMORY_COPY,
                                 read_data->buffer,
-                                bytes_read);
+                                (gsize) bytes_read);
       soup_server_unpause_message (self->server, read_data->msg);
 
       buffer = read_data->buffer;
@@ -556,7 +556,7 @@ handle_objects_filez (EusRepo     *self,
   g_autofree gchar *checksum = NULL;
   g_autoptr(GInputStream) stream = NULL;
   gpointer buffer;
-  guint64 uncompressed_size;
+  goffset uncompressed_size;
   gsize buflen;
   g_autoptr(EosFilezReadData) read_data = NULL;
 
@@ -587,7 +587,7 @@ handle_objects_filez (EusRepo     *self,
                                      SOUP_ENCODING_CHUNKED);
   soup_message_set_status (msg, SOUP_STATUS_OK);
   read_data = filez_read_data_new (self,
-                                   MIN(2 * 1024 * 1024, uncompressed_size + 1),
+                                   MIN (2 * 1024 * 1024, (gsize) (uncompressed_size + 1)),
                                    msg,
                                    requested_path);
   buffer = read_data->buffer;

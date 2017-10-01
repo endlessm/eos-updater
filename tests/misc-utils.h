@@ -64,7 +64,7 @@ gboolean save_key_file (GFile *file,
 			GKeyFile *keyfile,
 			GError **error);
 
-GDateTime *days_ago (gint days);
+GDateTime *days_ago (guint days);
 
 gboolean input_stream_to_string (GInputStream *stream,
 				 gchar **out_str,
