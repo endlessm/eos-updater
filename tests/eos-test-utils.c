@@ -2489,3 +2489,20 @@ eos_test_autoupdater_new (GFile *autoupdater_root,
   autoupdater->cmd = g_steal_pointer (&cmd);
   return g_steal_pointer (&autoupdater);
 }
+
+/**
+ * eos_test_has_ostree_boot_id:
+ *
+ * Check whether the `/proc/sys/kernel/random/boot_id` file is available, which
+ * is needed by #OstreeRepo.
+ *
+ * Returns: %TRUE if it exists, %FALSE otherwise
+ */
+gboolean
+eos_test_has_ostree_boot_id (void)
+{
+  g_autoptr(GFile) boot_id_file = NULL;
+
+  boot_id_file = g_file_new_for_path ("/proc/sys/kernel/random/boot_id");
+  return g_file_query_exists (boot_id_file, NULL);
+}

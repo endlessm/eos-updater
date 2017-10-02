@@ -258,4 +258,6 @@ EosTestAutoupdater *eos_test_autoupdater_new (GFile *autoupdater_root,
                                               gboolean update_on_mobile,
                                               GError **error);
 
+gboolean eos_test_has_ostree_boot_id (void);
+
 G_END_DECLS
