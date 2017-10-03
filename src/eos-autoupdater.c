@@ -58,7 +58,7 @@ typedef enum _UpdateStep {
 #define UPDATE_STEP_FIRST UPDATE_STEP_NONE
 #define UPDATE_STEP_LAST UPDATE_STEP_APPLY
 
-#define SEC_PER_DAY (3600l * 24)
+#define SEC_PER_DAY (3600ul * 24)
 
 /* This file is touched whenever the updater starts */
 static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/lib/eos-updater";
