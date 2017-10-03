@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include <libeos-updater-util/refcounted.h>
-
 #include <ostree.h>
 
 #include <glib.h>
@@ -31,38 +29,6 @@
 #include <gio/gio.h>
 
 G_BEGIN_DECLS
-
-#define EOS_TYPE_REF eos_ref_get_type ()
-G_DECLARE_FINAL_TYPE (EosRef,
-                      eos_ref,
-                      EOS,
-                      REF,
-                      GObject)
-
-struct _EosRef
-{
-  GObject parent_instance;
-
-  GBytes *contents;
-  GBytes *signature;
-  gchar *name;
-};
-
-EosRef *eos_ref_new_empty (void);
-EosRef *eos_ref_new_from_files (GFile *ref_file,
-                                GFile *ref_sig_file,
-                                const gchar *name,
-                                GCancellable *cancellable,
-                                GError **error);
-EosRef *eos_ref_new_from_repo (OstreeRepo *repo,
-                               const gchar *name,
-                               GCancellable *cancellable,
-                               GError **error);
-
-gboolean eos_ref_save (EosRef *ref,
-                       OstreeRepo *repo,
-                       GCancellable *cancellable,
-                       GError **error);
 
 #define EOS_TYPE_EXTENSIONS eos_extensions_get_type ()
 G_DECLARE_FINAL_TYPE (EosExtensions,
@@ -78,7 +44,6 @@ struct _EosExtensions
   GBytes *summary;
   GBytes *summary_sig;
   guint64 summary_modification_time_secs; /* since the Unix epoch, UTC */
-  GPtrArray *refs;
 };
 
 EosExtensions *eos_extensions_new_empty (void);

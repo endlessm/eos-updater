@@ -564,98 +564,6 @@ prepare_commit (GFile *repo,
   return TRUE;
 }
 
-static GFile *
-get_eos_extensions_dir (GFile *repo)
-{
-  g_autofree gchar *rel_path = g_build_filename ("extensions", "eos", NULL);
-
-  return g_file_get_child (repo, rel_path);
-}
-
-static void
-get_ref_file_paths (GFile *repo,
-                    const gchar *ref,
-                    GFile **out_file,
-                    GFile **out_signature)
-{
-  g_autoptr(GFile) eos_dir = get_eos_extensions_dir (repo);
-  g_autofree gchar *rel_path = g_build_filename ("refs.d", ref, NULL);
-  g_autofree gchar *sig_rel_path = g_strdup_printf ("%s.sig", rel_path);
-
-  *out_file = g_file_get_child (eos_dir, rel_path);
-  *out_signature = g_file_get_child (eos_dir, sig_rel_path);
-}
-
-static gboolean
-gpg_sign (GFile *gpg_home,
-          GFile *file,
-          GFile *signature,
-          const gchar *keyid,
-          CmdResult *cmd,
-          GError **error)
-{
-  g_autofree gchar *gpg_home_path = g_file_get_path (gpg_home);
-  g_autofree gchar *raw_signature_path = g_file_get_path (signature);
-  g_autofree gchar *raw_file_path = g_file_get_path (file);
-  CmdArg args[] =
-    {
-      { NULL, GPG_BINARY },
-      { "homedir", gpg_home_path },
-      { "default-key", keyid },
-      { "output", raw_signature_path },
-      { "detach-sig", NULL },
-      { NULL, raw_file_path },
-      { NULL, NULL }
-    };
-  g_auto(GStrv) argv = build_cmd_args (args);
-
-  if (!rm_rf (signature, error))
-    return FALSE;
-
-  return test_spawn ((const gchar * const *) argv, NULL, cmd, error);
-}
-
-static gboolean
-generate_ref_file (GFile *repo,
-                   const gchar *ref,
-                   const gchar *commit,
-                   GFile *gpg_home,
-                   const gchar *keyid,
-                   GError **error)
-{
-  g_autoptr(GFile) ref_file = NULL;
-  g_autoptr(GFile) ref_file_sig = NULL;
-  g_autoptr(GFile) ref_file_parent = NULL;
-  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
-  g_autoptr(GKeyFile) keyfile = NULL;
-
-  get_ref_file_paths (repo,
-                      ref,
-                      &ref_file,
-                      &ref_file_sig);
-  ref_file_parent = g_file_get_parent (ref_file);
-
-  if (!create_directory (ref_file_parent,
-                         error))
-    return FALSE;
-
-  keyfile = g_key_file_new ();
-  g_key_file_set_string (keyfile, "mapping", "ref", ref);
-  g_key_file_set_string (keyfile, "mapping", "commit", commit);
-  if (!save_key_file (ref_file, keyfile, error))
-    return FALSE;
-
-  if (!gpg_sign (gpg_home,
-                 ref_file,
-                 ref_file_sig,
-                 keyid,
-                 &cmd,
-                 error))
-    return FALSE;
-
-  return cmd_result_ensure_ok (&cmd, error);
-}
-
 static gboolean
 generate_delta_files (GFile *repo,
                       const gchar *from,
@@ -718,14 +626,6 @@ update_commits (EosTestSubserver *subserver,
                                      error))
             return FALSE;
         }
-
-      if (!generate_ref_file (subserver->repo,
-                              collection_ref->ref_name,
-                              checksum,
-                              subserver->gpg_home,
-                              subserver->keyid,
-                              error))
-        return FALSE;
     }
 
   if (!ostree_summary (subserver->repo,
@@ -1129,33 +1029,6 @@ copy_file_and_signature (GFile *source_file,
 }
 
 static gboolean
-copy_ref_file (GFile *source_repo,
-               GFile *target_repo,
-               const gchar *ref,
-               GError **error)
-{
-  g_autoptr(GFile) source_ref_file = NULL;
-  g_autoptr(GFile) source_ref_file_sig = NULL;
-  g_autoptr(GFile) target_ref_file = NULL;
-  g_autoptr(GFile) target_ref_file_sig = NULL;
-
-  get_ref_file_paths (source_repo,
-                      ref,
-                      &source_ref_file,
-                      &source_ref_file_sig);
-  get_ref_file_paths (target_repo,
-                      ref,
-                      &target_ref_file,
-                      &target_ref_file_sig);
-
-  return copy_file_and_signature (source_ref_file,
-                                  source_ref_file_sig,
-                                  target_ref_file,
-                                  target_ref_file_sig,
-                                  error);
-}
-
-static gboolean
 copy_extensions (GFile *source_repo,
                  GFile *client_root,
                  const gchar *ref,
@@ -1164,8 +1037,16 @@ copy_extensions (GFile *source_repo,
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
 
+  /* FIXME: We have to propagate the signed summary to each LAN server for now;
+   * once https://phabricator.endlessm.com/T19293 is fixed, we can use unsigned
+   * summaries and generate them on the LAN server instead. */
+  g_autoptr(GFile) src_summary = g_file_get_child (source_repo, "summary");
+  g_autoptr(GFile) src_summary_sig = g_file_get_child (source_repo, "summary.sig");
+  g_autoptr(GFile) dest_summary = g_file_get_child (repo, "summary");
+  g_autoptr(GFile) dest_summary_sig = g_file_get_child (repo, "summary.sig");
 
-  if (!copy_ref_file (source_repo, repo, ref, error))
+  if (!copy_file_and_signature (src_summary, src_summary_sig,
+                                dest_summary, dest_summary_sig, error))
     return FALSE;
 
   return TRUE;

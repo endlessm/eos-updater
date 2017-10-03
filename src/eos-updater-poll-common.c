@@ -369,95 +369,6 @@ must_download_file_and_signature (const gchar *url,
   return TRUE;
 }
 
-static gboolean
-commit_checksum_from_extensions_ref (OstreeRepo *repo,
-                                     GCancellable *cancellable,
-                                     const gchar *remote_name,
-                                     const gchar *ref,
-                                     const gchar *url_override,
-                                     gchar **out_checksum,
-                                     EosExtensions **out_extensions,
-                                     GError **error)
-{
-  g_autofree gchar *extensions_url = NULL;
-  g_autofree gchar *eos_ref_url = NULL;
-  g_autoptr(GBytes) contents = NULL;
-  g_autoptr(GBytes) signature = NULL;
-  g_autoptr(OstreeGpgVerifyResult) gpg_result = NULL;
-  g_autofree gchar *checksum = NULL;
-  gconstpointer raw_data;
-  gsize raw_len;
-  g_autoptr(EosExtensions) extensions = NULL;
-  g_autoptr(EosRef) ext_ref = NULL;
-  g_autoptr(GKeyFile) ref_keyfile = NULL;
-  g_autofree gchar *actual_ref = NULL;
-
-  if (!get_extensions_url (repo, remote_name, url_override, &extensions_url, error))
-    return FALSE;
-
-  eos_ref_url = g_build_path ("/", extensions_url, "refs.d", ref, NULL);
-  if (!must_download_file_and_signature (eos_ref_url, &contents, &signature, error))
-    return FALSE;
-
-  gpg_result = ostree_repo_gpg_verify_data (repo,
-                                            remote_name,
-                                            contents,
-                                            signature,
-                                            NULL,
-                                            NULL,
-                                            cancellable,
-                                            error);
-  if (!ostree_gpg_verify_result_require_valid_signature (gpg_result, error))
-    return FALSE;
-
-  ref_keyfile = g_key_file_new ();
-  raw_data = g_bytes_get_data (contents, &raw_len);
-  if (!g_key_file_load_from_data (ref_keyfile,
-                                  raw_data,
-                                  raw_len,
-                                  G_KEY_FILE_NONE,
-                                  error))
-    return FALSE;
-
-  actual_ref = g_key_file_get_string (ref_keyfile,
-                                      "mapping",
-                                      "ref",
-                                      error);
-  if (actual_ref == NULL)
-    return FALSE;
-
-  if (g_strcmp0 (actual_ref, ref) != 0)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "The file under %s contains data about ref %s, instead of %s",
-                   eos_ref_url, actual_ref, ref);
-      return FALSE;
-    }
-
-  checksum = g_key_file_get_string (ref_keyfile,
-                                    "mapping",
-                                    "commit",
-                                    error);
-  if (checksum == NULL)
-    return FALSE;
-  g_strstrip (checksum);
-
-  if (!ostree_validate_structureof_checksum_string (checksum, error))
-    return FALSE;
-
-  ext_ref = eos_ref_new_empty ();
-  ext_ref->contents = g_steal_pointer (&contents);
-  ext_ref->signature = g_steal_pointer (&signature);
-  ext_ref->name = g_strdup (ref);
-
-  extensions = eos_extensions_new_empty ();
-  g_ptr_array_add (extensions->refs, g_steal_pointer (&ext_ref));
-
-  *out_checksum = g_steal_pointer (&checksum);
-  *out_extensions = g_steal_pointer (&extensions);
-  return TRUE;
-}
-
 /* stolen from ostree (ot_variant_bsearch_str) and slightly modified */
 static gboolean
 bsearch_variant (GVariant *array,
@@ -656,19 +567,8 @@ fetch_commit_checksum (OstreeRepo *repo,
   g_autofree gchar *failures_str = NULL;
   g_autoptr(GError) local_error = NULL;
 
-  if (commit_checksum_from_extensions_ref (repo,
-                                           cancellable,
-                                           remote_name,
-                                           ref,
-                                           url_override,
-                                           out_checksum,
-                                           out_extensions,
-                                           &local_error))
-    return TRUE;
-
   failures = g_ptr_array_new_with_free_func (g_free);
-  g_ptr_array_add (failures, g_strdup_printf ("Failed to get extensions refs: %s", local_error->message));
-  g_clear_error (&local_error);
+
   if (commit_checksum_from_extensions_summary (repo,
                                                cancellable,
                                                remote_name,
