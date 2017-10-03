@@ -1255,9 +1255,14 @@ get_updater_config (DownloadSource *order,
                     GVariant **source_variants,
                     gsize n_sources)
 {
-  g_autoptr(GKeyFile) config = g_key_file_new ();
+  g_autoptr(GKeyFile) config = NULL;
   gsize idx;
-  g_autoptr(GPtrArray) source_strs = g_ptr_array_sized_new (n_sources);
+  g_autoptr(GPtrArray) source_strs = NULL;
+
+  g_return_val_if_fail (n_sources <= G_MAXUINT, NULL);
+
+  config = g_key_file_new ();
+  source_strs = g_ptr_array_sized_new ((guint) n_sources);
 
   for (idx = 0; idx < n_sources; ++idx)
     g_ptr_array_add (source_strs, (gpointer)download_source_to_string (order[idx]));
