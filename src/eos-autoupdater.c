@@ -47,7 +47,7 @@
  * file to indicate which is the final automatic step before the user
  * needs to intervene.
  */
-typedef enum _UpdateStep {
+typedef enum {
   UPDATE_STEP_NONE = 0,
   UPDATE_STEP_POLL = 1,
   UPDATE_STEP_FETCH = 2,
