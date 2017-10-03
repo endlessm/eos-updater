@@ -282,7 +282,7 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
                       gpointer step_data)
 {
   EosUpdater *proxy = (EosUpdater *) source_object;
-  UpdateStep step = GPOINTER_TO_INT (step_data);
+  UpdateStep step = (UpdateStep) GPOINTER_TO_INT (step_data);
   GError *error = NULL;
 
   switch (step) {
