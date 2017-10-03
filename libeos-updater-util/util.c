@@ -373,7 +373,7 @@ struct _EosQuitFile
   GObject parent_instance;
 
   GFileMonitor *monitor;
-  guint signal_id;
+  gulong signal_id;
   guint timeout_seconds;
   guint timeout_id;
   EosQuitFileCheckCallback callback;
@@ -395,7 +395,7 @@ quit_clear_user_data (EosQuitFile *quit_file)
 static void
 quit_disconnect_monitor (EosQuitFile *quit_file)
 {
-  guint id = quit_file->signal_id;
+  gulong id = quit_file->signal_id;
 
   quit_file->signal_id = 0;
   if (id > 0)
