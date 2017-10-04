@@ -60,7 +60,7 @@ test_update_from_main (EosUpdaterFixture *fixture,
   server = eos_test_server_new_quick (server_root,
                                       default_vendor,
                                       default_product,
-                                      default_ref,
+                                      default_collection_ref,
                                       0,
                                       fixture->gpg_home,
                                       keyid,
@@ -74,14 +74,14 @@ test_update_from_main (EosUpdaterFixture *fixture,
   client = eos_test_client_new (client_root,
                                 default_remote_name,
                                 subserver,
-                                default_ref,
+                                default_collection_ref,
                                 default_vendor,
                                 default_product,
                                 &error);
   g_assert_no_error (error);
 
   g_hash_table_insert (subserver->ref_to_commit,
-                       g_strdup (default_ref),
+                       ostree_collection_ref_dup (default_collection_ref),
                        GUINT_TO_POINTER (1));
   eos_test_subserver_update (subserver,
                              &error);

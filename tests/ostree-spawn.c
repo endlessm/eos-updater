@@ -96,6 +96,7 @@ repo_mode_to_string (RepoMode mode)
 gboolean
 ostree_init (GFile *repo,
              RepoMode mode,
+             const gchar *collection_id,
              CmdResult *cmd,
              GError **error)
 {
@@ -103,6 +104,7 @@ ostree_init (GFile *repo,
     {
       { NULL, "init" },
       { "mode", repo_mode_to_string (mode) },
+      { (collection_id != NULL) ? "collection-id" : NULL, collection_id },
       { NULL, NULL }
     };
 
@@ -192,7 +194,7 @@ gboolean
 ostree_remote_add (GFile *repo,
                    const gchar *remote_name,
                    const gchar *remote_url,
-                   const gchar *ref,
+                   const OstreeCollectionRef *collection_ref,
                    GFile *gpg_key,
                    CmdResult *cmd,
                    GError **error)
@@ -205,7 +207,8 @@ ostree_remote_add (GFile *repo,
       { "gpg-import", raw_key_path },
       { NULL, remote_name },
       { NULL, remote_url },
-      { NULL, ref },
+      { NULL, collection_ref->ref_name },
+      { (collection_ref->collection_id != NULL) ? "collection-id" : NULL, collection_ref->collection_id },
       { NULL, NULL }
     };
 
