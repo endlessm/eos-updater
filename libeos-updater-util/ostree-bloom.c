@@ -78,7 +78,7 @@
 struct _OstreeBloom
 {
   guint ref_count;
-  gsize n_bytes;
+  gsize n_bytes;  /* 0 < n_bytes <= G_MAXSIZE / 8 */
   gboolean is_mutable;  /* determines which of [im]mutable_bytes is accessed */
   union
     {
@@ -119,6 +119,7 @@ ostree_bloom_new (gsize               n_bytes,
   g_autoptr(OstreeBloom) bloom = NULL;
 
   g_return_val_if_fail (n_bytes > 0, NULL);
+  g_return_val_if_fail (n_bytes <= G_MAXSIZE / 8, NULL);
   g_return_val_if_fail (k > 0, NULL);
   g_return_val_if_fail (hash_func != NULL, NULL);
 
@@ -161,6 +162,7 @@ ostree_bloom_new_from_bytes (GBytes              *bytes,
 
   g_return_val_if_fail (bytes != NULL, NULL);
   g_return_val_if_fail (g_bytes_get_size (bytes) > 0, NULL);
+  g_return_val_if_fail (g_bytes_get_size (bytes) <= G_MAXSIZE / 8, NULL);
   g_return_val_if_fail (k > 0, NULL);
   g_return_val_if_fail (hash_func != NULL, NULL);
 
@@ -248,7 +250,7 @@ ostree_bloom_set_bit (OstreeBloom *bloom,
 {
   g_assert (bloom->is_mutable);
   g_assert (idx / 8 < bloom->n_bytes);
-  bloom->mutable_bytes[idx / 8] |= (1 << (idx % 8));
+  bloom->mutable_bytes[idx / 8] |= (guint8) (1 << (idx % 8));
 }
 
 /**
@@ -275,11 +277,11 @@ ostree_bloom_maybe_contains (OstreeBloom   *bloom,
 
   for (i = 0; i < bloom->k; i++)
     {
-      gsize idx;
+      guint64 idx;
 
       idx = bloom->hash_func (element, i);
 
-      if (!ostree_bloom_get_bit (bloom, idx % (bloom->n_bytes * 8)))
+      if (!ostree_bloom_get_bit (bloom, (gsize) (idx % (bloom->n_bytes * 8))))
         return FALSE;  /* definitely not in the set */
     }
 
@@ -339,8 +341,8 @@ ostree_bloom_add_element (OstreeBloom   *bloom,
 
   for (i = 0; i < bloom->k; i++)
     {
-      gsize idx = bloom->hash_func (element, i);
-      ostree_bloom_set_bit (bloom, idx % (bloom->n_bytes * 8));
+      guint64 idx = bloom->hash_func (element, i);
+      ostree_bloom_set_bit (bloom, (gsize) (idx % (bloom->n_bytes * 8)));
     }
 }
 

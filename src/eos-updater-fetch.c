@@ -77,10 +77,14 @@ update_progress (OstreeAsyncProgress *progress,
   guint64 bytes = ostree_async_progress_get_uint64 (progress,
                                                     "bytes-transferred");
 
+  /* FIXME: Cap to the limit of eos_updater_set_downloaded_bytes(). */
+  if (bytes > G_MAXINT64)
+    bytes = G_MAXINT64;
+
   /* Idle could have been scheduled after the fetch completed, make sure we
    * don't override the downloaded bytes */
   if (eos_updater_get_state (updater) == EOS_UPDATER_STATE_FETCHING)
-    eos_updater_set_downloaded_bytes (updater, bytes);
+    eos_updater_set_downloaded_bytes (updater, (gint64) bytes);
 }
 
 static GVariant *
@@ -185,7 +189,7 @@ content_fetch (GTask *task,
 
   if (data->overridden_urls != NULL && data->overridden_urls[0] != NULL)
     {
-      guint idx = g_random_int_range (0, g_strv_length (data->overridden_urls));
+      guint idx = (guint) g_random_int_range (0, (gint32) g_strv_length (data->overridden_urls));
 
       url_override = data->overridden_urls[idx];
     }

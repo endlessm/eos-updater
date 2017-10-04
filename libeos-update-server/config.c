@@ -77,9 +77,9 @@ eus_repo_config_free (EusRepoConfig *config)
 }
 
 static EusRepoConfig *
-eus_repo_config_new_steal (guint  index,
-                           gchar *path,
-                           gchar *remote_name)
+eus_repo_config_new_steal (guint16  index,
+                           gchar   *path,
+                           gchar   *remote_name)
 {
   g_autoptr(EusRepoConfig) config = NULL;
 
@@ -189,7 +189,8 @@ eus_read_config_file (const gchar  *config_file_path,
 
   for (i = 0; i < n_groups; i++)
     {
-      guint64 index;
+      guint64 index64;
+      guint16 index16;
       g_autofree gchar *repository_path = NULL, *remote_name = NULL;
 
       if (!g_str_has_prefix (groups[i], REPOSITORY_GROUP))
@@ -199,7 +200,7 @@ eus_read_config_file (const gchar  *config_file_path,
                                    10,
                                    0,
                                    G_MAXUINT16,
-                                   &index,
+                                   &index64,
                                    &local_error))
         {
           g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE,
@@ -208,6 +209,7 @@ eus_read_config_file (const gchar  *config_file_path,
 
         }
 
+      index16 = (guint16) index64;
       repository_path = euu_config_file_get_string (config, groups[i], PATH_KEY,
                                                     error);
 
@@ -220,7 +222,7 @@ eus_read_config_file (const gchar  *config_file_path,
       if (remote_name == NULL)
         return FALSE;
 
-      if (repository_configs_contains_index (repository_configs, index))
+      if (repository_configs_contains_index (repository_configs, index16))
         {
           g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE,
                        "Duplicate group name: %s", groups[i]);
@@ -228,7 +230,7 @@ eus_read_config_file (const gchar  *config_file_path,
         }
 
       g_ptr_array_add (repository_configs,
-                       eus_repo_config_new_steal (index,
+                       eus_repo_config_new_steal (index16,
                                                   g_steal_pointer (&repository_path),
                                                   g_steal_pointer (&remote_name)));
     }

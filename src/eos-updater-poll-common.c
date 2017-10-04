@@ -195,7 +195,7 @@ eos_update_info_get_commit_timestamp (EosUpdateInfo *info)
 {
   g_return_val_if_fail (EOS_IS_UPDATE_INFO (info), NULL);
 
-  return g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (info->commit));
+  return g_date_time_new_from_unix_utc ((gint64) ostree_commit_get_timestamp (info->commit));
 }
 
 static void
@@ -465,7 +465,7 @@ bsearch_variant (GVariant *array,
                  gsize *out_pos)
 {
   gsize imax, imin;
-  gsize imid = -1;
+  gsize imid = (gsize) -1;
   gsize n;
 
   n = g_variant_n_children (array);

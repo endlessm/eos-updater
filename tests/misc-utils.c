@@ -249,7 +249,7 @@ get_timestamp_from_when_tests_started_running (void)
 }
 
 GDateTime *
-days_ago (gint days)
+days_ago (guint days)
 {
   g_autoptr(GDateTime) now = get_timestamp_from_when_tests_started_running ();
   g_autoptr(GDateTime) now_fixed = g_date_time_new_utc (g_date_time_get_year (now),
@@ -258,8 +258,9 @@ days_ago (gint days)
                                                         12,
                                                         0,
                                                         0);
+  g_assert (days <= G_MAXINT);
 
-  return g_date_time_add_days (now_fixed, -days);
+  return g_date_time_add_days (now_fixed, -((gint) days));
 }
 
 gboolean
@@ -282,8 +283,9 @@ input_stream_to_string (GInputStream *stream,
       read_data = g_bytes_get_data (bytes, &read_len);
       if (read_len == 0)
         break;
+      g_assert (read_len <= G_MAXSSIZE);
 
-      g_string_append_len (str, read_data, read_len);
+      g_string_append_len (str, read_data, (gssize) read_len);
     }
 
   *out_str = g_string_free (g_steal_pointer (&str), FALSE);
@@ -332,6 +334,6 @@ read_port_file (GFile *port_file,
       return FALSE;
     }
 
-  *out_port = number;
+  *out_port = (guint16) number;
   return TRUE;
 }

@@ -42,7 +42,7 @@ AC_SUBST([EUU_API_VERSION],euu_api_version)
 AC_SUBST([EUS_API_VERSION],eus_api_version)
 
 # Compiler warnings and --disable-Werror
-AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])
+AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS],,,[-Wconversion])
 
 # Enable C99
 AX_APPEND_COMPILE_FLAGS([-std=c99],[STD_CFLAGS])

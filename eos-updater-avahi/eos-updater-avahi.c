@@ -91,8 +91,13 @@ get_raw_summary_timestamp_from_metadata (GBytes    *summary,
       return TRUE;
     }
 
+  /* FIXME: Disable diagnostics for GUINT64_TO_BE():
+   * https://bugzilla.gnome.org/show_bug.cgi?id=788384 */
+_Pragma ("GCC diagnostic push")
+_Pragma ("GCC diagnostic ignored \"-Wsign-conversion\"")
   *out_found = TRUE;
   *out_timestamp = GUINT64_FROM_BE (g_variant_get_uint64 (value));
+_Pragma ("GCC diagnostic pop")
   return TRUE;
 }
 
@@ -222,7 +227,7 @@ update_service_file (gboolean       advertise_updates,
 
   if (commit_checksum != NULL)
     {
-      commit_date_time = g_date_time_new_from_unix_utc (commit_timestamp);
+      commit_date_time = g_date_time_new_from_unix_utc ((gint64) commit_timestamp);
       formatted_commit_date_time = g_date_time_format (commit_date_time,
                                                        "%FT%T%:z");
     }

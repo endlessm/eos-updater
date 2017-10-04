@@ -583,7 +583,11 @@ test_avahi_ostree_options_check (void)
     {
       g_autoptr(GError) error = NULL;
       const TestOptions *test_data = &test_options[idx];
-      gboolean result = eos_ostree_avahi_service_file_check_options (avahi_ostree_test_options_to_variant (&test_data->options), &error);
+      gboolean result;
+
+      g_test_message ("Test %" G_GSIZE_FORMAT, idx);
+
+      result = eos_ostree_avahi_service_file_check_options (avahi_ostree_test_options_to_variant (&test_data->options), &error);
 
       if (test_data->success)
         {
@@ -707,6 +711,8 @@ test_avahi_ostree_service_file_generate (Fixture       *fixture,
                                                         test_data->summary_timestamp_year,
                                                         1, 1, 0, 0, 0);
 
+      g_test_message ("Test %" G_GSIZE_FORMAT, idx);
+
       g_assert_nonnull (timestamp);
       result = eos_ostree_avahi_service_file_generate (fixture->tmp_dir,
                                                        fixture->refs,
@@ -779,9 +785,10 @@ test_avahi_ostree_cleanup_directory (Fixture       *fixture,
   g_autoptr(GPtrArray) invalid_files = g_ptr_array_new_with_free_func (g_free);
   g_autoptr(GError) error = NULL;
 
+  g_assert (max <= 10);  /* for the (char) conversion below */
   for (idx = 0; idx < max; ++idx)
     {
-      const gchar repo_index[] = { '0' + idx, '\0' };
+      const gchar repo_index[] = { (gchar) ('0' + idx), '\0' };
       g_autofree gchar *filename = ostree_service_file (repo_index);
 
       g_ptr_array_add (valid_files, g_build_filename (fixture->tmp_dir,

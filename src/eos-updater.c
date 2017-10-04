@@ -266,9 +266,10 @@ purge_old_config_file (const gchar *etc_path,
       return;
     }
 
-  /* Work out its checksum. */
+  /* Work out its checksum. The @etc_length cast might truncate the file,
+   * but that would only result in it being kept slightly-unnecessarily. */
   checksum = g_checksum_new (G_CHECKSUM_MD5);
-  g_checksum_update (checksum, etc_contents, etc_length);
+  g_checksum_update (checksum, etc_contents, (gssize) etc_length);
 
   /* If the files are the same, delete the @etc_path. */
   if (g_strcmp0 (g_checksum_get_string (checksum), checksum_to_delete) == 0)

@@ -321,7 +321,7 @@ euu_config_file_ensure_loaded (EuuConfigFile  *self,
   if (key_file == NULL)
     {
       key_file = g_key_file_new ();
-      g_ptr_array_insert (self->key_files, idx, key_file);
+      g_ptr_array_insert (self->key_files, (gint) idx, key_file);
       g_key_file_load_from_file (key_file, path, G_KEY_FILE_NONE, &local_error);
     }
 
@@ -443,7 +443,7 @@ euu_config_file_get_uint (EuuConfigFile  *self,
       return 0;
     }
 
-  return val;
+  return (guint) val;
 }
 
 /**

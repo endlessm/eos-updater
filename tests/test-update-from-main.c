@@ -47,6 +47,15 @@ test_update_from_main (EosUpdaterFixture *fixture,
   DownloadSource main_source = DOWNLOAD_MAIN;
   g_autoptr(GVariant) main_source_variant = NULL;
 
+  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
+   * afterwards we hit unsupported syscalls in qemu-user when running in an
+   * ARM chroot (for example), so just bail. */
+  if (!eos_test_has_ostree_boot_id ())
+    {
+      g_test_skip ("OSTree will not work without a boot ID");
+      return;
+    }
+
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
                                       default_vendor,

@@ -214,7 +214,12 @@ get_sha256sum_from_strv (const gchar * const *strv)
   const gchar * const *iter;
 
   for (iter = strv; *iter != NULL; ++iter)
-    g_checksum_update (sum, (const guchar *)*iter, strlen (*iter));
+    {
+      const gchar *value = *iter;
+      gsize value_len = strlen (value);
+      g_assert (value_len <= G_MAXSSIZE);
+      g_checksum_update (sum, (const guchar *) value, (gssize) value_len);
+    }
 
   return g_strdup (g_checksum_get_string (sum));
 }
@@ -369,7 +374,7 @@ generate_big_file_for_delta_update (GFile *all_commits_dir,
   g_assert_cmpint (commit_number, <=, max_commit_number);
   data = g_malloc (byte_count);
   memset (data, 'x', byte_count);
-  data[byte_count / 2] = 'a' + commit_number;
+  data[byte_count / 2] = (gchar) ('a' + commit_number);
   big_file = g_file_get_child (all_commits_dir, "bigfile");
   contents = g_bytes_new_take (g_steal_pointer (&data), byte_count);
 
@@ -1250,9 +1255,14 @@ get_updater_config (DownloadSource *order,
                     GVariant **source_variants,
                     gsize n_sources)
 {
-  g_autoptr(GKeyFile) config = g_key_file_new ();
+  g_autoptr(GKeyFile) config = NULL;
   gsize idx;
-  g_autoptr(GPtrArray) source_strs = g_ptr_array_sized_new (n_sources);
+  g_autoptr(GPtrArray) source_strs = NULL;
+
+  g_return_val_if_fail (n_sources <= G_MAXUINT, NULL);
+
+  config = g_key_file_new ();
+  source_strs = g_ptr_array_sized_new ((guint) n_sources);
 
   for (idx = 0; idx < n_sources; ++idx)
     g_ptr_array_add (source_strs, (gpointer)download_source_to_string (order[idx]));
@@ -1905,7 +1915,7 @@ get_head_commit_timestamp (GFile *sysroot_path,
   if (!ostree_repo_load_commit (repo, checksum, &commit, NULL, error))
     return FALSE;
 
-  *out_timestamp = g_date_time_new_from_unix_utc (ostree_commit_get_timestamp (commit));
+  *out_timestamp = g_date_time_new_from_unix_utc ((gint64) ostree_commit_get_timestamp (commit));
 
   return TRUE;
 }
@@ -2315,13 +2325,15 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_AUTOUPDATER,
 
 static GKeyFile *
 get_autoupdater_config (UpdateStep step,
-                        gint update_interval_in_days,
+                        guint update_interval_in_days,
                         gboolean update_on_mobile)
 {
   g_autoptr(GKeyFile) config = g_key_file_new ();
 
+  g_assert (update_interval_in_days <= G_MAXINT);
+
   g_key_file_set_integer (config, "Automatic Updates", "LastAutomaticStep", step);
-  g_key_file_set_integer (config, "Automatic Updates", "IntervalDays", update_interval_in_days);
+  g_key_file_set_integer (config, "Automatic Updates", "IntervalDays", (gint) update_interval_in_days);
   g_key_file_set_integer (config, "Automatic Updates", "RandomizedDelayDays", 0);
   g_key_file_set_boolean (config, "Automatic Updates", "UpdateOnMobile", update_on_mobile);
 
@@ -2481,4 +2493,21 @@ eos_test_autoupdater_new (GFile *autoupdater_root,
   autoupdater->root = g_object_ref (autoupdater_root);
   autoupdater->cmd = g_steal_pointer (&cmd);
   return g_steal_pointer (&autoupdater);
+}
+
+/**
+ * eos_test_has_ostree_boot_id:
+ *
+ * Check whether the `/proc/sys/kernel/random/boot_id` file is available, which
+ * is needed by #OstreeRepo.
+ *
+ * Returns: %TRUE if it exists, %FALSE otherwise
+ */
+gboolean
+eos_test_has_ostree_boot_id (void)
+{
+  g_autoptr(GFile) boot_id_file = NULL;
+
+  boot_id_file = g_file_new_for_path ("/proc/sys/kernel/random/boot_id");
+  return g_file_query_exists (boot_id_file, NULL);
 }
