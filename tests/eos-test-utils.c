@@ -132,37 +132,8 @@ get_keyid (GFile *gpg_home)
 }
 
 static void
-eos_test_device_finalize_impl (EosTestDevice *device)
-{
-  g_free (device->vendor);
-  g_free (device->product);
-  g_free (device->ref);
-}
-
-EOS_DEFINE_REFCOUNTED (EOS_TEST_DEVICE,
-                       EosTestDevice,
-                       eos_test_device,
-                       NULL,
-                       eos_test_device_finalize_impl)
-
-EosTestDevice *
-eos_test_device_new (const gchar *vendor,
-                     const gchar *product,
-                     const gchar *ref)
-{
-  EosTestDevice *device = g_object_new (EOS_TEST_TYPE_DEVICE, NULL);
-
-  device->vendor = g_strdup (vendor);
-  device->product = g_strdup (product);
-  device->ref = g_strdup (ref);
-
-  return device;
-}
-
-static void
 eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 {
-  g_clear_pointer (&subserver->devices, g_ptr_array_unref);
   g_clear_pointer (&subserver->ref_to_commit, g_hash_table_unref);
   g_clear_object (&subserver->repo);
   g_clear_object (&subserver->tree);
@@ -187,7 +158,6 @@ EosTestSubserver *
 eos_test_subserver_new (GFile *gpg_home,
                         const gchar *keyid,
                         const gchar *ostree_path,
-                        GPtrArray *devices,
                         GHashTable *ref_to_commit)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
@@ -195,7 +165,6 @@ eos_test_subserver_new (GFile *gpg_home,
   subserver->gpg_home = g_object_ref (gpg_home);
   subserver->keyid = g_strdup (keyid);
   subserver->ostree_path = g_strdup (ostree_path);
-  subserver->devices = g_ptr_array_ref (devices);
   subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
 
   return subserver;
@@ -959,17 +928,14 @@ eos_test_server_new_quick (GFile *server_root,
                            GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
-  g_autoptr(GPtrArray) devices = object_array_new ();
   g_autoptr(GHashTable) ref_to_commit = eos_test_subserver_ref_to_commit_new ();
 
-  g_ptr_array_add (devices, eos_test_device_new (vendor, product, ref));
   g_hash_table_insert (ref_to_commit,
                        g_strdup (ref),
                        GUINT_TO_POINTER (commit_number));
   g_ptr_array_add (subservers, eos_test_subserver_new (gpg_home,
                                                        keyid,
                                                        ostree_path,
-                                                       devices,
                                                        ref_to_commit));
 
   return eos_test_server_new (server_root,
@@ -1604,25 +1570,6 @@ ensure_ref_in_subserver (const gchar *ref,
   return g_hash_table_lookup_extended (subserver->ref_to_commit, ref, NULL, NULL);
 }
 
-static gboolean
-ensure_vendor_and_product_in_subserver (const gchar *vendor,
-                                        const gchar *product,
-                                        EosTestSubserver *subserver)
-{
-  guint idx;
-
-  for (idx = 0; idx < subserver->devices->len; ++idx)
-    {
-      EosTestDevice *device = EOS_TEST_DEVICE (g_ptr_array_index (subserver->devices, idx));
-
-      if (g_strcmp0 (vendor, device->vendor) == 0 &&
-          g_strcmp0 (product, device->product) == 0)
-        return TRUE;
-    }
-
-  return FALSE;
-}
-
 EosTestClient *
 eos_test_client_new (GFile *client_root,
                      const gchar *remote_name,
@@ -1635,8 +1582,6 @@ eos_test_client_new (GFile *client_root,
   g_autoptr(EosTestClient) client = NULL;
 
   if (!ensure_ref_in_subserver (ref, subserver))
-    return FALSE;
-  if (!ensure_vendor_and_product_in_subserver (vendor, product, subserver))
     return FALSE;
 
   if (!prepare_client_sysroot (client_root,

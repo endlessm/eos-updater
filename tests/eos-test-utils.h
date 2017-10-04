@@ -53,26 +53,6 @@ extern const gchar *const default_ref;
 extern const gchar *const default_ostree_path;
 extern const gchar *const default_remote_name;
 
-#define EOS_TEST_TYPE_DEVICE eos_test_device_get_type ()
-G_DECLARE_FINAL_TYPE (EosTestDevice,
-                      eos_test_device,
-                      EOS_TEST,
-                      DEVICE,
-                      GObject)
-
-struct _EosTestDevice
-{
-  GObject parent_instance;
-
-  gchar *vendor;
-  gchar *product;
-  gchar *ref;
-};
-
-EosTestDevice *eos_test_device_new (const gchar *vendor,
-                                    const gchar *product,
-                                    const gchar *ref);
-
 #define EOS_TEST_TYPE_SUBSERVER eos_test_subserver_get_type ()
 G_DECLARE_FINAL_TYPE (EosTestSubserver,
                       eos_test_subserver,
@@ -86,7 +66,6 @@ struct _EosTestSubserver
 
   gchar *keyid;
   gchar *ostree_path;
-  GPtrArray *devices;
   GHashTable *ref_to_commit;
 
   GFile *repo;
@@ -104,7 +83,6 @@ eos_test_subserver_ref_to_commit_new (void)
 EosTestSubserver *eos_test_subserver_new (GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
-                                          GPtrArray *devices,
                                           GHashTable *ref_to_commit);
 
 gboolean eos_test_subserver_update (EosTestSubserver *subserver,
