@@ -52,10 +52,6 @@ gboolean eos_updater_save_or_delete  (GBytes *contents,
                                       GCancellable *cancellable,
                                       GError **error);
 
-gboolean eos_updater_create_extensions_dir (OstreeRepo *repo,
-                                            GFile **dir,
-                                            GError **error);
-
 OstreeDeployment *eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
                                                                          GError **error);
 
@@ -75,8 +71,6 @@ guint eos_updater_queue_callback (GMainContext *context,
 
 const gchar *eos_updater_get_envvar_or (const gchar *envvar,
                                         const gchar *default_value);
-
-GFile *eos_updater_get_eos_extensions_dir (OstreeRepo *repo);
 
 gboolean eos_updater_read_file_to_bytes (GFile *file,
                                          GCancellable *cancellable,

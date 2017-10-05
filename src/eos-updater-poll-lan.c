@@ -414,7 +414,6 @@ get_update_info_from_swms (LanData *lan_data,
   g_autoptr(GPtrArray) swms_with_latest_commit = NULL;
   g_autoptr(GVariant) latest_commit = NULL;
   g_autoptr(GPtrArray) urls = NULL;
-  g_autoptr(EosExtensions) latest_extensions = NULL;
   OstreeRepo *repo = lan_data->fetch_data->data->repo;
 
   if (!get_booted_refspec (&refspec, NULL, NULL, error))
@@ -433,7 +432,6 @@ get_update_info_from_swms (LanData *lan_data,
       g_autofree gchar *checksum = NULL;
       g_autoptr(GVariant) commit = NULL;
       guint64 timestamp;
-      g_autoptr(EosExtensions) extensions = NULL;
       GCancellable *cancellable = g_task_get_cancellable (lan_data->fetch_data->task);
 
       /* Build the URI. */
@@ -450,7 +448,6 @@ get_update_info_from_swms (LanData *lan_data,
                                 url_override,
                                 &checksum,
                                 &new_refspec,
-                                &extensions,
                                 &local_error))
         {
           g_message ("Failed to fetch latest commit from %s: %s",
@@ -509,7 +506,6 @@ get_update_info_from_swms (LanData *lan_data,
               latest_timestamp = 0;
               g_ptr_array_set_size (swms_with_latest_commit, 0);
               g_ptr_array_set_size (urls, 0);
-              g_clear_object (&latest_extensions);
             }
           else
             {
@@ -527,7 +523,6 @@ get_update_info_from_swms (LanData *lan_data,
           latest_timestamp = timestamp;
           g_ptr_array_add (swms_with_latest_commit, g_object_ref (swm));
           g_ptr_array_add (urls, g_steal_pointer (&url_override));
-          latest_extensions = g_steal_pointer (&extensions);
         }
     }
 
@@ -541,8 +536,7 @@ get_update_info_from_swms (LanData *lan_data,
                                        new_refspec,
                                        refspec,
                                        (const gchar * const *)g_ptr_array_free (g_steal_pointer (&urls),
-                                                                                FALSE),
-                                       latest_extensions);
+                                                                                FALSE));
     }
   else
     *out_info = NULL;

@@ -156,17 +156,6 @@ apply_internal (EosUpdater *updater,
 
   newbootver = ostree_deployment_get_deployserial (new_deployment);
 
-  /* Updates to the extensions are non-fatal, since
-   * we’ve already successfully deployed the new OS. */
-  if (!eos_extensions_save (data->extensions,
-                            repo,
-                            cancel,
-                            &local_error))
-    g_warning ("Failed to save repository extensions: %s",
-               local_error->message);
-  g_clear_object (&data->extensions);
-  g_clear_error (&local_error);
-
   /* FIXME: Cleaning up after update should be non-fatal, since we've
    * already successfully deployed the new OS. This clearly is a
    * workaround for a more serious issue, likely related to concurrent

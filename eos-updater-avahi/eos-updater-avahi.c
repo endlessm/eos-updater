@@ -24,8 +24,8 @@
 #include <glib.h>
 #include <libeos-update-server/config.h>
 #include <libeos-updater-util/avahi-service-file.h>
-#include <libeos-updater-util/extensions.h>
 #include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/util.h>
 #include <locale.h>
 #include <ostree.h>
 #include <stdlib.h>
@@ -136,24 +136,52 @@ get_summary_timestamp (OstreeRepo    *repo,
                        GCancellable  *cancellable,
                        GError       **error)
 {
-  // FIXME: Find the summary without using eos specific bits to ease
-  // the moving of this code to ostree.
-  g_autoptr(EosExtensions) extensions = eos_extensions_new_from_repo (repo,
-                                                                      cancellable,
-                                                                      error);
-  gboolean found;
+  g_autoptr(GFile) summary_file = g_file_get_child (ostree_repo_get_path (repo), "summary");
   guint64 raw_timestamp;
+  gboolean found = FALSE;
+  g_autoptr(GBytes) summary_bytes = NULL;
 
-  if (extensions == NULL)
+  if (!eos_updater_read_file_to_bytes (summary_file, cancellable, &summary_bytes, error))
     return FALSE;
 
-  if (!get_raw_summary_timestamp_from_metadata (extensions->summary, &found, &raw_timestamp, error))
-    return FALSE;
+  if (summary_bytes != NULL)
+    {
+      if (!get_raw_summary_timestamp_from_metadata (summary_bytes, &found, &raw_timestamp, error))
+        return FALSE;
+    }
 
   if (!found)
-    raw_timestamp = extensions->summary_modification_time_secs;
+    {
+      g_autoptr(GFileInfo) summary_info = NULL;
+      g_autoptr(GError) local_error = NULL;
 
-  return get_summary_timestamp_from_guint64 (raw_timestamp, out_summary_timestamp, error);
+      summary_info = g_file_query_info (summary_file,
+                                        G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                                        G_FILE_QUERY_INFO_NONE,
+                                        cancellable,
+                                        &local_error);
+      if (summary_info == NULL)
+        {
+          if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+            {
+              g_propagate_error (error, g_steal_pointer (&local_error));
+              return FALSE;
+            }
+          g_clear_error (&local_error);
+        }
+      else
+        {
+          raw_timestamp = g_file_info_get_attribute_uint64 (summary_info,
+                                                            G_FILE_ATTRIBUTE_TIME_MODIFIED);
+          found = TRUE;
+        }
+    }
+
+  if (found)
+    return get_summary_timestamp_from_guint64 (raw_timestamp, out_summary_timestamp, error);
+
+  g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND, "No summary file found");
+  return FALSE;
 }
 
 static gboolean

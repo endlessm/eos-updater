@@ -1029,10 +1029,10 @@ copy_file_and_signature (GFile *source_file,
 }
 
 static gboolean
-copy_extensions (GFile *source_repo,
-                 GFile *client_root,
-                 const gchar *ref,
-                 GError **error)
+copy_summary (GFile *source_repo,
+              GFile *client_root,
+              const gchar *ref,
+              GError **error)
 {
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
@@ -1481,10 +1481,10 @@ eos_test_client_new (GFile *client_root,
                                error))
     return FALSE;
 
-  if (!copy_extensions (subserver->repo,
-                        client_root,
-                        collection_ref->ref_name,
-                        error))
+  if (!copy_summary (subserver->repo,
+                     client_root,
+                     collection_ref->ref_name,
+                     error))
     return FALSE;
 
   client = g_object_new (EOS_TEST_TYPE_CLIENT, NULL);

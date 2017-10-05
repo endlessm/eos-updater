@@ -24,7 +24,6 @@
 
 #include "eos-updater-data.h"
 
-#include <libeos-updater-util/extensions.h>
 #include <libeos-updater-util/refcounted.h>
 
 #include <ostree.h>
@@ -75,7 +74,6 @@ struct _EosUpdateInfo
   gchar *refspec;
   gchar *original_refspec;
   gchar **urls;
-  EosExtensions *extensions;
 };
 
 EosUpdateInfo *
@@ -83,8 +81,7 @@ eos_update_info_new (const gchar *csum,
                      GVariant *commit,
                      const gchar *refspec,
                      const gchar *original_refspec,
-                     const gchar * const *urls,
-                     EosExtensions *extensions);
+                     const gchar * const *urls);
 
 GDateTime *
 eos_update_info_get_commit_timestamp (EosUpdateInfo *info);
@@ -126,7 +123,6 @@ gboolean fetch_latest_commit (OstreeRepo *repo,
                               const gchar *url_override,
                               gchar **out_checksum,
                               gchar **out_new_refspec,
-                              EosExtensions **out_extensions,
                               GError **error);
 
 gboolean download_file_and_signature (const gchar *url,

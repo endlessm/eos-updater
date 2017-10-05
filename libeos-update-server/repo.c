@@ -640,9 +640,7 @@ static gboolean
 path_is_summary (const gchar *path)
 {
   if (g_str_equal (path, "/summary") ||
-      g_str_equal (path, "/summary.sig") ||
-      g_str_equal (path, "/extensions/eos/eos-summary") ||
-      g_str_equal (path, "/extensions/eos/eos-summary.sig"))
+      g_str_equal (path, "/summary.sig"))
     return TRUE;
 
   return FALSE;
@@ -766,33 +764,29 @@ handle_summary (EusRepo     *self,
                 SoupMessage *msg,
                 const gchar *requested_path)
 {
-  g_autofree gchar *eos_raw_path = NULL;
+  g_autofree gchar *raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
+  gboolean served = FALSE;
+  g_autoptr(GError) local_error = NULL;
 
-  if (g_str_has_prefix (requested_path, "/summary"))
+  if (!serve_file_if_exists (msg,
+                             self->cached_repo_root,
+                             raw_path,
+                             self->cancellable,
+                             &served))
+    return;
+  if (served)
+    return;
+
+  /* Regenerate the summary since it doesn’t exist. */
+  if (!ostree_repo_regenerate_summary (self->repo, NULL, self->cancellable, &local_error))
     {
-      g_autofree gchar *raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
-      g_autofree gchar *eos_summary_path = NULL;
-      gboolean served = FALSE;
-
-      if (!serve_file_if_exists (msg,
-                                 self->cached_repo_root,
-                                 raw_path,
-                                 self->cancellable,
-                                 &served))
-        return;
-      if (served)
-        return;
-
-      eos_summary_path = g_strconcat ("/extensions/eos/eos-", requested_path + 1, NULL);
-      eos_raw_path = g_build_filename (self->cached_repo_root, eos_summary_path, NULL);
-      g_debug ("no %s, falling back to %s", requested_path, eos_summary_path);
-    }
-  else
-    {
-      eos_raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
+      g_debug ("Error regenerating summary: %s", local_error->message);
+      g_clear_error (&local_error);
+      soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+      return;
     }
 
-  serve_file (msg, self->cached_repo_root, eos_raw_path, self->cancellable);
+  serve_file (msg, self->cached_repo_root, raw_path, self->cancellable);
 }
 
 static void

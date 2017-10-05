@@ -38,7 +38,6 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
   g_autoptr(EosUpdateInfo) info = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
-  g_autoptr(EosExtensions) extensions = NULL;
 
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -52,7 +51,6 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
                             NULL,
                             &checksum,
                             &new_refspec,
-                            &extensions,
                             error))
     return FALSE;
 
@@ -64,8 +62,7 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
                                 commit,
                                 new_refspec,
                                 refspec,
-                                NULL,
-                                extensions);
+                                NULL);
 
   *out_info = g_steal_pointer (&info);
 
