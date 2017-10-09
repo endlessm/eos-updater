@@ -124,11 +124,6 @@ gboolean fetch_latest_commit (OstreeRepo *repo,
                               gchar **out_new_refspec,
                               GError **error);
 
-gboolean download_file_and_signature (const gchar *url,
-                                      GBytes **contents,
-                                      GBytes **signature,
-                                      GError **error);
-
 gboolean get_origin_refspec (OstreeDeployment *booted_deployment,
                              gchar **out_refspec,
                              GError **error);
