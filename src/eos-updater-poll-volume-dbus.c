@@ -23,7 +23,6 @@
 #include "eos-updater-object.h"
 #include "eos-updater-poll-common.h"
 #include "eos-updater-poll-volume-dbus.h"
-#include "eos-updater-poll-volume.h"
 
 #include <libeos-updater-util/util.h>
 
@@ -73,7 +72,6 @@ volume_metadata_fetch (GTask *task,
   g_autoptr(GArray) download_order = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
   g_autoptr(GVariant) volume_variant = NULL;
-  EosUpdaterDownloadSource volume_source = EOS_UPDATER_DOWNLOAD_VOLUME;
 
   task_context = g_main_context_new ();
   fetch_data = eos_metadata_fetch_data_new (task, volume_fetch_data->data,
@@ -89,12 +87,8 @@ volume_metadata_fetch (GTask *task,
   volume_variant = g_variant_new_parsed ("{ 'volume-path': <%s> }",
                                          volume_fetch_data->volume_path);
 
-  g_ptr_array_add (fetchers, metadata_fetch_from_volume);
-  g_ptr_array_add (source_variants, volume_variant);
-  g_array_append_val (download_order, volume_source);
-  info = run_fetchers (fetch_data,
-                       fetchers,
-                       download_order);
+  /* FIXME: This will be reworked in a following commit. */
+  g_warning ("Old-style volume fetcher no longer supported. Ignoring.");
 
   g_task_return_pointer (task,
                          (info != NULL) ? g_object_ref (info) : NULL,

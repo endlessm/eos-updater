@@ -25,9 +25,7 @@
 #include "eos-updater-data.h"
 #include "eos-updater-object.h"
 #include "eos-updater-poll-common.h"
-#include "eos-updater-poll-lan.h"
 #include "eos-updater-poll-main.h"
-#include "eos-updater-poll-volume.h"
 #include "eos-updater-poll.h"
 #include "resources.h"
 
@@ -183,11 +181,11 @@ get_fetchers (SourcesConfig *config,
           break;
 
         case EOS_UPDATER_DOWNLOAD_LAN:
-          add_fetcher (fetchers, metadata_fetch_from_lan);
+          g_warning ("Old-style LAN fetcher no longer supported. Ignoring.");
           break;
 
         case EOS_UPDATER_DOWNLOAD_VOLUME:
-          add_fetcher (fetchers, metadata_fetch_from_volume);
+          g_warning ("Old-style volume fetcher no longer supported. Ignoring.");
           break;
 
         default:
