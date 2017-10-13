@@ -578,7 +578,10 @@ prepare_commit (GFile *repo,
     g_autoptr(GFile) commit_file = g_file_get_child (tree_root, commit_filename);
 
     if (g_file_query_exists (commit_file, NULL))
-      return TRUE;
+      {
+        if (out_checksum != NULL)
+          return get_current_commit_checksum (repo, ref, out_checksum, error);
+      }
   }
 
   if (commit_number > 0)
