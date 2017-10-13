@@ -82,7 +82,7 @@ struct _EosTestSubserver
    * are a pointer array of SimpleFile instances. */
   GHashTable *additional_files_for_commit;
 
-  /* Mapping from commits numbers to hashtables of metadata string
+  /* Mapping from commit numbers to hashtables of metadata string
    * key-value pairs */
   GHashTable *additional_metadata_for_commit;
 

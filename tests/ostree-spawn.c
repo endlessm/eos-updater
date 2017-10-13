@@ -117,31 +117,46 @@ ostree_init (GFile *repo,
 }
 
 static void
-copy_additional_metadata_args_from_hashtable (GArray *cmd_args,
-                                              GHashTable *metadata,
-                                              GPtrArray *cmd_args_membuf)
+copy_additional_metadata_args_from_hashtable (GArray      *cmd_args,
+                                              GHashTable  *metadata,
+                                              GPtrArray  **out_cmd_args_membuf)
 {
   gpointer key;
   gpointer value;
   GHashTableIter iter;
 
+  g_return_if_fail (out_cmd_args_membuf != NULL);
+
   if (metadata == NULL)
     return;
+
+  *out_cmd_args_membuf = g_ptr_array_new_with_free_func (g_free);
 
   g_hash_table_iter_init (&iter, metadata);
 
   while (g_hash_table_iter_next (&iter, &key, &value))
     {
-      gchar *formatted_metadata_string = g_strdup_printf ("%s=%s",
-                                                          (const char *) key,
-                                                          (const gchar *) value);
+      g_autofree gchar *formatted_metadata_string = g_strdup_printf ("%s=%s",
+                                                                     (const char *) key,
+                                                                     (const gchar *) value);
       CmdArg arg =
         {
           "add-metadata-string",
           formatted_metadata_string
         };
 
-      g_ptr_array_add (cmd_args_membuf, formatted_metadata_string);
+      /* Note that in most cases, we are passing values to CmdArg which
+       * are owned by g_autoptrs in the scope of the function where CmdArg
+       * is used itself, however in this case, we are dynamically populating
+       * CmdArg based on the values in the hashtable. Making matters worse is
+       * the fact that the values we append to the CmdArg array
+       * needs to be heap allocated strings. Those strings must have an
+       * owner, but that owner cannot be CmdArg because we cannot know which
+       * strings were stack allocated (or already owned) and that owner
+       * is cmd_args_membuf here, which is expected to be free'd by the
+       * caller. */
+      g_ptr_array_add (*out_cmd_args_membuf,
+                       g_steal_pointer (&formatted_metadata_string));
       g_array_append_val (cmd_args, arg);
     }
 }
@@ -197,13 +212,13 @@ ostree_commit (GFile *repo,
     };
   CmdArg empty = { NULL, NULL };
   g_autoptr(GArray) cmd_args = g_array_sized_new (FALSE, TRUE, sizeof (CmdArg), 8);
-  g_autoptr(GPtrArray) formatted_cmd_args_membuf = g_ptr_array_new_with_free_func (g_free);
-  memcpy (cmd_args->data, initial_args, sizeof(initial_args));
-  cmd_args->len = G_N_ELEMENTS (initial_args);
+  g_autoptr(GPtrArray) formatted_cmd_args_membuf = NULL;
+
+  g_array_append_vals (cmd_args, initial_args, G_N_ELEMENTS (initial_args));
 
   copy_additional_metadata_args_from_hashtable (cmd_args,
                                                 metadata,
-                                                formatted_cmd_args_membuf);
+                                                &formatted_cmd_args_membuf);
   g_array_append_val (cmd_args, empty);
 
   return spawn_ostree_in_repo_args (repo,

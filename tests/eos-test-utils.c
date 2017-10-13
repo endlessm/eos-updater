@@ -588,6 +588,8 @@ prepare_commit (GFile *repo,
                                               collection_ref,
                                               out_checksum,
                                               error);
+
+        return TRUE;
       }
   }
 
@@ -666,18 +668,32 @@ generate_delta_files (GFile *repo,
   return cmd_result_ensure_ok (&cmd, error);
 }
 
-static const gchar *
+/**
+ * get_last_ref:
+ * @ref_to_commit: (element-type utf8 uint): a #GHashTable mapping refs to commit numbers.
+ * @wanted_commit_number: the commit number to count down from.
+ *
+ * Look through the ref_to_commit hashtable (which maps refs to
+ * commit numbers) to try and find the last known ref before
+ * wanted_commit_number. It handles the case where we have commits
+ * N, N - J and don't have (N - 1)..(N - J) in the hashtable.
+ *
+ * Returns: the last known ref before wanted_commit_number
+ */
+static OstreeCollectionRef *
 get_last_ref (GHashTable *ref_to_commit,
               guint       wanted_commit_number)
 {
   gpointer key = NULL;
   gpointer value = NULL;
 
-  do
+  /* Decrement at least once, since we want to find a commit
+   * before this one */
+  wanted_commit_number--;
+
+  for (; wanted_commit_number > 0; wanted_commit_number--)
     {
       GHashTableIter iter;
-
-      wanted_commit_number--;
 
       g_hash_table_iter_init (&iter, ref_to_commit);
       while (g_hash_table_iter_next (&iter, &key, &value))
@@ -688,7 +704,6 @@ get_last_ref (GHashTable *ref_to_commit,
             return key;
         }
     }
-  while (wanted_commit_number > 0);
 
   return NULL;
 }
@@ -717,8 +732,8 @@ update_commits (EosTestSubserver *subserver,
       if (commit_number > 0)
         {
           /* O(N^2), sadly */
-          const gchar *last_ref = get_last_ref (subserver->ref_to_commit,
-                                                commit_number);
+          const OstreeCollectionRef *last_ref = get_last_ref (subserver->ref_to_commit,
+                                                              commit_number);
           /* Get the checksum of the commit on the last ref, since
            * it may have changed in the meantime */
           if (!get_current_commit_checksum (subserver->repo,
@@ -742,7 +757,7 @@ update_commits (EosTestSubserver *subserver,
         return FALSE;
 
       /* No checksum means that we've already written out this commit's ref */
-      if (!checksum)
+      if (checksum == NULL)
         continue;
 
       if (commit_number > 0)
