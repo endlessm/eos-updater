@@ -159,7 +159,6 @@ Makefile
 libeos-updater-util/tests/Makefile
 src/Makefile
 data/Makefile
-docs/Makefile
 tests/Makefile
 ])
 AC_OUTPUT
