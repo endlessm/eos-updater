@@ -656,6 +656,33 @@ generate_delta_files (GFile *repo,
   return cmd_result_ensure_ok (&cmd, error);
 }
 
+static const gchar *
+get_last_ref (GHashTable *ref_to_commit,
+              guint       wanted_commit_number)
+{
+  gpointer key = NULL;
+  gpointer value = NULL;
+
+  do
+    {
+      GHashTableIter iter;
+
+      wanted_commit_number--;
+
+      g_hash_table_iter_init (&iter, ref_to_commit);
+      while (g_hash_table_iter_next (&iter, &key, &value))
+        {
+          guint commit_number = GPOINTER_TO_UINT (value);
+
+          if (commit_number == wanted_commit_number)
+            return key;
+        }
+    }
+  while (wanted_commit_number > 0);
+
+  return NULL;
+}
+
 /* Updates the subserver to a new commit number in the ref_to_commit
  * hash table.  This involves creating the commits, generating ref
  * files and delta files, and updating the summary.
@@ -679,8 +706,13 @@ update_commits (EosTestSubserver *subserver,
 
       if (commit_number > 0)
         {
+          /* O(N^2), sadly */
+          const gchar *last_ref = get_last_ref (subserver->ref_to_commit,
+                                                commit_number);
+          /* Get the checksum of the commit on the last ref, since
+           * it may have changed in the meantime */
           if (!get_current_commit_checksum (subserver->repo,
-                                            collection_ref,
+                                            last_ref ? last_ref : collection_ref,
                                             &old_checksum,
                                             error))
             return FALSE;
