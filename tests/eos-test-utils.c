@@ -730,6 +730,10 @@ update_commits (EosTestSubserver *subserver,
                            error))
         return FALSE;
 
+      /* No checksum means that we've already written out this commit's ref */
+      if (!checksum)
+        continue;
+
       if (commit_number > 0)
         {
           if (!generate_delta_files (subserver->repo,
