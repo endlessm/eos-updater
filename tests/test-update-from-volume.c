@@ -40,6 +40,8 @@ test_update_from_volume (EosUpdaterFixture *fixture,
   g_autoptr(EosTestClient) client1 = NULL;
   g_autoptr(EosTestClient) client2 = NULL;
   g_autoptr(GFile) volume_path = NULL;
+  g_autoptr(GFile) volume_ostree_path = NULL;
+  g_autoptr(GFile) volume_repo_path = NULL;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autoptr(GFile) autoupdater_root = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
@@ -47,6 +49,7 @@ test_update_from_volume (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) cmds = NULL;
   gboolean has_commit;
   DownloadSource volume_source = DOWNLOAD_VOLUME;
+  g_autoptr(GPtrArray) override_uris = NULL;
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
    * afterwards we hit unsupported syscalls in qemu-user when running in an
@@ -104,9 +107,14 @@ test_update_from_volume (EosUpdaterFixture *fixture,
                                   &error);
   g_assert_no_error (error);
 
+  override_uris = g_ptr_array_new_with_free_func ((GDestroyNotify) g_free);
+  volume_ostree_path = g_file_get_child (volume_path, ".ostree");
+  volume_repo_path = g_file_get_child (volume_ostree_path, "repo");
+  g_ptr_array_add (override_uris, g_file_get_uri (volume_repo_path));
   eos_test_client_run_updater (client1,
                                &volume_source,
                                1,
+                               override_uris,
                                &updater_cmd,
                                &error);
   g_assert_no_error (error);

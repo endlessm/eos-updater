@@ -89,6 +89,7 @@ test_update_from_main (EosUpdaterFixture *fixture,
   eos_test_client_run_updater (client,
                                &main_source,
                                1,
+                               NULL,
                                &updater_cmd,
                                &error);
   g_assert_no_error (error);

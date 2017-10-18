@@ -159,6 +159,7 @@ EosTestClient *eos_test_client_new (GFile *client_root,
 gboolean eos_test_client_run_updater (EosTestClient *client,
                                       DownloadSource *order,
                                       gsize n_sources,
+                                      GPtrArray *override_uris,
                                       CmdAsyncResult *cmd,
                                       GError **error);
 
@@ -169,7 +170,7 @@ gboolean eos_test_client_reap_updater (EosTestClient *client,
 
 gboolean eos_test_client_run_update_server (EosTestClient *client,
                                             CmdAsyncResult *cmd,
-                                            GKeyFile **out_avahi_definition,
+                                            guint16 *out_port,
                                             GError **error);
 
 
@@ -185,11 +186,6 @@ gboolean eos_test_client_reap_update_server (EosTestClient *client,
                                              CmdAsyncResult *cmd,
                                              CmdResult *reaped,
                                              GError **error);
-
-gboolean eos_test_client_store_definition (EosTestClient *client,
-                                           const gchar *name,
-                                           GKeyFile *avahi_definition,
-                                           GError **error);
 
 gboolean eos_test_client_has_commit (EosTestClient *client,
                                      const gchar *osname,

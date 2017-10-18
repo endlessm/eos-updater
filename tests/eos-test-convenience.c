@@ -167,6 +167,7 @@ etc_update_client (EtcData *data)
   eos_test_client_run_updater (data->client,
                                &main_source,
                                1,
+                               NULL,
                                &updater_cmd,
                                &error);
   g_assert_no_error (error);
