@@ -619,6 +619,25 @@ maybe_send_metric (EosMetricsInfo *metrics)
 #endif
 }
 
+void
+metrics_report_successful_poll (EosUpdateInfo *update)
+{
+  g_autofree gchar *new_ref = NULL;
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosMetricsInfo) metrics = NULL;
+
+  if (!ostree_parse_refspec (update->new_refspec, NULL, &new_ref, &error))
+    {
+      g_message ("Failed to get metrics: %s", error->message);
+      return;
+    }
+
+  /* Send metrics about our ref: this is the ref we’re going to upgrade to,
+   * and that’s not always the same as the one we’re currently on. */
+  metrics = eos_metrics_info_new (new_ref);
+  maybe_send_metric (metrics);
+}
+
 gchar *
 eos_update_info_to_string (EosUpdateInfo *update)
 {
@@ -749,26 +768,13 @@ run_fetchers (EosMetadataFetchData *fetch_data,
   if (g_hash_table_size (source_to_update) > 0)
     {
       EosUpdateInfo *latest_update = NULL;
-      g_autofree gchar *booted_ref = NULL;
-      g_autoptr(GError) metrics_error = NULL;
-
-      /* Send metrics about our ref: this is the ref we’re going to upgrade to,
-       * but that’s always the same as the one we’re currently on. */
-      if (get_booted_refspec (NULL, NULL, &booted_ref, NULL, &metrics_error))
-        {
-          g_autoptr(EosMetricsInfo) metrics = NULL;
-
-          metrics = eos_metrics_info_new (booted_ref);
-          maybe_send_metric (metrics);
-        }
-      else
-        {
-          g_message ("Failed to get metrics: %s", metrics_error->message);
-        }
 
       latest_update = get_latest_update (sources, source_to_update);
       if (latest_update != NULL)
-        return g_object_ref (latest_update);
+        {
+          metrics_report_successful_poll (latest_update);
+          return g_object_ref (latest_update);
+        }
     }
 
   return NULL;

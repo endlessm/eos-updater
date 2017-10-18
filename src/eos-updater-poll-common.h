@@ -139,6 +139,7 @@ gboolean get_origin_refspec (OstreeDeployment *booted_deployment,
 
 GHashTable *get_hw_descriptors (void);
 
+void metrics_report_successful_poll (EosUpdateInfo *update);
 gchar *eos_update_info_to_string (EosUpdateInfo *update);
 
 typedef enum
