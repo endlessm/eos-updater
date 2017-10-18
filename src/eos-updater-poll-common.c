@@ -151,8 +151,8 @@ static void
 eos_update_info_finalize_impl (EosUpdateInfo *info)
 {
   g_free (info->checksum);
-  g_free (info->refspec);
-  g_free (info->original_refspec);
+  g_free (info->new_refspec);
+  g_free (info->old_refspec);
   g_strfreev (info->urls);
 }
 
@@ -165,22 +165,22 @@ EOS_DEFINE_REFCOUNTED (EOS_UPDATE_INFO,
 EosUpdateInfo *
 eos_update_info_new (const gchar *checksum,
                      GVariant *commit,
-                     const gchar *refspec,
-                     const gchar *original_refspec,
+                     const gchar *new_refspec,
+                     const gchar *old_refspec,
                      const gchar * const *urls)
 {
   EosUpdateInfo *info;
 
   g_return_val_if_fail (checksum != NULL, NULL);
   g_return_val_if_fail (commit != NULL, NULL);
-  g_return_val_if_fail (refspec != NULL, NULL);
-  g_return_val_if_fail (original_refspec != NULL, NULL);
+  g_return_val_if_fail (new_refspec != NULL, NULL);
+  g_return_val_if_fail (old_refspec != NULL, NULL);
 
   info = g_object_new (EOS_TYPE_UPDATE_INFO, NULL);
   info->checksum = g_strdup (checksum);
   info->commit = g_variant_ref (commit);
-  info->refspec = g_strdup (refspec);
-  info->original_refspec = g_strdup (original_refspec);
+  info->new_refspec = g_strdup (new_refspec);
+  info->old_refspec = g_strdup (old_refspec);
   info->urls = g_strdupv ((gchar **) urls);
 
   return info;
@@ -636,8 +636,8 @@ eos_update_info_to_string (EosUpdateInfo *update)
 
   return g_strdup_printf ("%s, %s, %s, %s\n   %s",
                           update->checksum,
-                          update->refspec,
-                          update->original_refspec,
+                          update->new_refspec,
+                          update->old_refspec,
                           timestamp_str,
                           update_urls);
 }
@@ -852,8 +852,8 @@ metadata_fetch_finished (GObject *object,
        */
       eos_updater_clear_error (updater, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
       eos_updater_set_update_id (updater, info->checksum);
-      eos_updater_set_update_refspec (updater, info->refspec);
-      eos_updater_set_original_refspec (updater, info->original_refspec);
+      eos_updater_set_update_refspec (updater, info->new_refspec);
+      eos_updater_set_original_refspec (updater, info->old_refspec);
 
       g_variant_get_child (info->commit, 3, "&s", &label);
       g_variant_get_child (info->commit, 4, "&s", &message);

@@ -71,16 +71,16 @@ struct _EosUpdateInfo
 
   gchar *checksum;
   GVariant *commit;
-  gchar *refspec;
-  gchar *original_refspec;
+  gchar *new_refspec;
+  gchar *old_refspec;
   gchar **urls;
 };
 
 EosUpdateInfo *
 eos_update_info_new (const gchar *csum,
                      GVariant *commit,
-                     const gchar *refspec,
-                     const gchar *original_refspec,
+                     const gchar *new_refspec,
+                     const gchar *old_refspec,
                      const gchar * const *urls);
 
 GDateTime *
