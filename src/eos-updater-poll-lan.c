@@ -536,7 +536,8 @@ get_update_info_from_swms (LanData *lan_data,
                                        new_refspec,
                                        refspec,
                                        (const gchar * const *)g_ptr_array_free (g_steal_pointer (&urls),
-                                                                                FALSE));
+                                                                                FALSE),
+                                       NULL);
     }
   else
     *out_info = NULL;

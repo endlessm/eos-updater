@@ -203,6 +203,212 @@ get_fetchers (SourcesConfig *config,
 }
 
 static void
+object_unref0 (gpointer obj)
+{
+  if (obj == NULL)
+    return;
+  g_object_unref (obj);
+}
+
+static GPtrArray *
+get_finders (SourcesConfig          *config,
+             GMainContext           *context,
+             OstreeRepoFinderAvahi **out_finder_avahi)
+{
+  g_autoptr(OstreeRepoFinderAvahi) finder_avahi = NULL;
+  g_autoptr(GPtrArray) finders = g_ptr_array_new_full (config->download_order->len,
+                                                       object_unref0);
+  g_autoptr(GError) local_error = NULL;
+  gsize i;
+
+  /* FIXME: Refactor the download_order handling once the old code paths have
+   * been dropped, since we no longer care about the *order* of entries in
+   * download_order. */
+  g_assert (config->download_order->len > 0);
+
+  for (i = 0; i < config->download_order->len; i++)
+    {
+      switch (g_array_index (config->download_order, EosUpdaterDownloadSource, i))
+        {
+        case EOS_UPDATER_DOWNLOAD_MAIN:
+          g_ptr_array_add (finders, ostree_repo_finder_config_new ());
+          break;
+
+        case EOS_UPDATER_DOWNLOAD_LAN:
+          /* strv_to_download_order() already checks for duplicated download_order entries */
+          g_assert (finder_avahi == NULL);
+          finder_avahi = ostree_repo_finder_avahi_new (context);
+          g_ptr_array_add (finders, g_object_ref (finder_avahi));
+          break;
+
+        case EOS_UPDATER_DOWNLOAD_VOLUME:
+          /* TODO: How to make this one testable? */
+          g_ptr_array_add (finders, ostree_repo_finder_mount_new (NULL));
+          break;
+
+        default:
+          g_assert_not_reached ();
+        }
+    }
+
+  g_ptr_array_add (finders, NULL);  /* NULL terminator */
+
+  /* TODO: Stop this at some point; think of a better way to store it and
+   * control its lifecycle. */
+  if (finder_avahi != NULL)
+    ostree_repo_finder_avahi_start (OSTREE_REPO_FINDER_AVAHI (finder_avahi),
+                                    &local_error);
+
+  if (local_error != NULL)
+    {
+      g_warning ("Avahi finder failed; removing it: %s", local_error->message);
+      g_ptr_array_remove (finders, finder_avahi);
+      g_clear_object (&finder_avahi);
+      g_clear_error (&local_error);
+    }
+
+  if (out_finder_avahi != NULL)
+    *out_finder_avahi = g_steal_pointer (&finder_avahi);
+
+  return g_steal_pointer (&finders);
+}
+
+typedef OstreeRepoFinderAvahi RepoFinderAvahiRunning;
+
+static void
+repo_finder_avahi_stop_and_unref (RepoFinderAvahiRunning *finder)
+{
+  if (finder == NULL)
+    return;
+
+  ostree_repo_finder_avahi_stop (finder);
+  g_object_unref (finder);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (RepoFinderAvahiRunning, repo_finder_avahi_stop_and_unref)
+
+static void
+async_result_cb (GObject      *source_object,
+                 GAsyncResult *result,
+                 gpointer      user_data)
+{
+  GAsyncResult **result_out = user_data;
+
+  *result_out = g_object_ref (result);
+}
+
+/* May return NULL without setting an error if no updates were found. */
+static EosUpdateInfo *
+metadata_fetch_new (OstreeRepo    *repo,
+                    SourcesConfig *config,
+                    GMainContext  *context,
+                    GCancellable  *cancellable,
+                    GError       **error)
+{
+  g_auto(OstreeRepoFinderResultv) results = NULL;
+  g_autoptr(EosUpdateInfo) info = NULL;
+  g_autofree gchar *checksum = NULL;
+  g_autoptr(GVariant) commit = NULL;
+  g_autofree gchar *booted_refspec = NULL, *new_refspec = NULL;
+  g_autoptr(OstreeCollectionRef) booted_collection_ref = NULL, new_collection_ref = NULL;
+  const gchar *upgrade_refspec;
+  const OstreeCollectionRef *upgrade_collection_ref;
+  g_autoptr(GPtrArray) finders = NULL;  /* (element-type OstreeRepoFinder) */
+  g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
+
+  if (!get_booted_refspec (&booted_refspec, NULL, NULL, &booted_collection_ref, error))
+    return NULL;
+
+  if (booted_collection_ref == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                   "No collection ID set for currently booted deployment.");
+      return NULL;
+    }
+
+  upgrade_collection_ref = booted_collection_ref;
+  upgrade_refspec = booted_refspec;
+
+  finders = get_finders (config, context, &finder_avahi);
+
+  /* Check whether the commit is a redirection; if so, fetch the new ref and
+   * check again. */
+  do
+    {
+      const OstreeCollectionRef *refs[] = { upgrade_collection_ref, NULL };
+      g_autoptr(GVariant) pull_options = NULL;
+      g_autoptr(GAsyncResult) find_result = NULL, pull_result = NULL;
+      g_auto(GVariantBuilder) builder = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE ("a{sv}"));
+
+      g_debug ("%s: Finding remotes advertising upgrade_collection_ref: (%s, %s)",
+               upgrade_collection_ref->collection_id, upgrade_collection_ref->ref_name);
+
+      ostree_repo_find_remotes_async (repo, refs, NULL  /* options */,
+                                      (OstreeRepoFinder **) finders->pdata,
+                                      NULL  /* progress */,
+                                      cancellable, async_result_cb, &find_result);
+
+      while (find_result == NULL)
+        g_main_context_iteration (context, TRUE);
+
+      results = ostree_repo_find_remotes_finish (repo, find_result, error);
+      if (results == NULL)
+        return NULL;
+
+      /* No updates available. */
+      if (results[0] == NULL)
+        {
+          g_message ("Poll: Couldn’t find any updates");
+          return NULL;
+        }
+
+      g_variant_builder_add (&builder, "{s@v}", "flags",
+                             g_variant_new_variant (g_variant_new_int32 (OSTREE_REPO_PULL_FLAGS_COMMIT_ONLY)));
+      pull_options = g_variant_ref_sink (g_variant_builder_end (&builder));
+
+      ostree_repo_pull_from_remotes_async (repo,
+                                           (const OstreeRepoFinderResult * const *) results,
+                                           pull_options, NULL  /* progress */, cancellable,
+                                           async_result_cb, &pull_result);
+
+      while (pull_result == NULL)
+        g_main_context_iteration (context, TRUE);
+
+      if (!ostree_repo_pull_from_remotes_finish (repo, pull_result, error))
+        return NULL;
+
+      g_clear_pointer (&checksum, g_free);
+      g_clear_pointer (&new_refspec, g_free);
+      g_clear_pointer (&new_collection_ref, ostree_collection_ref_free);
+
+      /* Parse the commit and check there’s no redirection to a new ref. */
+      if (!parse_latest_commit (repo, upgrade_refspec, &checksum, &new_refspec,
+                                NULL, cancellable, error))
+        return NULL;
+
+      if (new_refspec != NULL)
+        upgrade_refspec = new_refspec;
+      if (new_collection_ref != NULL)
+        upgrade_collection_ref = new_collection_ref;
+    }
+  while (checksum == NULL);
+
+  /* Final checks on the commit we found. */
+  if (!is_checksum_an_update (repo, checksum, &commit, error))
+    return NULL;
+
+  if (commit == NULL)
+    return NULL;
+
+  info = eos_update_info_new (checksum, commit,
+                              upgrade_refspec, booted_refspec,
+                              NULL, g_steal_pointer (&results));
+  metrics_report_successful_poll (info);
+
+  return g_steal_pointer (&info);
+}
+
+static void
 metadata_fetch (GTask *task,
                 gpointer object,
                 gpointer task_data,
@@ -212,11 +418,13 @@ metadata_fetch (GTask *task,
   g_autoptr(GError) error = NULL;
   g_autoptr(GMainContext) task_context = g_main_context_new ();
   g_autoptr(EosMetadataFetchData) fetch_data = NULL;
-  g_autoptr(GPtrArray) fetchers = NULL;
-  g_autoptr(GPtrArray) source_variants = NULL;
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
-  g_autoptr(EosUpdateInfo) info = NULL;
   g_autoptr(OstreeDeployment) deployment = NULL;
+  g_autoptr(EosUpdateInfo) info = NULL;
+  static gboolean use_new_code = TRUE;
+  /* TODO: link this --^ to failure of the fetch or apply stages?
+   * Add environment variables or something else to force it one way or the other?
+   * Make it clear in the logging which code path is being used. */
 
   fetch_data = eos_metadata_fetch_data_new (task, data, task_context);
 
@@ -240,14 +448,49 @@ metadata_fetch (GTask *task,
       return;
     }
 
-  get_fetchers (&config, &fetchers, &source_variants);
-  info = run_fetchers (fetch_data,
-                       fetchers,
-                       config.download_order);
+  /* Do we want to use the new libostree code for P2P, or fall back on the old
+   * eos-updater code?
+   * FIXME: Eventually drop the old code. See:
+   * https://phabricator.endlessm.com/T19606 */
+  if (use_new_code)
+    {
+      info = metadata_fetch_new (data->repo, &config, task_context, cancellable, &error);
 
-  g_task_return_pointer (task,
-                         (info != NULL) ? g_object_ref (info) : NULL,
-                         g_object_unref);
+      if (error != NULL)
+        {
+          use_new_code = FALSE;
+
+          g_warning ("Error polling for updates using libostree P2P code; falling back to old code: %s",
+                     error->message);
+          g_clear_error (&error);
+        }
+
+      if (info != NULL)
+        {
+          g_autofree gchar *update_string = eos_update_info_to_string (info);
+          g_debug ("%s: Got update results %p from new P2P code: %s",
+                   G_STRFUNC, info->results, update_string);
+        }
+    }
+
+  /* Fall back to the old code path. */
+  if (info == NULL)
+    {
+      g_autoptr(GPtrArray) fetchers = NULL;
+      g_autoptr(GPtrArray) source_variants = NULL;
+
+      get_fetchers (&config, &fetchers, &source_variants);
+      info = run_fetchers (fetch_data,
+                           fetchers,
+                           config.download_order);
+    }
+
+  if (error != NULL)
+    g_task_return_error (task, g_steal_pointer (&error));
+  else
+    g_task_return_pointer (task,
+                           (info != NULL) ? g_object_ref (info) : NULL,
+                           g_object_unref);
 }
 
 gboolean

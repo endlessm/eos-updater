@@ -154,6 +154,7 @@ eos_update_info_finalize_impl (EosUpdateInfo *info)
   g_free (info->new_refspec);
   g_free (info->old_refspec);
   g_strfreev (info->urls);
+  g_clear_pointer (&info->results, ostree_repo_finder_result_freev);
 }
 
 EOS_DEFINE_REFCOUNTED (EOS_UPDATE_INFO,
@@ -162,12 +163,14 @@ EOS_DEFINE_REFCOUNTED (EOS_UPDATE_INFO,
                        eos_update_info_dispose_impl,
                        eos_update_info_finalize_impl)
 
+/* Steals @results. */
 EosUpdateInfo *
 eos_update_info_new (const gchar *checksum,
                      GVariant *commit,
                      const gchar *new_refspec,
                      const gchar *old_refspec,
-                     const gchar * const *urls)
+                     const gchar * const *urls,
+                     OstreeRepoFinderResult **results)
 {
   EosUpdateInfo *info;
 
@@ -182,6 +185,7 @@ eos_update_info_new (const gchar *checksum,
   info->new_refspec = g_strdup (new_refspec);
   info->old_refspec = g_strdup (old_refspec);
   info->urls = g_strdupv ((gchar **) urls);
+  info->results = g_steal_pointer (&results);
 
   return info;
 }
@@ -644,6 +648,9 @@ eos_update_info_to_string (EosUpdateInfo *update)
   g_autofree gchar *update_urls = NULL;
   g_autoptr(GDateTime) timestamp = NULL;
   g_autofree gchar *timestamp_str = NULL;
+  g_autoptr(GString) results_string = NULL;
+  g_autofree gchar *results = NULL;
+  gsize i;
 
   if (update->urls != NULL)
     update_urls = g_strjoinv ("\n   ", update->urls);
@@ -653,12 +660,28 @@ eos_update_info_to_string (EosUpdateInfo *update)
   timestamp = eos_update_info_get_commit_timestamp (update);
   timestamp_str = g_date_time_format (timestamp, "%FT%T%:z");
 
-  return g_strdup_printf ("%s, %s, %s, %s\n   %s",
+  results_string = g_string_new ("");
+  for (i = 0; update->results != NULL && update->results[i] != NULL; i++)
+    {
+      const OstreeRepoFinderResult *result = update->results[i];
+
+      g_string_append_printf (results_string, "\n   %s, priority %d, %u refs",
+                              ostree_remote_get_name (result->remote),
+                              result->priority,
+                              g_hash_table_size (result->ref_to_checksum));
+    }
+  if (update->results == NULL)
+    g_string_append (results_string, "(no repo finder results)");
+
+  results = g_string_free (g_steal_pointer (&results_string), FALSE);
+
+  return g_strdup_printf ("%s, %s, %s, %s\n   %s%s",
                           update->checksum,
                           update->new_refspec,
                           update->old_refspec,
                           timestamp_str,
-                          update_urls);
+                          update_urls,
+                          results);
 }
 
 static EosUpdateInfo *
@@ -851,6 +874,9 @@ metadata_fetch_finished (GObject *object,
 
       g_strfreev (data->overridden_urls);
       data->overridden_urls = g_steal_pointer (&info->urls);
+
+      g_clear_pointer (&data->results, ostree_repo_finder_result_freev);
+      data->results = g_steal_pointer (&info->results);
 
       /* Everything is happy thusfar */
       /* if we have a checksum for the remote upgrade candidate

@@ -74,6 +74,8 @@ struct _EosUpdateInfo
   gchar *new_refspec;
   gchar *old_refspec;
   gchar **urls;
+
+  OstreeRepoFinderResult **results;  /* (owned) (array zero-terminated=1) */
 };
 
 EosUpdateInfo *
@@ -81,7 +83,8 @@ eos_update_info_new (const gchar *csum,
                      GVariant *commit,
                      const gchar *new_refspec,
                      const gchar *old_refspec,
-                     const gchar * const *urls);
+                     const gchar * const *urls,
+                     OstreeRepoFinderResult **results);
 
 GDateTime *
 eos_update_info_get_commit_timestamp (EosUpdateInfo *info);

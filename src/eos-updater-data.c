@@ -42,6 +42,7 @@ eos_updater_data_clear (EosUpdaterData *data)
 {
   g_return_if_fail (data != NULL);
 
+  g_clear_pointer (&data->results, ostree_repo_finder_result_freev);
   g_clear_pointer (&data->overridden_urls, g_strfreev);
   g_clear_object (&data->repo);
 }

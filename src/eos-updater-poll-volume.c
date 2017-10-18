@@ -67,7 +67,8 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
                                      commit,
                                      new_refspec,
                                      refspec,
-                                     urls);
+                                     urls,
+                                     NULL);
 
   return TRUE;
 }
