@@ -155,7 +155,7 @@ content_fetch (GTask *task,
   EosUpdaterData *data = task_data;
   OstreeRepo *repo = data->repo;
   g_autoptr(OstreeAsyncProgress) progress = NULL;
-  GError *error = NULL;
+  g_autoptr(GError) error = NULL;
   const gchar *refspec;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
