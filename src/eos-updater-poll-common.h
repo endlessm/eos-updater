@@ -111,10 +111,11 @@ typedef gboolean (*MetadataFetcher) (EosMetadataFetchData *fetch_data,
                                      EosUpdateInfo **info,
                                      GError **error);
 
-gboolean get_booted_refspec (gchar **booted_refspec,
-                             gchar **booted_remote,
-                             gchar **booted_ref,
-                             GError **error);
+gboolean get_booted_refspec (gchar               **booted_refspec,
+                             gchar               **booted_remote,
+                             gchar               **booted_ref,
+                             OstreeCollectionRef **booted_collection_ref,
+                             GError              **error);
 
 gboolean fetch_latest_commit (OstreeRepo *repo,
                               GCancellable *cancellable,

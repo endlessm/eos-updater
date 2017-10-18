@@ -267,15 +267,18 @@ eos_metrics_info_new (const gchar *booted_ref)
 }
 
 gboolean
-get_booted_refspec (gchar **booted_refspec,
-                    gchar **booted_remote,
-                    gchar **booted_ref,
-                    GError **error)
+get_booted_refspec (gchar               **booted_refspec,
+                    gchar               **booted_remote,
+                    gchar               **booted_ref,
+                    OstreeCollectionRef **booted_collection_ref,
+                    GError              **error)
 {
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
+  g_autofree gchar *collection_id = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
 
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
@@ -287,8 +290,14 @@ get_booted_refspec (gchar **booted_refspec,
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
 
+  repo = eos_updater_local_repo ();
+  if (!ostree_repo_get_remote_option (repo, remote, "collection-id", NULL, &collection_id, error))
+    return FALSE;
+
   g_message ("Using product branch %s", ref);
 
+  if (booted_collection_ref != NULL)
+    *booted_collection_ref = (collection_id != NULL) ? ostree_collection_ref_new (collection_id, ref) : NULL;
   if (booted_refspec != NULL)
     *booted_refspec = g_steal_pointer (&refspec);
   if (booted_remote != NULL)
@@ -694,7 +703,7 @@ run_fetchers (EosMetadataFetchData *fetch_data,
 
       /* Send metrics about our ref: this is the ref we’re going to upgrade to,
        * but that’s always the same as the one we’re currently on. */
-      if (get_booted_refspec (NULL, NULL, &booted_ref, &metrics_error))
+      if (get_booted_refspec (NULL, NULL, &booted_ref, NULL, &metrics_error))
         {
           g_autoptr(EosMetricsInfo) metrics = NULL;
 

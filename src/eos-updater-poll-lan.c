@@ -416,7 +416,7 @@ get_update_info_from_swms (LanData *lan_data,
   g_autoptr(GPtrArray) urls = NULL;
   OstreeRepo *repo = lan_data->fetch_data->data->repo;
 
-  if (!get_booted_refspec (&refspec, NULL, NULL, error))
+  if (!get_booted_refspec (&refspec, NULL, NULL, NULL, error))
     return FALSE;
 
   swms_with_latest_commit = object_array_new ();

@@ -47,7 +47,7 @@ metadata_fetch_from_volume (EosMetadataFetchData *fetch_data,
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_booted_refspec (&refspec, NULL, NULL, error))
+  if (!get_booted_refspec (&refspec, NULL, NULL, NULL, error))
     return FALSE;
 
   if (!fetch_latest_commit (repo,
