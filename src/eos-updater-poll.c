@@ -206,7 +206,7 @@ static void
 metadata_fetch (GTask *task,
                 gpointer object,
                 gpointer task_data,
-                GCancellable *cancel)
+                GCancellable *cancellable)
 {
   EosUpdaterData *data = task_data;
   g_autoptr(GError) error = NULL;

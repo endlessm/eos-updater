@@ -149,7 +149,7 @@ static void
 content_fetch (GTask *task,
                gpointer object,
                gpointer task_data,
-               GCancellable *cancel)
+               GCancellable *cancellable)
 {
   EosUpdater *updater = EOS_UPDATER (object);
   EosUpdaterData *data = task_data;
@@ -199,12 +199,12 @@ content_fetch (GTask *task,
    * system hasn;t seen the download/unpack sizes for that so it cannot
    * be considered to have been approved.
    */
-  if (!repo_pull (repo, remote, commit_id, url_override, progress, cancel, &error))
+  if (!repo_pull (repo, remote, commit_id, url_override, progress, cancellable, &error))
     goto error;
 
   g_message ("Fetch: pull() completed");
 
-  if (!ostree_repo_read_commit (repo, commit_id, NULL, NULL, cancel, &error))
+  if (!ostree_repo_read_commit (repo, commit_id, NULL, NULL, cancellable, &error))
     goto error;
 
   g_message ("Fetch: commit %s cached", commit_id);
