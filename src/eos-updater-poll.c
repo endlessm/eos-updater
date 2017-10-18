@@ -135,71 +135,6 @@ read_config (const gchar *config_file_path,
   return TRUE;
 }
 
-/* This is to make sure that the function we pass is of the correct
- * prototype. g_ptr_array_add will not tell that to us, because it
- * takes a gpointer.
- */
-static void
-add_fetcher (GPtrArray *fetchers,
-             MetadataFetcher fetcher)
-{
-  g_ptr_array_add (fetchers, fetcher);
-}
-
-static void
-add_source_variant (GPtrArray *source_variants,
-                    GVariant *variant)
-{
-  g_variant_ref_sink (variant);
-
-  g_ptr_array_add (source_variants, variant);
-}
-
-static void
-get_fetchers (SourcesConfig *config,
-              GPtrArray **out_fetchers,
-              GPtrArray **out_source_variants)
-{
-  g_autoptr(GPtrArray) fetchers = g_ptr_array_sized_new (config->download_order->len);
-  g_autoptr(GPtrArray) source_variants = g_ptr_array_new_full (config->download_order->len,
-                                                               (GDestroyNotify)g_variant_unref);
-  gsize idx;
-
-  g_assert (config->download_order->len > 0);
-
-  for (idx = 0; idx < config->download_order->len; ++idx)
-    {
-      g_auto(GVariantDict) dict_builder;
-
-      g_variant_dict_init (&dict_builder, NULL);
-      switch (g_array_index (config->download_order,
-                             EosUpdaterDownloadSource,
-                             idx))
-        {
-        case EOS_UPDATER_DOWNLOAD_MAIN:
-          add_fetcher (fetchers, metadata_fetch_from_main);
-          break;
-
-        case EOS_UPDATER_DOWNLOAD_LAN:
-          g_warning ("Old-style LAN fetcher no longer supported. Ignoring.");
-          break;
-
-        case EOS_UPDATER_DOWNLOAD_VOLUME:
-          g_warning ("Old-style volume fetcher no longer supported. Ignoring.");
-          break;
-
-        default:
-          g_assert_not_reached ();
-        }
-
-      add_source_variant (source_variants,
-                          g_variant_dict_end (&dict_builder));
-    }
-
-  *out_fetchers = g_steal_pointer (&fetchers);
-  *out_source_variants = g_steal_pointer (&source_variants);
-}
-
 static void
 object_unref0 (gpointer obj)
 {
@@ -423,6 +358,7 @@ metadata_fetch (GTask *task,
   /* TODO: link this --^ to failure of the fetch or apply stages?
    * Add environment variables or something else to force it one way or the other?
    * Make it clear in the logging which code path is being used. */
+  gboolean disable_old_code = (g_getenv ("EOS_UPDATER_DISABLE_FALLBACK_FETCHERS") != NULL);
 
   fetch_data = eos_metadata_fetch_data_new (task, data, task_context);
 
@@ -472,15 +408,37 @@ metadata_fetch (GTask *task,
     }
 
   /* Fall back to the old code path. */
-  if (info == NULL)
+  if (info == NULL && !disable_old_code)
     {
-      g_autoptr(GPtrArray) fetchers = NULL;
-      g_autoptr(GPtrArray) source_variants = NULL;
+      gsize i;
+      gboolean main_enabled = FALSE;
 
-      get_fetchers (&config, &fetchers, &source_variants);
-      info = run_fetchers (fetch_data,
-                           fetchers,
-                           config.download_order);
+      for (i = 0; i < config.download_order->len; i++)
+        {
+          if (g_array_index (config.download_order,
+                             EosUpdaterDownloadSource, i) == EOS_UPDATER_DOWNLOAD_MAIN)
+            {
+              main_enabled = TRUE;
+              break;
+            }
+        }
+
+      if (main_enabled)
+        {
+          g_autoptr(GPtrArray) fetchers = g_ptr_array_sized_new (1);
+          g_assert (config.download_order->len > 0);
+          g_ptr_array_add (fetchers, metadata_fetch_from_main);
+
+          info = run_fetchers (fetch_data,
+                               fetchers,
+                               config.download_order);
+        }
+      else
+        {
+          g_debug ("%s: Not polling for updates on old code path as main source is not enabled",
+                   G_STRFUNC);
+          info = NULL;
+        }
     }
 
   if (error != NULL)
