@@ -342,6 +342,70 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *remote_name = NULL;
   g_autofree gchar *ref = NULL;
+  g_autofree gchar *new_refspec = NULL;
+
+  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+  g_return_val_if_fail (refspec != NULL, FALSE);
+  g_return_val_if_fail (out_checksum != NULL, FALSE);
+  g_return_val_if_fail (out_new_refspec != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  /* Check whether the commit is a redirection; if so, fetch the new ref and
+   * check again. */
+  do
+    {
+      g_clear_pointer (&remote_name, g_free);
+      g_clear_pointer (&ref, g_free);
+      g_clear_pointer (&new_refspec, g_free);
+      g_clear_pointer (&checksum, g_free);
+
+      if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
+        return FALSE;
+
+      options = get_repo_pull_options (url_override, ref);
+      if (!ostree_repo_pull_with_options (repo,
+                                          remote_name,
+                                          options,
+                                          NULL,
+                                          cancellable,
+                                          error))
+        return FALSE;
+
+      if (!parse_latest_commit (repo, refspec, &checksum, &new_refspec,
+                                NULL, cancellable, error))
+        return FALSE;
+
+      if (new_refspec != NULL)
+        refspec = new_refspec;
+    }
+  while (checksum == NULL);
+
+  *out_checksum = g_steal_pointer (&checksum);
+  if (new_refspec != NULL)
+    *out_new_refspec = g_steal_pointer (&new_refspec);
+  else
+    *out_new_refspec = g_strdup (refspec);
+
+  return TRUE;
+}
+
+gboolean
+parse_latest_commit (OstreeRepo           *repo,
+                     const gchar          *refspec,
+                     gchar               **out_checksum,
+                     gchar               **out_new_refspec,
+                     OstreeCollectionRef **out_new_collection_ref,
+                     GCancellable         *cancellable,
+                     GError              **error)
+{
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *remote_name = NULL;
+  g_autofree gchar *checksum = NULL;
+  g_autoptr(GVariant) commit = NULL;
+  g_autoptr(GVariant) rebase = NULL;
+  g_autoptr(GVariant) metadata = NULL;
+  g_autofree gchar *collection_id = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
@@ -352,17 +416,9 @@ fetch_latest_commit (OstreeRepo *repo,
 
   if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
     return FALSE;
-
-  options = get_repo_pull_options (url_override, ref);
-  if (!ostree_repo_pull_with_options (repo,
-                                      remote_name,
-                                      options,
-                                      NULL,
-                                      cancellable,
-                                      error))
-    return FALSE;
-
   if (!ostree_repo_resolve_rev (repo, refspec, FALSE, &checksum, error))
+    return FALSE;
+  if (!ostree_repo_get_remote_option (repo, remote_name, "collection-id", NULL, &collection_id, error))
     return FALSE;
 
   if (!ostree_repo_load_variant (repo,
@@ -372,32 +428,27 @@ fetch_latest_commit (OstreeRepo *repo,
                                  error))
     return FALSE;
 
-  /* If this is a redirect commit, follow it and fetch the new ref instead */
+  /* If this is a redirect commit, follow it and fetch the new ref instead
+   * (unless the rebase is a loop; ignore that). */
   metadata = g_variant_get_child_value (commit, 0);
   rebase = g_variant_lookup_value (metadata, "ostree.endoflife-rebase", G_VARIANT_TYPE_STRING);
 
-  if (rebase != NULL)
+  if (rebase != NULL &&
+      g_strcmp0 (g_variant_get_string (rebase, NULL), ref) != 0)
     {
       g_clear_pointer (&ref, g_free);
       ref = g_variant_dup_string (rebase, NULL);
 
-      g_clear_pointer (&options, g_variant_unref);
-      options = get_repo_pull_options (url_override, ref);
-      if (!ostree_repo_pull_with_options (repo,
-                                          remote_name,
-                                          options,
-                                          NULL,
-                                          cancellable,
-                                          error))
-        return FALSE;
-
       g_clear_pointer (&checksum, g_free);
-      if (!ostree_repo_resolve_rev (repo, refspec, FALSE, &checksum, error))
-        return FALSE;
     }
 
   *out_checksum = g_steal_pointer (&checksum);
   *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
+  if (out_new_collection_ref != NULL && collection_id != NULL)
+    *out_new_collection_ref = ostree_collection_ref_new (collection_id, ref);
+  else if (out_new_collection_ref != NULL)
+    *out_new_collection_ref = NULL;
+
   return TRUE;
 }
 

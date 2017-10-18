@@ -125,6 +125,14 @@ gboolean fetch_latest_commit (OstreeRepo *repo,
                               gchar **out_new_refspec,
                               GError **error);
 
+gboolean parse_latest_commit (OstreeRepo           *repo,
+                              const gchar          *refspec,
+                              gchar               **out_checksum,
+                              gchar               **out_new_refspec,
+                              OstreeCollectionRef **out_new_collection_ref,
+                              GCancellable         *cancellable,
+                              GError              **error);
+
 gboolean get_origin_refspec (OstreeDeployment *booted_deployment,
                              gchar **out_refspec,
                              GError **error);
