@@ -28,7 +28,6 @@
 #include "eos-updater-generated.h"
 #include "eos-updater-object.h"
 #include "eos-updater-poll.h"
-#include "eos-updater-poll-volume-dbus.h"
 
 #include <libeos-updater-util/util.h>
 

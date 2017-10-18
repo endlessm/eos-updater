@@ -88,6 +88,8 @@ get_config_file_path (void)
 typedef struct
 {
   GArray *download_order;
+  /* @override_uris must be non-empty if it’s non-%NULL: */
+  gchar **override_uris;  /* (owned) (nullable) (array zero-terminated=1) */
 } SourcesConfig;
 
 #define SOURCES_CONFIG_CLEARED { NULL }
@@ -96,6 +98,7 @@ static void
 sources_config_clear (SourcesConfig *config)
 {
   g_clear_pointer (&config->download_order, g_array_unref);
+  g_clear_pointer (&config->override_uris, g_strfreev);
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (SourcesConfig, sources_config_clear)
@@ -131,6 +134,16 @@ read_config (const gchar *config_file_path,
                                &sources_config->download_order,
                                error))
     return FALSE;
+
+  /* FIXME: For the moment, this is undocumented and hidden. It can also be set
+   * via the PollVolume() D-Bus method. It must be non-empty if set. */
+  sources_config->override_uris = euu_config_file_get_strv (config,
+                                                            DOWNLOAD_GROUP,
+                                                            "OverrideUris", NULL,
+                                                            error);
+  /* Normalise empty arrays to NULL. */
+  if (sources_config->override_uris != NULL && sources_config->override_uris[0] == NULL)
+    g_clear_pointer (&sources_config->override_uris, g_strfreev);
 
   return TRUE;
 }
@@ -182,6 +195,18 @@ get_finders (SourcesConfig          *config,
         default:
           g_assert_not_reached ();
         }
+    }
+
+  if (config->override_uris != NULL)
+    {
+      g_autoptr(OstreeRepoFinderOverride) finder_override = ostree_repo_finder_override_new ();
+
+      g_ptr_array_set_size (finders, 0);  /* override everything */
+      g_ptr_array_add (finders, g_object_ref (finder_override));
+      g_clear_object (&finder_avahi);
+
+      for (i = 0; config->override_uris[i] != NULL; i++)
+        ostree_repo_finder_override_add_uri (finder_override, config->override_uris[i]);
     }
 
   g_ptr_array_add (finders, NULL);  /* NULL terminator */
@@ -485,5 +510,125 @@ handle_poll (EosUpdater            *updater,
   eos_updater_complete_poll (updater, call);
 
 bail:
+  return TRUE;
+}
+
+typedef struct
+{
+  EosUpdaterData *data;
+
+  gchar *volume_path;
+} VolumeMetadataFetchData;
+
+static VolumeMetadataFetchData *
+volume_metadata_fetch_data_new (EosUpdaterData        *data,
+                                GDBusMethodInvocation *call)
+{
+  GVariant *parameters = g_dbus_method_invocation_get_parameters (call);
+  const gchar *path;
+  VolumeMetadataFetchData *volume_fetch_data;
+
+  g_variant_get (parameters, "(s)", &path);
+  volume_fetch_data = g_new (VolumeMetadataFetchData, 1);
+  volume_fetch_data->data = data;
+  volume_fetch_data->volume_path = g_strdup (path);
+
+  return volume_fetch_data;
+}
+
+static void
+volume_metadata_fetch_data_free (gpointer volume_fetch_data_ptr)
+{
+  VolumeMetadataFetchData *volume_fetch_data = volume_fetch_data_ptr;
+
+  g_free (volume_fetch_data->volume_path);
+  g_free (volume_fetch_data);
+}
+
+static void
+volume_metadata_fetch (GTask        *task,
+                       gpointer      object,
+                       gpointer      task_data,
+                       GCancellable *cancellable)
+{
+  VolumeMetadataFetchData *volume_fetch_data = task_data;
+  EosUpdaterData *data = volume_fetch_data->data;
+  g_autoptr(GError) error = NULL;
+  g_autoptr(GMainContext) task_context = g_main_context_new ();
+  g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
+  g_autoptr(OstreeDeployment) deployment = NULL;
+  g_autoptr(EosUpdateInfo) info = NULL;
+  EosUpdaterDownloadSource idx;
+  g_autofree gchar *repo_path = NULL;
+
+  /* Check we’re not on a dev-converted system. */
+  deployment = eos_updater_get_booted_deployment (&error);
+  if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
+      g_error_matches (error, G_IO_ERROR, G_IO_ERROR_FAILED))
+    {
+      g_task_return_new_error (task, EOS_UPDATER_ERROR,
+                               EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
+                               "Not an OSTree-based system: cannot update it.");
+      return;
+    }
+
+  g_clear_error (&error);
+
+  config.download_order = g_array_new (FALSE, /* not null terminated */
+                                       FALSE, /* no clearing */
+                                       sizeof (EosUpdaterDownloadSource));
+  idx = EOS_UPDATER_DOWNLOAD_MAIN;
+  g_array_append_val (config.download_order, idx);
+
+  repo_path = g_build_filename (volume_fetch_data->volume_path, ".ostree", "repo", NULL);
+  config.override_uris = g_new0 (gchar *, 2);
+  config.override_uris[0] = g_strconcat ("file://", repo_path, NULL);
+
+  info = metadata_fetch_new (data->repo, &config, task_context, cancellable, &error);
+
+  if (error != NULL)
+    g_task_return_error (task, g_steal_pointer (&error));
+  else
+    g_task_return_pointer (task,
+                           (info != NULL) ? g_object_ref (info) : NULL,
+                           g_object_unref);
+}
+
+gboolean
+handle_poll_volume (EosUpdater            *updater,
+                    GDBusMethodInvocation *call,
+                    gpointer               user_data)
+{
+  g_autoptr(GTask) task = NULL;
+  EosUpdaterState state = eos_updater_get_state (updater);
+
+  switch (state)
+    {
+      case EOS_UPDATER_STATE_READY:
+      case EOS_UPDATER_STATE_UPDATE_AVAILABLE:
+      case EOS_UPDATER_STATE_UPDATE_READY:
+      case EOS_UPDATER_STATE_ERROR:
+        break;
+      case EOS_UPDATER_STATE_NONE:
+      case EOS_UPDATER_STATE_POLLING:
+      case EOS_UPDATER_STATE_FETCHING:
+      case EOS_UPDATER_STATE_APPLYING_UPDATE:
+      case EOS_UPDATER_STATE_UPDATE_APPLIED:
+      default:
+        g_dbus_method_invocation_return_error (call,
+          EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_STATE,
+          "Can't call PollVolume() while in state %s",
+          eos_updater_state_to_string (state));
+        return TRUE;
+    }
+
+  eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
+  task = g_task_new (updater, NULL, metadata_fetch_finished, user_data);
+  g_task_set_task_data (task,
+                        volume_metadata_fetch_data_new (user_data, call),
+                        volume_metadata_fetch_data_free);
+  g_task_run_in_thread (task, volume_metadata_fetch);
+
+  eos_updater_complete_poll_volume (updater, call);
   return TRUE;
 }

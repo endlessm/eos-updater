@@ -108,8 +108,6 @@ eos_updater_SOURCES = \
 	eos-updater-poll-common.c \
 	eos-updater-poll-main.h \
 	eos-updater-poll-main.c \
-	eos-updater-poll-volume-dbus.c \
-	eos-updater-poll-volume-dbus.h \
 	eos-updater.c \
 	$(NULL)
 nodist_eos_updater_SOURCES = \

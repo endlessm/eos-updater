@@ -328,6 +328,7 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
       if (polled_already)
         return FALSE;
 
+      /* TODO: What to do with the volume code path? */
       polled_already = TRUE;
       if (volume_path != NULL)
         eos_updater_call_poll_volume (proxy, volume_path, NULL, update_step_callback, step_data);
