@@ -34,7 +34,10 @@
 
 const gchar *const default_vendor = "VENDOR";
 const gchar *const default_product = "PRODUCT";
+const gchar *const default_collection_id = "com.endlessm.CollectionId";
 const gchar *const default_ref = "REF";
+const OstreeCollectionRef _default_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) "REF" };
+const OstreeCollectionRef *default_collection_ref = &_default_collection_ref;
 const gchar *const default_ostree_path = "OSTREE/PATH";
 const gchar *const default_remote_name = "REMOTE";
 const guint max_commit_number = 10;
@@ -132,37 +135,8 @@ get_keyid (GFile *gpg_home)
 }
 
 static void
-eos_test_device_finalize_impl (EosTestDevice *device)
-{
-  g_free (device->vendor);
-  g_free (device->product);
-  g_free (device->ref);
-}
-
-EOS_DEFINE_REFCOUNTED (EOS_TEST_DEVICE,
-                       EosTestDevice,
-                       eos_test_device,
-                       NULL,
-                       eos_test_device_finalize_impl)
-
-EosTestDevice *
-eos_test_device_new (const gchar *vendor,
-                     const gchar *product,
-                     const gchar *ref)
-{
-  EosTestDevice *device = g_object_new (EOS_TEST_TYPE_DEVICE, NULL);
-
-  device->vendor = g_strdup (vendor);
-  device->product = g_strdup (product);
-  device->ref = g_strdup (ref);
-
-  return device;
-}
-
-static void
 eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 {
-  g_clear_pointer (&subserver->devices, g_ptr_array_unref);
   g_clear_pointer (&subserver->ref_to_commit, g_hash_table_unref);
   g_clear_object (&subserver->repo);
   g_clear_object (&subserver->tree);
@@ -184,18 +158,18 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_SUBSERVER,
                        eos_test_subserver_finalize_impl)
 
 EosTestSubserver *
-eos_test_subserver_new (GFile *gpg_home,
+eos_test_subserver_new (const gchar *collection_id,
+                        GFile *gpg_home,
                         const gchar *keyid,
                         const gchar *ostree_path,
-                        GPtrArray *devices,
                         GHashTable *ref_to_commit)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
+  subserver->collection_id = g_strdup (collection_id);
   subserver->gpg_home = g_object_ref (gpg_home);
   subserver->keyid = g_strdup (keyid);
   subserver->ostree_path = g_strdup (ostree_path);
-  subserver->devices = g_ptr_array_ref (devices);
   subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
 
   return subserver;
@@ -492,7 +466,7 @@ create_commit_files_and_directories (GFile *tree_root,
  */
 static gboolean
 get_current_commit_checksum (GFile *repo,
-                             const gchar *ref,
+                             const OstreeCollectionRef *collection_ref,
                              gchar **out_checksum,
                              GError **error)
 {
@@ -502,7 +476,7 @@ get_current_commit_checksum (GFile *repo,
 
   g_assert_nonnull (out_checksum);
 
-  head_rel_path = g_build_filename ("refs", "heads", ref, NULL);
+  head_rel_path = g_build_filename ("refs", "heads", collection_ref->ref_name, NULL);
   head = g_file_get_child (repo, head_rel_path);
   if (!load_to_bytes (head,
                       &bytes,
@@ -521,7 +495,7 @@ static gboolean
 prepare_commit (GFile *repo,
                 GFile *tree_root,
                 guint commit_number,
-                const gchar *ref,
+                const OstreeCollectionRef *collection_ref,
                 GFile *gpg_home,
                 const gchar *keyid,
                 gchar **out_checksum,
@@ -552,7 +526,7 @@ prepare_commit (GFile *repo,
       if (!prepare_commit (repo,
                            tree_root,
                            commit_number - 1,
-                           ref,
+                           collection_ref,
                            gpg_home,
                            keyid,
                            NULL,
@@ -573,7 +547,7 @@ prepare_commit (GFile *repo,
   if (!ostree_commit (repo,
                       tree_root,
                       subject,
-                      ref,
+                      collection_ref->ref_name,
                       gpg_home,
                       keyid,
                       timestamp,
@@ -585,7 +559,7 @@ prepare_commit (GFile *repo,
     return FALSE;
 
   if (out_checksum != NULL)
-    return get_current_commit_checksum (repo, ref, out_checksum, error);
+    return get_current_commit_checksum (repo, collection_ref, out_checksum, error);
 
   return TRUE;
 }
@@ -705,14 +679,14 @@ update_commits (EosTestSubserver *subserver,
                 GError **error)
 {
   GHashTableIter iter;
-  gpointer ref_ptr;
+  gpointer collection_ref_ptr;
   gpointer commit_ptr;
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   g_hash_table_iter_init (&iter, subserver->ref_to_commit);
-  while (g_hash_table_iter_next (&iter, &ref_ptr, &commit_ptr))
+  while (g_hash_table_iter_next (&iter, &collection_ref_ptr, &commit_ptr))
     {
-      const gchar *ref = ref_ptr;
+      const OstreeCollectionRef *collection_ref = collection_ref_ptr;
       guint commit_number = GPOINTER_TO_UINT (commit_ptr);
       g_autofree gchar *checksum = NULL;
       g_autofree gchar *old_checksum = NULL;
@@ -720,7 +694,7 @@ update_commits (EosTestSubserver *subserver,
       if (commit_number > 0)
         {
           if (!get_current_commit_checksum (subserver->repo,
-                                            ref,
+                                            collection_ref,
                                             &old_checksum,
                                             error))
             return FALSE;
@@ -729,7 +703,7 @@ update_commits (EosTestSubserver *subserver,
       if (!prepare_commit (subserver->repo,
                            subserver->tree,
                            commit_number,
-                           ref,
+                           collection_ref,
                            subserver->gpg_home,
                            subserver->keyid,
                            &checksum,
@@ -746,7 +720,7 @@ update_commits (EosTestSubserver *subserver,
         }
 
       if (!generate_ref_file (subserver->repo,
-                              ref,
+                              collection_ref->ref_name,
                               checksum,
                               subserver->gpg_home,
                               subserver->keyid,
@@ -786,6 +760,7 @@ eos_test_subserver_update (EosTestSubserver *subserver,
     {
       if (!ostree_init (repo,
                         REPO_ARCHIVE_Z2,
+                        subserver->collection_id,
                         &cmd,
                         error))
         return FALSE;
@@ -951,7 +926,7 @@ EosTestServer *
 eos_test_server_new_quick (GFile *server_root,
                            const gchar *vendor,
                            const gchar *product,
-                           const gchar *ref,
+                           const OstreeCollectionRef *collection_ref,
                            guint commit_number,
                            GFile *gpg_home,
                            const gchar *keyid,
@@ -959,17 +934,15 @@ eos_test_server_new_quick (GFile *server_root,
                            GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
-  g_autoptr(GPtrArray) devices = object_array_new ();
   g_autoptr(GHashTable) ref_to_commit = eos_test_subserver_ref_to_commit_new ();
 
-  g_ptr_array_add (devices, eos_test_device_new (vendor, product, ref));
   g_hash_table_insert (ref_to_commit,
-                       g_strdup (ref),
+                       ostree_collection_ref_dup (collection_ref),
                        GUINT_TO_POINTER (commit_number));
-  g_ptr_array_add (subservers, eos_test_subserver_new (gpg_home,
+  g_ptr_array_add (subservers, eos_test_subserver_new (collection_ref->collection_id,
+                                                       gpg_home,
                                                        keyid,
                                                        ostree_path,
-                                                       devices,
                                                        ref_to_commit));
 
   return eos_test_server_new (server_root,
@@ -1061,7 +1034,7 @@ static gboolean
 prepare_client_sysroot (GFile *client_root,
                         const gchar *remote_name,
                         const gchar *url,
-                        const gchar *ref,
+                        const OstreeCollectionRef *collection_ref,
                         GFile *gpg_home,
                         const gchar *keyid,
                         GError **error)
@@ -1101,7 +1074,7 @@ prepare_client_sysroot (GFile *client_root,
   if (!ostree_remote_add (repo,
                           remote_name,
                           url,
-                          ref,
+                          collection_ref,
                           gpg_key,
                           &cmd,
                           error))
@@ -1112,14 +1085,14 @@ prepare_client_sysroot (GFile *client_root,
   cmd_result_clear (&cmd);
   if (!ostree_pull (repo,
                     remote_name,
-                    ref,
+                    collection_ref->ref_name,
                     &cmd,
                     error))
     return FALSE;
   if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  refspec = g_strdup_printf ("%s:%s", remote_name, ref);
+  refspec = g_strdup_printf ("%s:%s", remote_name, collection_ref->ref_name);
   cmd_result_clear (&cmd);
   if (!ostree_deploy (sysroot,
                       remote_name,
@@ -1598,51 +1571,30 @@ run_updater (GFile *client_root,
 }
 
 static gboolean
-ensure_ref_in_subserver (const gchar *ref,
+ensure_ref_in_subserver (const OstreeCollectionRef *collection_ref,
                          EosTestSubserver *subserver)
 {
-  return g_hash_table_lookup_extended (subserver->ref_to_commit, ref, NULL, NULL);
-}
-
-static gboolean
-ensure_vendor_and_product_in_subserver (const gchar *vendor,
-                                        const gchar *product,
-                                        EosTestSubserver *subserver)
-{
-  guint idx;
-
-  for (idx = 0; idx < subserver->devices->len; ++idx)
-    {
-      EosTestDevice *device = EOS_TEST_DEVICE (g_ptr_array_index (subserver->devices, idx));
-
-      if (g_strcmp0 (vendor, device->vendor) == 0 &&
-          g_strcmp0 (product, device->product) == 0)
-        return TRUE;
-    }
-
-  return FALSE;
+  return g_hash_table_lookup_extended (subserver->ref_to_commit, collection_ref, NULL, NULL);
 }
 
 EosTestClient *
 eos_test_client_new (GFile *client_root,
                      const gchar *remote_name,
                      EosTestSubserver *subserver,
-                     const gchar *ref,
+                     const OstreeCollectionRef *collection_ref,
                      const gchar *vendor,
                      const gchar *product,
                      GError **error)
 {
   g_autoptr(EosTestClient) client = NULL;
 
-  if (!ensure_ref_in_subserver (ref, subserver))
-    return FALSE;
-  if (!ensure_vendor_and_product_in_subserver (vendor, product, subserver))
+  if (!ensure_ref_in_subserver (collection_ref, subserver))
     return FALSE;
 
   if (!prepare_client_sysroot (client_root,
                                remote_name,
                                subserver->url,
-                               ref,
+                               collection_ref,
                                subserver->gpg_home,
                                subserver->keyid,
                                error))
@@ -1650,7 +1602,7 @@ eos_test_client_new (GFile *client_root,
 
   if (!copy_extensions (subserver->repo,
                         client_root,
-                        ref,
+                        collection_ref->ref_name,
                         error))
     return FALSE;
 
@@ -2221,9 +2173,9 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                 GFile *volume_path,
                                 GError **error)
 {
-  g_autofree gchar *eos_updater_prepare_volume_binary = g_test_build_filename (G_TEST_BUILT,
+  g_autofree gchar *eos_updater_prepare_volume_binary = g_test_build_filename (G_TEST_DIST,
                                                                                "..",
-                                                                               "src",
+                                                                               "eos-updater-prepare-volume",
                                                                                "eos-updater-prepare-volume",
                                                                                NULL);
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);

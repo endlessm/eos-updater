@@ -22,11 +22,11 @@
 
 #pragma once
 
-#include "spawn-utils.h"
-
-#include <libeos-updater-util/refcounted.h>
-
 #include <gio/gio.h>
+#include <libeos-updater-util/refcounted.h>
+#include <ostree.h>
+
+#include "spawn-utils.h"
 
 G_BEGIN_DECLS
 
@@ -49,29 +49,11 @@ gchar *get_keyid (GFile *gpg_home);
 
 extern const gchar *const default_vendor;
 extern const gchar *const default_product;
+extern const gchar *const default_collection_id;
 extern const gchar *const default_ref;
+extern const OstreeCollectionRef *default_collection_ref;
 extern const gchar *const default_ostree_path;
 extern const gchar *const default_remote_name;
-
-#define EOS_TEST_TYPE_DEVICE eos_test_device_get_type ()
-G_DECLARE_FINAL_TYPE (EosTestDevice,
-                      eos_test_device,
-                      EOS_TEST,
-                      DEVICE,
-                      GObject)
-
-struct _EosTestDevice
-{
-  GObject parent_instance;
-
-  gchar *vendor;
-  gchar *product;
-  gchar *ref;
-};
-
-EosTestDevice *eos_test_device_new (const gchar *vendor,
-                                    const gchar *product,
-                                    const gchar *ref);
 
 #define EOS_TEST_TYPE_SUBSERVER eos_test_subserver_get_type ()
 G_DECLARE_FINAL_TYPE (EosTestSubserver,
@@ -84,9 +66,9 @@ struct _EosTestSubserver
 {
   GObject parent_instance;
 
+  gchar *collection_id;
   gchar *keyid;
   gchar *ostree_path;
-  GPtrArray *devices;
   GHashTable *ref_to_commit;
 
   GFile *repo;
@@ -98,13 +80,14 @@ struct _EosTestSubserver
 static inline GHashTable *
 eos_test_subserver_ref_to_commit_new (void)
 {
-  return g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+  return g_hash_table_new_full (ostree_collection_ref_hash, ostree_collection_ref_equal,
+                                (GDestroyNotify) ostree_collection_ref_free, NULL);
 }
 
-EosTestSubserver *eos_test_subserver_new (GFile *gpg_home,
+EosTestSubserver *eos_test_subserver_new (const gchar *collection_id,
+                                          GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
-                                          GPtrArray *devices,
                                           GHashTable *ref_to_commit);
 
 gboolean eos_test_subserver_update (EosTestSubserver *subserver,
@@ -133,7 +116,7 @@ EosTestServer *eos_test_server_new (GFile *server_root,
 EosTestServer *eos_test_server_new_quick (GFile *server_root,
                                           const gchar *vendor,
                                           const gchar *product,
-                                          const gchar *ref,
+                                          const OstreeCollectionRef *collection_ref,
                                           guint commit_number,
                                           GFile *gpg_home,
                                           const gchar *keyid,
@@ -168,7 +151,7 @@ typedef enum
 EosTestClient *eos_test_client_new (GFile *client_root,
                                     const gchar *remote_name,
                                     EosTestSubserver *subserver,
-                                    const gchar *ref,
+                                    const OstreeCollectionRef *collection_ref,
                                     const gchar *vendor,
                                     const gchar *product,
                                     GError **error);

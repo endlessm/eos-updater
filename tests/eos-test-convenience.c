@@ -83,7 +83,7 @@ etc_set_up_server (EtcData *data)
   data->server = eos_test_server_new_quick (server_root,
                                             default_vendor,
                                             default_product,
-                                            default_ref,
+                                            default_collection_ref,
                                             0,
                                             data->fixture->gpg_home,
                                             keyid,
@@ -115,7 +115,7 @@ etc_set_up_client_synced_to_server (EtcData *data)
   data->client = eos_test_client_new (client_root,
                                       default_remote_name,
                                       data->subserver,
-                                      default_ref,
+                                      default_collection_ref,
                                       default_vendor,
                                       default_product,
                                       &error);
@@ -134,11 +134,11 @@ etc_update_server (EtcData *data,
   g_assert_nonnull (data);
   g_assert_nonnull (data->subserver);
 
-  current_commit = GPOINTER_TO_UINT (g_hash_table_lookup (data->subserver->ref_to_commit, default_ref));
+  current_commit = GPOINTER_TO_UINT (g_hash_table_lookup (data->subserver->ref_to_commit, default_collection_ref));
   g_assert_cmpint (current_commit, <, commit);
 
   g_hash_table_insert (data->subserver->ref_to_commit,
-                       g_strdup (default_ref),
+                       ostree_collection_ref_dup (default_collection_ref),
                        GUINT_TO_POINTER (commit));
   eos_test_subserver_update (data->subserver,
                              &error);

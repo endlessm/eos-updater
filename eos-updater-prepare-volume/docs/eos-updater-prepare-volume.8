@@ -1,6 +1,6 @@
 .\" Manpage for eos-updater-prepare-volume.
 .\" Documentation is under the same licence as the eos-updater package.
-.TH man 8 "27 Feb 2017" "1.0" "eos\-updater\-prepare\-volume man page"
+.TH man 8 "03 Oct 2017" "1.0" "eos\-updater\-prepare\-volume man page"
 .\"
 .SH NAME
 .IX Header "NAME"
@@ -9,26 +9,27 @@ eos\-updater\-prepare\-volume — Endless OS Updater USB Drive Preparation Tool
 .SH SYNOPSIS
 .IX Header "SYNOPSIS"
 .\"
-\fBeos\-updater\-prepare\-volume [\-q] \fPvolume-directory\fB
+\fBeos\-updater\-prepare\-volume [\-q] \fPvolume-directory\fB [\fPflatpak-ref\fB …]
 .\"
 .SH DESCRIPTION
 .IX Header "DESCRIPTION"
 .\"
 \fBeos\-updater\-prepare\-volume\fP is a utility to prepare a USB drive with a
-copy of the computer’s Endless OS updates, so those updates can be applied to
-another computer running Endless OS, bringing it up to date.
+copy of the computer’s Endless OS updates and flatpak apps, so those apps and
+updates can be applied to another computer running Endless OS, bringing it up
+to date.
 .PP
-The updates will be put in an OSTree repository in the \fBeos\-update\fP
+The updates will be put in an OSTree repository in the \fB.ostree/repo\fP
 directory on the USB drive. The path of the mounted drive must be passed as the
-only argument to the program. Other files on the drive will not be affected.
+first argument to the program. Other files on the drive will not be affected.
+.PP
+The runtimes needed for the flatpak apps will be put on the USB drive as well.
+No additional locales or other extensions will be added unless explicitly
+listed.
 .PP
 \fBeos\-updater\-prepare\-volume\fP is designed to be run manually by system
 administrators as a tool for updating computers which otherwise cannot be
 updated. It is not intended to be used for routine updates of computers.
-.PP
-Currently, \fBeos\-updater\-prepare\-volume\fP cannot update an existing
-repository on a USB drive — the \fBeos\-update\fP directory must not already
-exist on the USB drive.
 .PP
 If the computer has been converted to not use OSTree, its OS updates cannot be
 copied onto a USB drive using this tool.
@@ -46,7 +47,11 @@ Example of updating \fIold\-machine\fP from \fInew\-machine\fP:
 .PP
 .nf
 .RS
-new\-machine$ eos\-updater\-prepare\-volume /run/media/user/some\-volume
+new\-machine$ # List available apps
+new\-machine$ flatpak list \-\-app
+new\-machine$ sudo eos\-updater\-prepare\-volume /run/media/user/some\-volume \\
+.br
+               com.endlessm.Apps app/com.endlessm.photos/x86_64/master
 .RE
 .fi
 .PP
@@ -77,9 +82,7 @@ Then run the following commands:
 .PP
 .nf
 .RS
-old\-machine$ eos\-updater\-ctl poll
-old\-machine$ eos\-updater\-ctl fetch
-old\-machine$ eos\-updater\-ctl apply
+old\-machine$ eos\-updater\-ctl update
 .RE
 .fi
 .PP

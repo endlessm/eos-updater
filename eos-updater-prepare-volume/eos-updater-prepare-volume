@@ -1,0 +1,242 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# Copyright © 2017 Endless Mobile, Inc.
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
+import argparse
+import os
+import subprocess
+import sys
+
+import gi
+gi.require_version('Flatpak', '1.0')
+gi.require_version('GLib', '2.0')
+gi.require_version('OSTree', '1.0')
+from gi.repository import Flatpak, GLib, OSTree  # noqa
+
+
+class VolumePreparer:
+    """
+    Class implementing the eos-updater-prepare-volume command line tool.
+
+    This provides a way to copy OSTree refs onto a new repository on a USB
+    stick, along with their dependencies (runtimes, extensions, etc.), in a
+    layout which will be detected by OstreeRepoFinderMount.
+
+    The code in this class is currently tightly tied to the command line tool.
+    """
+    EXIT_FAILED = 1
+    EXIT_INVALID_ARGUMENTS = 2
+    EXIT_RUN_AS_ROOT = 3
+
+    def __init__(self, volume_path, flatpak_refs, quiet=False, debug=False):
+        self.volume_path = volume_path
+        self.flatpak_refs = flatpak_refs
+        self.quiet = quiet
+        self.debug = debug
+
+        self.sysroot = OSTree.Sysroot.new_default()
+
+    def __run(self, cmd):
+        """Run cmd locally."""
+        print('# {}'.format(cmd))
+
+        subprocess.check_call(cmd)
+
+    def __fail(self, exit_status, message):
+        """Print an error to stderr and exit with the given error status."""
+        assert(exit_status > 0)
+
+        if not self.quiet:
+            sys.stderr.write('%s: %s\n' % (sys.argv[0], message))
+
+        sys.exit(exit_status)
+
+    def _validate_flatpak_ref(self, collection_ref):
+        """Validate a collection ID and flatpak ref tuple."""
+        collection_id, ref = collection_ref
+        try:
+            # FIXME: Doesn’t seem to be in the GIR file.
+            # OSTree.validate_collection_id(collection_id)
+            Flatpak.Ref.parse(ref)
+            return True
+        except GLib.Error as e:
+            # This could be IOError.NOT_FOUND or IOError.FAILED. Since the
+            # latter is generic, don’t try and match a specific error code in
+            # case libflatpak changes it in future.
+            return False
+
+    def _get_collection_id_for_remote(self, remote_name):
+        """Get the configured collection ID for the given remote, or None."""
+        _, repo = self.sysroot.get_repo()
+        return repo.get_remote_option(remote_name, 'collection-id', None)
+
+    def _get_os_collection_ref(self):
+        """Get the collection–ref tuple for the booted OS, or None."""
+        deployment = self.sysroot.get_booted_deployment()
+        if not deployment:
+            if 'EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK' not in os.environ:
+                return None
+
+            deployments = self.sysroot.get_deployments()
+            if not deployments:
+                return None
+            deployment = deployments[0]
+
+        origin = deployment.get_origin()
+        if not origin:
+            return None
+
+        refspec = origin.get_string('origin', 'refspec')
+        if not refspec:
+            return None
+
+        _, remote_name, ref_name = OSTree.parse_refspec(refspec)
+        _, collection_id = self._get_collection_id_for_remote(remote_name)
+        if not collection_id:
+            return None
+
+        # For example: ('com.endlessm.Os.Amd64', 'os/eos/amd64/master')
+        return (collection_id, ref_name)
+
+    def _get_installed_ref_for_parsed_ref(self, installations, parsed_ref):
+        for installation in installations:
+            try:
+                return installation.get_installed_ref(parsed_ref.get_kind(),
+                                                      parsed_ref.get_name(),
+                                                      parsed_ref.get_arch(),
+                                                      parsed_ref.get_branch())
+            except GLib.Error as e:
+                if e.matches(Flatpak.Error.quark(),
+                             Flatpak.Error.NOT_INSTALLED):
+                    continue
+                raise e
+
+        return None
+
+    def _get_runtimes_for_flatpaks(self, flatpak_collection_refs):
+        """
+        Get the collection–ref tuples for the runtimes needed for the given
+        list of collection–refs of flatpaks. Unrecognised flatpaks are ignored.
+        """
+        runtimes = set()
+        installations = Flatpak.get_system_installations()
+        installations.append(Flatpak.Installation.new_user())
+
+        for (collection_id, ref) in flatpak_collection_refs:
+            parsed_ref = Flatpak.Ref.parse(ref)
+            if parsed_ref.get_kind() != Flatpak.RefKind.APP:
+                continue
+
+            installed_ref = \
+                self._get_installed_ref_for_parsed_ref(installations,
+                                                       parsed_ref)
+            if not installed_ref:
+                continue
+
+            metadata = installed_ref.load_metadata()
+            metadata_key_file = GLib.KeyFile.new()
+            metadata_key_file.load_from_bytes(metadata, GLib.KeyFileFlags.NONE)
+
+            runtime = metadata_key_file.get_string('Application', 'runtime')
+            runtimes.add((collection_id, runtime))
+
+        return runtimes
+
+    def prepare_volume(self):
+        # We need to be root in order to read all the files in the OSTree repo
+        # (unless we’re running the unit tests). */
+        if os.geteuid() != 0 and \
+           'EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK' not in os.environ:
+            return self.__fail(self.EXIT_RUN_AS_ROOT, 'Must be run as root')
+
+        # Set up.
+        try:
+            self.sysroot.load()
+        except GLib.Error as e:
+            return self.__fail(self.EXIT_FAILED,
+                               'OSTree sysroot could not be loaded; '
+                               'are you on an OSTree system?')
+
+        # Work out which collection–refs we want on the USB stick. Each one is
+        # a collection ID followed by a ref name.
+        refs_iter = iter(self.flatpak_refs)
+        flatpak_collection_refs = list(zip(refs_iter, refs_iter))
+        invalid_refs = [collection_ref
+                        for collection_ref in flatpak_collection_refs
+                        if not self._validate_flatpak_ref(collection_ref)]
+        if invalid_refs:
+            refs_list = (', '.join(['(%s, %s)' %
+                                    (collection_id, ref)
+                                    for (collection_id, ref) in invalid_refs]))
+            return self.__fail(self.EXIT_INVALID_ARGUMENTS,
+                               'Invalid flatpak collection–refs: %s' % refs_list)
+
+        # FIXME: Do we also want to pull in related refs, like locales?
+        # Currently, they can be listed explicitly on the command line.
+        runtime_collection_refs = \
+            self._get_runtimes_for_flatpaks(flatpak_collection_refs)
+
+        os_collection_ref = self._get_os_collection_ref()
+        if not os_collection_ref:
+            return self.__fail(self.EXIT_FAILED,
+                               'OSTree deployment ref could not be found; '
+                               'are you on an OSTree system?')
+
+        collection_refs = \
+            [os_collection_ref] + \
+            list(flatpak_collection_refs) + \
+            list(runtime_collection_refs)
+
+        # Eliminate duplicates.
+        collection_refs = list(set(collection_refs))
+
+        # Pass the heavy lifting off to `ostree create-usb`.
+        # TODO: Verify that it adds GPG keys where appropriate.
+        # TODO: Verify that a summary file is present.
+        flattened_collection_refs = [e for l in collection_refs for e in l]
+        _, repo = self.sysroot.get_repo()
+        self.__run(['ostree', 'create-usb',
+                    '--repo', os.path.realpath(repo.get_path().get_path()),
+                    self.volume_path] +
+                   flattened_collection_refs)
+
+
+def main():
+    """Main entry point to eos-updater-prepare-volume. Handles arguments."""
+    parser = argparse.ArgumentParser(
+        description='Prepare a USB drive with a copy of the local OSTree '
+                    'repository and the specified flatpaks, so it can be '
+                    'used to update other machines offline. The repository '
+                    'copy will be put in the .ostree/repo directory on the '
+                    'USB drive; other files will not be affected.')
+    parser.add_argument('volume_path', metavar='VOLUME-PATH', type=str,
+                        help='path to the USB drive to prepare')
+    parser.add_argument('--quiet', action='store_const', const=True,
+                        help='do not print anything; check exit status '
+                             'for success')
+    parser.add_argument('flatpak_refs', metavar='FLATPAK-REF', nargs='*',
+                        help='refs of flatpaks to put on the USB drive')
+
+    args = parser.parse_args()
+
+    VolumePreparer(**vars(args)).prepare_volume()
+
+
+if __name__ == '__main__':
+    main()

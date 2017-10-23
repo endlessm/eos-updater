@@ -19,10 +19,8 @@ EXTRA_DIST =
 dist_man8_MANS =
 
 dbuslib = libeos-updater-dbus.la
-preparelib = libeos-updater-0.la
 
 noinst_LTLIBRARIES = $(dbuslib)
-lib_LTLIBRARIES = $(preparelib)
 libexec_PROGRAMS = eos-autoupdater
 dist_bin_SCRIPTS = eos-updater-ctl
 
@@ -83,39 +81,7 @@ dist_man8_MANS += docs/eos-autoupdater.8
 
 common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
-libeos_updater_0_la_CPPFLAGS = $(common_cppflags) -DG_LOG_DOMAIN=\""libeos-updater"\"
-libeos_updater_0_la_CFLAGS = $(common_cflags)
-libeos_updater_0_la_LDFLAGS = $(WARN_LDFLAGS)
-libeos_updater_0_la_LIBADD = $(common_ldadd)
-libeos_updater_0_la_SOURCES = \
-	eos-prepare-usb-update.c \
-	eos-prepare-usb-update.h \
-	$(NULL)
-
-eosincludedir = $(includedir)/eos-updater-0
-eosinclude_HEADERS = \
-	eos-prepare-usb-update.h \
-	$(NULL)
-
-bin_PROGRAMS = eos-updater eos-updater-prepare-volume
-
-eos_updater_prepare_volume_CPPFLAGS = \
-	$(common_cppflags) \
-	-DG_LOG_DOMAIN=\""eos-updater-prepare-volume"\" \
-	$(NULL)
-eos_updater_prepare_volume_CFLAGS = \
-	$(common_cflags) \
-	$(NULL)
-eos_updater_prepare_volume_LDFLAGS = $(WARN_LDFLAGS)
-eos_updater_prepare_volume_LDADD = \
-	$(common_ldadd) \
-	$(preparelib) \
-	$(NULL)
-eos_updater_prepare_volume_SOURCES = \
-	eos-updater-prepare-volume.c \
-	$(NULL)
-
-dist_man8_MANS += docs/eos-updater-prepare-volume.8
+bin_PROGRAMS = eos-updater
 
 eos_updater_CPPFLAGS = \
 	$(common_cppflags) \
@@ -201,29 +167,5 @@ EXTRA_DIST += \
 	eos-updater.gresource.xml \
 	$(eos_updater_resource_deps) \
 	$(NULL)
-
--include $(INTROSPECTION_MAKEFILE)
-INTROSPECTION_GIRS =
-INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir) --warn-all
-INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
-
-if HAVE_INTROSPECTION
-
-EosUpdater-0.0.gir: $(preparelib)
-EosUpdater_0_0_gir_INCLUDES = Soup-2.4 OSTree-1.0
-EosUpdater_0_0_gir_LIBS = $(preparelib)
-EosUpdater_0_0_gir_FILES = $(libeos_updater_0_la_SOURCES)
-EosUpdater_0_0_gir_SCANNERFLAGS = $(WARN_SCANNERFLAGS)
-INTROSPECTION_GIRS += EosUpdater-0.0.gir
-
-girdir = $(datadir)/gir-1.0
-gir_DATA = $(INTROSPECTION_GIRS)
-
-typelibdir = $(libdir)/girepository-1.0
-typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
-
-CLEANFILES += $(gir_DATA) $(typelib_DATA)
-
-endif
 
 -include $(top_srcdir)/git.mk

@@ -39,7 +39,7 @@ get_repo_from_volume (const gchar *raw_volume_path,
                       GError **error)
 {
   g_autoptr(GFile) volume_path = g_file_new_for_path (raw_volume_path);
-  g_autoptr(GFile) repo_path = g_file_get_child (volume_path, "eos-update");
+  g_autoptr(GFile) repo_path = g_file_get_child (volume_path, ".ostree/repo");
   g_autoptr(OstreeRepo) volume_repo = ostree_repo_new (repo_path);
 
   if (!ostree_repo_open (volume_repo, NULL, error))

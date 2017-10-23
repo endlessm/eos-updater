@@ -23,6 +23,7 @@
 #pragma once
 
 #include <gio/gio.h>
+#include <ostree.h>
 
 #include "spawn-utils.h"
 
@@ -36,6 +37,7 @@ typedef enum
 
 gboolean ostree_init (GFile *repo,
                       RepoMode mode,
+                      const gchar *collection_id,
                       CmdResult *cmd,
                       GError **error);
 
@@ -64,7 +66,7 @@ gboolean ostree_pull (GFile *repo,
 gboolean ostree_remote_add (GFile *repo,
                             const gchar *remote_name,
                             const gchar *remote_url,
-                            const gchar *ref,
+                            const OstreeCollectionRef *collection_ref,
                             GFile *gpg_key,
                             CmdResult *cmd,
                             GError **error);

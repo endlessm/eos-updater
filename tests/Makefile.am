@@ -94,12 +94,14 @@ test_cflags = \
 	$(AM_CFLAGS) \
 	$(STD_CFLAGS) \
 	$(WARN_CFLAGS) \
+	$(OSTREE_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(NULL)
 test_ldflags = \
 	$(WARN_LDFLAGS) \
 	$(NULL)
 test_ldadd = \
+	$(OSTREE_LIBS) \
 	$(GIO_LIBS) \
 	$(testlib) \
 	$(NULL)
