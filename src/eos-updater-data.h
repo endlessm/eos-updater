@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include <libeos-updater-util/extensions.h>
-
 #include <ostree.h>
 
 G_BEGIN_DECLS
@@ -38,11 +36,6 @@ struct EosUpdaterData
    * when adding a new one, document it.
    */
 
-  /* extensions field is filled with some of the results of the
-   * polling stage and it is saved to disk in apply stage when
-   * deploying an update succeeds.
-   */
-  EosExtensions *extensions;
   /* overridden_urls field is filled with some of the results of the
    * polling stage and it is used during fetch stage to select a
    * server to download the data from.
@@ -50,7 +43,7 @@ struct EosUpdaterData
   gchar **overridden_urls;
 };
 
-#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL }
+#define EOS_UPDATER_DATA_CLEARED { NULL, NULL }
 
 void eos_updater_data_init (EosUpdaterData *data,
                             OstreeRepo *repo);

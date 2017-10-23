@@ -187,20 +187,6 @@ eos_updater_save_or_delete  (GBytes *contents,
   return create_directories_and_file (target, contents, cancellable, error);
 }
 
-gboolean
-eos_updater_create_extensions_dir (OstreeRepo *repo,
-                                   GFile **dir,
-                                   GError **error)
-{
-  g_autoptr(GFile) ext_path = eos_updater_get_eos_extensions_dir (repo);
-
-  if (!create_directories (ext_path, NULL, error))
-    return FALSE;
-
-  *dir = g_steal_pointer (&ext_path);
-  return TRUE;
-}
-
 static gboolean
 fallback_to_the_fake_deployment (void)
 {
@@ -337,14 +323,6 @@ eos_updater_get_envvar_or (const gchar *envvar,
     return value;
 
   return default_value;
-}
-
-GFile *
-eos_updater_get_eos_extensions_dir (OstreeRepo *repo)
-{
-  g_autofree gchar *rel_path = g_build_filename ("extensions", "eos", NULL);
-
-  return g_file_get_child (ostree_repo_get_path (repo), rel_path);
 }
 
 gboolean

@@ -82,7 +82,6 @@ IGNORE_HFILES=\
 	eos-updater-poll-common.h \
 	eos-updater-poll-volume-dbus.h \
 	libeos-update-server/repo.h \
-	libeos-updater-util/extensions.h \
 	libeos-updater-util/refcounted.h \
 	libeos-updater-util/util.h \
 	$(NULL)

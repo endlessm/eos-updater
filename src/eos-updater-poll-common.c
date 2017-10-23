@@ -145,7 +145,6 @@ static void
 eos_update_info_dispose_impl (EosUpdateInfo *info)
 {
   g_clear_pointer (&info->commit, g_variant_unref);
-  g_clear_object (&info->extensions);
 }
 
 static void
@@ -168,8 +167,7 @@ eos_update_info_new (const gchar *checksum,
                      GVariant *commit,
                      const gchar *refspec,
                      const gchar *original_refspec,
-                     const gchar * const *urls,
-                     EosExtensions *extensions)
+                     const gchar * const *urls)
 {
   EosUpdateInfo *info;
 
@@ -177,7 +175,6 @@ eos_update_info_new (const gchar *checksum,
   g_return_val_if_fail (commit != NULL, NULL);
   g_return_val_if_fail (refspec != NULL, NULL);
   g_return_val_if_fail (original_refspec != NULL, NULL);
-  g_return_val_if_fail (EOS_IS_EXTENSIONS (extensions), NULL);
 
   info = g_object_new (EOS_TYPE_UPDATE_INFO, NULL);
   info->checksum = g_strdup (checksum);
@@ -185,7 +182,6 @@ eos_update_info_new (const gchar *checksum,
   info->refspec = g_strdup (refspec);
   info->original_refspec = g_strdup (original_refspec);
   info->urls = g_strdupv ((gchar **) urls);
-  info->extensions = g_object_ref (extensions);
 
   return info;
 }
@@ -322,23 +318,6 @@ get_repo_pull_options (const gchar *url_override,
 };
 
 static gboolean
-get_extensions_url (OstreeRepo *repo,
-                    const gchar *remote_name,
-                    const gchar *url_override,
-                    gchar **extensions_url,
-                    GError **error)
-{
-  g_autofree gchar *url = g_strdup (url_override);
-
-  if (url == NULL &&
-      !ostree_repo_remote_get_url (repo, remote_name, &url, error))
-    return FALSE;
-
-  *extensions_url = g_build_path ("/", url, "extensions", "eos", NULL);
-  return TRUE;
-}
-
-static gboolean
 must_download_file_and_signature (const gchar *url,
                                   GBytes **contents,
                                   GBytes **signature,
@@ -459,7 +438,6 @@ commit_checksum_from_any_summary (OstreeRepo *repo,
                                   const gchar *summary_url,
                                   GCancellable *cancellable,
                                   gchar **out_checksum,
-                                  EosExtensions **out_extensions,
                                   GError **error)
 {
   g_autoptr(GBytes) contents = NULL;
@@ -467,7 +445,6 @@ commit_checksum_from_any_summary (OstreeRepo *repo,
   g_autoptr(OstreeGpgVerifyResult) gpg_result = NULL;
   g_autoptr(GVariant) summary = NULL;
   g_autofree gchar *checksum = NULL;
-  g_autoptr(EosExtensions) extensions = NULL;
 
   if (!must_download_file_and_signature (summary_url, &contents, &signature, error))
     return FALSE;
@@ -488,40 +465,8 @@ commit_checksum_from_any_summary (OstreeRepo *repo,
   if (checksum == NULL)
     return FALSE;
 
-  extensions = eos_extensions_new_empty ();
-  extensions->summary = g_steal_pointer (&contents);
-  extensions->summary_sig = g_steal_pointer (&signature);
-
   *out_checksum = g_steal_pointer (&checksum);
-  *out_extensions = g_steal_pointer (&extensions);
   return TRUE;
-}
-
-static gboolean
-commit_checksum_from_extensions_summary (OstreeRepo *repo,
-                                         GCancellable *cancellable,
-                                         const gchar *remote_name,
-                                         const gchar *ref,
-                                         const gchar *url_override,
-                                         gchar **out_checksum,
-                                         EosExtensions **out_extensions,
-                                         GError **error)
-{
-  g_autofree gchar *eos_summary_url = NULL;
-  g_autofree gchar *extensions_url = NULL;
-
-  if (!get_extensions_url (repo, remote_name, url_override, &extensions_url, error))
-    return FALSE;
-
-  eos_summary_url = g_build_path ("/", extensions_url, "eos-summary", NULL);
-  return commit_checksum_from_any_summary (repo,
-                                           remote_name,
-                                           ref,
-                                           eos_summary_url,
-                                           cancellable,
-                                           out_checksum,
-                                           out_extensions,
-                                           error);
 }
 
 static gboolean
@@ -531,7 +476,6 @@ commit_checksum_from_summary (OstreeRepo *repo,
                               const gchar *ref,
                               const gchar *url_override,
                               gchar **out_checksum,
-                              EosExtensions **out_extensions,
                               GError **error)
 {
   g_autofree gchar *url = NULL;
@@ -549,7 +493,6 @@ commit_checksum_from_summary (OstreeRepo *repo,
                                            summary_url,
                                            cancellable,
                                            out_checksum,
-                                           out_extensions,
                                            error);
 }
 
@@ -560,54 +503,32 @@ fetch_commit_checksum (OstreeRepo *repo,
                        const gchar *ref,
                        const gchar *url_override,
                        gchar **out_checksum,
-                       EosExtensions **out_extensions,
                        GError **error)
 {
-  g_autoptr(GPtrArray) failures = NULL;
-  g_autofree gchar *failures_str = NULL;
   g_autoptr(GError) local_error = NULL;
 
-  failures = g_ptr_array_new_with_free_func (g_free);
-
-  if (commit_checksum_from_extensions_summary (repo,
-                                               cancellable,
-                                               remote_name,
-                                               ref,
-                                               url_override,
-                                               out_checksum,
-                                               out_extensions,
-                                               &local_error))
-    return TRUE;
-
-  g_ptr_array_add (failures, g_strdup_printf ("Failed to get extensions summary: %s", local_error->message));
-  g_clear_error (&local_error);
   if (commit_checksum_from_summary (repo,
                                     cancellable,
                                     remote_name,
                                     ref,
                                     url_override,
                                     out_checksum,
-                                    out_extensions,
                                     &local_error))
     return TRUE;
 
-  g_ptr_array_add (failures, g_strdup_printf ("Failed to get ostree summary: %s", local_error->message));
-  g_ptr_array_add (failures, NULL);
-  failures_str = g_strjoinv ("; ", (gchar **)failures->pdata);
-  g_clear_error (&local_error);
   if (url_override != NULL)
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                 "Failed to get the checksum of the latest commit in ref %s from remote %s with URL %s, reasons: %s",
+                 "Failed to get the checksum of the latest commit in ref %s from remote %s with URL %s: Failed to get OSTree summary: %s",
                  ref,
                  remote_name,
                  url_override,
-                 failures_str);
+                 local_error->message);
   else
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                 "Failed to get the checksum of the latest commit in ref %s from remote %s, reasons: %s",
+                 "Failed to get the checksum of the latest commit in ref %s from remote %s: Failed to get OSTree summary: %s",
                  ref,
                  remote_name,
-                 failures_str);
+                 local_error->message);
   return FALSE;
 }
 
@@ -618,7 +539,6 @@ fetch_latest_commit (OstreeRepo *repo,
                      const gchar *url_override,
                      gchar **out_checksum,
                      gchar **out_new_refspec,
-                     EosExtensions **out_extensions,
                      GError **error)
 {
   g_autofree gchar *checksum = NULL;
@@ -626,7 +546,6 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autoptr(GVariant) commit = NULL;
   g_autoptr(GVariant) rebase = NULL;
   g_autoptr(GVariant) metadata = NULL;
-  g_autoptr(EosExtensions) extensions = NULL;
   g_autofree gchar *remote_name = NULL;
   g_autofree gchar *ref = NULL;
 
@@ -655,7 +574,6 @@ fetch_latest_commit (OstreeRepo *repo,
                               ref,
                               url_override,
                               &checksum,
-                              &extensions,
                               error))
     return FALSE;
 
@@ -685,7 +603,6 @@ fetch_latest_commit (OstreeRepo *repo,
                                           error))
         return FALSE;
 
-      g_clear_object (&extensions);
       g_clear_pointer (&checksum, g_free);
       if (!fetch_commit_checksum (repo,
                                   cancellable,
@@ -693,13 +610,11 @@ fetch_latest_commit (OstreeRepo *repo,
                                   ref,
                                   url_override,
                                   &checksum,
-                                  &extensions,
                                   error))
         return FALSE;
     }
 
   *out_checksum = g_steal_pointer (&checksum);
-  *out_extensions = g_steal_pointer (&extensions);
   *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
   return TRUE;
 }
@@ -1172,7 +1087,6 @@ metadata_fetch_finished (GObject *object,
       const gchar *label;
       const gchar *message;
 
-      g_set_object (&data->extensions, info->extensions);
       g_strfreev (data->overridden_urls);
       data->overridden_urls = g_steal_pointer (&info->urls);
 
