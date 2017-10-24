@@ -619,7 +619,7 @@ maybe_send_metric (EosMetricsInfo *metrics)
 #endif
 }
 
-static gchar *
+gchar *
 eos_update_info_to_string (EosUpdateInfo *update)
 {
   g_autofree gchar *update_urls = NULL;
