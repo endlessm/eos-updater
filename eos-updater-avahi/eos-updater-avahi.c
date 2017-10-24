@@ -78,9 +78,20 @@ get_raw_summary_timestamp_from_metadata (GBytes    *summary,
                                          GError   **error)
 {
   g_autoptr(GVariant) summary_variant = g_variant_ref_sink (g_variant_new_from_bytes (OSTREE_SUMMARY_GVARIANT_FORMAT, summary, FALSE));
+  g_autoptr(GVariant) additional_metadata = NULL;
   g_autoptr(GVariant) value = NULL;
 
-  value = g_variant_lookup_value (summary_variant, "ostree.summary.last-modified", G_VARIANT_TYPE_UINT64);
+  if (!g_variant_is_normal_form (summary_variant))
+    {
+      *out_found = FALSE;
+      *out_timestamp = 0;
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                   "Corrupt summary file");
+      return FALSE;
+    }
+
+  additional_metadata = g_variant_get_child_value (summary_variant, 1);
+  value = g_variant_lookup_value (additional_metadata, "ostree.summary.last-modified", G_VARIANT_TYPE_UINT64);
 
   g_assert (out_found != NULL);
   g_assert (out_timestamp != NULL);
