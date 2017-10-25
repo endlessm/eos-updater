@@ -146,6 +146,7 @@ eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 static void
 eos_test_subserver_finalize_impl (EosTestSubserver *subserver)
 {
+  g_free (subserver->collection_id);
   g_free (subserver->keyid);
   g_free (subserver->ostree_path);
   g_free (subserver->url);
