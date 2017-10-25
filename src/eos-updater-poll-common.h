@@ -130,6 +130,7 @@ gboolean fetch_latest_commit (OstreeRepo *repo,
 
 gboolean parse_latest_commit (OstreeRepo           *repo,
                               const gchar          *refspec,
+                              gboolean             *out_redirect_followed,
                               gchar               **out_checksum,
                               gchar               **out_new_refspec,
                               OstreeCollectionRef **out_new_collection_ref,

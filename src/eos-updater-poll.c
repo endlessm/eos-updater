@@ -273,6 +273,7 @@ metadata_fetch_new (OstreeRepo    *repo,
   const OstreeCollectionRef *upgrade_collection_ref;
   g_autoptr(GPtrArray) finders = NULL;  /* (element-type OstreeRepoFinder) */
   g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
+  gboolean redirect_followed = FALSE;
 
   if (!get_booted_refspec (&booted_refspec, NULL, NULL, &booted_collection_ref, error))
     return NULL;
@@ -340,8 +341,8 @@ metadata_fetch_new (OstreeRepo    *repo,
       g_clear_pointer (&new_collection_ref, ostree_collection_ref_free);
 
       /* Parse the commit and check there’s no redirection to a new ref. */
-      if (!parse_latest_commit (repo, upgrade_refspec, &checksum, &new_refspec,
-                                NULL, cancellable, error))
+      if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed,
+                                &checksum, &new_refspec, NULL, cancellable, error))
         return NULL;
 
       if (new_refspec != NULL)
@@ -349,7 +350,7 @@ metadata_fetch_new (OstreeRepo    *repo,
       if (new_collection_ref != NULL)
         upgrade_collection_ref = new_collection_ref;
     }
-  while (checksum == NULL);
+  while (redirect_followed);
 
   /* Final checks on the commit we found. */
   if (!is_checksum_an_update (repo, checksum, &commit, error))

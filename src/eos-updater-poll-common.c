@@ -347,6 +347,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autofree gchar *remote_name = NULL;
   g_autofree gchar *ref = NULL;
   g_autofree gchar *new_refspec = NULL;
+  gboolean redirect_followed = FALSE;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
@@ -376,14 +377,14 @@ fetch_latest_commit (OstreeRepo *repo,
                                           error))
         return FALSE;
 
-      if (!parse_latest_commit (repo, refspec, &checksum, &new_refspec,
-                                NULL, cancellable, error))
+      if (!parse_latest_commit (repo, refspec, &redirect_followed, &checksum,
+                                &new_refspec, NULL, cancellable, error))
         return FALSE;
 
       if (new_refspec != NULL)
         refspec = new_refspec;
     }
-  while (checksum == NULL);
+  while (redirect_followed);
 
   *out_checksum = g_steal_pointer (&checksum);
   if (new_refspec != NULL)
@@ -397,6 +398,7 @@ fetch_latest_commit (OstreeRepo *repo,
 gboolean
 parse_latest_commit (OstreeRepo           *repo,
                      const gchar          *refspec,
+                     gboolean             *out_redirect_followed,
                      gchar               **out_checksum,
                      gchar               **out_new_refspec,
                      OstreeCollectionRef **out_new_collection_ref,
@@ -414,6 +416,7 @@ parse_latest_commit (OstreeRepo           *repo,
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
   g_return_val_if_fail (refspec != NULL, FALSE);
+  g_return_val_if_fail (out_redirect_followed != NULL, FALSE);
   g_return_val_if_fail (out_checksum != NULL, FALSE);
   g_return_val_if_fail (out_new_refspec != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -443,8 +446,10 @@ parse_latest_commit (OstreeRepo           *repo,
       g_clear_pointer (&ref, g_free);
       ref = g_variant_dup_string (rebase, NULL);
 
-      g_clear_pointer (&checksum, g_free);
+      *out_redirect_followed = TRUE;
     }
+  else
+    *out_redirect_followed = FALSE;
 
   *out_checksum = g_steal_pointer (&checksum);
   *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
