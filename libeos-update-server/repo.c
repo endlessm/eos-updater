@@ -862,6 +862,92 @@ handle_refs_heads (EusRepo     *self,
 }
 
 static void
+handle_refs_mirrors (EusRepo     *self,
+                     SoupMessage *msg,
+                     const gchar *requested_path)
+{
+  const gsize prefix_len = strlen ("/refs/mirrors/");
+  const gsize requested_path_len = strlen (requested_path);
+  g_autofree gchar *raw_path = NULL;
+  gboolean served = FALSE;
+  const gchar *collection_ref;
+  g_autofree gchar *collection_id = NULL;
+  g_autoptr(GError) error = NULL;
+  g_auto(GStrv) remotes = NULL;
+  guint i;
+
+  if (requested_path_len <= prefix_len || strstr (requested_path + prefix_len, "/") == NULL)
+    {
+      g_debug ("Invalid request for /refs/mirrors/");
+      soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
+      return;
+    }
+
+  /* Pass through the request if it exists */
+  raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
+  if (!serve_file_if_exists (msg, self->cached_repo_root, raw_path, self->cancellable, &served))
+    return;
+
+  if (served)
+    return;
+
+  /* If not, this is probably a request for a ref we have in refs/remotes.
+   * Transparently redirect to /refs/remotes/$remote_name if $remote_name
+   * has the same collection ID as the requested ref. */
+  collection_id = g_strdup (requested_path + prefix_len);
+  *strstr (collection_id, "/") = '\0';
+  if (!ostree_validate_collection_id (collection_id, &error))
+    {
+      g_debug ("Invalid /refs/mirrors/ request: %s", error->message);
+      soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
+      return;
+    }
+
+  collection_ref = requested_path + prefix_len + strlen(collection_id) + 1; /* e.g eos2/i386 */
+  if (collection_ref == NULL || *collection_ref == '\0')
+    {
+      g_debug ("Invalid /refs/mirrors/ request: missing ref");
+      soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
+      return;
+    }
+
+  remotes = ostree_repo_remote_list (self->repo, NULL);
+  if (remotes != NULL)
+    {
+      for (i = 0; i < g_strv_length (remotes); ++i)
+        {
+            g_autofree gchar *remote_collection_id = NULL;
+            gboolean served = FALSE;
+
+            ostree_repo_get_remote_option (self->repo, remotes[i], "collection-id", NULL, &remote_collection_id, &error);
+            if (local_error != NULL)
+              {
+                g_warning ("Error getting collection ID for remote %s: %s", remotes[i], error->message);
+                g_clear_error (&error);
+                continue;
+              }
+            if (remote_collection_id == NULL || g_strcmp0 (remote_collection_id, collection_id) != 0)
+              continue;
+
+            g_clear_pointer (&raw_path, g_free);
+            raw_path = g_build_filename (self->cached_repo_root,
+                                         "refs",
+                                         "remotes",
+                                         self->remote_name,
+                                         collection_ref,
+                                         NULL);
+
+            if (!serve_file_if_exists (msg, self->cached_repo_root, raw_path, self->cancellable, &served) || served)
+              return;
+
+            g_debug ("Failed to find file ‘%s’, trying next remote", raw_path);
+        }
+    }
+
+  g_warning ("Requested ref ‘%s’ not found in any remote", requested_path);
+}
+
+static void
 handle_path (EusRepo     *self,
              SoupMessage *msg,
              const gchar *path)
@@ -897,6 +983,8 @@ handle_path (EusRepo     *self,
     handle_summary (self, msg, path);
   else if (g_str_has_prefix (path, "/refs/heads/"))
     handle_refs_heads (self, msg, path);
+  else if (g_str_has_prefix (path, "/refs/mirrors/"))
+    handle_refs_mirrors (self, msg, path);
   else
     soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
 
