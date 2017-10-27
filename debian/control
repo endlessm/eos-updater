@@ -59,6 +59,10 @@ Architecture: any
 Multi-arch: no
 Depends:
  eos-updater (= ${binary:Version}),
+ gir1.2-flatpak-1.0,
+ gir1.2-glib-2.0,
+ gir1.2-ostree-1.0,
+ python3-gi,
  ${misc:Depends},
  ${python3:Depends},
  ${shlibs:Depends},
