@@ -31,5 +31,8 @@ G_BEGIN_DECLS
 gboolean handle_poll (EosUpdater            *updater,
                       GDBusMethodInvocation *call,
                       gpointer               user_data);
+gboolean handle_poll_volume (EosUpdater            *updater,
+                             GDBusMethodInvocation *call,
+                             gpointer               user_data);
 
 G_END_DECLS

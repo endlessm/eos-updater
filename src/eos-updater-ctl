@@ -290,13 +290,6 @@ def command_server(server_command, quiet=False):
             EOS_UPDATE_SERVER_CONFS[0], exc.message), file=sys.stderr)
         return 1
 
-    # If we are enabling the server, check that we have an OSTree summary file
-    # present. If not, we need to apply an update to download one.
-    if new_state and not os.path.exists('/ostree/repo/summary'):
-        if not quiet:
-            print('Triggering update to download OSTree summary file…')
-        return command_update(quiet=True)
-
     return 0
 
 

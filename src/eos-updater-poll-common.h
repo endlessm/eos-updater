@@ -71,17 +71,20 @@ struct _EosUpdateInfo
 
   gchar *checksum;
   GVariant *commit;
-  gchar *refspec;
-  gchar *original_refspec;
+  gchar *new_refspec;
+  gchar *old_refspec;
   gchar **urls;
+
+  OstreeRepoFinderResult **results;  /* (owned) (array zero-terminated=1) */
 };
 
 EosUpdateInfo *
 eos_update_info_new (const gchar *csum,
                      GVariant *commit,
-                     const gchar *refspec,
-                     const gchar *original_refspec,
-                     const gchar * const *urls);
+                     const gchar *new_refspec,
+                     const gchar *old_refspec,
+                     const gchar * const *urls,
+                     OstreeRepoFinderResult **results);
 
 GDateTime *
 eos_update_info_get_commit_timestamp (EosUpdateInfo *info);
@@ -108,14 +111,14 @@ eos_metadata_fetch_data_new (GTask *task,
                              GMainContext *context);
 
 typedef gboolean (*MetadataFetcher) (EosMetadataFetchData *fetch_data,
-                                     GVariant *source_variant,
                                      EosUpdateInfo **info,
                                      GError **error);
 
-gboolean get_booted_refspec (gchar **booted_refspec,
-                             gchar **booted_remote,
-                             gchar **booted_ref,
-                             GError **error);
+gboolean get_booted_refspec (gchar               **booted_refspec,
+                             gchar               **booted_remote,
+                             gchar               **booted_ref,
+                             OstreeCollectionRef **booted_collection_ref,
+                             GError              **error);
 
 gboolean fetch_latest_commit (OstreeRepo *repo,
                               GCancellable *cancellable,
@@ -125,16 +128,23 @@ gboolean fetch_latest_commit (OstreeRepo *repo,
                               gchar **out_new_refspec,
                               GError **error);
 
-gboolean download_file_and_signature (const gchar *url,
-                                      GBytes **contents,
-                                      GBytes **signature,
-                                      GError **error);
+gboolean parse_latest_commit (OstreeRepo           *repo,
+                              const gchar          *refspec,
+                              gboolean             *out_redirect_followed,
+                              gchar               **out_checksum,
+                              gchar               **out_new_refspec,
+                              OstreeCollectionRef **out_new_collection_ref,
+                              GCancellable         *cancellable,
+                              GError              **error);
 
 gboolean get_origin_refspec (OstreeDeployment *booted_deployment,
                              gchar **out_refspec,
                              GError **error);
 
 GHashTable *get_hw_descriptors (void);
+
+void metrics_report_successful_poll (EosUpdateInfo *update);
+gchar *eos_update_info_to_string (EosUpdateInfo *update);
 
 typedef enum
 {
@@ -154,7 +164,6 @@ gboolean string_to_download_source (const gchar *str,
 
 EosUpdateInfo *run_fetchers (EosMetadataFetchData *fetch_data,
                              GPtrArray *fetchers,
-                             GPtrArray *source_variants,
                              GArray *sources);
 
 void metadata_fetch_finished (GObject *object,

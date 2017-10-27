@@ -45,7 +45,6 @@ test_update_from_main (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) cmds = NULL;
   gboolean has_commit;
   DownloadSource main_source = DOWNLOAD_MAIN;
-  g_autoptr(GVariant) main_source_variant = NULL;
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
    * afterwards we hit unsupported syscalls in qemu-user when running in an
@@ -89,8 +88,8 @@ test_update_from_main (EosUpdaterFixture *fixture,
 
   eos_test_client_run_updater (client,
                                &main_source,
-                               &main_source_variant,
                                1,
+                               NULL,
                                &updater_cmd,
                                &error);
   g_assert_no_error (error);

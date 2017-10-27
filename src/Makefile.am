@@ -96,10 +96,6 @@ eos_updater_LDADD  = $(common_ldadd) $(dbuslib) $(EOS_UPDATER_LIBS)
 eos_updater_SOURCES = \
 	eos-updater-apply.c \
 	eos-updater-apply.h \
-	eos-updater-avahi-emulator.c \
-	eos-updater-avahi-emulator.h \
-	eos-updater-avahi.c \
-	eos-updater-avahi.h \
 	eos-updater-data.h \
 	eos-updater-data.c \
 	eos-updater-fetch.c \
@@ -110,14 +106,8 @@ eos_updater_SOURCES = \
 	eos-updater-poll.h \
 	eos-updater-poll-common.h \
 	eos-updater-poll-common.c \
-	eos-updater-poll-lan.h \
-	eos-updater-poll-lan.c \
 	eos-updater-poll-main.h \
 	eos-updater-poll-main.c \
-	eos-updater-poll-volume-dbus.c \
-	eos-updater-poll-volume-dbus.h \
-	eos-updater-poll-volume.c \
-	eos-updater-poll-volume.h \
 	eos-updater.c \
 	$(NULL)
 nodist_eos_updater_SOURCES = \

@@ -41,6 +41,13 @@ struct EosUpdaterData
    * server to download the data from.
    */
   gchar **overridden_urls;
+
+  /* The results from ostree_repo_find_remotes_async(), which contain all the
+   * possible sources of the given refs, including internet, LAN and USB sources
+   * (depending on what OstreeRepoFinders were enabled in the poll stage).
+   * This needs to be passed from poll() to fetch().
+   * May be NULL if using the fallback code in poll(). */
+  OstreeRepoFinderResult **results;
 };
 
 #define EOS_UPDATER_DATA_CLEARED { NULL, NULL }

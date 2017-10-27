@@ -1078,37 +1078,10 @@ get_updater_dir_for_client (GFile *client_root)
   return g_file_get_child (client_root, "updater");
 }
 
-static void
-set_source_specific_config (GKeyFile *config,
-                            DownloadSource source,
-                            GVariant *source_variant)
-{
-  g_autofree gchar *group_name = g_strdup_printf ("Source \"%s\"",
-                                                  download_source_to_string (source));
-  switch (source)
-    {
-    case DOWNLOAD_MAIN:
-    case DOWNLOAD_LAN:
-      /* no specific config for now */
-      return;
-
-    case DOWNLOAD_VOLUME:
-      g_key_file_set_string (config,
-                             group_name,
-                             "Path",
-                             g_variant_get_string (source_variant,
-                                                   NULL));
-      return;
-
-    default:
-      g_assert_not_reached ();
-    }
-}
-
 static GKeyFile *
 get_updater_config (DownloadSource *order,
-                    GVariant **source_variants,
-                    gsize n_sources)
+                    gsize           n_sources,
+                    GPtrArray      *override_uris)
 {
   g_autoptr(GKeyFile) config = NULL;
   gsize idx;
@@ -1127,8 +1100,9 @@ get_updater_config (DownloadSource *order,
                               (const gchar * const*)source_strs->pdata,
                               source_strs->len);
 
-  for (idx = 0; idx < n_sources; ++idx)
-    set_source_specific_config (config, order[idx], source_variants[idx]);
+  g_key_file_set_string_list (config, "Download", "OverrideUris",
+                              (const gchar * const*) ((override_uris != NULL) ? override_uris->pdata : NULL),
+                              (override_uris != NULL) ? override_uris->len : 0);
 
   return g_steal_pointer (&config);
 }
@@ -1143,18 +1117,6 @@ get_hw_config (const gchar *vendor,
   g_key_file_set_string (hw, "descriptors", "product_name", product);
 
   return g_steal_pointer (&hw);
-}
-
-static GFile *
-updater_avahi_services_dir (GFile *updater_dir)
-{
-  return g_file_get_child (updater_dir, "avahi-services");
-}
-
-static GFile *
-updater_avahi_emulator_definitions_dir (GFile *updater_dir)
-{
-  return g_file_get_child (updater_dir, "avahi-emulator-definitions");
 }
 
 static GFile *
@@ -1181,17 +1143,11 @@ prepare_updater_dir (GFile *updater_dir,
                      GKeyFile *hw_file,
                      GError **error)
 {
-  g_autoptr(GFile) services_dir_path = updater_avahi_services_dir (updater_dir);
-  g_autoptr(GFile) definitions_dir_path = NULL;
   g_autoptr(GFile) quit_file_path = NULL;
   g_autoptr(GFile) config_file_path = NULL;
   g_autoptr(GFile) hw_file_path = NULL;
 
-  if (!create_directory (services_dir_path, error))
-    return FALSE;
-
-  definitions_dir_path = updater_avahi_emulator_definitions_dir (updater_dir);
-  if (!create_directory (definitions_dir_path, error))
+  if (!create_directory (updater_dir, error))
     return FALSE;
 
   quit_file_path = updater_quit_file (updater_dir);
@@ -1321,9 +1277,7 @@ static gboolean
 spawn_updater (GFile *sysroot,
                GFile *repo,
                GFile *config_file,
-               GFile *avahi_services_dir,
                GFile *hw_file,
-               GFile *avahi_emulator_definitions_dir,
                GFile *quit_file,
                const gchar *osname,
                CmdAsyncResult *cmd,
@@ -1337,13 +1291,10 @@ spawn_updater (GFile *sysroot,
   CmdEnvVar envv[] =
     {
       { "EOS_UPDATER_TEST_UPDATER_CONFIG_FILE_PATH", NULL, config_file },
-      { "EOS_UPDATER_TEST_UPDATER_AVAHI_SERVICES_DIR", NULL, avahi_services_dir },
       { "EOS_UPDATER_TEST_UPDATER_CUSTOM_DESCRIPTORS_PATH", NULL, hw_file },
-      { "EOS_UPDATER_TEST_UPDATER_AVAHI_EMULATOR_DEFINITIONS_DIR", NULL, avahi_emulator_definitions_dir },
       { "EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK", "yes", NULL },
       { "EOS_UPDATER_TEST_UPDATER_QUIT_FILE", NULL, quit_file },
       { "EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS", "yes", NULL },
-      { "EOS_UPDATER_TEST_UPDATER_USE_AVAHI_EMULATOR", "yes", NULL },
       { "EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME", osname, NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
@@ -1398,17 +1349,13 @@ spawn_updater_simple (GFile *sysroot,
                       GError **error)
 {
   g_autoptr(GFile) config_file_path = updater_config_file (updater_dir);
-  g_autoptr(GFile) services_dir_path = updater_avahi_services_dir (updater_dir);
   g_autoptr(GFile) hw_file_path = updater_hw_file (updater_dir);
-  g_autoptr(GFile) definitions_dir_path = updater_avahi_emulator_definitions_dir (updater_dir);
   g_autoptr(GFile) quit_file_path = updater_quit_file (updater_dir);
 
   return spawn_updater (sysroot,
                         repo,
                         config_file_path,
-                        services_dir_path,
                         hw_file_path,
-                        definitions_dir_path,
                         quit_file_path,
                         osname,
                         cmd,
@@ -1418,8 +1365,8 @@ spawn_updater_simple (GFile *sysroot,
 static gboolean
 run_updater (GFile *client_root,
              DownloadSource *order,
-             GVariant **source_variants,
              gsize n_sources,
+             GPtrArray *override_uris,
              const gchar *vendor,
              const gchar *product,
              const gchar *remote_name,
@@ -1433,8 +1380,8 @@ run_updater (GFile *client_root,
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client_root);
 
   updater_config = get_updater_config (order,
-                                       source_variants,
-                                       n_sources);
+                                       n_sources,
+                                       override_uris);
   hw_config = get_hw_config (vendor, product);
   if (!prepare_updater_dir (updater_dir,
                             updater_config,
@@ -1500,15 +1447,15 @@ eos_test_client_new (GFile *client_root,
 gboolean
 eos_test_client_run_updater (EosTestClient *client,
                              DownloadSource *order,
-                             GVariant **source_variants,
                              gsize n_sources,
+                             GPtrArray *override_uris,
                              CmdAsyncResult *cmd,
                              GError **error)
 {
   if (!run_updater (client->root,
                     order,
-                    source_variants,
                     n_sources,
+                    override_uris,
                     client->vendor,
                     client->product,
                     client->remote_name,
@@ -1754,56 +1701,6 @@ get_head_commit_timestamp (GFile *sysroot_path,
   return TRUE;
 }
 
-static GKeyFile *
-generate_definition (GFile *client_root,
-                     guint16 port,
-                     GDateTime *timestamp,
-                     const gchar *ostree_path)
-{
-  GKeyFile *definition = g_key_file_new ();
-  g_autofree gchar *basename = g_file_get_basename (client_root);
-  g_autofree gchar *service_name = g_strdup_printf ("Test Update Server at %s",
-                                                    basename);
-  g_autofree gchar *domain_name = g_strdup_printf ("%s.local", basename);
-  g_autofree gchar *unix_utc_str = g_date_time_format (timestamp, "%s");
-  CmdEnvVar txt_records[] =
-    {
-      { "eos_txt_version", "1", NULL },
-      { "eos_head_commit_timestamp", unix_utc_str, NULL },
-      { "eos_ostree_path", ostree_path, NULL },
-      { NULL, NULL, NULL }
-    };
-  g_auto(GStrv) txt = build_cmd_env (txt_records);
-
-  g_key_file_set_string (definition,
-                         "service",
-                         "name",
-                         service_name);
-
-  g_key_file_set_string (definition,
-                         "service",
-                         "domain",
-                         domain_name);
-
-  g_key_file_set_string (definition,
-                         "service",
-                         "address",
-                         "127.0.0.1");
-
-  g_key_file_set_integer (definition,
-                          "service",
-                          "port",
-                          port);
-
-  g_key_file_set_string_list (definition,
-                              "service",
-                              "txt",
-                              (const gchar *const *) txt,
-                              g_strv_length (txt));
-
-  return definition;
-}
-
 static GFile *
 get_update_server_quit_file (GFile *update_server_dir)
 {
@@ -1855,7 +1752,7 @@ get_update_server_dir (GFile *client_root)
 gboolean
 eos_test_client_run_update_server (EosTestClient *client,
                                    CmdAsyncResult *cmd,
-                                   GKeyFile **out_avahi_definition,
+                                   guint16 *out_port,
                                    GError **error)
 {
   g_autoptr(GFile) update_server_dir = get_update_server_dir (client->root);
@@ -1865,7 +1762,6 @@ eos_test_client_run_update_server (EosTestClient *client,
   g_autoptr(GFile) port_file = NULL;
   g_autoptr(GFile) config_file = NULL;
   g_autoptr(GDateTime) timestamp = NULL;
-  guint16 port;
 
   if (!prepare_update_server_dir (update_server_dir, error))
     return FALSE;
@@ -1880,7 +1776,7 @@ eos_test_client_run_update_server (EosTestClient *client,
                           port_file,
                           config_file,
                           client->remote_name,
-                          &port,
+                          out_port,
                           cmd,
                           error))
     return FALSE;
@@ -1888,10 +1784,6 @@ eos_test_client_run_update_server (EosTestClient *client,
   if (!get_head_commit_timestamp (sysroot, &timestamp, error))
     return FALSE;
 
-  *out_avahi_definition = generate_definition (client->root,
-                                               port,
-                                               timestamp,
-                                               client->ostree_path);
   return TRUE;
 }
 
@@ -1937,23 +1829,6 @@ eos_test_client_reap_update_server (EosTestClient *client,
                                                  cmd,
                                                  reaped,
                                                  error);
-}
-
-gboolean
-eos_test_client_store_definition (EosTestClient *client,
-                                  const gchar *name,
-                                  GKeyFile *avahi_definition,
-                                  GError **error)
-{
-  g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client->root);
-  g_autoptr(GFile) definitions_dir = updater_avahi_emulator_definitions_dir (updater_dir);
-  g_autofree gchar *filename = g_strdup_printf ("%s.ini", name);
-  g_autoptr(GFile) definitions_file = g_file_get_child (definitions_dir, filename);
-
-  if (!create_directory (definitions_dir, error))
-    return FALSE;
-
-  return save_key_file (definitions_file, avahi_definition, error);
 }
 
 static gboolean

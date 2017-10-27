@@ -26,11 +26,12 @@
 
 #include <libeos-updater-util/util.h>
 
+/* Fetch metadata such as commit checksums from OSTree repositories that may be
+ * found on the Internet, the local network, or a removable drive. */
 gboolean
-metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
-                          GVariant *source_variant,
-                          EosUpdateInfo **out_info,
-                          GError **error)
+metadata_fetch_from_main (EosMetadataFetchData  *fetch_data,
+                          EosUpdateInfo        **out_info,
+                          GError               **error)
 {
   OstreeRepo *repo = fetch_data->data->repo;
   g_autofree gchar *refspec = NULL;
@@ -42,7 +43,7 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
   g_return_val_if_fail (out_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_booted_refspec (&refspec, NULL, NULL, error))
+  if (!get_booted_refspec (&refspec, NULL, NULL, NULL, error))
     return FALSE;
 
   if (!fetch_latest_commit (repo,
@@ -62,6 +63,7 @@ metadata_fetch_from_main (EosMetadataFetchData *fetch_data,
                                 commit,
                                 new_refspec,
                                 refspec,
+                                NULL,
                                 NULL);
 
   *out_info = g_steal_pointer (&info);

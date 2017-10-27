@@ -151,7 +151,6 @@ void
 etc_update_client (EtcData *data)
 {
   DownloadSource main_source = DOWNLOAD_MAIN;
-  g_autoptr(GVariant) main_source_variant = NULL;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autoptr(GError) error = NULL;
   g_autoptr(GFile) autoupdater_root = NULL;
@@ -167,8 +166,8 @@ etc_update_client (EtcData *data)
   // update the client
   eos_test_client_run_updater (data->client,
                                &main_source,
-                               &main_source_variant,
                                1,
+                               NULL,
                                &updater_cmd,
                                &error);
   g_assert_no_error (error);

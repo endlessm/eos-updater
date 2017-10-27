@@ -151,9 +151,10 @@ static void
 eos_update_info_finalize_impl (EosUpdateInfo *info)
 {
   g_free (info->checksum);
-  g_free (info->refspec);
-  g_free (info->original_refspec);
+  g_free (info->new_refspec);
+  g_free (info->old_refspec);
   g_strfreev (info->urls);
+  g_clear_pointer (&info->results, ostree_repo_finder_result_freev);
 }
 
 EOS_DEFINE_REFCOUNTED (EOS_UPDATE_INFO,
@@ -162,26 +163,29 @@ EOS_DEFINE_REFCOUNTED (EOS_UPDATE_INFO,
                        eos_update_info_dispose_impl,
                        eos_update_info_finalize_impl)
 
+/* Steals @results. */
 EosUpdateInfo *
 eos_update_info_new (const gchar *checksum,
                      GVariant *commit,
-                     const gchar *refspec,
-                     const gchar *original_refspec,
-                     const gchar * const *urls)
+                     const gchar *new_refspec,
+                     const gchar *old_refspec,
+                     const gchar * const *urls,
+                     OstreeRepoFinderResult **results)
 {
   EosUpdateInfo *info;
 
   g_return_val_if_fail (checksum != NULL, NULL);
   g_return_val_if_fail (commit != NULL, NULL);
-  g_return_val_if_fail (refspec != NULL, NULL);
-  g_return_val_if_fail (original_refspec != NULL, NULL);
+  g_return_val_if_fail (new_refspec != NULL, NULL);
+  g_return_val_if_fail (old_refspec != NULL, NULL);
 
   info = g_object_new (EOS_TYPE_UPDATE_INFO, NULL);
   info->checksum = g_strdup (checksum);
   info->commit = g_variant_ref (commit);
-  info->refspec = g_strdup (refspec);
-  info->original_refspec = g_strdup (original_refspec);
+  info->new_refspec = g_strdup (new_refspec);
+  info->old_refspec = g_strdup (old_refspec);
   info->urls = g_strdupv ((gchar **) urls);
+  info->results = g_steal_pointer (&results);
 
   return info;
 }
@@ -267,15 +271,18 @@ eos_metrics_info_new (const gchar *booted_ref)
 }
 
 gboolean
-get_booted_refspec (gchar **booted_refspec,
-                    gchar **booted_remote,
-                    gchar **booted_ref,
-                    GError **error)
+get_booted_refspec (gchar               **booted_refspec,
+                    gchar               **booted_remote,
+                    gchar               **booted_ref,
+                    OstreeCollectionRef **booted_collection_ref,
+                    GError              **error)
 {
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
+  g_autofree gchar *collection_id = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
 
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
@@ -287,8 +294,14 @@ get_booted_refspec (gchar **booted_refspec,
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
 
+  repo = eos_updater_local_repo ();
+  if (!ostree_repo_get_remote_option (repo, remote, "collection-id", NULL, &collection_id, error))
+    return FALSE;
+
   g_message ("Using product branch %s", ref);
 
+  if (booted_collection_ref != NULL)
+    *booted_collection_ref = (collection_id != NULL) ? ostree_collection_ref_new (collection_id, ref) : NULL;
   if (booted_refspec != NULL)
     *booted_refspec = g_steal_pointer (&refspec);
   if (booted_remote != NULL)
@@ -317,221 +330,6 @@ get_repo_pull_options (const gchar *url_override,
   return g_variant_ref_sink (g_variant_builder_end (&builder));
 };
 
-static gboolean
-must_download_file_and_signature (const gchar *url,
-                                  GBytes **contents,
-                                  GBytes **signature,
-                                  GError **error)
-{
-  g_autoptr(GBytes) bytes = NULL;
-  g_autoptr(GBytes) sig_bytes = NULL;
-
-  if (!download_file_and_signature (url, &bytes, &sig_bytes, error))
-    return FALSE;
-
-  if (bytes == NULL)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "Failed to download the file at %s", url);
-      return FALSE;
-    }
-
-  if (sig_bytes == NULL)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "Failed to download the signature for the file at %s", url);
-      return FALSE;
-    }
-
-  *contents = g_steal_pointer (&bytes);
-  *signature = g_steal_pointer (&sig_bytes);
-  return TRUE;
-}
-
-/* stolen from ostree (ot_variant_bsearch_str) and slightly modified */
-static gboolean
-bsearch_variant (GVariant *array,
-                 const gchar *str,
-                 gsize *out_pos)
-{
-  gsize imax, imin;
-  gsize imid = (gsize) -1;
-  gsize n;
-
-  n = g_variant_n_children (array);
-  if (n == 0)
-    return FALSE;
-
-  imax = n - 1;
-  imin = 0;
-  while (imax >= imin)
-    {
-      g_autoptr(GVariant) child = NULL;
-      const char *cur;
-      int cmp;
-
-      imid = (imin + imax) / 2;
-
-      child = g_variant_get_child_value (array, imid);
-      g_variant_get_child (child, 0, "&s", &cur, NULL);
-
-      cmp = strcmp (cur, str);
-      if (cmp < 0)
-        imin = imid + 1;
-      else if (cmp > 0)
-        {
-          if (imid == 0)
-            break;
-          imax = imid - 1;
-        }
-      else
-        {
-          *out_pos = imid;
-          return TRUE;
-        }
-    }
-
-  *out_pos = imid;
-  return FALSE;
-}
-
-static gchar *
-get_commit_checksum_from_summary (GVariant *summary,
-                                  const gchar *ref,
-                                  GError **error)
-{
-  g_autoptr(GVariant) refs_v = NULL;
-  g_autoptr(GVariant) ref_v = NULL;
-  g_autoptr(GVariant) ref_data_v = NULL;
-  g_autoptr(GVariant) checksum_v = NULL;
-  gsize ref_idx;
-
-  /* summary variant is (a(s(taya{sv}))a{sv}) */
-  /* this gets the a(s(taya{sv})) variant */
-  refs_v = g_variant_get_child_value (summary, 0);
-  if (!bsearch_variant (refs_v, ref, &ref_idx))
-    {
-      g_set_error (error,
-                   G_IO_ERROR,
-                   G_IO_ERROR_FAILED,
-                   "No ref '%s' in summary",
-                   ref);
-      return NULL;
-    }
-
-  /* this gets the (s(taya{sv})) variant */
-  ref_v = g_variant_get_child_value (refs_v, ref_idx);
-  /* this gets the (taya{sv}) variant */
-  ref_data_v = g_variant_get_child_value (ref_v, 1);
-  g_variant_get (ref_data_v, "(t@ay@a{sv})", NULL, &checksum_v, NULL);
-
-  if (!ostree_validate_structureof_csum_v (checksum_v, error))
-    return NULL;
-
-  return ostree_checksum_from_bytes_v (checksum_v);
-};
-
-static gboolean
-commit_checksum_from_any_summary (OstreeRepo *repo,
-                                  const gchar *remote_name,
-                                  const gchar *ref,
-                                  const gchar *summary_url,
-                                  GCancellable *cancellable,
-                                  gchar **out_checksum,
-                                  GError **error)
-{
-  g_autoptr(GBytes) contents = NULL;
-  g_autoptr(GBytes) signature = NULL;
-  g_autoptr(OstreeGpgVerifyResult) gpg_result = NULL;
-  g_autoptr(GVariant) summary = NULL;
-  g_autofree gchar *checksum = NULL;
-
-  if (!must_download_file_and_signature (summary_url, &contents, &signature, error))
-    return FALSE;
-
-  gpg_result = ostree_repo_verify_summary (repo,
-                                           remote_name,
-                                           contents,
-                                           signature,
-                                           cancellable,
-                                           error);
-  if (!ostree_gpg_verify_result_require_valid_signature (gpg_result, error))
-    return FALSE;
-
-  summary = g_variant_ref_sink (g_variant_new_from_bytes (OSTREE_SUMMARY_GVARIANT_FORMAT,
-                                                          contents,
-                                                          FALSE));
-  checksum = get_commit_checksum_from_summary (summary, ref, error);
-  if (checksum == NULL)
-    return FALSE;
-
-  *out_checksum = g_steal_pointer (&checksum);
-  return TRUE;
-}
-
-static gboolean
-commit_checksum_from_summary (OstreeRepo *repo,
-                              GCancellable *cancellable,
-                              const gchar *remote_name,
-                              const gchar *ref,
-                              const gchar *url_override,
-                              gchar **out_checksum,
-                              GError **error)
-{
-  g_autofree gchar *url = NULL;
-  g_autofree gchar *summary_url = NULL;
-
-  if (url_override != NULL)
-    url = g_strdup (url_override);
-  else if (!ostree_repo_remote_get_url (repo, remote_name, &url, error))
-    return FALSE;
-
-  summary_url = g_build_path ("/", url, "summary", NULL);
-  return commit_checksum_from_any_summary (repo,
-                                           remote_name,
-                                           ref,
-                                           summary_url,
-                                           cancellable,
-                                           out_checksum,
-                                           error);
-}
-
-static gboolean
-fetch_commit_checksum (OstreeRepo *repo,
-                       GCancellable *cancellable,
-                       const gchar *remote_name,
-                       const gchar *ref,
-                       const gchar *url_override,
-                       gchar **out_checksum,
-                       GError **error)
-{
-  g_autoptr(GError) local_error = NULL;
-
-  if (commit_checksum_from_summary (repo,
-                                    cancellable,
-                                    remote_name,
-                                    ref,
-                                    url_override,
-                                    out_checksum,
-                                    &local_error))
-    return TRUE;
-
-  if (url_override != NULL)
-    g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                 "Failed to get the checksum of the latest commit in ref %s from remote %s with URL %s: Failed to get OSTree summary: %s",
-                 ref,
-                 remote_name,
-                 url_override,
-                 local_error->message);
-  else
-    g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                 "Failed to get the checksum of the latest commit in ref %s from remote %s: Failed to get OSTree summary: %s",
-                 ref,
-                 remote_name,
-                 local_error->message);
-  return FALSE;
-}
-
 gboolean
 fetch_latest_commit (OstreeRepo *repo,
                      GCancellable *cancellable,
@@ -548,6 +346,8 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *remote_name = NULL;
   g_autofree gchar *ref = NULL;
+  g_autofree gchar *new_refspec = NULL;
+  gboolean redirect_followed = FALSE;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
@@ -556,44 +356,18 @@ fetch_latest_commit (OstreeRepo *repo,
   g_return_val_if_fail (out_new_refspec != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
-    return FALSE;
-
-  options = get_repo_pull_options (url_override, ref);
-  if (!ostree_repo_pull_with_options (repo,
-                                      remote_name,
-                                      options,
-                                      NULL,
-                                      cancellable,
-                                      error))
-    return FALSE;
-
-  if (!fetch_commit_checksum (repo,
-                              cancellable,
-                              remote_name,
-                              ref,
-                              url_override,
-                              &checksum,
-                              error))
-    return FALSE;
-
-  if (!ostree_repo_load_variant (repo,
-                                 OSTREE_OBJECT_TYPE_COMMIT,
-                                 checksum,
-                                 &commit,
-                                 error))
-    return FALSE;
-
-  /* If this is a redirect commit, follow it and fetch the new ref instead */
-  metadata = g_variant_get_child_value (commit, 0);
-  rebase = g_variant_lookup_value (metadata, "ostree.endoflife-rebase", G_VARIANT_TYPE_STRING);
-
-  if (rebase != NULL)
+  /* Check whether the commit is a redirection; if so, fetch the new ref and
+   * check again. */
+  do
     {
+      g_clear_pointer (&remote_name, g_free);
       g_clear_pointer (&ref, g_free);
-      ref = g_variant_dup_string (rebase, NULL);
+      g_clear_pointer (&new_refspec, g_free);
+      g_clear_pointer (&checksum, g_free);
 
-      g_clear_pointer (&options, g_variant_unref);
+      if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
+        return FALSE;
+
       options = get_repo_pull_options (url_override, ref);
       if (!ostree_repo_pull_with_options (repo,
                                           remote_name,
@@ -603,79 +377,87 @@ fetch_latest_commit (OstreeRepo *repo,
                                           error))
         return FALSE;
 
-      g_clear_pointer (&checksum, g_free);
-      if (!fetch_commit_checksum (repo,
-                                  cancellable,
-                                  remote_name,
-                                  ref,
-                                  url_override,
-                                  &checksum,
-                                  error))
+      if (!parse_latest_commit (repo, refspec, &redirect_followed, &checksum,
+                                &new_refspec, NULL, cancellable, error))
         return FALSE;
+
+      if (new_refspec != NULL)
+        refspec = new_refspec;
     }
+  while (redirect_followed);
 
   *out_checksum = g_steal_pointer (&checksum);
-  *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
+  if (new_refspec != NULL)
+    *out_new_refspec = g_steal_pointer (&new_refspec);
+  else
+    *out_new_refspec = g_strdup (refspec);
+
   return TRUE;
 }
 
-static SoupURI *
-get_uri_to_sig (SoupURI *uri)
+gboolean
+parse_latest_commit (OstreeRepo           *repo,
+                     const gchar          *refspec,
+                     gboolean             *out_redirect_followed,
+                     gchar               **out_checksum,
+                     gchar               **out_new_refspec,
+                     OstreeCollectionRef **out_new_collection_ref,
+                     GCancellable         *cancellable,
+                     GError              **error)
 {
-  g_autofree gchar *sig_path = NULL;
-  SoupURI *sig_uri = soup_uri_copy (uri);
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *remote_name = NULL;
+  g_autofree gchar *checksum = NULL;
+  g_autoptr(GVariant) commit = NULL;
+  g_autoptr(GVariant) rebase = NULL;
+  g_autoptr(GVariant) metadata = NULL;
+  g_autofree gchar *collection_id = NULL;
 
-  sig_path = g_strconcat (soup_uri_get_path (uri), ".sig", NULL);
-  soup_uri_set_path (sig_uri, sig_path);
+  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+  g_return_val_if_fail (refspec != NULL, FALSE);
+  g_return_val_if_fail (out_redirect_followed != NULL, FALSE);
+  g_return_val_if_fail (out_checksum != NULL, FALSE);
+  g_return_val_if_fail (out_new_refspec != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  return sig_uri;
-}
+  if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
+    return FALSE;
+  if (!ostree_repo_resolve_rev (repo, refspec, FALSE, &checksum, error))
+    return FALSE;
+  if (!ostree_repo_get_remote_option (repo, remote_name, "collection-id", NULL, &collection_id, error))
+    return FALSE;
 
-static GBytes *
-download_file (SoupURI *uri)
-{
-  g_autoptr(GBytes) contents = NULL;
+  if (!ostree_repo_load_variant (repo,
+                                 OSTREE_OBJECT_TYPE_COMMIT,
+                                 checksum,
+                                 &commit,
+                                 error))
+    return FALSE;
 
-  if (soup_uri_get_scheme (uri) == SOUP_URI_SCHEME_FILE)
+  /* If this is a redirect commit, follow it and fetch the new ref instead
+   * (unless the rebase is a loop; ignore that). */
+  metadata = g_variant_get_child_value (commit, 0);
+  rebase = g_variant_lookup_value (metadata, "ostree.endoflife-rebase", G_VARIANT_TYPE_STRING);
+
+  if (rebase != NULL &&
+      g_strcmp0 (g_variant_get_string (rebase, NULL), ref) != 0)
     {
-      g_autoptr(GFile) file = g_file_new_for_path (soup_uri_get_path (uri));
+      g_clear_pointer (&ref, g_free);
+      ref = g_variant_dup_string (rebase, NULL);
 
-      eos_updater_read_file_to_bytes (file, NULL, &contents, NULL);
+      *out_redirect_followed = TRUE;
     }
   else
-    {
-      g_autoptr(SoupSession) soup = soup_session_new ();
-      g_autoptr(SoupMessage) msg = soup_message_new_from_uri ("GET", uri);
-      guint status = soup_session_send_message (soup, msg);
+    *out_redirect_followed = FALSE;
 
-      if (SOUP_STATUS_IS_SUCCESSFUL (status))
-        g_object_get (msg,
-                      SOUP_MESSAGE_RESPONSE_BODY_DATA, &contents,
-                      NULL);
-    }
+  *out_checksum = g_steal_pointer (&checksum);
+  *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
+  if (out_new_collection_ref != NULL && collection_id != NULL)
+    *out_new_collection_ref = ostree_collection_ref_new (collection_id, ref);
+  else if (out_new_collection_ref != NULL)
+    *out_new_collection_ref = NULL;
 
-  return g_steal_pointer (&contents);
-}
-
-gboolean
-download_file_and_signature (const gchar *url,
-                             GBytes **contents,
-                             GBytes **signature,
-                             GError **error)
-{
-  g_autoptr(SoupURI) uri = soup_uri_new (url);
-  g_autoptr(SoupURI) sig_uri = NULL;
-
-  if (uri == NULL)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "Invalid URL %s", url);
-      return FALSE;
-    }
-
-  sig_uri = get_uri_to_sig (uri);
-  *contents = download_file (uri);
-  *signature = download_file (sig_uri);
   return TRUE;
 }
 
@@ -846,12 +628,34 @@ maybe_send_metric (EosMetricsInfo *metrics)
 #endif
 }
 
-static gchar *
+void
+metrics_report_successful_poll (EosUpdateInfo *update)
+{
+  g_autofree gchar *new_ref = NULL;
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosMetricsInfo) metrics = NULL;
+
+  if (!ostree_parse_refspec (update->new_refspec, NULL, &new_ref, &error))
+    {
+      g_message ("Failed to get metrics: %s", error->message);
+      return;
+    }
+
+  /* Send metrics about our ref: this is the ref we’re going to upgrade to,
+   * and that’s not always the same as the one we’re currently on. */
+  metrics = eos_metrics_info_new (new_ref);
+  maybe_send_metric (metrics);
+}
+
+gchar *
 eos_update_info_to_string (EosUpdateInfo *update)
 {
   g_autofree gchar *update_urls = NULL;
   g_autoptr(GDateTime) timestamp = NULL;
   g_autofree gchar *timestamp_str = NULL;
+  g_autoptr(GString) results_string = NULL;
+  g_autofree gchar *results = NULL;
+  gsize i;
 
   if (update->urls != NULL)
     update_urls = g_strjoinv ("\n   ", update->urls);
@@ -861,12 +665,28 @@ eos_update_info_to_string (EosUpdateInfo *update)
   timestamp = eos_update_info_get_commit_timestamp (update);
   timestamp_str = g_date_time_format (timestamp, "%FT%T%:z");
 
-  return g_strdup_printf ("%s, %s, %s, %s\n   %s",
+  results_string = g_string_new ("");
+  for (i = 0; update->results != NULL && update->results[i] != NULL; i++)
+    {
+      const OstreeRepoFinderResult *result = update->results[i];
+
+      g_string_append_printf (results_string, "\n   %s, priority %d, %u refs",
+                              ostree_remote_get_name (result->remote),
+                              result->priority,
+                              g_hash_table_size (result->ref_to_checksum));
+    }
+  if (update->results == NULL)
+    g_string_append (results_string, "(no repo finder results)");
+
+  results = g_string_free (g_steal_pointer (&results_string), FALSE);
+
+  return g_strdup_printf ("%s, %s, %s, %s\n   %s%s",
                           update->checksum,
-                          update->refspec,
-                          update->original_refspec,
+                          update->new_refspec,
+                          update->old_refspec,
                           timestamp_str,
-                          update_urls);
+                          update_urls,
+                          results);
 }
 
 static EosUpdateInfo *
@@ -936,7 +756,6 @@ get_latest_update (GArray *sources,
 EosUpdateInfo *
 run_fetchers (EosMetadataFetchData *fetch_data,
               GPtrArray *fetchers,
-              GPtrArray *source_variants,
               GArray *sources)
 {
   guint idx;
@@ -947,36 +766,20 @@ run_fetchers (EosMetadataFetchData *fetch_data,
 
   g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), NULL);
   g_return_val_if_fail (fetchers != NULL, NULL);
-  g_return_val_if_fail (source_variants != NULL, NULL);
   g_return_val_if_fail (sources != NULL, NULL);
-  g_return_val_if_fail (fetchers->len == source_variants->len, NULL);
-  g_return_val_if_fail (source_variants->len == sources->len, NULL);
+  g_return_val_if_fail (fetchers->len == sources->len, NULL);
 
   for (idx = 0; idx < fetchers->len; ++idx)
     {
       MetadataFetcher fetcher = g_ptr_array_index (fetchers, idx);
-      GVariant *source_variant = g_ptr_array_index (source_variants, idx);
       g_autoptr(EosUpdateInfo) info = NULL;
       EosUpdaterDownloadSource source = g_array_index (sources,
                                                        EosUpdaterDownloadSource,
                                                        idx);
       const gchar *name = download_source_to_string (source);
       g_autoptr(GError) local_error = NULL;
-      const GVariantType *source_variant_type = g_variant_get_type (source_variant);
 
-      if (!g_variant_type_equal (source_variant_type, G_VARIANT_TYPE_VARDICT))
-        {
-          g_autofree gchar *expected = g_variant_type_dup_string (G_VARIANT_TYPE_VARDICT);
-          g_autofree gchar *got = g_variant_type_dup_string (source_variant_type);
-
-          g_message ("Wrong type of %s fetcher configuration, expected %s, got %s",
-                     name,
-                     expected,
-                     got);
-          continue;
-        }
-
-      if (!fetcher (fetch_data, source_variant, &info, &local_error))
+      if (!fetcher (fetch_data, &info, &local_error))
         {
           g_message ("Failed to poll metadata from source %s: %s",
                      name, local_error->message);
@@ -993,26 +796,13 @@ run_fetchers (EosMetadataFetchData *fetch_data,
   if (g_hash_table_size (source_to_update) > 0)
     {
       EosUpdateInfo *latest_update = NULL;
-      g_autofree gchar *booted_ref = NULL;
-      g_autoptr(GError) metrics_error = NULL;
-
-      /* Send metrics about our ref: this is the ref we’re going to upgrade to,
-       * but that’s always the same as the one we’re currently on. */
-      if (get_booted_refspec (NULL, NULL, &booted_ref, &metrics_error))
-        {
-          g_autoptr(EosMetricsInfo) metrics = NULL;
-
-          metrics = eos_metrics_info_new (booted_ref);
-          maybe_send_metric (metrics);
-        }
-      else
-        {
-          g_message ("Failed to get metrics: %s", metrics_error->message);
-        }
 
       latest_update = get_latest_update (sources, source_to_update);
       if (latest_update != NULL)
-        return g_object_ref (latest_update);
+        {
+          metrics_report_successful_poll (latest_update);
+          return g_object_ref (latest_update);
+        }
     }
 
   return NULL;
@@ -1090,14 +880,17 @@ metadata_fetch_finished (GObject *object,
       g_strfreev (data->overridden_urls);
       data->overridden_urls = g_steal_pointer (&info->urls);
 
+      g_clear_pointer (&data->results, ostree_repo_finder_result_freev);
+      data->results = g_steal_pointer (&info->results);
+
       /* Everything is happy thusfar */
       /* if we have a checksum for the remote upgrade candidate
        * and it's ≠ what we're currently booted into, advertise it as such.
        */
       eos_updater_clear_error (updater, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
       eos_updater_set_update_id (updater, info->checksum);
-      eos_updater_set_update_refspec (updater, info->refspec);
-      eos_updater_set_original_refspec (updater, info->original_refspec);
+      eos_updater_set_update_refspec (updater, info->new_refspec);
+      eos_updater_set_original_refspec (updater, info->old_refspec);
 
       g_variant_get_child (info->commit, 3, "&s", &label);
       g_variant_get_child (info->commit, 4, "&s", &message);

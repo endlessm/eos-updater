@@ -50,7 +50,7 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) cmds_to_free = NULL;
   gboolean has_commit;
   DownloadSource lan_source = DOWNLOAD_LAN;
-  g_autoptr(GVariant) lan_source_variant = NULL;
+  g_autoptr(GPtrArray) override_uris = NULL;
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
    * afterwards we hit unsupported syscalls in qemu-user when running in an
@@ -89,6 +89,7 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                 &error);
   g_assert_no_error (error);
 
+  override_uris = g_ptr_array_new_with_free_func ((GDestroyNotify) g_free);
   lan_servers = object_array_new ();
   lan_server_cmds = g_ptr_array_new_with_free_func ((GDestroyNotify)cmd_async_result_free);
   for (idx = 0; idx < lan_server_count; ++idx)
@@ -96,8 +97,8 @@ test_update_from_lan (EosUpdaterFixture *fixture,
       g_autofree gchar *dir_name = g_strdup_printf ("lan_server_%u", idx);
       g_autoptr(GFile) lan_server_root = g_file_get_child (fixture->tmpdir, dir_name);
       g_autoptr(EosTestClient) lan_server = NULL;
-      g_autoptr(GKeyFile) definition = NULL;
       g_autoptr(CmdAsyncResult) server_cmd = NULL;
+      guint16 port;
 
       g_test_message ("Updating subserver %u", idx);
 
@@ -124,15 +125,11 @@ test_update_from_lan (EosUpdaterFixture *fixture,
       server_cmd = g_new0 (CmdAsyncResult, 1);
       eos_test_client_run_update_server (lan_server,
                                          server_cmd,
-                                         &definition,
+                                         &port,
                                          &error);
       g_assert_no_error (error);
 
-      eos_test_client_store_definition (client,
-                                        dir_name,
-                                        definition,
-                                        &error);
-      g_assert_no_error (error);
+      g_ptr_array_add (override_uris, g_strdup_printf ("http://127.0.0.1:%u", port));
 
       g_ptr_array_add (lan_servers, g_steal_pointer (&lan_server));
       g_ptr_array_add (lan_server_cmds, g_steal_pointer (&server_cmd));
@@ -142,8 +139,8 @@ test_update_from_lan (EosUpdaterFixture *fixture,
 
   eos_test_client_run_updater (client,
                                &lan_source,
-                               &lan_source_variant,
                                1,
+                               override_uris,
                                &updater_cmd,
                                &error);
   g_assert_no_error (error);
