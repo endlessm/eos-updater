@@ -49,6 +49,7 @@ CLEANFILES = $(systemdsystemunit_DATA)
 dist_man5_MANS = \
 	docs/eos-autoupdater.conf.5 \
 	docs/eos-updater.conf.5 \
+	docs/eos-updater-flatpak-autoinstall.d.5 \
 	$(NULL)
 
 -include $(top_srcdir)/git.mk
