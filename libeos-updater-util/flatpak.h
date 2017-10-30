@@ -33,7 +33,7 @@ G_BEGIN_DECLS
 
 typedef enum {
   EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL = 0,
-  EUU_FLATPAK_REMOTE_REF_ACTION_REMOVE = 1
+  EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL = 1
 } EosUpdaterUtilFlatpakRemoteRefActionType;
 
 typedef struct {
@@ -42,7 +42,7 @@ typedef struct {
   EosUpdaterUtilFlatpakRemoteRefActionType type;
   FlatpakRemoteRef                         *ref;
 
-  guint64                                  order;
+  gint32                                   serial;
 } FlatpakRemoteRefAction;
 
 FlatpakRemoteRefAction * flatpak_remote_ref_action_ref (FlatpakRemoteRefAction *action);

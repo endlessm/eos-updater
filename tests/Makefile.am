@@ -99,6 +99,7 @@ test_cflags = \
 	$(WARN_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(GIO_CFLAGS) \
+	$(JSON_GLIB_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(FLATPAK_CFLAGS) \
 	$(NULL)

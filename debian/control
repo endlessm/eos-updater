@@ -22,6 +22,7 @@ Build-Depends:
  libgirepository1.0-dev (>= 1.30.0),
  libglib2.0-dev (>= 2.50.0),
  libgsystem-dev,
+ libjson-glib-dev (>= 1.2.6),
  libnm-dev (>= 1.2.0),
  libostree-dev (>= 2017.12),
  libsoup2.4-dev,

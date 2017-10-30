@@ -27,6 +27,7 @@
 #include <errno.h>
 
 #include <flatpak.h>
+#include <json-glib/json-glib.h>
 #include <ostree.h>
 
 #include "flatpak.h"
@@ -35,14 +36,14 @@
 static FlatpakRemoteRefAction *
 flatpak_remote_ref_action_new (EosUpdaterUtilFlatpakRemoteRefActionType  type,
                                FlatpakRemoteRef                         *ref,
-                               guint64                                   order)
+                               gint32                                    serial)
 {
   FlatpakRemoteRefAction *action = g_slice_new0 (FlatpakRemoteRefAction);
 
   action->ref_cnt = 1;
   action->type = type;
   action->ref = g_object_ref (ref);
-  action->order = order;
+  action->serial = serial;
 
   return action;
 }
@@ -100,48 +101,260 @@ parse_monotonic_counter (const gchar  *component,
   return eos_string_to_unsigned (component, 10, 0, G_MAXUINT32, out_counter, error);
 }
 
-static FlatpakRemoteRefAction *
-flatpak_remote_ref_action_parse (const gchar *line, GError **error)
+static gchar *
+json_node_to_string (JsonNode *node)
 {
-  g_auto(GStrv) components = g_strsplit (line, " ", -1);
-  g_autofree gchar *remote = NULL;
-  g_autofree gchar *ref = NULL;
-  g_autoptr(FlatpakRef) flatpak_ref = NULL;
-  g_autoptr(FlatpakRemoteRef) flatpak_remote_ref = NULL;
-  guint64 order;
-  EosUpdaterUtilFlatpakRemoteRefActionType action_type;
+  g_autoptr(JsonGenerator) gen = json_generator_new ();
+  json_generator_set_root (gen, node);
 
-  if (g_strv_length (components) != 3)
+  return json_generator_to_data (gen, NULL);
+}
+
+static gboolean
+parse_ref_kind (const gchar     *ref_kind_str,
+                FlatpakRefKind  *out_ref_kind,
+                GError         **error)
+{
+  FlatpakRefKind kind;
+
+  g_assert (out_ref_kind != NULL);
+
+  if (g_strcmp0 (ref_kind_str, "app") == 0)
+    {
+      kind = FLATPAK_REF_KIND_APP;
+    }
+  else if (g_strcmp0 (ref_kind_str, "runtime") == 0)
+    {
+      kind = FLATPAK_REF_KIND_RUNTIME;
+    }
+  else
     {
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Invalid number of components in autoinstall spec line: %s",
-                   line);
+                   "Invalid kind: %s", ref_kind_str);
+      return FALSE;
+    }
+
+  *out_ref_kind = kind;
+  return TRUE;
+}
+
+static gboolean
+parse_flatpak_ref_from_detail (JsonObject      *detail,
+                               const gchar    **out_app_name,
+                               FlatpakRefKind  *out_ref_kind,
+                               GError         **error)
+{
+  const gchar *app_name = NULL;
+  const gchar *ref_kind_str = NULL;
+  FlatpakRefKind kind;
+
+  g_return_val_if_fail (out_ref_kind != NULL, FALSE);
+  g_return_val_if_fail (out_app_name != NULL, FALSE);
+
+  app_name = json_object_get_string_member (detail, "app");
+
+  if (app_name == NULL)
+    {
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected an 'app' member in the 'detail' member");
+
+      return FALSE;
+    }
+
+  ref_kind_str = json_object_get_string_member (detail, "ref-kind");
+
+  if (ref_kind_str == NULL)
+    {
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected a 'ref-kind' member in the 'detail' member");
+      return FALSE;
+    }
+
+  if (!parse_ref_kind (ref_kind_str, &kind, error))
+    return FALSE;
+
+  *out_app_name = app_name;
+  *out_ref_kind = kind;
+
+  return TRUE;
+}
+
+static FlatpakRemoteRef *
+flatpak_remote_ref_from_install_action_detail (JsonObject *detail,
+                                               GError    **error)
+{
+  const gchar *app_name = NULL;
+  const gchar *collection_id = NULL;
+  FlatpakRefKind kind;
+
+  if (!parse_flatpak_ref_from_detail (detail, &app_name, &kind, error))
+    return NULL;
+
+  collection_id = json_object_get_string_member (detail, "collection-id");
+
+  if (remote == NULL)
+    {
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected a 'remote' member in the 'detail' member");
       return NULL;
     }
 
-  if (!flatpak_remote_ref_action_type_parse (components[0], &action_type, error))
+  /* TODO: Right now we "stuff" the collection-id in the remote-name part
+   * of the FlatpakRemoteRef and look up the corresponding remote later on
+   * when actually pulling the flatpaks */
+  return g_object_new (FLATPAK_TYPE_REMOTE_REF,
+                       "remote-name", remote,
+                       "name", app_name,
+                       "kind", kind,
+                       NULL);
+}
+
+static FlatpakRemoteRef *
+flatpak_remote_ref_from_uninstall_action_detail (JsonObject  *detail,
+                                                 GError     **error)
+{
+  const gchar *app_name = NULL;
+  FlatpakRefKind kind;
+
+  if (!parse_flatpak_ref_from_detail (detail, &app_name, &kind, error))
     return NULL;
 
-  if (!ostree_parse_refspec (components[1], &remote, &ref, error))
+  return g_object_new (FLATPAK_TYPE_REMOTE_REF,
+                       "remote-name", "none",
+                       "name", app_name,
+                       "kind", kind,
+                       NULL);
+}
+
+static FlatpakRemoteRef *
+flatpak_remote_ref_from_action_detail (EosUpdaterUtilFlatpakRemoteRefActionType   action_type,
+                                       JsonObject                                *detail,
+                                       GError                                   **error)
+{
+  switch (action_type)
+    {
+      case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
+        return flatpak_remote_ref_from_install_action_detail (detail, error);
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
+        return flatpak_remote_ref_from_uninstall_action_detail (detail, error);
+      default:
+        g_assert_not_reached ();
+    }
+}
+
+static FlatpakRemoteRefAction *
+flatpak_remote_ref_action_from_json_node (JsonNode *node,
+                                          GError **error)
+{
+  g_autofree gchar *remote = NULL;
+  g_autofree gchar *ref = NULL;
+  const gchar *action_type_str = NULL;
+  JsonObject *object = json_node_get_object (node);
+  JsonObject *detail_object = NULL;
+  g_autoptr(FlatpakRef) flatpak_ref = NULL;
+  g_autoptr(FlatpakRemoteRef) flatpak_remote_ref = NULL;
+  g_autoptr(GError) local_error = NULL;
+  JsonNode *serial_node = NULL;
+  gint64 serial64;
+  gint32 serial;
+  EosUpdaterUtilFlatpakRemoteRefActionType action_type;
+
+  if (object == NULL)
+    {
+      g_autofree gchar *node_str = json_node_to_string (node);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected entry node to be an object, but was %s", node_str);
+
+      return NULL;
+    }
+
+  action_type_str = json_object_get_string_member (object, "action");
+
+  if (action_type_str == NULL)
+    {
+      g_autofree gchar *node_str = json_node_to_string (node);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected an 'action' member in the autoinstall spec (at %s)", node_str);
+
+      return NULL;
+    }
+
+  if (!flatpak_remote_ref_action_type_parse (action_type_str, &action_type, error))
     return NULL;
 
-  if (!parse_monotonic_counter (components[2], &order, error))
-    return NULL;
+  serial_node = json_object_get_member (object, "serial");
+  if (serial_node == NULL ||
+      !JSON_NODE_HOLDS_VALUE (serial_node) ||
+      json_node_get_value_type (serial_node) != G_TYPE_INT64)
+    {
+      g_autofree gchar *node_str = json_node_to_string (node);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected a 'serial' member in the autoinstall spec (at %s)", node_str);
+      return NULL;
+    }
 
-  flatpak_ref = flatpak_ref_parse (ref, error);
+  serial64 = json_node_get_int (serial_node);
 
-  if (!flatpak_ref)
-    return NULL;
+  if (serial64 > G_MAXINT32 || serial64 < G_MININT32)
+    {
+      g_autofree gchar *node_str = json_node_to_string (node);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "The 'serial' member in in the autoinstall spec must fit within a 32 bit integer (at %s)", node_str);
+      return NULL;
+    }
 
-  flatpak_remote_ref = g_object_new (FLATPAK_TYPE_REMOTE_REF,
-                                     "remote-name", remote,
-                                     "name", flatpak_ref_get_name (flatpak_ref),
-                                     "kind", flatpak_ref_get_kind (flatpak_ref),
-                                     NULL);
+  serial = (gint32) serial64;
+
+  detail_object = json_object_get_object_member (object, "detail");
+
+  if (detail_object == NULL)
+    {
+      g_autofree gchar *node_str = json_node_to_string (node);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected a 'detail' member in the autoinstall spec (at %s)", node_str);
+      return NULL;
+    }
+
+  flatpak_remote_ref = flatpak_remote_ref_from_action_detail (action_type, detail_object, &local_error);
+
+  if (!flatpak_remote_ref)
+    {
+      if (g_error_matches (local_error,
+                           EOS_UPDATER_ERROR,
+                           EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
+        {
+          g_autofree gchar *node_str = json_node_to_string (node);
+          g_propagate_prefixed_error (error,
+                                      local_error,
+                                      "Error parsing the 'detail' member for action (at %s) '%s': ",
+                                      action_type_str,
+                                      node_str);
+          return NULL;
+        }
+
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return NULL;
+    }
   
-  return flatpak_remote_ref_action_new (action_type, flatpak_remote_ref, order);
+  return flatpak_remote_ref_action_new (action_type, flatpak_remote_ref, serial);
 }
 
 static gint
@@ -150,7 +363,29 @@ sort_flatpak_remote_ref_actions (gconstpointer a, gconstpointer b)
   FlatpakRemoteRefAction **action_a = (FlatpakRemoteRefAction **) a;
   FlatpakRemoteRefAction **action_b = (FlatpakRemoteRefAction **) b;
 
-  return (gint) (*action_a)->order - (gint) (*action_b)->order;
+  return (gint) (*action_a)->serial - (gint) (*action_b)->serial;
+}
+
+static JsonNode *
+parse_json_from_file (GFile         *file,
+                      GCancellable  *cancellable,
+                      GError       **error)
+{
+  g_autoptr(GFileInputStream) input_stream = NULL;
+  g_autoptr(JsonParser) parser = json_parser_new_immutable ();
+
+  input_stream = g_file_read (file, cancellable, error);
+
+  if (!input_stream)
+    return NULL;
+
+  if (!json_parser_load_from_stream (parser,
+                                     G_INPUT_STREAM (input_stream),
+                                     cancellable,
+                                     error))
+    return NULL;
+
+  return json_node_ref (json_parser_get_root (parser));
 }
 
 static GPtrArray *
@@ -161,36 +396,77 @@ read_flatpak_ref_actions_from_file (GFile         *file,
   /* Now that we have the file contents, time to read in the list of
    * flatpaks to install into a pointer array. Parse out the OSTree ref
    * and then parse the FlatpakRemoteRefAction */
-  g_autoptr(GFileInputStream) input_stream = NULL;
-  g_autoptr(GDataInputStream) data_stream = NULL;
+  g_autoptr(JsonNode) node = parse_json_from_file (file, cancellable, error);
   g_autoptr(GPtrArray) actions = NULL;
-  gchar *line_iter = NULL;
-  g_autoptr(GError) local_error = NULL;
+  JsonArray *array = NULL;
+  g_autoptr(GList) elements = NULL;
+  GList *iter = NULL;
 
-  input_stream = g_file_read (file, cancellable, error);
-
-  if (!input_stream)
+  if (node == NULL)
     return NULL;
 
-  data_stream = g_data_input_stream_new (G_INPUT_STREAM (input_stream));
-  actions = g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_remote_ref_action_unref);
+  /* Parse each entry of the underlying array */
+  array = json_node_get_array (node);
 
-  while ((line_iter = g_data_input_stream_read_line (data_stream, NULL, cancellable, &local_error)) != NULL)
+  if (array == NULL)
     {
-      g_autofree gchar *line = g_steal_pointer (&line_iter);
-      FlatpakRemoteRefAction *action = flatpak_remote_ref_action_parse (line, error);
+      g_autofree gchar *node_str = json_node_to_string (node);
+      g_autofree gchar *filename = g_file_get_path (file);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected node to be an array when parsing %s at %s", node_str, filename);
 
-      if (!action)
-        return NULL;
-
-      g_ptr_array_add (actions, action);
+      return NULL;
     }
 
-  /* We have to check the error explicitly here */
-  if (local_error)
+  elements = json_array_get_elements (array);
+  actions = g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_remote_ref_action_unref);
+
+  for (iter = elements; iter != NULL; iter = iter->next)
     {
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return NULL;
+      /* We use local_error here so that we can catch and
+       * add detail on the filename if necessary */
+      g_autoptr(GError) local_error = NULL;
+      FlatpakRemoteRefAction *action = NULL;
+      gboolean is_filtered = FALSE;
+
+      if (!action_node_should_be_filtered_out (iter->data, &is_filtered, &local_error))
+        {
+          if (g_error_matches (local_error,
+                               EOS_UPDATER_ERROR,
+                               EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
+            {
+              g_autofree gchar *filename = g_file_get_path (file);
+              g_propagate_prefixed_error (error, local_error, "Error parsing %s: ", filename);
+              return NULL;
+            }
+
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
+
+      if (is_filtered)
+        continue;
+
+      action = flatpak_remote_ref_action_from_json_node (iter->data, &local_error);
+
+      if (action == NULL)
+        {
+          if (g_error_matches (local_error,
+                               EOS_UPDATER_ERROR,
+                               EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
+            {
+              g_autofree gchar *filename = g_file_get_path (file);
+              g_propagate_prefixed_error (error, local_error, "Error parsing %s: ", filename);
+              return NULL;
+            }
+
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
+
+      g_ptr_array_add (actions, action);
     }
 
   /* Now that we have the remote ref actions, sort them by their ordering */
@@ -369,7 +645,7 @@ keep_only_new_actions (const gchar  *table_name,
                        gpointer      data)
 {
   GHashTable *already_applied_actions_table = data;
-  guint64 already_applied_actions_progress;
+  gint32 already_applied_actions_progress;
   gpointer already_applied_actions_progress_value;
   GPtrArray *filtered_actions = NULL;
   guint i;
@@ -382,7 +658,7 @@ keep_only_new_actions (const gchar  *table_name,
                                      &already_applied_actions_progress_value))
     return g_ptr_array_ref (incoming_actions);
 
-  already_applied_actions_progress = GPOINTER_TO_UINT (already_applied_actions_progress_value);
+  already_applied_actions_progress = GPOINTER_TO_INT (already_applied_actions_progress_value);
 
   for (i = 0; i < incoming_actions->len; ++i)
     {
@@ -390,7 +666,7 @@ keep_only_new_actions (const gchar  *table_name,
 
       /* We saw a new action. Change to the adding state and add all actions
        * to the filtered actions list */
-      if (!filtered_actions && action->order > already_applied_actions_progress)
+      if (!filtered_actions && action->serial > already_applied_actions_progress)
         filtered_actions = g_ptr_array_new_full (incoming_actions->len - i,
                                                  (GDestroyNotify) flatpak_remote_ref_action_unref);
 
@@ -409,7 +685,7 @@ keep_only_existing_actions (const gchar  *table_name,
                             gpointer      data)
 {
   GHashTable *already_applied_actions_table = data;
-  guint64 already_applied_actions_progress;
+  gint32 already_applied_actions_progress;
   gpointer already_applied_actions_progress_value;
   GPtrArray *filtered_actions = NULL;
   guint i;
@@ -421,7 +697,7 @@ keep_only_existing_actions (const gchar  *table_name,
                                      &already_applied_actions_progress_value))
     return g_ptr_array_new ();
 
-  already_applied_actions_progress = GPOINTER_TO_UINT (already_applied_actions_progress_value);
+  already_applied_actions_progress = GPOINTER_TO_INT (already_applied_actions_progress_value);
   filtered_actions = g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_remote_ref_action_unref);
 
   for (i = 0; i < incoming_actions->len; ++i)
@@ -429,7 +705,7 @@ keep_only_existing_actions (const gchar  *table_name,
       FlatpakRemoteRefAction *action = g_ptr_array_index (incoming_actions, i);
 
       /* If we see an action newer than the progress, abort the loop early */
-      if (action->order > already_applied_actions_progress)
+      if (action->serial > already_applied_actions_progress)
         break;
 
       g_ptr_array_add (filtered_actions,
