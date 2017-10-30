@@ -89,6 +89,7 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 	$(WARN_CFLAGS) \
 	$(FLATPAK_CFLAGS) \
 	$(GIO_CFLAGS) \
+	$(JSON_GLIB_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	$(NULL)
@@ -103,6 +104,7 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LIBADD = \
 	$(CODE_COVERAGE_LIBS) \
 	$(FLATPAK_LIBS) \
 	$(GIO_LIBS) \
+	$(JSON_GLIB_LIBS) \
 	$(OSTREE_LIBS) \
 	$(SOUP_LIBS) \
 	$(NULL)

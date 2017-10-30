@@ -28,6 +28,7 @@
 
 #include <ostree.h>
 #include <flatpak.h>
+#include <json-glib/json-glib.h>
 
 #include <gio/gio.h>
 #include <locale.h>
@@ -35,29 +36,113 @@
 
 typedef struct _FlatpakToInstall {
   const gchar *action;
-  const gchar *repository;
+  const gchar *remote;
   const gchar *app_id;
   const gchar *ref_kind;
 } FlatpakToInstall;
 
-static GStrv
-flatpaks_to_install_to_strv (const FlatpakToInstall *flatpaks,
+static JsonNode *
+install_json_detail (const FlatpakToInstall *flatpak_to_install)
+{
+  g_autoptr(JsonBuilder) builder = json_builder_new ();
+
+  json_builder_begin_object (builder);
+
+  json_builder_set_member_name (builder, "ref-kind");
+  json_builder_add_string_value (builder, flatpak_to_install->ref_kind);
+
+  json_builder_set_member_name (builder, "remote");
+  json_builder_add_string_value (builder, flatpak_to_install->remote);
+
+  json_builder_set_member_name (builder, "app");
+  json_builder_add_string_value (builder, flatpak_to_install->app_id);
+
+  json_builder_end_object (builder);
+
+  return json_builder_get_root (builder);
+}
+
+static JsonNode *
+remove_json_detail (const FlatpakToInstall *flatpak_to_install)
+{
+  g_autoptr(JsonBuilder) builder = json_builder_new ();
+
+  json_builder_begin_object (builder);
+
+  json_builder_set_member_name (builder, "ref-kind");
+  json_builder_add_string_value (builder, flatpak_to_install->ref_kind);
+
+  json_builder_set_member_name (builder, "app");
+  json_builder_add_string_value (builder, flatpak_to_install->app_id);
+
+  json_builder_end_object (builder);
+
+  return json_builder_get_root (builder);
+}
+
+static JsonNode *
+detail_for_action_type (const FlatpakToInstall *flatpak_to_install)
+{
+  if (g_strcmp0 (flatpak_to_install->action, "install") == 0)
+    return install_json_detail (flatpak_to_install);
+
+  if (g_strcmp0 (flatpak_to_install->action, "uninstall") == 0)
+    return remove_json_detail (flatpak_to_install);
+
+  g_assert_not_reached ();
+  return NULL;
+}
+
+static JsonNode *
+flatpak_to_install_to_json_entry (const FlatpakToInstall *flatpak_to_install,
+                                  guint                   serial)
+{
+  g_autoptr(JsonBuilder) builder = json_builder_new ();
+
+  json_builder_begin_object (builder);
+
+  json_builder_set_member_name (builder, "action");
+  json_builder_add_string_value (builder, flatpak_to_install->action);
+
+  json_builder_set_member_name (builder, "serial");
+  json_builder_add_int_value (builder, serial);
+
+  json_builder_set_member_name (builder, "detail");
+  json_builder_add_value (builder, detail_for_action_type (flatpak_to_install));
+
+  json_builder_end_object (builder);
+
+  return json_builder_get_root (builder);
+}
+
+static JsonNode *
+flatpaks_to_install_to_json (const FlatpakToInstall *flatpaks,
                              gsize                   n_flatpaks)
 {
-  GStrv strv = g_new0 (gchar *, n_flatpaks + 1);
-  guint index = 0;
+  guint serial;
+  g_autoptr(JsonBuilder) builder = json_builder_new ();
 
-  for (; index < n_flatpaks; ++index)
-    {
-      strv[index] = g_strdup_printf("%s %s:%s/%s/arch/branch %d",
-                                    flatpaks[index].action,
-                                    flatpaks[index].repository,
-                                    flatpaks[index].ref_kind,
-                                    flatpaks[index].app_id,
-                                    index);
-    }
+  json_builder_begin_array (builder);
 
-  return strv;
+  for (serial = 0; serial < n_flatpaks; ++serial)
+    json_builder_add_value (builder,
+                            flatpak_to_install_to_json_entry (&flatpaks[serial],
+                                                              serial));
+
+  json_builder_end_array (builder);
+
+  return json_builder_get_root (builder);
+}
+
+static gchar *
+flatpaks_to_install_to_string (const FlatpakToInstall *flatpaks,
+                               gsize                   n_flatpaks)
+{
+  g_autoptr(JsonGenerator) gen = json_generator_new ();
+  g_autoptr(JsonNode) node = flatpaks_to_install_to_json (flatpaks, n_flatpaks);
+
+  json_generator_set_root (gen, node);
+  return json_generator_to_data (gen, NULL);
 }
 
 static GStrv
@@ -80,8 +165,7 @@ autoinstall_flatpaks_files (guint                    commit,
                             GHashTable             **out_directories_hashtable,
                             GHashTable             **out_files_hashtable)
 {
-  g_auto (GStrv) flatpaks_as_strv = flatpaks_to_install_to_strv (flatpaks, n_flatpaks);
-  gchar *autoinstall_flatpaks_contents = g_strjoinv ("\n", flatpaks_as_strv);
+  g_autofree gchar *autoinstall_flatpaks_contents = flatpaks_to_install_to_string (flatpaks, n_flatpaks);
   GStrv directories_to_create_strv = g_new0 (gchar *, 2);
   GPtrArray *files_to_create = g_ptr_array_new_full (1, simple_file_free);
 
@@ -102,7 +186,7 @@ autoinstall_flatpaks_files (guint                    commit,
   directories_to_create_strv[0] = g_build_filename ("usr", "share", "eos-application-tools", "flatpak-autoinstall.d", NULL);
   g_ptr_array_add (files_to_create,
                    simple_file_new_steal (g_build_filename ("usr", "share", "eos-application-tools", "flatpak-autoinstall.d", "autoinstall", NULL),
-                                          autoinstall_flatpaks_contents));
+                                          g_steal_pointer (&autoinstall_flatpaks_contents)));
 
   g_hash_table_insert (*out_directories_hashtable,
                        GUINT_TO_POINTER (commit),

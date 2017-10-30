@@ -128,10 +128,10 @@ try_install_application (FlatpakInstallation  *installation,
 }
 
 static gboolean
-try_remove_application (FlatpakInstallation  *installation,
-                        FlatpakRefKind        kind,
-                        const gchar          *name,
-                        GError              **error)
+try_uninstall_application (FlatpakInstallation  *installation,
+                           FlatpakRefKind        kind,
+                           const gchar          *name,
+                           GError              **error)
 {
   g_autoptr(GError) local_error = NULL;
 
@@ -171,8 +171,8 @@ perform_action (FlatpakInstallation     *installation,
     {
       case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
         return try_install_application (installation, remote_name, kind, name, error);
-      case EUU_FLATPAK_REMOTE_REF_ACTION_REMOVE:
-        return try_remove_application (installation, kind, name, error);
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
+        return try_uninstall_application (installation, kind, name, error);
       default:
         g_assert_not_reached ();
     }
@@ -208,7 +208,7 @@ update_counter (GFile                   *counter_file,
 {
   g_autoptr(GFile) parent = g_file_get_parent (counter_file);
   g_autoptr(GError) local_error = NULL;
-  g_autofree gchar *counter_as_string = g_strdup_printf ("%lu", action->order);
+  g_autofree gchar *counter_as_string = g_strdup_printf ("%lu", action->serial);
 
   if (!g_file_make_directory_with_parents (parent, NULL, &local_error))
     {
@@ -385,7 +385,7 @@ check_flatpak_ref_actions_applied (GHashTable  *table,
                     g_string_append (deltas, msg);
                   }
                 break;
-              case EUU_FLATPAK_REMOTE_REF_ACTION_REMOVE:
+              case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
                 if (!check_if_flatpak_is_installed (installation,
                                                     pending_action,
                                                     &is_installed,
@@ -395,7 +395,7 @@ check_flatpak_ref_actions_applied (GHashTable  *table,
                 if (is_installed)
                   {
                     g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (pending_action->ref));
-                    g_autofree gchar *msg = g_strdup_printf ("Flatpak %s should have been removed by "
+                    g_autofree gchar *msg = g_strdup_printf ("Flatpak %s should have been uninstalled by "
                                                              "%s but was installed",
                                                              formatted_ref,
                                                              counter_path);
@@ -446,7 +446,6 @@ parse_installer_mode (const gchar              *mode,
 
   return TRUE;
 }
-
 
 int
 main (int    argc,
@@ -508,7 +507,7 @@ main (int    argc,
    *
    * Note that on a user system it might be perfectly legitimate for there
    * to be a delta, because the user might have uninstalled or installed
-   * an app we marked as auto-install or auto-remove. Generally speaking
+   * an app we marked as auto-install or auto-uninstall. Generally speaking
    * you would use this mode on the image builder to catch situations where
    * the apps list is out of sync.
    */
