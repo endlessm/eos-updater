@@ -24,6 +24,8 @@
 #include "misc-utils.h"
 #include "ostree-spawn.h"
 
+#include <string.h>
+
 #ifndef OSTREE_BINARY
 #error OSTREE_BINARY is not defined
 #endif
@@ -114,6 +116,36 @@ ostree_init (GFile *repo,
                                     error);
 }
 
+static void
+copy_additional_metadata_args_from_hashtable (GArray *cmd_args,
+                                              GHashTable *metadata,
+                                              GPtrArray *cmd_args_membuf)
+{
+  gpointer key;
+  gpointer value;
+  GHashTableIter iter;
+
+  if (metadata == NULL)
+    return;
+
+  g_hash_table_iter_init (&iter, metadata);
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      gchar *formatted_metadata_string = g_strdup_printf ("%s=%s",
+                                                          (const char *) key,
+                                                          (const gchar *) value);
+      CmdArg arg =
+        {
+          "add-metadata-string",
+          formatted_metadata_string
+        };
+
+      g_ptr_array_add (cmd_args_membuf, formatted_metadata_string);
+      g_array_append_val (cmd_args, arg);
+    }
+}
+
 gboolean
 ostree_cmd_remote_set_collection_id (GFile        *repo,
                                      const gchar  *remote_name,
@@ -146,13 +178,14 @@ ostree_commit (GFile *repo,
                GFile *gpg_home,
                const gchar *keyid,
                GDateTime *timestamp,
+               GHashTable *metadata,
                CmdResult *cmd,
                GError **error)
 {
   g_autofree gchar *gpg_home_path = g_file_get_path (gpg_home);
   g_autofree gchar *formatted_timestamp = g_date_time_format (timestamp, "%F");
   g_autofree gchar *raw_tree_path = g_file_get_path (tree_root);
-  CmdArg args[] =
+  CmdArg initial_args[] =
     {
       { NULL, "commit" },
       { "subject", subject },
@@ -161,11 +194,20 @@ ostree_commit (GFile *repo,
       { "gpg-homedir", gpg_home_path },
       { "timestamp", formatted_timestamp },
       { NULL, raw_tree_path },
-      { NULL, NULL }
     };
+  CmdArg empty = { NULL, NULL };
+  g_autoptr(GArray) cmd_args = g_array_sized_new (FALSE, TRUE, sizeof (CmdArg), 8);
+  g_autoptr(GPtrArray) formatted_cmd_args_membuf = g_ptr_array_new_with_free_func (g_free);
+  memcpy (cmd_args->data, initial_args, sizeof(initial_args));
+  cmd_args->len = G_N_ELEMENTS (initial_args);
+
+  copy_additional_metadata_args_from_hashtable (cmd_args,
+                                                metadata,
+                                                formatted_cmd_args_membuf);
+  g_array_append_val (cmd_args, empty);
 
   return spawn_ostree_in_repo_args (repo,
-                                    args,
+                                    (CmdArg *) cmd_args->data,
                                     cmd,
                                     error);
 }

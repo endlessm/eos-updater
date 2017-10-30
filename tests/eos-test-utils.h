@@ -81,6 +81,11 @@ struct _EosTestSubserver
   /* Same thing, but for files. Note that directories are not created. Values
    * are a pointer array of SimpleFile instances. */
   GHashTable *additional_files_for_commit;
+
+  /* Mapping from commits numbers to hashtables of metadata string
+   * key-value pairs */
+  GHashTable *additional_metadata_for_commit;
+
   GFile *repo;
   GFile *tree;
   gchar *url;
@@ -100,7 +105,8 @@ EosTestSubserver *eos_test_subserver_new (const gchar *collection_id,
                                           const gchar *ostree_path,
                                           GHashTable *ref_to_commit,
                                           GHashTable *additional_directories_for_commit,
-                                          GHashTable *additional_files_for_commit);
+                                          GHashTable *additional_files_for_commit,
+                                          GHashTable *additional_metadata_for_commit);
 
 gboolean eos_test_subserver_update (EosTestSubserver *subserver,
                                     GError **error);
@@ -135,6 +141,7 @@ EosTestServer *eos_test_server_new_quick (GFile *server_root,
                                           const gchar *ostree_path,
                                           GHashTable *additional_directories_for_commit,
                                           GHashTable *additional_files_for_commit,
+                                          GHashTable *additional_metadata_for_commit,
                                           GError **error);
 
 #define EOS_TEST_TYPE_CLIENT eos_test_client_get_type ()

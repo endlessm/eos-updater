@@ -144,6 +144,7 @@ static void
 eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 {
   g_clear_pointer (&subserver->ref_to_commit, g_hash_table_unref);
+  g_clear_pointer (&subserver->additional_metadata_for_commit, g_hash_table_unref);
   g_clear_object (&subserver->repo);
   g_clear_object (&subserver->tree);
   g_clear_object (&subserver->gpg_home);
@@ -171,7 +172,8 @@ eos_test_subserver_new (const gchar *collection_id,
                         const gchar *ostree_path,
                         GHashTable *ref_to_commit,
                         GHashTable *additional_directories_for_commit,
-                        GHashTable *additional_files_for_commit)
+                        GHashTable *additional_files_for_commit,
+                        GHashTable *additional_metadata_for_commit)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
@@ -182,6 +184,7 @@ eos_test_subserver_new (const gchar *collection_id,
   subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
   subserver->additional_directories_for_commit = additional_directories_for_commit ? g_hash_table_ref (additional_directories_for_commit) : NULL;
   subserver->additional_files_for_commit = additional_files_for_commit ? g_hash_table_ref (additional_files_for_commit) : NULL;
+  subserver->additional_metadata_for_commit = additional_metadata_for_commit ? g_hash_table_ref (additional_metadata_for_commit) : NULL;
 
   return subserver;
 }
@@ -558,6 +561,7 @@ prepare_commit (GFile *repo,
                 const gchar *keyid,
                 GHashTable *additional_directories_for_commit,
                 GHashTable *additional_files_for_commit,
+                GHashTable *additional_metadata_for_commit,
                 gchar **out_checksum,
                 GError **error)
 {
@@ -594,6 +598,7 @@ prepare_commit (GFile *repo,
                            keyid,
                            additional_directories_for_commit,
                            additional_files_for_commit,
+                           additional_metadata_for_commit,
                            NULL,
                            error))
         return FALSE;
@@ -629,6 +634,8 @@ prepare_commit (GFile *repo,
                       gpg_home,
                       keyid,
                       timestamp,
+                      maybe_hashtable_lookup (additional_metadata_for_commit,
+                                              GUINT_TO_POINTER (commit_number)),
                       &cmd,
                       error))
     return FALSE;
@@ -726,6 +733,7 @@ update_commits (EosTestSubserver *subserver,
                            subserver->keyid,
                            subserver->additional_directories_for_commit,
                            subserver->additional_files_for_commit,
+                           subserver->additional_metadata_for_commit,
                            &checksum,
                            error))
         return FALSE;
@@ -949,6 +957,7 @@ eos_test_server_new_quick (GFile *server_root,
                            const gchar *ostree_path,
                            GHashTable *additional_directories_for_commit,
                            GHashTable *additional_files_for_commit,
+                           GHashTable *additional_metadata_for_commit,
                            GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
@@ -963,7 +972,8 @@ eos_test_server_new_quick (GFile *server_root,
                                                        ostree_path,
                                                        ref_to_commit,
                                                        additional_directories_for_commit,
-                                                       additional_files_for_commit));
+                                                       additional_files_for_commit,
+                                                       additional_metadata_for_commit));
 
   return eos_test_server_new (server_root,
                               subservers,

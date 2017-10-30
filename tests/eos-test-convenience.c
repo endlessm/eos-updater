@@ -48,6 +48,7 @@ etc_data_init (EtcData *data,
   data->client = NULL;
   data->additional_directories_for_commit = NULL;
   data->additional_files_for_commit = NULL;
+  data->additional_metadata_for_commit = NULL;
 }
 
 /* Clear all the fields, but do not free the passed data pointer.
@@ -64,6 +65,7 @@ etc_data_clear (EtcData *data)
   g_clear_object (&data->client);
   g_clear_pointer (&data->additional_directories_for_commit, g_hash_table_unref);
   g_clear_pointer (&data->additional_files_for_commit, g_hash_table_unref);
+  g_clear_pointer (&data->additional_metadata_for_commit, g_hash_table_unref);
 }
 
 /* Set up a server with a single subserver with the default vendor,
@@ -94,6 +96,7 @@ etc_set_up_server (EtcData *data)
                                             default_ostree_path,
                                             data->additional_directories_for_commit,
                                             data->additional_files_for_commit,
+                                            data->additional_metadata_for_commit,
                                             &error);
   g_assert_no_error (error);
   g_assert_cmpuint (data->server->subservers->len, ==, 1u);

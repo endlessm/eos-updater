@@ -54,6 +54,7 @@ gboolean ostree_commit (GFile *repo,
                         GFile *gpg_home,
                         const gchar *keyid,
                         GDateTime *timestamp,
+                        GHashTable *metadata,
                         CmdResult *cmd,
                         GError **error);
 
