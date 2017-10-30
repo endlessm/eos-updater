@@ -10,6 +10,9 @@ Build-Depends:
  dh-python,
  dh-systemd,
  eos-metrics-0-dev,
+ gir1.2-flatpak-1.0,
+ gir1.2-glib-2.0,
+ gir1.2-ostree-1.0,
  gnupg,
  gobject-introspection (>= 1.30.0),
  gtk-doc-tools (>= 1.14),
@@ -24,6 +27,7 @@ Build-Depends:
  libsystemd-dev,
  ostree (>= 2017.12),
  ostree-tests (>= 2017.6),
+ python3-gi,
 
 Package: eos-updater
 Section: misc
@@ -43,6 +47,7 @@ Section: misc
 Architecture: any
 Depends:
  eos-updater (= ${binary:Version}),
+ eos-updater-tools (= ${binary:Version}),
  gir1.2-glib-2.0,
  python3-gi,
  ${misc:Depends},
