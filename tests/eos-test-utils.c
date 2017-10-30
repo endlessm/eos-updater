@@ -584,7 +584,10 @@ prepare_commit (GFile *repo,
     if (g_file_query_exists (commit_file, NULL))
       {
         if (out_checksum != NULL)
-          return get_current_commit_checksum (repo, ref, out_checksum, error);
+          return get_current_commit_checksum (repo,
+                                              collection_ref,
+                                              out_checksum,
+                                              error);
       }
   }
 
