@@ -75,11 +75,36 @@ incoming_flatpak_ref_actions (GError **error)
                                                          "flatpak-autoinstall.d",
                                                          NULL);
   g_autoptr(GFile) ref_actions_directory = g_file_new_for_path (ref_actions_path);
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GHashTable) ref_actions = eos_updater_util_flatpak_ref_actions_from_directory (ref_actions_relative_path,
+                                                                                           ref_actions_directory,
+                                                                                           NULL,
+                                                                                           &local_error);
 
-  return eos_updater_util_flatpak_ref_actions_from_directory (ref_actions_relative_path,
-                                                              ref_actions_directory,
-                                                              NULL,
-                                                              error);
+  /* If we don't have any from the deployment, we might still have some
+   * vendor provided actions, so do them now */
+  if (!ref_actions)
+    {
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
+
+      g_clear_error (&local_error);
+      ref_actions = g_hash_table_new_full (g_str_hash,
+                                           g_str_equal,
+                                           g_free,
+                                           (GDestroyNotify) g_ptr_array_unref);
+    }
+
+  if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (eos_updater_util_flatpak_autoinstall_override_path (),
+                                                                         ref_actions,
+                                                                         NULL,
+                                                                         error))
+    return NULL;
+
+  return g_steal_pointer (&ref_actions);
 }
 
 static gboolean

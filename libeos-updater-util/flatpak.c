@@ -475,20 +475,14 @@ read_flatpak_ref_actions_from_file (GFile         *file,
   return g_steal_pointer (&actions);
 }
 
-/* Returns an associative map from action-ref list to a pointer array of
- * actions. The action-ref lists are considered to be append-only */
-GHashTable *
-eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
-                                                     GFile         *directory,
-                                                     GCancellable  *cancellable,
-                                                     GError       **error)
+gboolean
+eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relative_parent_path,
+                                                            GFile         *directory,
+                                                            GHashTable    *ref_actions_for_files,
+                                                            GCancellable  *cancellable,
+                                                            GError       **error)
 {
   g_autoptr(GFileEnumerator) autoinstall_d_enumerator = NULL;
-  g_autoptr(GHashTable) ref_actions_for_files = g_hash_table_new_full (g_str_hash,
-                                                                       g_str_equal,
-                                                                       g_free,
-                                                                       (GDestroyNotify) g_ptr_array_unref);
-  g_autoptr(GPtrArray) autoinstall_flatpaks = g_ptr_array_new_with_free_func (g_object_unref);
 
   /* Repository checked out, read all files in order and build up a list
    * of flatpaks to auto-install */
@@ -499,7 +493,7 @@ eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_par
                                                         error);
 
   if (!autoinstall_d_enumerator)
-    return NULL;
+    return FALSE;
 
   while (TRUE)
     {
@@ -510,7 +504,7 @@ eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_par
       if (!g_file_enumerator_iterate (autoinstall_d_enumerator,
                                       &info, &file,
                                       cancellable, error))
-        return NULL;
+        return FALSE;
 
       if (!file || !info)
         break;
@@ -520,7 +514,7 @@ eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_par
                                                         error);
 
       if (!action_refs)
-        return NULL;
+        return FALSE;
 
       g_hash_table_insert (ref_actions_for_files,
                            g_build_filename (relative_parent_path,
@@ -528,6 +522,59 @@ eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_par
                                              NULL),
                            g_steal_pointer (&action_refs));
     }
+
+  return TRUE;
+}
+
+gboolean
+eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const gchar   *override_directory_path,
+                                                                  GHashTable    *ref_actions,
+                                                                  GCancellable  *cancellable,
+                                                                  GError       **error)
+{
+  g_autoptr(GFile) override_directory = g_file_new_for_path (override_directory_path);
+  g_autoptr(GError) local_error = NULL;
+  gboolean appended = eos_updater_util_flatpak_ref_actions_append_from_directory (override_directory_path,
+                                                                                  override_directory,
+                                                                                  ref_actions,
+                                                                                  cancellable,
+                                                                                  &local_error);
+
+  if (!appended)
+    {
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+
+      g_clear_error (&local_error);
+    }
+
+  /* Returning TRUE here, since it is not an error if the override directory
+   * does not exist */
+  return TRUE;
+}
+
+/* Returns an associative map from action-ref list to a pointer array of
+ * actions. The action-ref lists are considered to be append-only */
+GHashTable *
+eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
+                                                     GFile         *directory,
+                                                     GCancellable  *cancellable,
+                                                     GError       **error)
+{
+  g_autoptr(GHashTable) ref_actions_for_files = g_hash_table_new_full (g_str_hash,
+                                                                       g_str_equal,
+                                                                       g_free,
+                                                                       (GDestroyNotify) g_ptr_array_unref);
+
+  if (!eos_updater_util_flatpak_ref_actions_append_from_directory (relative_parent_path,
+                                                                   directory,
+                                                                   ref_actions_for_files,
+                                                                   cancellable,
+                                                                   error))
+    return NULL;
 
   return g_steal_pointer (&ref_actions_for_files);
 }
@@ -741,6 +788,13 @@ eos_updater_util_pending_flatpak_deployments_state_path (void)
 {
   return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR",
                                     LOCALSTATEDIR "/lib/eos-application-tools/flatpak-autoinstall.progress");
+}
+
+const gchar *
+eos_updater_util_flatpak_autoinstall_override_path (void)
+{
+  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIR",
+                                    LOCALSTATEDIR "/lib/eos-application-tools/override/flatpak-autoinstall.d");
 }
 
 GHashTable *

@@ -1229,6 +1229,12 @@ get_flatpak_user_dir_for_updater_dir (GFile *client_root)
   return g_file_get_child (client_root, "flatpak-user");
 }
 
+static GFile *
+get_flatpak_autoinstall_override_dir (GFile *client_root)
+{
+  return g_file_get_child (client_root, "flatpak-autoinstall-override");
+}
+
 static gboolean
 prepare_updater_dir (GFile *updater_dir,
                      GKeyFile *config_file,
@@ -1373,6 +1379,7 @@ spawn_updater (GFile *sysroot,
                GFile *quit_file,
                GFile *flatpak_upgrade_state_dir,
                GFile *flatpak_installation_dir,
+               GFile *flatpak_autoinstall_override_dir,
                const gchar *osname,
                CmdAsyncResult *cmd,
                GError **error)
@@ -1392,6 +1399,7 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME", osname, NULL },
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
       { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
+      { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIR", NULL, flatpak_autoinstall_override_dir },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
@@ -1449,6 +1457,7 @@ spawn_updater_simple (GFile *sysroot,
   g_autoptr(GFile) quit_file_path = updater_quit_file (updater_dir);
   g_autoptr(GFile) flatpak_upgrade_state_dir_path = flatpak_upgrade_state (updater_dir);
   g_autoptr(GFile) flatpak_installation_dir_path = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  g_autoptr(GFile) flatpak_autoinstall_override_dir = get_flatpak_autoinstall_override_dir (updater_dir);
 
   return spawn_updater (sysroot,
                         repo,
@@ -1457,6 +1466,7 @@ spawn_updater_simple (GFile *sysroot,
                         quit_file_path,
                         flatpak_upgrade_state_dir_path,
                         flatpak_installation_dir_path,
+                        flatpak_autoinstall_override_dir,
                         osname,
                         cmd,
                         error);
@@ -2154,6 +2164,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
   g_autoptr(GFile) updater_dir = g_file_get_child (client_root, "updater");
   g_autoptr(GFile) flatpak_installation_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
   g_autoptr(GFile) flatpak_upgrade_state_dir = flatpak_upgrade_state (updater_dir);
+  g_autoptr(GFile) flatpak_autoinstall_override_dir = get_flatpak_autoinstall_override_dir (updater_dir);
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_autofree gchar *sysroot_path = g_file_get_path (sysroot);
   g_autofree gchar *deployment_id = g_strdup_printf("%s.0", deployment_csum);
@@ -2176,6 +2187,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
     {
       { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
+      { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIR", NULL, flatpak_autoinstall_override_dir },
       { "EOS_UPDATER_TEST_OSTREE_DATADIR", NULL, datadir },
       { NULL, NULL, NULL }
     };
