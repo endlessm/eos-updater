@@ -50,6 +50,15 @@ void flatpak_remote_ref_action_unref (FlatpakRemoteRefAction *action);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (FlatpakRemoteRefAction, flatpak_remote_ref_action_unref)
 
+gboolean eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relative_parent_path,
+                                                                     GFile         *directory,
+                                                                     GHashTable    *ref_actions_for_files,
+                                                                     GCancellable  *cancellable,
+                                                                     GError       **error);
+gboolean eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const gchar   *override_directory_path,
+                                                                           GHashTable    *ref_actions,
+                                                                           GCancellable  *cancellable,
+                                                                           GError       **error);
 GHashTable * eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
                                                                   GFile         *directory,
                                                                   GCancellable  *cancellable,
@@ -65,5 +74,6 @@ GPtrArray * eos_updater_util_flatten_flatpak_ref_actions_table (GHashTable *flat
 
 
 const gchar * eos_updater_util_pending_flatpak_deployments_state_path (void);
+const gchar * eos_updater_util_flatpak_autoinstall_override_path (void);
 
 G_END_DECLS

@@ -196,6 +196,39 @@ autoinstall_flatpaks_files (guint                    commit,
                        files_to_create);
 }
 
+static gboolean
+autoinstall_flatpaks_files_override (GFile                   *updater_directory,
+                                     const FlatpakToInstall  *flatpaks,
+                                     gsize                    n_flatpaks,
+                                     GError                 **error)
+{
+  g_autofree gchar *autoinstall_flatpaks_contents = flatpaks_to_install_to_string (flatpaks, n_flatpaks);
+  g_autofree gchar *updater_directory_path = g_file_get_path (updater_directory);
+  g_autofree gchar *override_autoinstall_path = g_build_filename (updater_directory_path, "flatpak-autoinstall-override", "install.override", NULL);
+  g_autoptr(GFile) override_autoinstall_file = g_file_new_for_path (override_autoinstall_path);
+  g_autoptr(GFile) override_autoinstall_file_parent = g_file_get_parent (override_autoinstall_file);
+  g_autoptr(GError) local_error = NULL;
+
+  if (!g_file_make_directory_with_parents (override_autoinstall_file_parent, NULL, &local_error))
+    {
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+
+      g_clear_error (&local_error);
+    }
+
+  if (!g_file_set_contents (override_autoinstall_path,
+                            autoinstall_flatpaks_contents,
+                            -1,
+                            error))
+    return FALSE;
+
+  return TRUE;
+}
+
 static GStrv
 parse_ostree_refs_for_flatpaks (const gchar  *ostree_refs_stdout,
                                 GError      **error)
@@ -850,6 +883,94 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[0].app_id));
 }
 
+/* Insert a list of flatpaks to automatically install in the override directory
+ * and simulate a reboot by running eos-updater-flatpak-installer. This
+ * should check the deployment for a list of flatpaks to install and
+ * install them from the local repo into the installation. Verify that
+ * the flatpaks are installed and deployed once this has completed. */
+static void
+test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixture,
+                                                       gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "install", "test-repo", "org.test.Test", "app" }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
+                                                                    G_N_ELEMENTS (flatpaks_to_install));
+  g_auto(GStrv) deployed_flatpaks = NULL;
+  g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
+  g_autofree gchar *deployment_csum = NULL;
+  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
+  g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T16682");
+
+  etc_data_init (data, fixture);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  deployment_repo_dir = g_file_get_child (data->client->root,
+                                          deployment_repo_relative_path);
+
+  /* Vendor requested to install some flatpaks on the next update
+   */
+  autoinstall_flatpaks_files_override (updater_directory,
+                                       flatpaks_to_install,
+                                       G_N_ELEMENTS (flatpaks_to_install),
+                                       &error);
+  g_assert_no_error (error);
+
+  eos_test_setup_flatpak_repo (updater_directory,
+                               "test-repo",
+                               (const gchar **) wanted_flatpaks,
+                               &error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
+  deployment_csum = get_checksum_for_deploy_repo_dir (deployment_repo_dir,
+                                                      refspec,
+                                                      &error);
+  g_assert_no_error (error);
+
+  eos_test_run_flatpak_installer (data->client->root,
+                                  deployment_csum,
+                                  default_remote_name,
+                                  &error);
+  g_assert_no_error (error);
+
+  /* Assert that our flatpak was installed */
+  deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
+  g_assert_no_error (error);
+
+  g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[0].app_id));
+}
+
 /* Insert a list of flatpaks to automatically install on the commit
  * and simulate a reboot by running eos-updater-flatpak-installer. Then
  * uninstall the flatpak and update again with the same list of actions. This
@@ -1217,6 +1338,7 @@ main (int argc,
   eos_test_add ("/updater/install-flatpaks-pull-to-repo", NULL, test_update_install_flatpaks_in_repo);
   eos_test_add ("/updater/install-flatpaks-not-deployed", NULL, test_update_install_flatpaks_not_deployed);
   eos_test_add ("/updater/install-flatpaks-deploy-on-reboot", NULL, test_update_deploy_flatpaks_on_reboot);
+  eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-in-override", NULL, test_update_deploy_flatpaks_on_reboot_in_override_dir);
   eos_test_add ("/updater/no-deploy-same-action-twice", NULL, test_update_no_deploy_flatpaks_twice);
   eos_test_add ("/updater/reinstall-flatpak-if-counter-is-later", NULL, test_update_force_reinstall_flatpak);
   eos_test_add ("/updater/update-deploy-fail-flatpaks-stay-in-repo", NULL, test_update_deploy_fail_flatpaks_stay_in_repo);
