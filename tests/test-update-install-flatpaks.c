@@ -34,11 +34,17 @@
 #include <locale.h>
 #include <string.h>
 
+typedef enum _FlatpakToInstallFlags {
+  FLATPAK_TO_INSTALL_FLAGS_NONE = 0,
+  FLATPAK_TO_INSTALL_FLAGS_SKIP_TESTING_ARCHITECTURE = 1 << 0
+} FlatpakToInstallFlags;
+
 typedef struct _FlatpakToInstall {
   const gchar *action;
   const gchar *remote;
   const gchar *app_id;
   const gchar *ref_kind;
+  FlatpakToInstallFlags flags;
 } FlatpakToInstall;
 
 static JsonNode *
@@ -94,6 +100,31 @@ detail_for_action_type (const FlatpakToInstall *flatpak_to_install)
 }
 
 static JsonNode *
+filters_for_action (const FlatpakToInstall *flatpak_to_install)
+{
+  g_autoptr(JsonBuilder) builder = json_builder_new ();
+
+  json_builder_begin_object (builder);
+
+  if (flatpak_to_install->flags & FLATPAK_TO_INSTALL_FLAGS_SKIP_TESTING_ARCHITECTURE)
+    {
+      g_autoptr(JsonBuilder) skip_architectures_array_builder = json_builder_new ();
+
+      json_builder_begin_array (skip_architectures_array_builder);
+      json_builder_add_string_value (skip_architectures_array_builder, "arch");
+      json_builder_end_array (skip_architectures_array_builder);
+
+      json_builder_set_member_name (builder, "skip-architectures");
+      json_builder_add_value (builder,
+                              json_builder_get_root (skip_architectures_array_builder));
+    }
+
+  json_builder_end_object (builder);
+
+  return json_builder_get_root (builder);
+}
+
+static JsonNode *
 flatpak_to_install_to_json_entry (const FlatpakToInstall *flatpak_to_install,
                                   guint                   serial)
 {
@@ -109,6 +140,9 @@ flatpak_to_install_to_json_entry (const FlatpakToInstall *flatpak_to_install,
 
   json_builder_set_member_name (builder, "detail");
   json_builder_add_value (builder, detail_for_action_type (flatpak_to_install));
+
+  json_builder_set_member_name (builder, "filters");
+  json_builder_add_value (builder, filters_for_action (flatpak_to_install));
 
   json_builder_end_object (builder);
 
@@ -374,7 +408,7 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "test-repo", "org.test.Test", "app" }
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -432,6 +466,78 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
   g_assert (g_strv_contains ((const gchar * const *) flatpaks_in_repo, flatpaks_to_install[0].app_id));
 }
 
+/* Insert a list of flatpaks to automatically install on the commit
+ * but mark them as skipped for "arch" (the override architecture) such that
+ * they will not be pulled into the repo */
+static void
+test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
+                                                   gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    /* Indicate that we should skip the testing architecture */
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_SKIP_TESTING_ARCHITECTURE }
+  };
+  g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
+                                                                    G_N_ELEMENTS (flatpaks_to_install));
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_auto(GStrv) undesired_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
+                                                                       G_N_ELEMENTS (flatpaks_to_install));
+  g_auto(GStrv) flatpaks_in_repo = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *to_export_flatpaks_contents = NULL;
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T16682");
+
+  etc_data_init (data, fixture);
+
+  /* Commit number 1 will install some flatpaks
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              G_N_ELEMENTS (flatpaks_to_install),
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  eos_test_setup_flatpak_repo (updater_directory,
+                               "test-repo",
+                               (const gchar **) wanted_flatpaks,
+                               &error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Assert that our flatpaks were not pulled into the local repo */
+  flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
+                                                    &error);
+  g_assert_no_error (error);
+
+  g_assert (!g_strv_contains ((const gchar * const *) flatpaks_in_repo, flatpaks_to_install[0].app_id));
+}
+
 /* Have flatpaks that are pending deployment but induce a failure in
  * the sysroot deployment. It should be the case that the flatpak refs
  * stay on the local system repo. */
@@ -445,7 +551,7 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "test-repo", "org.test.Test", "app" }
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -739,7 +845,7 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "test-repo", "org.test.Test", "app" }
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -808,7 +914,7 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "test-repo", "org.test.Test", "app" }
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -895,7 +1001,7 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "test-repo", "org.test.Test", "app" }
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -982,7 +1088,7 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "test-repo", "org.test.Test", "app" }
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -1103,11 +1209,11 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "test-repo", "org.test.Test", "app" }
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   FlatpakToInstall next_flatpaks_to_install[] = {
-    { "install", "test-repo", "org.test.Test", "app" },
-    { "install", "test-repo", "org.test.Test", "app" }
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -1227,16 +1333,16 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[][3] = {
     {
-      { "install", "test-repo", "org.test.Test", "app" }
+      { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     },
     {
-      { "install", "test-repo", "org.test.Test", "app" },
-      { "uninstall", "test-repo", "org.test.Test", "app" }
+      { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+      { "uninstall", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     },
     {
-      { "install", "test-repo", "org.test.Test", "app" },
-      { "uninstall", "test-repo", "org.test.Test", "app" },
-      { "install", "test-repo", "org.test.Test", "app" }
+      { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+      { "uninstall", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+      { "install", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     },
   };
   g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install[0],
@@ -1336,6 +1442,7 @@ main (int argc,
 
   eos_test_add ("/updater/install-no-flatpaks", NULL, test_update_install_no_flatpaks);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo", NULL, test_update_install_flatpaks_in_repo);
+  eos_test_add ("/updater/skip-install-flatpaks-on-architecture", NULL, test_update_skip_install_flatpaks_on_architecture);
   eos_test_add ("/updater/install-flatpaks-not-deployed", NULL, test_update_install_flatpaks_not_deployed);
   eos_test_add ("/updater/install-flatpaks-deploy-on-reboot", NULL, test_update_deploy_flatpaks_on_reboot);
   eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-in-override", NULL, test_update_deploy_flatpaks_on_reboot_in_override_dir);

@@ -388,6 +388,142 @@ parse_json_from_file (GFile         *file,
   return json_node_ref (json_parser_get_root (parser));
 }
 
+static const gchar *
+eos_updater_get_system_architecture_string (void)
+{
+  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE",
+                                    flatpak_get_default_arch ());
+}
+
+static gboolean
+architecture_skip_filter_applies (JsonNode  *filter_value,
+                                  gboolean  *is_filtered,
+                                  GError   **error)
+{
+  JsonArray *skip_architectures_array = json_node_get_array (filter_value);
+  g_autoptr(GList) architecture_nodes = NULL;
+  GList *iter = NULL;
+
+  g_return_val_if_fail (is_filtered != NULL, FALSE);
+
+  if (skip_architectures_array == NULL)
+    {
+      g_autofree gchar *node_str = json_node_to_string (filter_value);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected 'skip-architectures' filter to be an array, was: %s",
+                   node_str);
+      return FALSE;
+    }
+
+  architecture_nodes = json_array_get_elements (skip_architectures_array);
+
+  for (iter = architecture_nodes; iter != NULL; iter = iter->next)
+    {
+      const gchar *string = json_node_get_string (iter->data);
+
+      if (string == NULL)
+        {
+          g_autofree gchar *node_str = json_node_to_string (filter_value);
+          g_set_error (error,
+                       EOS_UPDATER_ERROR,
+                       EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                       "Expected 'skip-architectures' array to contain string values, was: %s",
+                       node_str);
+          return FALSE;
+        }
+
+      if (g_strcmp0 (string, eos_updater_get_system_architecture_string ()) == 0)
+        {
+          *is_filtered = TRUE;
+          return TRUE;
+        }
+    }
+
+  *is_filtered = FALSE;
+  return TRUE;
+}
+
+static gboolean
+action_filter_applies (JsonObject   *object,
+                       const gchar  *filter_key_name,
+                       gboolean     *is_filtered,
+                       GError      **error)
+{
+  JsonNode *filter_value = json_object_get_member (object, filter_key_name);
+
+  g_return_val_if_fail (is_filtered != NULL, FALSE);
+
+  if (g_strcmp0 (filter_key_name, "skip-architectures") == 0)
+    return architecture_skip_filter_applies (filter_value, is_filtered, error);
+
+  g_set_error (error,
+               EOS_UPDATER_ERROR,
+               EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+               "Unknown action filter value '%s', expected one of 'skip-architectures'",
+               filter_key_name);
+  return FALSE;
+}
+
+/* We do this at the same time as reading the JSON node so that we don't have
+ * to keep filter information around in memory */
+static gboolean
+action_node_should_be_filtered_out (JsonNode  *node,
+                                    gboolean  *is_filtered,
+                                    GError   **error)
+{
+  JsonObject *object = json_node_get_object (node);
+  JsonNode *filters_object_node = json_object_get_member (object, "filters");
+  JsonObject *filters_object = NULL;
+  g_autoptr(GList) filters_object_keys = NULL;
+  GList *iter = NULL;
+
+  g_return_val_if_fail (is_filtered != NULL, FALSE);
+
+  /* No filters, so this action cannot be filtered out */
+  if (filters_object_node == NULL)
+    {
+      *is_filtered = FALSE;
+      return TRUE;
+    }
+
+  filters_object = json_node_get_object (filters_object_node);
+
+  if (filters_object == NULL)
+    {
+      g_autofree gchar *node_str = json_node_to_string (node);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected 'filters' node to be an object, but was %s", node_str);
+
+      return FALSE;
+    }
+
+  filters_object_keys = json_object_get_members (filters_object);
+
+  for (iter = filters_object_keys; iter != NULL; iter = iter->next)
+    {
+      gboolean action_is_filtered_on_this_filter;
+
+      if (!action_filter_applies (filters_object,
+                                  iter->data,
+                                  &action_is_filtered_on_this_filter,
+                                  error))
+        return FALSE;
+
+      if (action_is_filtered_on_this_filter)
+        {
+          *is_filtered = TRUE;
+          return TRUE;
+        }
+    }
+
+  *is_filtered = FALSE;
+  return TRUE;
+}
+
 static GPtrArray *
 read_flatpak_ref_actions_from_file (GFile         *file,
                                     GCancellable  *cancellable,
@@ -439,7 +575,6 @@ read_flatpak_ref_actions_from_file (GFile         *file,
             {
               g_autofree gchar *filename = g_file_get_path (file);
               g_propagate_prefixed_error (error, local_error, "Error parsing %s: ", filename);
-              return NULL;
             }
 
           g_propagate_error (error, g_steal_pointer (&local_error));

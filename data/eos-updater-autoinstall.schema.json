@@ -21,6 +21,13 @@
                 { "$ref": "#/definitions/install" },
                 { "$ref": "#/definitions/uninstall" }
             ]
+        },
+        "filters": {
+            "description": "Tests to apply to see whether this action should be performed or skipped. If it is skipped, the test to check whether it should be performed or skipped will never run again.",
+            "type": "object",
+            "oneOf": [
+                { "$ref": "#/definitions/filters" }
+            ]
         }
     },
     "required": ["action", "serial", "detail"],
@@ -101,6 +108,22 @@
                 }
             },
             "required": ["ref-kind", "app"]
+        },
+        "filters": {
+            "type": "object",
+            "title": "Filters to apply to action",
+            "description": "Tests to apply to see if action should be applied or skipped",
+            "properties": {
+                "skip-architectures": {
+                    "description": "Which architectures forbid performing this action on",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                }
+            }
         }
     }
 }
