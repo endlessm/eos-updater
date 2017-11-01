@@ -50,7 +50,8 @@ void flatpak_remote_ref_action_unref (FlatpakRemoteRefAction *action);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (FlatpakRemoteRefAction, flatpak_remote_ref_action_unref)
 
-GHashTable * eos_updater_util_flatpak_ref_actions_from_directory (GFile         *directory,
+GHashTable * eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
+                                                                  GFile         *directory,
                                                                   GCancellable  *cancellable,
                                                                   GError       **error);
 GHashTable * eos_updater_util_flatpak_ref_action_application_progress_in_state_path (GCancellable  *cancellable,
