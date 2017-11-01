@@ -69,13 +69,15 @@ get_datadir (void)
 static GHashTable *
 incoming_flatpak_ref_actions (GError **error)
 {
+  const gchar *ref_actions_relative_path = "usr/share/flatpak-autoinstall.d";
   g_autofree gchar *ref_actions_path = g_build_filename (get_datadir (),
                                                          "eos-application-tools",
                                                          "flatpak-autoinstall.d",
                                                          NULL);
   g_autoptr(GFile) ref_actions_directory = g_file_new_for_path (ref_actions_path);
 
-  return eos_updater_util_flatpak_ref_actions_from_directory (ref_actions_directory,
+  return eos_updater_util_flatpak_ref_actions_from_directory (ref_actions_relative_path,
+                                                              ref_actions_directory,
                                                               NULL,
                                                               error);
 }
@@ -202,14 +204,17 @@ complain_about_failure_to_update_system_installation_counter (const gchar *faili
 }
 
 static gboolean
-update_counter (GFile                   *counter_file,
-                FlatpakRemoteRefAction  *action,
+update_counter (FlatpakRemoteRefAction  *action,
+                const gchar             *source_path,
                 GError                 **error)
 {
+  const gchar *counter_file_path = eos_updater_util_pending_flatpak_deployments_state_path ();
+  g_autoptr(GFile) counter_file = g_file_new_for_path (counter_file_path);
   g_autoptr(GFile) parent = g_file_get_parent (counter_file);
+  g_autoptr(GKeyFile) counter_keyfile = g_key_file_new ();
   g_autoptr(GError) local_error = NULL;
-  g_autofree gchar *counter_as_string = g_strdup_printf ("%lu", action->serial);
 
+  /* Ensure that the directory and the key file are created */
   if (!g_file_make_directory_with_parents (parent, NULL, &local_error))
     {
       if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
@@ -221,26 +226,36 @@ update_counter (GFile                   *counter_file,
       g_clear_error (&local_error);
     }
 
-  return g_file_replace_contents (counter_file,
-                                  counter_as_string,
-                                  strlen (counter_as_string),
-                                  NULL,
-                                  FALSE,
-                                  G_FILE_CREATE_NONE,
-                                  NULL,
-                                  NULL,
-                                  error);
+  if (!g_key_file_load_from_file (counter_keyfile, 
+                                  counter_file_path,
+                                  G_KEY_FILE_NONE,
+                                  &local_error))
+    {
+      if (!g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+
+      g_clear_error (&local_error);
+    }
+
+  g_key_file_set_int64 (counter_keyfile, source_path, "Progress", action->serial);
+
+  if (!g_key_file_save_to_file (counter_keyfile, counter_file_path, error))
+    return FALSE;
+
+  return TRUE;
 }
 
 static void
-update_counter_complain_on_error (GFile                   *counter_file,
-                                  FlatpakRemoteRefAction  *action,
-                                  const gchar             *name)
+update_counter_complain_on_error (FlatpakRemoteRefAction  *action,
+                                  const gchar             *source_path)
 {
   g_autoptr(GError) error = NULL;
 
-  if (!update_counter (counter_file, action, &error))
-    complain_about_failure_to_update_system_installation_counter (name,
+  if (!update_counter (action, source_path, &error))
+    complain_about_failure_to_update_system_installation_counter (source_path,
                                                                   error);
 }
 
@@ -261,12 +276,8 @@ apply_flatpak_ref_actions (GHashTable               *table,
 
   while (g_hash_table_iter_next (&hash_iter, &key, &value))
     {
-      const gchar *name = key;
+      const gchar *source_path = key;
       GPtrArray *pending_actions = value;
-      g_autofree gchar *counter_path = g_build_filename (eos_updater_util_pending_flatpak_deployments_state_path (),
-                                                         name,
-                                                         NULL);
-      g_autoptr(GFile) counter_file = g_file_new_for_path (counter_path);
       gsize i;
       FlatpakRemoteRefAction *last_successful_action = NULL;
 
@@ -284,8 +295,7 @@ apply_flatpak_ref_actions (GHashTable               *table,
                * to the last successful before we get out, this is to ensure
                * that we don't perform the same action again next time */
               if (last_successful_action)
-                update_counter_complain_on_error (counter_file,
-                                                  last_successful_action,
+                update_counter_complain_on_error (last_successful_action,
                                                   source_path);
               return FALSE;
             }
@@ -296,7 +306,7 @@ apply_flatpak_ref_actions (GHashTable               *table,
       /* Once we're done, update the state of the counter, but bail out
        * if it fails */
       if (last_successful_action &&
-          !update_counter (counter_file, last_successful_action, error))
+          !update_counter (last_successful_action, source_path, error))
         return FALSE;
     }
 
@@ -358,7 +368,6 @@ check_flatpak_ref_actions_applied (GHashTable  *table,
       g_autofree gchar *counter_path = g_build_filename (eos_updater_util_pending_flatpak_deployments_state_path (),
                                                          name,
                                                          NULL);
-      g_autoptr(GFile) counter_file = g_file_new_for_path (counter_path);
       gsize i;
 
       for (i = 0 ; i < pending_actions->len; ++i)

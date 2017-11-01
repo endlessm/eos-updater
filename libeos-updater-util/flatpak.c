@@ -478,7 +478,8 @@ read_flatpak_ref_actions_from_file (GFile         *file,
 /* Returns an associative map from action-ref list to a pointer array of
  * actions. The action-ref lists are considered to be append-only */
 GHashTable *
-eos_updater_util_flatpak_ref_actions_from_directory (GFile         *directory,
+eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
+                                                     GFile         *directory,
                                                      GCancellable  *cancellable,
                                                      GError       **error)
 {
@@ -522,7 +523,9 @@ eos_updater_util_flatpak_ref_actions_from_directory (GFile         *directory,
         return NULL;
 
       g_hash_table_insert (ref_actions_for_files,
-                           g_strdup (g_file_info_get_name (info)),
+                           g_build_filename (relative_parent_path,
+                                             g_file_info_get_name (info),
+                                             NULL),
                            g_steal_pointer (&action_refs));
     }
 
@@ -737,56 +740,32 @@ const gchar *
 eos_updater_util_pending_flatpak_deployments_state_path (void)
 {
   return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR",
-                                    LOCALSTATEDIR "/lib/eos-application-tools/flatpak-autoinstall.d");
-}
-
-static gboolean
-flatpak_refs_progress_from_file (GFile         *file,
-                                 guint64       *out_ref_actions_progress,
-                                 GCancellable  *cancellable,
-                                 GError       **error)
-{
-  g_autofree gchar *contents = NULL;
-  guint64 progress;
-
-  g_return_val_if_fail (out_ref_actions_progress != NULL, FALSE);
-
-  if (!g_file_load_contents (file, cancellable, &contents, NULL, NULL, error))
-    return FALSE;
-
-  if (!parse_monotonic_counter (contents, &progress, error))
-    return FALSE;
-
-  *out_ref_actions_progress = progress;
-  return TRUE;
+                                    LOCALSTATEDIR "/lib/eos-application-tools/flatpak-autoinstall.progress");
 }
 
 GHashTable *
 eos_updater_util_flatpak_ref_action_application_progress_in_state_path (GCancellable  *cancellable,
                                                                         GError       **error)
 {
-  g_autoptr(GFile) state_directory = g_file_new_for_path (eos_updater_util_pending_flatpak_deployments_state_path ());
-
-  g_autoptr(GFileEnumerator) autoinstall_d_enumerator = NULL;
+  const gchar *state_file_path = eos_updater_util_pending_flatpak_deployments_state_path ();
+  g_autoptr(GKeyFile) state_key_file = g_key_file_new ();
+  g_auto(GStrv) groups = NULL;
   g_autoptr(GHashTable) ref_action_progress_for_files = g_hash_table_new_full (g_str_hash,
                                                                                g_str_equal,
                                                                                g_free,
                                                                                NULL);
+
+  GStrv groups_iter = NULL;
   g_autoptr(GError) local_error = NULL;
 
-  /* Repository checked out, read all files in order and build up a list
-   * of flatpaks to auto-install */
-  autoinstall_d_enumerator = g_file_enumerate_children (state_directory,
-                                                        G_FILE_ATTRIBUTE_STANDARD_NAME,
-                                                        G_FILE_QUERY_INFO_NONE,
-                                                        cancellable,
-                                                        &local_error);
-
-  /* If the directory doesn't exist, use an empty hash table to signify that
-   * there isn't anything to check against */
-  if (!autoinstall_d_enumerator)
+  /* Read the key file for sections about the application progress
+   * of each autoinstall file */
+  if (!g_key_file_load_from_file (state_key_file,
+                                  state_file_path,
+                                  G_KEY_FILE_NONE,
+                                  &local_error))
     {
-      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+      if (!g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
         {
           g_propagate_error (error, g_steal_pointer (&local_error));
           return NULL;
@@ -795,29 +774,32 @@ eos_updater_util_flatpak_ref_action_application_progress_in_state_path (GCancell
       return g_steal_pointer (&ref_action_progress_for_files);
     }
 
-  while (TRUE)
+  /* Enumerate each section. The section name is the path to the file */
+  groups_iter = groups = g_key_file_get_groups (state_key_file, NULL);
+
+  while (*groups_iter != NULL)
     {
-      GFile *file;
-      GFileInfo *info;
+      const gchar *source_path = *groups_iter;
+      g_autofree gchar *progress_string = NULL;
       guint64 progress;
 
-      if (!g_file_enumerator_iterate (autoinstall_d_enumerator,
-                                      &info, &file,
-                                      cancellable, error))
+      /* We need to use g_key_file_get_value here to guard against errors */
+      progress_string = g_key_file_get_value (state_key_file,
+                                              *groups_iter,
+                                              "Progress",
+                                              error);
+
+      if (progress_string == NULL)
         return NULL;
 
-      if (!file || !info)
-        break;
-
-      if (!flatpak_refs_progress_from_file (file,
-                                            &progress,
-                                            cancellable,
-                                            error))
+      if (!parse_monotonic_counter (progress_string, &progress, error))
         return NULL;
 
       g_hash_table_insert (ref_action_progress_for_files,
-                           g_strdup (g_file_info_get_name (info)),
+                           g_strdup (source_path),
                            GUINT_TO_POINTER (progress));
+
+      ++groups_iter;
     }
 
   return g_steal_pointer (&ref_action_progress_for_files);
