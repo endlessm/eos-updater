@@ -135,8 +135,21 @@ class VolumePreparer:
         list of collection–refs of flatpaks. Unrecognised flatpaks are ignored.
         """
         runtimes = set()
-        installations = Flatpak.get_system_installations()
-        installations.append(Flatpak.Installation.new_user())
+
+        # Creating installations can fail if they don’t exist on disk and we
+        # don’t have permission to create them. Ignore that, since we want to
+        # run read-only.
+        try:
+            installations = Flatpak.get_system_installations()
+        except GLib.Error:
+            installations = []
+        try:
+            installations.append(Flatpak.Installation.new_user())
+        except GLib.Error:
+            pass
+
+        if not installations:
+            return runtimes
 
         for (collection_id, ref) in flatpak_collection_refs:
             parsed_ref = Flatpak.Ref.parse(ref)
