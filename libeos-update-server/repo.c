@@ -659,6 +659,7 @@ serve_file_if_exists (SoupMessage *msg,
   g_autoptr(GBytes) file_bytes = NULL;
   g_autoptr(GError) error = NULL;
   g_autoptr(SoupBuffer) buffer = NULL;
+  GFileType file_type;
 
   /* Security check to ensure we don’t get tricked into serving files which
    * are outside the document root. This canonicalises the paths but does not
@@ -676,6 +677,17 @@ serve_file_if_exists (SoupMessage *msg,
 
   if (!g_file_query_exists (path, cancellable))
     {
+      *served = FALSE;
+      return TRUE;
+    }
+
+  /* Check it’s actually a file. If not, return a 404 in the absence of support
+   * for directory listings or anything else useful. Follow symlinks when
+   * querying. */
+  file_type = g_file_query_file_type (path, G_FILE_QUERY_INFO_NONE, cancellable);
+  if (file_type != G_FILE_TYPE_REGULAR)
+    {
+      g_debug ("File ‘%s’ has type %u, not a regular file", raw_path, file_type);
       *served = FALSE;
       return TRUE;
     }
