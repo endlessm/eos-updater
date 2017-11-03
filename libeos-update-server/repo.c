@@ -822,13 +822,13 @@ handle_refs_heads (EusRepo     *self,
                    SoupMessage *msg,
                    const gchar *requested_path)
 {
-  gsize prefix_len = strlen ("/refs/heads/");
-  size_t len = strlen (requested_path);
+  const gsize prefix_len = strlen ("/refs/heads/");
+  const gsize requested_path_len = strlen (requested_path);
   g_autofree gchar *raw_path = NULL;
   gboolean served = FALSE;
   const gchar *head;
 
-  if (len <= prefix_len)
+  if (requested_path_len <= prefix_len)
     {
       g_debug ("Invalid request for /refs/heads/");
       soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
