@@ -656,8 +656,10 @@ serve_file_if_exists (SoupMessage *msg,
   g_autoptr(GFile) path = g_file_new_for_path (raw_path);
   g_autoptr(GFile) root_path = g_file_new_for_path (root);
   g_autoptr(GMappedFile) mapping = NULL;
+  g_autoptr(GBytes) file_bytes = NULL;
   g_autoptr(GError) error = NULL;
   g_autoptr(SoupBuffer) buffer = NULL;
+  GFileType file_type;
 
   /* Security check to ensure we don’t get tricked into serving files which
    * are outside the document root. This canonicalises the paths but does not
@@ -679,19 +681,45 @@ serve_file_if_exists (SoupMessage *msg,
       return TRUE;
     }
 
-  mapping = g_mapped_file_new (raw_path, FALSE, &error);
-  if (mapping == NULL)
+  /* Check it’s actually a file. If not, return a 404 in the absence of support
+   * for directory listings or anything else useful. Follow symlinks when
+   * querying. */
+  file_type = g_file_query_file_type (path, G_FILE_QUERY_INFO_NONE, cancellable);
+  if (file_type != G_FILE_TYPE_REGULAR)
     {
-      g_warning ("Failed to map %s: %s", raw_path, error->message);
-      soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
-      return FALSE;
+      g_debug ("File ‘%s’ has type %u, not a regular file", raw_path, file_type);
+      *served = FALSE;
+      return TRUE;
+    }
+
+  mapping = g_mapped_file_new (raw_path, FALSE, &error);
+  if (mapping != NULL)
+    file_bytes = g_mapped_file_get_bytes (mapping);
+  else
+    {
+      g_autofree guint8 *contents = NULL;
+      gsize contents_len = 0;
+
+      /* mmap() can legitimately fail if the underlying file system doesn’t
+       * support it, which can happen if we’re using an overlayfs. Fall back to
+       * reading in the file. */
+      g_clear_error (&error);
+      if (!g_file_get_contents (raw_path, (gchar **) &contents, &contents_len, &error))
+        {
+          g_warning ("Failed to load ‘%s’: %s", raw_path, error->message);
+          soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
+          return FALSE;
+        }
+
+      file_bytes = g_bytes_new_take (g_steal_pointer (&contents), contents_len);
+      contents_len = 0;
     }
 
   g_debug ("Serving %s", raw_path);
-  buffer = soup_buffer_new_with_owner (g_mapped_file_get_contents (mapping),
-                                       g_mapped_file_get_length (mapping),
-                                       g_mapped_file_ref (mapping),
-                                       (GDestroyNotify)g_mapped_file_unref);
+  buffer = soup_buffer_new_with_owner (g_bytes_get_data (file_bytes, NULL),
+                                       g_bytes_get_size (file_bytes),
+                                       g_bytes_ref (file_bytes),
+                                       (GDestroyNotify) g_bytes_unref);
   if (buffer->length > 0)
     soup_message_body_append_buffer (msg->response_body, buffer);
   soup_message_set_status (msg, SOUP_STATUS_OK);
