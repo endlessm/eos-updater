@@ -154,6 +154,18 @@ find_remote_name_for_collection_id_no_network (FlatpakInstallation  *installatio
   return NULL;
 }
 
+static const gchar *flatpak_ref_kind_to_str[] = {
+  "app", "runtime"
+};
+
+static const gchar *
+string_for_flatpak_kind (FlatpakRefKind kind)
+{
+  g_assert (kind >= FLATPAK_REF_KIND_APP && kind <= FLATPAK_REF_KIND_RUNTIME);
+
+  return flatpak_ref_kind_to_str[(gsize) kind];
+}
+
 static gboolean
 try_install_application (FlatpakInstallation  *installation,
                          const gchar          *collection_id,
@@ -162,7 +174,10 @@ try_install_application (FlatpakInstallation  *installation,
                          GError              **error)
 {
   g_autofree gchar *remote_name = NULL;
+  const gchar *formatted_kind = string_for_flatpak_kind (kind);
   g_autoptr(GError) local_error = NULL;
+
+  g_message ("Finding remote name for %s", collection_id);
 
   remote_name = find_remote_name_for_collection_id_no_network (installation,
                                                                collection_id,
@@ -170,6 +185,10 @@ try_install_application (FlatpakInstallation  *installation,
 
   if (!remote_name)
     return FALSE;
+
+  g_message ("Remote name for %s is %s", collection_id, remote_name);
+
+  g_message ("Attempting to install %s:%s/%s", remote_name, formatted_kind, name);
 
   /* Installation may have failed because we can just update instead,
    * try that. */
@@ -188,10 +207,12 @@ try_install_application (FlatpakInstallation  *installation,
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
         {
+          g_message ("Failed to install %s:%s/%s", remote_name, formatted_kind, name);
           g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
         }
 
+      g_message ("%s:%s/%s already installed, updating", remote_name, formatted_kind, name);
       g_clear_error (&local_error);
       if (!flatpak_installation_update (installation,
                                         FLATPAK_UPDATE_FLAGS_NO_PULL,
@@ -203,9 +224,13 @@ try_install_application (FlatpakInstallation  *installation,
                                         NULL,
                                         NULL,
                                         error))
-        return FALSE;
+        {
+          g_message ("Failed to update %s:%s/%s", remote_name, formatted_kind, name);
+          return FALSE;
+        }
     }
 
+  g_message ("Successfully installed or updated %s:%s/%s", remote_name, formatted_kind, name);
   return TRUE;
 }
 
@@ -216,6 +241,9 @@ try_uninstall_application (FlatpakInstallation  *installation,
                            GError              **error)
 {
   g_autoptr(GError) local_error = NULL;
+  const gchar *formatted_ref_kind = string_for_flatpak_kind (kind);
+
+  g_message ("Attempting to uninstall %s/%s", formatted_ref_kind, name);
 
   if (!flatpak_installation_uninstall (installation,
                                        kind,
@@ -229,14 +257,17 @@ try_uninstall_application (FlatpakInstallation  *installation,
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
         {
+          g_message ("Could not uninstall %s/%s", formatted_ref_kind, name);
           g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
         }
 
+      g_message ("%s/%s already uninstalled", formatted_ref_kind, name);
       g_clear_error (&local_error);
       return TRUE;
     }
 
+  g_message ("Successfully uninstalled %s/%s", formatted_ref_kind, name);
   return TRUE;
 }
 
@@ -404,8 +435,12 @@ check_if_flatpak_is_installed (FlatpakInstallation     *installation,
   g_autoptr(GError) local_error = NULL;
   g_autoptr(FlatpakInstalledRef) installed_ref = NULL;
   FlatpakRef *ref = FLATPAK_REF (action->ref);
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (action->ref));
 
   g_return_val_if_fail (out_is_installed != NULL, FALSE);
+
+  g_message ("Checking if flatpak described by ref %s is installed",
+             formatted_ref);
 
   installed_ref = flatpak_installation_get_installed_ref (installation,
                                                           flatpak_ref_get_kind (ref),
@@ -423,6 +458,9 @@ check_if_flatpak_is_installed (FlatpakInstallation     *installation,
     }
 
   *out_is_installed = (installed_ref != NULL);
+  g_message ("Flatpak described by ref %s is installed",
+             formatted_ref,
+             *out_is_installed ? "installed": "not installed");
 
   return TRUE;
 }
@@ -538,6 +576,75 @@ parse_installer_mode (const gchar              *mode,
   return TRUE;
 }
 
+static const gchar *
+format_remote_ref_action_type (EosUpdaterUtilFlatpakRemoteRefActionType action_type)
+{
+  GEnumClass *enum_class = g_type_class_ref (EOS_TYPE_UPDATER_UTIL_FLATPAK_REMOTE_REF_ACTION_TYPE);
+  GEnumValue *enum_value = g_enum_get_value (enum_class, action_type);
+
+  g_type_class_unref (enum_class);
+
+  g_assert (enum_value != NULL);
+
+  return enum_value->value_nick;
+}
+
+static void
+log_all_flatpak_ref_actions (const gchar *title,
+                             GHashTable  *flatpak_ref_actions_for_this_boot)
+{
+  gpointer key, value;
+  GHashTableIter iter;
+
+  g_message ("%s:", title);
+
+  g_hash_table_iter_init (&iter, flatpak_ref_actions_for_this_boot);
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      const gchar *source = (const gchar *) key;
+      GPtrArray *actions = (GPtrArray *) value;
+
+      gsize i;
+
+      g_message ("  %s:", source);
+
+      for (i = 0; i < actions->len; ++i)
+        {
+          FlatpakRemoteRefAction *action = g_ptr_array_index (actions, i);
+          const gchar *formatted_action_type = NULL;
+          g_autofree gchar *formatted_ref = NULL;
+
+          formatted_action_type = format_remote_ref_action_type (action->type);
+          formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (action->ref));
+
+          g_message ("    - %s %s:%s",
+                     formatted_action_type,
+                     flatpak_remote_ref_get_remote_name (action->ref),
+                     formatted_ref);
+        }
+    }
+}
+
+static void
+log_all_flatpak_ref_action_progresses (GHashTable *flatpak_ref_action_progresses)
+{
+  gpointer key, value;
+  GHashTableIter iter;
+
+  g_message ("Action application progresses:");
+
+  g_hash_table_iter_init (&iter, flatpak_ref_action_progresses);
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      const gchar *source = (const gchar *) key;
+      gint32 progress = GPOINTER_TO_INT (value);
+
+      g_message ("  %s: %lli", source, progress);
+    }
+}
+
 int
 main (int    argc,
       char **argv)
@@ -574,14 +681,19 @@ main (int    argc,
       return EXIT_FAILURE;
     }
 
+  g_message ("Running in mode '%s'", mode);
+
   flatpak_ref_actions_for_this_boot = incoming_flatpak_ref_actions (&error);
 
   if (!flatpak_ref_actions_for_this_boot)
     {
-      g_message ("Could get flatpak ref actons for this OSTree deployment: %s",
+      g_message ("Could get flatpak ref actions for this OSTree deployment: %s",
                  error->message);
       return EXIT_FAILURE;
     }
+
+  log_all_flatpak_ref_actions ("All flatpak ref actions",
+                               flatpak_ref_actions_for_this_boot);
 
   flatpak_ref_actions_progress = eos_updater_util_flatpak_ref_action_application_progress_in_state_path (NULL, &error);
 
@@ -591,6 +703,8 @@ main (int    argc,
                  error->message);
       return EXIT_FAILURE;
     }
+
+  log_all_flatpak_ref_action_progresses (flatpak_ref_actions_for_this_boot);
 
   /* Check mode is completely different - we need to read in the action
    * application state and check if there's a delta between what we expect
@@ -609,6 +723,10 @@ main (int    argc,
           g_autoptr(GHashTable) flatpak_ref_actions_to_check =
             eos_updater_util_filter_for_existing_flatpak_ref_actions (flatpak_ref_actions_for_this_boot,
                                                                       flatpak_ref_actions_progress);
+
+          log_all_flatpak_ref_actions ("All flatpak ref actions that should have been applied",
+                                       flatpak_ref_actions_to_check);
+
           if (!check_flatpak_ref_actions_applied (flatpak_ref_actions_to_check,
                                                   &error))
             {
@@ -625,6 +743,9 @@ main (int    argc,
           g_autoptr(GHashTable) new_flatpak_ref_actions_to_apply =
             eos_updater_util_filter_for_new_flatpak_ref_actions (flatpak_ref_actions_for_this_boot,
                                                                  flatpak_ref_actions_progress);
+
+          log_all_flatpak_ref_actions ("All flatpak ref actions that are not yet applied",
+                                       new_flatpak_ref_actions_to_apply);
 
           if (!apply_flatpak_ref_actions (new_flatpak_ref_actions_to_apply,
                                           parsed_mode,
