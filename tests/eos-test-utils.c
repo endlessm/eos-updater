@@ -2112,8 +2112,11 @@ populate_runtime (GFile        *updater_dir,
                   GFile        *runtime_directory_path,
                   const gchar  *repo_directory,
                   const gchar  *runtime_name,
+                  const gchar  *collection_id,
                   GError      **error)
 {
+  CmdResult cmd = CMD_RESULT_CLEARED;
+
   g_autofree gchar *metadata_path = g_build_filename (g_file_get_path (runtime_directory_path),
                                                       "metadata",
                                                       NULL);
@@ -2127,6 +2130,8 @@ populate_runtime (GFile        *updater_dir,
   g_autoptr(GFile) usr_dir_path = g_file_new_for_path (usr_dir);
   g_autoptr(GKeyFile) metadata = g_key_file_new ();
 
+  g_autoptr(GFile) repo_directory_path = g_file_new_for_path (repo_directory);
+
   g_key_file_set_string (metadata, "Runtime", "name", runtime_name);
 
   if (!g_file_make_directory_with_parents (runtime_directory_path, NULL, error))
@@ -2139,6 +2144,16 @@ populate_runtime (GFile        *updater_dir,
     return FALSE;
 
   if (!g_key_file_save_to_file (metadata, metadata_path, error))
+    return FALSE;
+
+  if (!ostree_init (repo_directory_path,
+                    REPO_ARCHIVE_Z2,
+                    collection_id,
+                    &cmd,
+                    error))
+    return FALSE;
+
+  if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
   if (!flatpak_build_export (updater_dir,
@@ -2264,9 +2279,31 @@ eos_test_get_installed_flatpaks (GFile   *updater_dir,
   return g_hash_set_to_strv (installed_flatpaks_set);
 }
 
+static gboolean
+set_flatpak_remote_collection_id (GFile        *updater_dir,
+                                  const gchar  *repo_name,
+                                  const gchar  *collection_id,
+                                  GError      **error)
+{
+  CmdResult result = CMD_RESULT_CLEARED;
+  g_autoptr(GFile) flatpak_installation_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  g_autoptr(GFile) flatpak_installation_repo_dir = g_file_get_child (flatpak_installation_dir, "repo");
+
+  if (!ostree_cmd_remote_set_collection_id (flatpak_installation_repo_dir,
+                                            repo_name,
+                                            collection_id,
+                                            &result,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&result, error);
+}
+
+
 gboolean
 eos_test_setup_flatpak_repo (GFile        *updater_dir,
                              const gchar  *repo_name,
+                             const gchar  *collection_id,
                              const gchar **flatpak_names,
                              GError      **error)
 {
@@ -2286,9 +2323,10 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
   g_autofree gchar *apps_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
                                                        "apps",
                                                        NULL);
-  g_autofree gchar *repo_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
-                                                       "repo",
-                                                       NULL);
+  g_autofree gchar *repo_directory_path = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+                                                            "repo",
+                                                            NULL);
+  g_autoptr(GFile) repo_directory = g_file_new_for_path (repo_directory_path);
   g_autofree gchar *runtime_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
                                                           "runtime",
                                                           NULL);
@@ -2297,16 +2335,20 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
   if (!g_file_make_directory_with_parents (flatpak_build_directory_path, NULL, error))
     return FALSE;
 
+  /* We need to set the collection-id on both the remote end (the repo
+   * are pulling from) and in the remote configuration in the local mirror
+   * below */
   if (!populate_runtime (updater_dir,
                          runtime_directory_path,
-                         repo_directory,
+                         repo_directory_path,
                          "org.test.Runtime",
+                         collection_id,
                          error))
     return FALSE;
 
   if (!flatpak_remote_add (updater_dir,
-                           "test-repo",
-                           repo_directory,
+                           repo_name,
+                           repo_directory_path,
                            error))
     return FALSE;
 
@@ -2315,6 +2357,17 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
                         "org.test.Runtime",
                         error))
     return FALSE;
+
+
+  /* It seems like calling ostree config set will turn
+   * GPG verification back on for the repo, so the remote
+   * collection-id needs to be set after the flatpak is installed */
+  if (!set_flatpak_remote_collection_id (updater_dir,
+                                         repo_name,
+                                         collection_id,
+                                         error))
+    return FALSE;
+
 
   /* Now that we have our runtime installed, lets go ahead and build and export
    * all the apps into our repo */
@@ -2329,7 +2382,7 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
                                  app_path,
                                  *flatpak_name_iter,
                                  "org.test.Runtime",
-                                 repo_directory,
+                                 repo_directory_path,
                                  error))
         return FALSE;
     }

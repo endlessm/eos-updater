@@ -107,14 +107,69 @@ incoming_flatpak_ref_actions (GError **error)
   return g_steal_pointer (&ref_actions);
 }
 
+/* FIXME: Flatpak doesn't have any concept of installing from a collection-id
+ * right now, but to future proof the file format against the upcoming change
+ * we need to simulate that in the autoinstall file. We can't use the conventional
+ * method of ostree_repo_find_remotes_async since this code does not have
+ * network access. Instead, we have to be a little more naive and hope that
+ * the collection-id we're after is specified in at least one remote configuration
+ * on the underlying OSTree repo. */
+static gchar *
+find_remote_name_for_collection_id_no_network (FlatpakInstallation  *installation,
+                                               const gchar          *collection_id,
+                                               GError              **error)
+{
+  g_autoptr(GFile) installation_directory = flatpak_installation_get_path (installation);
+  g_autoptr(GFile) repo_directory = g_file_get_child (installation_directory, "repo");
+  g_autoptr(OstreeRepo) repo = ostree_repo_new (repo_directory);
+  g_auto(GStrv) remotes = NULL;
+  GStrv iter = NULL;
+
+  if (!ostree_repo_open (repo, NULL, error))
+    return NULL;
+
+  remotes = ostree_repo_remote_list (repo, NULL);
+
+  for (iter = remotes; *iter != NULL; ++iter)
+    {
+      g_autofree gchar *remote_collection_id = NULL;
+
+      if (!ostree_repo_get_remote_option (repo,
+                                          *iter,
+                                          "collection-id",
+                                          NULL,
+                                          &remote_collection_id,
+                                          error))
+        return NULL;
+
+      if (g_strcmp0 (remote_collection_id, collection_id) == 0)
+        return g_strdup (*iter);
+    }
+
+  g_set_error (error,
+               G_IO_ERROR,
+               G_IO_ERROR_NOT_FOUND,
+               "Could not found remote that supports collection-id '%s'",
+               collection_id);
+  return NULL;
+}
+
 static gboolean
 try_install_application (FlatpakInstallation  *installation,
-                         const gchar          *remote_name,
+                         const gchar          *collection_id,
                          FlatpakRefKind        kind,
                          const gchar          *name,
                          GError              **error)
 {
+  g_autofree gchar *remote_name = NULL;
   g_autoptr(GError) local_error = NULL;
+
+  remote_name = find_remote_name_for_collection_id_no_network (installation,
+                                                               collection_id,
+                                                               error);
+
+  if (!remote_name)
+    return FALSE;
 
   /* Installation may have failed because we can just update instead,
    * try that. */
@@ -190,14 +245,16 @@ perform_action (FlatpakInstallation     *installation,
                 FlatpakRemoteRefAction  *action,
                 GError                 **error)
 {
-  const gchar *remote_name = flatpak_remote_ref_get_remote_name (action->ref);
+  /* Again, we stuff the collection-id into the remote name and will need
+   * to do some work to get the remote name back out again */
+  const gchar *collection_id = flatpak_remote_ref_get_remote_name (action->ref);
   FlatpakRefKind kind = flatpak_ref_get_kind (FLATPAK_REF (action->ref));
   const gchar *name = flatpak_ref_get_name (FLATPAK_REF (action->ref));
 
   switch (action->type)
     {
       case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
-        return try_install_application (installation, remote_name, kind, name, error);
+        return try_install_application (installation, collection_id, kind, name, error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
         return try_uninstall_application (installation, kind, name, error);
       default:
