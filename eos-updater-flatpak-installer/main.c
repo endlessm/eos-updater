@@ -283,9 +283,10 @@ apply_flatpak_ref_actions (GHashTable               *table,
               /* If we fail, we should still update the state of the counter
                * to the last successful before we get out, this is to ensure
                * that we don't perform the same action again next time */
-              update_counter_complain_on_error (counter_file,
-                                                last_successful_action,
-                                                name);
+              if (last_successful_action)
+                update_counter_complain_on_error (counter_file,
+                                                  last_successful_action,
+                                                  source_path);
               return FALSE;
             }
 
