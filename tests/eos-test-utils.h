@@ -259,6 +259,7 @@ void         simple_file_free (gpointer file_ptr);
 
 gboolean eos_test_setup_flatpak_repo (GFile        *updater_path,
                                       const gchar  *repo_name,
+                                      const gchar  *collection_id,
                                       const gchar **flatpak_names,
                                       GError      **error);
 

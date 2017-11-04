@@ -198,12 +198,12 @@ flatpak_remote_ref_from_install_action_detail (JsonObject *detail,
 
   collection_id = json_object_get_string_member (detail, "collection-id");
 
-  if (remote == NULL)
+  if (collection_id == NULL)
     {
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected a 'remote' member in the 'detail' member");
+                   "Expected a 'collection-id' member in the 'detail' member");
       return NULL;
     }
 
@@ -211,7 +211,7 @@ flatpak_remote_ref_from_install_action_detail (JsonObject *detail,
    * of the FlatpakRemoteRef and look up the corresponding remote later on
    * when actually pulling the flatpaks */
   return g_object_new (FLATPAK_TYPE_REMOTE_REF,
-                       "remote-name", remote,
+                       "remote-name", collection_id,
                        "name", app_name,
                        "kind", kind,
                        NULL);
@@ -254,12 +254,9 @@ static FlatpakRemoteRefAction *
 flatpak_remote_ref_action_from_json_node (JsonNode *node,
                                           GError **error)
 {
-  g_autofree gchar *remote = NULL;
-  g_autofree gchar *ref = NULL;
   const gchar *action_type_str = NULL;
   JsonObject *object = json_node_get_object (node);
   JsonObject *detail_object = NULL;
-  g_autoptr(FlatpakRef) flatpak_ref = NULL;
   g_autoptr(FlatpakRemoteRef) flatpak_remote_ref = NULL;
   g_autoptr(GError) local_error = NULL;
   JsonNode *serial_node = NULL;
