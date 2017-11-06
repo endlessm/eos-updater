@@ -80,8 +80,8 @@ flatpak_remote_ref_action_type_parse (const gchar                               
     {
       g_set_error (error,
                    EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Invalid action type %s specified in autoinstall spec",
+                   EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC,
+                   "Unknown action type %s specified in autoinstall spec",
                    action);
       return FALSE;
     }
@@ -457,7 +457,7 @@ action_filter_applies (JsonObject   *object,
 
   g_set_error (error,
                EOS_UPDATER_ERROR,
-               EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+               EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC,
                "Unknown action filter value '%s', expected one of '~architectures'",
                filter_key_name);
   return FALSE;
@@ -503,12 +503,26 @@ action_node_should_be_filtered_out (JsonNode  *node,
   for (iter = filters_object_keys; iter != NULL; iter = iter->next)
     {
       gboolean action_is_filtered_on_this_filter;
+      g_autoptr(GError) local_error = NULL;
 
       if (!action_filter_applies (filters_object,
                                   iter->data,
                                   &action_is_filtered_on_this_filter,
-                                  error))
-        return FALSE;
+                                  &local_error))
+        {
+          if (g_error_matches (local_error,
+                               EOS_UPDATER_ERROR,
+                               EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
+            {
+              g_warning ("%s. Skipping this filter and not applying action, system may be in an inconsistent state from this point forward", local_error->message);
+              *is_filtered = TRUE;
+              g_clear_error (&local_error);
+              continue;
+            }
+
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
 
       if (action_is_filtered_on_this_filter)
         {
@@ -592,6 +606,15 @@ read_flatpak_ref_actions_from_file (GFile         *file,
               g_autofree gchar *filename = g_file_get_path (file);
               g_propagate_prefixed_error (error, local_error, "Error parsing %s: ", filename);
               return NULL;
+            }
+          else if (g_error_matches (local_error,
+                                    EOS_UPDATER_ERROR,
+                                    EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
+            {
+              g_autofree gchar *filename = g_file_get_path (file);
+              g_warning ("%s while parsing %s. Skipping this action and it will not be reapplied later, system may be in an inconsistent state from this point forward", local_error->message, filename);
+              g_clear_error (&local_error);
+              continue;
             }
 
           g_propagate_error (error, g_steal_pointer (&local_error));
