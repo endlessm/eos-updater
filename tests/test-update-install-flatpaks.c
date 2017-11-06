@@ -114,7 +114,7 @@ filters_for_action (const FlatpakToInstall *flatpak_to_install)
       json_builder_add_string_value (skip_architectures_array_builder, "arch");
       json_builder_end_array (skip_architectures_array_builder);
 
-      json_builder_set_member_name (builder, "skip-architectures");
+      json_builder_set_member_name (builder, "~architectures");
       json_builder_add_value (builder,
                               json_builder_get_root (skip_architectures_array_builder));
     }
