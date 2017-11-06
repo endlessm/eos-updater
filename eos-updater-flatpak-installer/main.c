@@ -33,6 +33,11 @@
 
 #include "installer.h"
 
+typedef enum {
+  EU_INSTALLER_FLAGS_NONE = 0,
+  EU_INSTALLER_FLAGS_ALSO_PULL = (1 << 0)
+} EosUpdaterInstallerFlags;
+
 static int
 usage (GOptionContext *context,
        const gchar    *error_message,
@@ -167,11 +172,12 @@ string_for_flatpak_kind (FlatpakRefKind kind)
 }
 
 static gboolean
-try_install_application (FlatpakInstallation  *installation,
-                         const gchar          *collection_id,
-                         FlatpakRefKind        kind,
-                         const gchar          *name,
-                         GError              **error)
+try_install_application (FlatpakInstallation       *installation,
+                         const gchar               *collection_id,
+                         FlatpakRefKind             kind,
+                         const gchar               *name,
+                         EosUpdaterInstallerFlags   flags,
+                         GError                   **error)
 {
   g_autofree gchar *remote_name = NULL;
   const gchar *formatted_kind = string_for_flatpak_kind (kind);
@@ -193,7 +199,7 @@ try_install_application (FlatpakInstallation  *installation,
   /* Installation may have failed because we can just update instead,
    * try that. */
   if (!flatpak_installation_install_full (installation,
-                                          FLATPAK_INSTALL_FLAGS_NO_PULL,
+                                          !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_INSTALL_FLAGS_NO_PULL : 0,
                                           remote_name,
                                           kind,
                                           name,
@@ -272,9 +278,10 @@ try_uninstall_application (FlatpakInstallation  *installation,
 }
 
 static gboolean
-perform_action (FlatpakInstallation     *installation,
-                FlatpakRemoteRefAction  *action,
-                GError                 **error)
+perform_action (FlatpakInstallation      *installation,
+                FlatpakRemoteRefAction   *action,
+                EosUpdaterInstallerFlags  flags,
+                GError                   **error)
 {
   /* Again, we stuff the collection-id into the remote name and will need
    * to do some work to get the remote name back out again */
@@ -285,7 +292,12 @@ perform_action (FlatpakInstallation     *installation,
   switch (action->type)
     {
       case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
-        return try_install_application (installation, collection_id, kind, name, error);
+        return try_install_application (installation,
+                                        collection_id,
+                                        kind,
+                                        name,
+                                        flags,
+                                        error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
         return try_uninstall_application (installation, kind, name, error);
       default:
@@ -375,6 +387,7 @@ update_counter_complain_on_error (FlatpakRemoteRefAction  *action,
 static gboolean
 apply_flatpak_ref_actions (GHashTable               *table,
                            EosUpdaterInstallerMode   mode,
+                           EosUpdaterInstallerFlags  pull,
                            GError                  **error)
 {
   g_autoptr(FlatpakInstallation) installation = eos_updater_get_flatpak_installation (NULL, error);
@@ -402,7 +415,7 @@ apply_flatpak_ref_actions (GHashTable               *table,
            * we just pretend to perform actions and update the counter
            * accordingly */
           if (mode == EU_INSTALLER_MODE_PERFORM &&
-              !perform_action (installation, pending_action, error))
+              !perform_action (installation, pending_action, pull, error))
             {
               /* If we fail, we should still update the state of the counter
                * to the last successful before we get out, this is to ensure
@@ -590,9 +603,11 @@ main (int    argc,
   EosUpdaterInstallerMode parsed_mode;
 
   gchar *mode = NULL;
+  gboolean also_pull = FALSE;
   GOptionEntry entries[] =
   {
     { "mode", 'm', 0, G_OPTION_ARG_STRING, &mode, "Mode to use (perform, stamp, check)", NULL },
+    { "pull", 'p', 0, G_OPTION_ARG_NONE, &also_pull, "Also pull flatpaks", NULL },
     { NULL }
   };
 
@@ -615,6 +630,9 @@ main (int    argc,
     }
 
   g_message ("Running in mode '%s'", mode);
+
+  if (also_pull)
+    g_message ("Will pull flatpaks as well as deploying them", mode);
 
   flatpak_ref_actions_for_this_boot = incoming_flatpak_ref_actions (&error);
 
@@ -689,6 +707,7 @@ main (int    argc,
 
           if (!apply_flatpak_ref_actions (new_flatpak_ref_actions_to_apply,
                                           parsed_mode,
+                                          also_pull ? EU_INSTALLER_FLAGS_ALSO_PULL : EU_INSTALLER_FLAGS_NONE,
                                           &error))
             {
                g_message ("Couldn't apply some flatpak update actions for this boot: %s",
