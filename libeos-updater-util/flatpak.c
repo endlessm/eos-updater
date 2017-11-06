@@ -409,7 +409,7 @@ architecture_skip_filter_applies (JsonNode  *filter_value,
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected 'skip-architectures' filter to be an array, was: %s",
+                   "Expected '~architectures' filter to be an array, was: %s",
                    node_str);
       return FALSE;
     }
@@ -426,7 +426,7 @@ architecture_skip_filter_applies (JsonNode  *filter_value,
           g_set_error (error,
                        EOS_UPDATER_ERROR,
                        EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                       "Expected 'skip-architectures' array to contain string values, was: %s",
+                       "Expected '~architectures' array to contain string values, was: %s",
                        node_str);
           return FALSE;
         }
@@ -452,13 +452,13 @@ action_filter_applies (JsonObject   *object,
 
   g_return_val_if_fail (is_filtered != NULL, FALSE);
 
-  if (g_strcmp0 (filter_key_name, "skip-architectures") == 0)
+  if (g_strcmp0 (filter_key_name, "~architectures") == 0)
     return architecture_skip_filter_applies (filter_value, is_filtered, error);
 
   g_set_error (error,
                EOS_UPDATER_ERROR,
                EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-               "Unknown action filter value '%s', expected one of 'skip-architectures'",
+               "Unknown action filter value '%s', expected one of '~architectures'",
                filter_key_name);
   return FALSE;
 }
