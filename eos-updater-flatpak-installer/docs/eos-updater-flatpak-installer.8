@@ -9,7 +9,7 @@ eos\-updater\-flatpak\-installer — Endless OS Updater - Flatpak Installer
 .SH SYNOPSIS
 .IX Header "SYNOPSIS"
 .\"
-\fBeos\-updater\-flatpak\-installer [\-m \-\-mode\fB]
+\fBeos\-updater\-flatpak\-installer [\-m \-\-mode\fB] [\-p \-\-pull\fB]
 .\"
 .SH DESCRIPTION
 .IX Header "DESCRIPTION"
@@ -37,6 +37,11 @@ the updated actions to
 \fBcheck\fP, the tool will check to see if all actions are applied (e.g., that
 applications that should have been installed are installed and every app that
 should have been removed are removed).
+.\"
+.IP "\fB\-p\fP, \fB\-\-pull\fP"
+Whether to pull flatpaks as well as deploying them. By default, flatpaks are
+not pulled during this step, it is expected that they will be pulled by
+\fBeos\-updater\fP(8) when it fetches and applies system updates.
 .\"
 .SH "KERNEL COMMAND LINE"
 .IX Header "KERNEL COMMAND LINE"
