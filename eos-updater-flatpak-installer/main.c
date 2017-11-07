@@ -83,8 +83,10 @@ incoming_flatpak_ref_actions (GError **error)
   g_autoptr(GError) local_error = NULL;
   g_autoptr(GHashTable) ref_actions = eos_updater_util_flatpak_ref_actions_from_directory (ref_actions_relative_path,
                                                                                            ref_actions_directory,
+                                                                                           FLATPAKS_IN_OSTREE_PRIORITY,
                                                                                            NULL,
                                                                                            &local_error);
+  GHashTable *hoisted_actions = NULL;
 
   /* If we don't have any from the deployment, we might still have some
    * vendor provided actions, so do them now */
@@ -100,16 +102,18 @@ incoming_flatpak_ref_actions (GError **error)
       ref_actions = g_hash_table_new_full (g_str_hash,
                                            g_str_equal,
                                            g_free,
-                                           (GDestroyNotify) g_ptr_array_unref);
+                                           (GDestroyNotify) flatpak_remote_ref_actions_file_free);
     }
 
   if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (eos_updater_util_flatpak_autoinstall_override_path (),
                                                                          ref_actions,
+                                                                         FLATPAKS_IN_OVERRIDE_DIR_PRIORITY,
                                                                          NULL,
                                                                          error))
     return NULL;
 
-  return g_steal_pointer (&ref_actions);
+  hoisted_actions = eos_updater_util_hoist_flatpak_remote_ref_actions (ref_actions);
+  return hoisted_actions;
 }
 
 /* FIXME: Flatpak doesn't have any concept of installing from a collection-id

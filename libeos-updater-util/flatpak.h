@@ -31,6 +31,9 @@
 
 G_BEGIN_DECLS
 
+#define FLATPAKS_IN_OSTREE_PRIORITY 0
+#define FLATPAKS_IN_OVERRIDE_DIR_PRIORITY 1
+
 typedef enum {
   EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL = 0,
   EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL = 1
@@ -45,24 +48,39 @@ typedef struct {
   gint32                                   serial;
 } FlatpakRemoteRefAction;
 
+typedef struct {
+  GPtrArray *remote_ref_actions;
+  gint priority;
+} FlatpakRemoteRefActionsFile;
+
 FlatpakRemoteRefAction * flatpak_remote_ref_action_ref (FlatpakRemoteRefAction *action);
 void flatpak_remote_ref_action_unref (FlatpakRemoteRefAction *action);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (FlatpakRemoteRefAction, flatpak_remote_ref_action_unref)
 
+FlatpakRemoteRefActionsFile * flatpak_remote_ref_actions_file_new (GPtrArray *remote_ref_actions,
+                                                                   gint       priority);
+void flatpak_remote_ref_actions_file_free (FlatpakRemoteRefActionsFile *);
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (FlatpakRemoteRefActionsFile, flatpak_remote_ref_actions_file_free);
+
 gboolean eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relative_parent_path,
                                                                      GFile         *directory,
-                                                                     GHashTable    *ref_actions_for_files,
+                                                                     GHashTable    *ref_actions,
+                                                                     gint           priority,
                                                                      GCancellable  *cancellable,
                                                                      GError       **error);
 gboolean eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const gchar   *override_directory_path,
                                                                            GHashTable    *ref_actions,
+                                                                           gint           priority,
                                                                            GCancellable  *cancellable,
                                                                            GError       **error);
 GHashTable * eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
                                                                   GFile         *directory,
+                                                                  gint           priority,
                                                                   GCancellable  *cancellable,
                                                                   GError       **error);
+GHashTable * eos_updater_util_hoist_flatpak_remote_ref_actions (GHashTable *ref_actions_file_table);
 GHashTable * eos_updater_util_flatpak_ref_action_application_progress_in_state_path (GCancellable  *cancellable,
                                                                                      GError       **error);
 GHashTable * eos_updater_util_filter_for_new_flatpak_ref_actions (GHashTable *ref_actions,
@@ -71,6 +89,7 @@ GHashTable * eos_updater_util_filter_for_existing_flatpak_ref_actions (GHashTabl
                                                                        GHashTable *progresses);
 GHashTable * eos_updater_util_squash_remote_ref_actions (GHashTable *ref_actions);
 GPtrArray * eos_updater_util_flatten_flatpak_ref_actions_table (GHashTable *flatpak_ref_actions);
+GHashTable * eos_updater_util_remote_ref_actions_to_expected_progresses (GHashTable *ref_actions_table);
 
 gchar * eos_updater_util_format_all_flatpak_ref_actions (const gchar *title,
                                                          GHashTable  *flatpak_ref_actions_for_this_boot);
