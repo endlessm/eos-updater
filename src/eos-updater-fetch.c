@@ -503,6 +503,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
       FlatpakRemoteRef *to_install = action->ref;
       const gchar *collection_id = flatpak_remote_ref_get_remote_name (to_install);
       const gchar *remote_name = g_hash_table_lookup (collection_ids_to_remote_names, collection_id);
+      g_autoptr(GError) local_error = NULL;
 
       if (action->type != EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL)
         continue;
@@ -519,6 +520,8 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
             formatted_ref
           };
 
+          g_message ("Looking up flatpak remote name for collection-id %s", collection_id);
+
           /* Recall that the remote name we put into the FlatpakRemoteRef
            * is not actually a remote name, it is a (TODO transitional)
            * collection-id. We'll use OstreeRepoFinder to figure out what remote
@@ -530,12 +533,22 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
           found_remote_name = find_first_flatpak_repo_for_collection_id (installation,
                                                                          &collection_ref,
                                                                          cancellable,
-                                                                         error);
+                                                                         &local_error);
           remote_name = found_remote_name;
 
           /* Should be able to find a remote name for all collection-ids */
           if (remote_name == NULL)
-            return FALSE;
+            {
+              g_message ("Failed to find a remote name for collection-id %s: %s",
+                         collection_id,
+                         local_error->message);
+              g_propagate_error (error, g_steal_pointer (&local_error));
+              return FALSE;
+            }
+
+          g_message ("Found remote name %s for collection-id %s",
+                     remote_name,
+                     collection_id);
 
           g_hash_table_insert (collection_ids_to_remote_names,
                                g_strdup (collection_id),
@@ -577,10 +590,15 @@ pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
     {
       FlatpakRemoteRefAction *action = g_ptr_array_index (pending_flatpak_ref_actions, i);
       FlatpakRemoteRef *to_install = action->ref;
+      g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (action->ref));
       g_autoptr(GError) local_error = NULL;
 
       if (action->type != EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL)
         continue;
+
+      g_message ("Pulling flatpak %s:%s",
+                 flatpak_remote_ref_get_remote_name (to_install),
+                 formatted_ref);
 
       /* We have to pass in a local_error instance here and check to see
        * if it was FLATPAK_ERROR_ONLY_PULLED - this is what will be
@@ -618,6 +636,10 @@ pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
        * them. */
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ONLY_PULLED))
         {
+          g_message ("Error occurred whilst pulling flatpak %s:%s: %s",
+                     flatpak_remote_ref_get_remote_name (to_install),
+                     formatted_ref,
+                     local_error->message);
           g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
         }
@@ -660,6 +682,9 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
   g_autoptr(GHashTable) flatpak_ref_action_progresses = NULL;
   g_autoptr(GHashTable) relevant_flatpak_ref_actions = NULL;
   g_autoptr(GPtrArray) flatpaks_to_deploy = NULL;
+  g_autofree gchar *formatted_flatpak_ref_actions_this_commit_wants = NULL;
+  g_autofree gchar *formatted_relevant_flatpak_ref_actions = NULL;
+  g_autofree gchar *formatted_flatpak_ref_actions_progress = NULL;
 
   flatpak_ref_actions_this_commit_wants = compute_flatpak_ref_actions_tables (repo,
                                                                               update_id,
@@ -669,6 +694,11 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
   if (!flatpak_ref_actions_this_commit_wants)
     return NULL;
 
+  formatted_flatpak_ref_actions_this_commit_wants =
+    eos_updater_util_format_all_flatpak_ref_actions ("All flatpak ref actions that this commit wants to have applied on deployment",
+                                                     flatpak_ref_actions_this_commit_wants);
+  g_message ("%s", formatted_flatpak_ref_actions_this_commit_wants);
+
   flatpak_ref_action_progresses =
     eos_updater_util_flatpak_ref_action_application_progress_in_state_path (cancellable,
                                                                             error);
@@ -676,15 +706,21 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
   if (!flatpak_ref_action_progresses)
     return NULL;
 
+  formatted_flatpak_ref_actions_progress = eos_updater_util_format_all_flatpak_ref_actions_progresses (flatpak_ref_action_progresses);
+  g_message ("%s", formatted_flatpak_ref_actions_progress);
+
   /* Filter the flatpak ref actions for the ones which are actually relevant
    * to this system and figure out which flatpaks need to be pulled from
    * there */
   relevant_flatpak_ref_actions = eos_updater_util_filter_for_new_flatpak_ref_actions (flatpak_ref_actions_this_commit_wants,
                                                                                       flatpak_ref_action_progresses);
 
-  /* Convert the hash table into a single linear array of flatpaks to pull. The
-   * reason we need a linear array is that on failure, we need to roll back
-   * any flatpaks which were deployed */
+  formatted_relevant_flatpak_ref_actions =
+    eos_updater_util_format_all_flatpak_ref_actions ("Flatpak ref actions that need to be prepared while fetching this commit",
+                                                     relevant_flatpak_ref_actions);
+  g_message ("%s", formatted_relevant_flatpak_ref_actions);
+
+  /* Convert the hash table into a single linear array of flatpaks to pull. */
   flatpaks_to_deploy = eos_updater_util_flatten_flatpak_ref_actions_table (relevant_flatpak_ref_actions);
 
   if (!pull_flatpaks (flatpaks_to_deploy, cancellable, error))
