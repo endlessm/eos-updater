@@ -72,6 +72,10 @@ GHashTable * eos_updater_util_filter_for_existing_flatpak_ref_actions (GHashTabl
 GHashTable * eos_updater_util_squash_remote_ref_actions (GHashTable *ref_actions);
 GPtrArray * eos_updater_util_flatten_flatpak_ref_actions_table (GHashTable *flatpak_ref_actions);
 
+gchar * eos_updater_util_format_all_flatpak_ref_actions (const gchar *title,
+                                                         GHashTable  *flatpak_ref_actions_for_this_boot);
+gchar * eos_updater_util_format_all_flatpak_ref_actions_progresses (GHashTable *flatpak_ref_action_progresses);
+
 
 const gchar * eos_updater_util_pending_flatpak_deployments_state_path (void);
 const gchar * eos_updater_util_flatpak_autoinstall_override_path (void);
