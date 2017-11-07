@@ -220,11 +220,12 @@ flatpaks_to_install_app_ids_strv (FlatpakToInstall *flatpaks_to_install,
 }
 
 static void
-autoinstall_flatpaks_files (guint                    commit,
-                            const FlatpakToInstall  *flatpaks,
-                            gsize                    n_flatpaks,
-                            GHashTable             **out_directories_hashtable,
-                            GHashTable             **out_files_hashtable)
+autoinstall_flatpaks_files_name (guint                    commit,
+                                 const gchar             *name,
+                                 const FlatpakToInstall  *flatpaks,
+                                 gsize                    n_flatpaks,
+                                 GHashTable             **out_directories_hashtable,
+                                 GHashTable             **out_files_hashtable)
 {
   g_autofree gchar *autoinstall_flatpaks_contents = flatpaks_to_install_to_string (flatpaks, n_flatpaks);
   GStrv directories_to_create_strv = g_new0 (gchar *, 2);
@@ -246,7 +247,7 @@ autoinstall_flatpaks_files (guint                    commit,
 
   directories_to_create_strv[0] = g_build_filename ("usr", "share", "eos-application-tools", "flatpak-autoinstall.d", NULL);
   g_ptr_array_add (files_to_create,
-                   simple_file_new_steal (g_build_filename ("usr", "share", "eos-application-tools", "flatpak-autoinstall.d", "autoinstall", NULL),
+                   simple_file_new_steal (g_build_filename ("usr", "share", "eos-application-tools", "flatpak-autoinstall.d", name, NULL),
                                           g_steal_pointer (&autoinstall_flatpaks_contents)));
 
   g_hash_table_insert (*out_directories_hashtable,
@@ -257,15 +258,31 @@ autoinstall_flatpaks_files (guint                    commit,
                        files_to_create);
 }
 
+static void
+autoinstall_flatpaks_files (guint                    commit,
+                            const FlatpakToInstall  *flatpaks,
+                            gsize                    n_flatpaks,
+                            GHashTable             **out_directories_hashtable,
+                            GHashTable             **out_files_hashtable)
+{
+  autoinstall_flatpaks_files_name (commit,
+                                   "autoinstall",
+                                   flatpaks,
+                                   n_flatpaks,
+                                   out_directories_hashtable,
+                                   out_files_hashtable);
+}
+
 static gboolean
-autoinstall_flatpaks_files_override (GFile                   *updater_directory,
-                                     const FlatpakToInstall  *flatpaks,
-                                     gsize                    n_flatpaks,
-                                     GError                 **error)
+autoinstall_flatpaks_files_override_name (GFile                   *updater_directory,
+                                          const gchar             *filename,
+                                          const FlatpakToInstall  *flatpaks,
+                                          gsize                    n_flatpaks,
+                                          GError                 **error)
 {
   g_autofree gchar *autoinstall_flatpaks_contents = flatpaks_to_install_to_string (flatpaks, n_flatpaks);
   g_autofree gchar *updater_directory_path = g_file_get_path (updater_directory);
-  g_autofree gchar *override_autoinstall_path = g_build_filename (updater_directory_path, "flatpak-autoinstall-override", "install.override", NULL);
+  g_autofree gchar *override_autoinstall_path = g_build_filename (updater_directory_path, "flatpak-autoinstall-override", filename, NULL);
   g_autoptr(GFile) override_autoinstall_file = g_file_new_for_path (override_autoinstall_path);
   g_autoptr(GFile) override_autoinstall_file_parent = g_file_get_parent (override_autoinstall_file);
   g_autoptr(GError) local_error = NULL;
@@ -288,6 +305,19 @@ autoinstall_flatpaks_files_override (GFile                   *updater_directory,
     return FALSE;
 
   return TRUE;
+}
+
+static gboolean
+autoinstall_flatpaks_files_override (GFile                   *updater_directory,
+                                     const FlatpakToInstall  *flatpaks,
+                                     gsize                    n_flatpaks,
+                                     GError                 **error)
+{
+  return autoinstall_flatpaks_files_override_name (updater_directory,
+                                                   "install.override",
+                                                   flatpaks,
+                                                   n_flatpaks,
+                                                   error);
 }
 
 static GStrv
@@ -1326,6 +1356,126 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
   g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[0].app_id));
 }
 
+/* Insert a list of flatpaks to automatically install in the override directory
+ * as well as the OSTree, ensuring that both files have the same name. Also
+ * put another file in the commit directory with a higher priority. We should
+ * apply actions from both the override directory first, then the commit
+ * directory, with the higher priority file "winning" in case of a
+ * conflict. */
+static void
+test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixture,
+                                                       gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install_override_high_priority[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "org.test.Test2", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  /* Note that the low priority list will attempt to remove the file, but this
+   * will always get "beaten" by the higher priority file */
+  FlatpakToInstall flatpaks_to_install_in_ostree_low_priority[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  FlatpakToInstall flatpaks_to_install_in_ostree_high_priority[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install_override_high_priority,
+                                                                    G_N_ELEMENTS (flatpaks_to_install_override_high_priority));
+  g_auto(GStrv) deployed_flatpaks = NULL;
+  g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
+  g_autofree gchar *deployment_csum = NULL;
+  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
+  g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T16682");
+
+  etc_data_init (data, fixture);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  deployment_repo_dir = g_file_get_child (data->client->root,
+                                          deployment_repo_relative_path);
+
+  /* Vendor requested to install some flatpaks on the next update
+   */
+  autoinstall_flatpaks_files_override_name (updater_directory,
+                                            "10-autoinstall",
+                                            flatpaks_to_install_override_high_priority,
+                                            G_N_ELEMENTS (flatpaks_to_install_override_high_priority),
+                                            &error);
+  g_assert_no_error (error);
+
+  /* Commit number 1 will install some flatpaks (low priority)
+   */
+  autoinstall_flatpaks_files_name (1,
+                                   "10-autoinstall",
+                                   flatpaks_to_install_in_ostree_low_priority,
+                                   G_N_ELEMENTS (flatpaks_to_install_in_ostree_low_priority),
+                                   &data->additional_directories_for_commit,
+                                   &data->additional_files_for_commit);
+
+  /* Commit number 1 will install some flatpaks (high priority)
+   */
+  autoinstall_flatpaks_files_name (1,
+                                   "20-autoinstall",
+                                   flatpaks_to_install_in_ostree_high_priority,
+                                   G_N_ELEMENTS (flatpaks_to_install_in_ostree_high_priority),
+                                   &data->additional_directories_for_commit,
+                                   &data->additional_files_for_commit);
+
+  eos_test_setup_flatpak_repo (updater_directory,
+                               "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
+                               (const gchar **) wanted_flatpaks,
+                               &error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
+  deployment_csum = get_checksum_for_deploy_repo_dir (deployment_repo_dir,
+                                                      refspec,
+                                                      &error);
+  g_assert_no_error (error);
+
+  eos_test_run_flatpak_installer (data->client->root,
+                                  deployment_csum,
+                                  default_remote_name,
+                                  &error);
+  g_assert_no_error (error);
+
+  /* Assert that our flatpak was installed */
+  deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
+  g_assert_no_error (error);
+
+  g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install_override_high_priority[0].app_id));
+  g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install_override_high_priority[1].app_id));
+}
+
 /* Insert a list of flatpaks to automatically install on the commit
  * and simulate a reboot by running eos-updater-flatpak-installer. Then
  * uninstall the flatpak and update again with the same list of actions. This
@@ -1700,7 +1850,8 @@ main (int argc,
   eos_test_add ("/updater/only-install-flatpaks-on-locale", NULL, test_update_only_install_flatpaks_on_locale);
   eos_test_add ("/updater/install-flatpaks-not-deployed", NULL, test_update_install_flatpaks_not_deployed);
   eos_test_add ("/updater/install-flatpaks-deploy-on-reboot", NULL, test_update_deploy_flatpaks_on_reboot);
-  eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-in-override", NULL, test_update_deploy_flatpaks_on_reboot_in_override_dir);
+  eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-in-override", NULL, test_update_deploy_flatpaks_on_reboot_override_ostree);
+  eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-ostree-override", NULL, test_update_deploy_flatpaks_on_reboot_in_override_dir);
   eos_test_add ("/updater/no-deploy-same-action-twice", NULL, test_update_no_deploy_flatpaks_twice);
   eos_test_add ("/updater/reinstall-flatpak-if-counter-is-later", NULL, test_update_force_reinstall_flatpak);
   eos_test_add ("/updater/update-deploy-fail-flatpaks-stay-in-repo", NULL, test_update_deploy_fail_flatpaks_stay_in_repo);

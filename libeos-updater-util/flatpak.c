@@ -821,10 +821,31 @@ read_flatpak_ref_actions_from_file (GFile         *file,
   return g_steal_pointer (&actions);
 }
 
+FlatpakRemoteRefActionsFile *
+flatpak_remote_ref_actions_file_new (GPtrArray *remote_ref_actions,
+                                     gint       priority)
+{
+  FlatpakRemoteRefActionsFile *file = g_slice_new0 (FlatpakRemoteRefActionsFile);
+
+  file->remote_ref_actions = g_ptr_array_ref (remote_ref_actions);
+  file->priority = priority;
+
+  return file;
+}
+
+void
+flatpak_remote_ref_actions_file_free (FlatpakRemoteRefActionsFile *file)
+{
+  g_clear_pointer (&file->remote_ref_actions, g_ptr_array_unref);
+
+  g_slice_free (FlatpakRemoteRefActionsFile, file);
+}
+
 gboolean
 eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relative_parent_path,
                                                             GFile         *directory,
                                                             GHashTable    *ref_actions_for_files,
+                                                            gint           priority,
                                                             GCancellable  *cancellable,
                                                             GError       **error)
 {
@@ -845,7 +866,10 @@ eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relat
     {
       GFile *file;
       GFileInfo *info;
-      GPtrArray *action_refs = NULL;
+      g_autoptr(GPtrArray) action_refs = NULL;
+      const gchar *filename = NULL;
+      g_autoptr(FlatpakRemoteRefActionsFile) actions_file = NULL;
+      FlatpakRemoteRefActionsFile *existing_actions_file = NULL;
 
       if (!g_file_enumerator_iterate (autoinstall_d_enumerator,
                                       &info, &file,
@@ -862,11 +886,22 @@ eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relat
       if (!action_refs)
         return FALSE;
 
-      g_hash_table_insert (ref_actions_for_files,
-                           g_build_filename (relative_parent_path,
-                                             g_file_info_get_name (info),
-                                             NULL),
-                           g_steal_pointer (&action_refs));
+      filename = g_file_info_get_name (info);
+
+      /* We may already have a remote_ref_actions_file in the hash table
+       * and we cannot just blindly replace it. Replace it only if
+       * the priority of the incoming directory is greater */
+      existing_actions_file = g_hash_table_lookup (ref_actions_for_files,
+                                                   filename);
+
+      if (existing_actions_file &&
+          existing_actions_file->priority > priority)
+        continue;
+
+      g_hash_table_replace (ref_actions_for_files,
+                            g_strdup (filename),
+                            flatpak_remote_ref_actions_file_new (action_refs,
+                                                                 priority));
     }
 
   return TRUE;
@@ -875,6 +910,7 @@ eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relat
 gboolean
 eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const gchar   *override_directory_path,
                                                                   GHashTable    *ref_actions,
+                                                                  gint           priority,
                                                                   GCancellable  *cancellable,
                                                                   GError       **error)
 {
@@ -883,6 +919,7 @@ eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const gchar   
   gboolean appended = eos_updater_util_flatpak_ref_actions_append_from_directory (override_directory_path,
                                                                                   override_directory,
                                                                                   ref_actions,
+                                                                                  priority,
                                                                                   cancellable,
                                                                                   &local_error);
 
@@ -907,17 +944,19 @@ eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const gchar   
 GHashTable *
 eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
                                                      GFile         *directory,
+                                                     gint           priority,
                                                      GCancellable  *cancellable,
                                                      GError       **error)
 {
   g_autoptr(GHashTable) ref_actions_for_files = g_hash_table_new_full (g_str_hash,
                                                                        g_str_equal,
                                                                        g_free,
-                                                                       (GDestroyNotify) g_ptr_array_unref);
+                                                                       (GDestroyNotify) flatpak_remote_ref_actions_file_free);
 
   if (!eos_updater_util_flatpak_ref_actions_append_from_directory (relative_parent_path,
                                                                    directory,
                                                                    ref_actions_for_files,
+                                                                   priority,
                                                                    cancellable,
                                                                    error))
     return NULL;
@@ -975,6 +1014,36 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions)
   return squashed_ref_actions;
 }
 
+/* Given a hash table of filenames to FlatpakRemoteRefActionsFile, hoist
+ * the underlying pointer array of remote ref actions and make that the value
+ * of the new hash table.
+ *
+ * This will make the hash table suitable for passing to
+ * eos_updater_util_squash_remote_ref_actions */
+GHashTable *
+eos_updater_util_hoist_flatpak_remote_ref_actions (GHashTable *ref_actions_file_table)
+{
+  g_autoptr(GHashTable) hoisted_ref_actions_table = g_hash_table_new_full (g_str_hash,
+                                                                           g_str_equal,
+                                                                           g_free,
+                                                                           (GDestroyNotify) g_ptr_array_unref);
+  gpointer key, value;
+  GHashTableIter iter;
+
+  g_hash_table_iter_init (&iter, ref_actions_file_table);
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      FlatpakRemoteRefActionsFile *ref_actions_file = value;
+
+      g_hash_table_insert (hoisted_ref_actions_table,
+                           g_strdup (key),
+                           g_ptr_array_ref (ref_actions_file->remote_ref_actions));
+    }
+
+  return g_steal_pointer (&hoisted_ref_actions_table);
+}
+
 /* Examine each of the remote ref action lists in ref_action_table
  * and squash them down into a list where only one action is applied for
  * each flatpak ref (the latest one) */
@@ -1002,6 +1071,42 @@ eos_updater_util_squash_remote_ref_actions (GHashTable *ref_actions_table)
     }
 
   return squashed_ref_actions_table;
+}
+
+/* Take the most recent (eg, last) entry in each ref actions list in the
+ * ref_actions_table and return a hash table mapping each ref action filename
+ * to a counter indicating how up to date we are on the system for that
+ * file */
+GHashTable *
+eos_updater_util_remote_ref_actions_to_expected_progresses (GHashTable *ref_actions_table)
+{
+  g_autoptr(GHashTable) counts = g_hash_table_new_full (g_str_hash,
+                                                        g_str_equal,
+                                                        g_free,
+                                                        NULL);
+  GHashTableIter iter;
+  gpointer key, value;
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      GPtrArray *ref_actions = value;
+
+      /* This probably shouldn't happen, but at least we shouldn't crash if
+       * it does */
+      if (ref_actions->len == 0)
+        {
+          g_warning ("Remote ref actions file %s has no actions, that's odd...",
+                     key);
+          continue;
+        }
+
+      g_hash_table_insert (counts,
+                           g_strdup (key),
+                           GINT_TO_POINTER (g_ptr_array_index (ref_actions,
+                                                               ref_actions->len - 1)));
+    }
+
+  return g_steal_pointer (&counts);
 }
 
 typedef GPtrArray * (*FilterFlatpakRefActionsFunc)(const gchar  *table_name,
@@ -1205,31 +1310,29 @@ eos_updater_util_flatpak_ref_action_application_progress_in_state_path (GCancell
   return g_steal_pointer (&ref_action_progress_for_files);
 }
 
+/* Examine remote ref actions coming from multiple sources and flatten
+ * them into a single squashed list based on their lexicographical
+ * priority */
 GPtrArray *
-eos_updater_util_flatten_flatpak_ref_actions_table (GHashTable *flatpak_ref_actions)
+eos_updater_util_flatten_flatpak_ref_actions_table (GHashTable *ref_actions_table)
 {
-  GPtrArray *flatpaks = g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_remote_ref_action_unref);
-  GHashTableIter hash_iter;
-  gpointer key;
-  gpointer value;
+  g_autoptr(GList) remote_ref_actions_keys = g_hash_table_get_keys (ref_actions_table);
+  g_autoptr(GPtrArray) concatenated_actions_pointer_array = g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_remote_ref_action_unref);
+  GList *iter = NULL;
 
-  g_hash_table_iter_init (&hash_iter, flatpak_ref_actions);
+  remote_ref_actions_keys = g_list_sort (remote_ref_actions_keys, (GCompareFunc) g_strcmp0);
 
-  /* Collect all the flatpaks from "install" events in the hash table */
-  while (g_hash_table_iter_next (&hash_iter, &key, &value))
+  for (iter = remote_ref_actions_keys; iter != NULL; iter = iter->next)
     {
-      GPtrArray *flatpak_ref_actions_for_this_file = value;
+      GPtrArray *ref_actions = g_hash_table_lookup (ref_actions_table, iter->data);
       gsize i;
 
-      for (i = 0; i < flatpak_ref_actions_for_this_file->len; ++i)
-        {
-          FlatpakRemoteRefAction *action = g_ptr_array_index (flatpak_ref_actions_for_this_file, i);
-
-          g_ptr_array_add (flatpaks, flatpak_remote_ref_action_ref (action));
-        }
+      for (i = 0; i < ref_actions->len; ++i)
+        g_ptr_array_add (concatenated_actions_pointer_array,
+                         flatpak_remote_ref_action_ref (g_ptr_array_index (ref_actions, i)));
     }
 
-  return flatpaks;
+  return squash_ref_actions_ptr_array (concatenated_actions_pointer_array);
 }
 
 static const gchar *
