@@ -265,7 +265,6 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
-  g_autofree gchar *to_export_flatpaks_contents = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -349,8 +348,6 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autofree gchar *deployment_csum = NULL;
   g_autofree gchar *deployment_id = NULL;
-  g_autofree gchar *to_export_flatpaks_relative_path = NULL;
-  g_autoptr(GFile) to_export_flatpaks = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -495,10 +492,8 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_autofree gchar *deployment_csum = NULL;
   g_autofree gchar *anticipated_deployment_csum = NULL;
   g_autofree gchar *deployment_id = NULL;
-  g_autofree gchar *to_export_flatpaks_relative_path = NULL;
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
-  g_autoptr(GFile) to_export_flatpaks = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
