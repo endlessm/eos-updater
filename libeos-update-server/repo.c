@@ -914,33 +914,34 @@ handle_refs_mirrors (EusRepo     *self,
   remotes = ostree_repo_remote_list (self->repo, NULL);
   if (remotes != NULL)
     {
-      for (i = 0; i < g_strv_length (remotes); ++i)
+      guint remotes_len = g_strv_length (remotes);
+      for (i = 0; i < remotes_len; ++i)
         {
-            g_autofree gchar *remote_collection_id = NULL;
-            gboolean served = FALSE;
+          g_autofree gchar *remote_collection_id = NULL;
 
-            ostree_repo_get_remote_option (self->repo, remotes[i], "collection-id", NULL, &remote_collection_id, &error);
-            if (local_error != NULL)
-              {
-                g_warning ("Error getting collection ID for remote %s: %s", remotes[i], error->message);
-                g_clear_error (&error);
-                continue;
-              }
-            if (remote_collection_id == NULL || g_strcmp0 (remote_collection_id, collection_id) != 0)
+          ostree_repo_get_remote_option (self->repo, remotes[i], "collection-id", NULL, &remote_collection_id, &error);
+          if (error != NULL)
+            {
+              g_warning ("Error getting collection ID for remote %s: %s", remotes[i], error->message);
+              g_clear_error (&error);
               continue;
+            }
+          if (remote_collection_id == NULL || g_strcmp0 (remote_collection_id, collection_id) != 0)
+            continue;
 
-            g_clear_pointer (&raw_path, g_free);
-            raw_path = g_build_filename (self->cached_repo_root,
-                                         "refs",
-                                         "remotes",
-                                         self->remote_name,
-                                         collection_ref,
-                                         NULL);
+          g_clear_pointer (&raw_path, g_free);
+          raw_path = g_build_filename (self->cached_repo_root,
+                                       "refs",
+                                       "remotes",
+                                       self->remote_name,
+                                       collection_ref,
+                                       NULL);
 
-            if (!serve_file_if_exists (msg, self->cached_repo_root, raw_path, self->cancellable, &served) || served)
-              return;
+          served = FALSE;
+          if (!serve_file_if_exists (msg, self->cached_repo_root, raw_path, self->cancellable, &served) || served)
+            return;
 
-            g_debug ("Failed to find file ‘%s’, trying next remote", raw_path);
+          g_debug ("Failed to find file ‘%s’, trying next remote", raw_path);
         }
     }
 
