@@ -874,7 +874,7 @@ handle_refs_mirrors (EusRepo     *self,
   g_autofree gchar *collection_id = NULL;
   g_autoptr(GError) error = NULL;
   g_auto(GStrv) remotes = NULL;
-  guint i;
+  guint remotes_len;
 
   if (requested_path_len <= prefix_len || strstr (requested_path + prefix_len, "/") == NULL)
     {
@@ -903,18 +903,18 @@ handle_refs_mirrors (EusRepo     *self,
       return;
     }
 
-  collection_ref = requested_path + prefix_len + strlen(collection_id) + 1; /* e.g eos2/i386 */
-  if (collection_ref == NULL || *collection_ref == '\0')
+  collection_ref = requested_path + prefix_len + strlen (collection_id) + 1; /* e.g eos2/i386 */
+  if (*collection_ref == '\0')
     {
       g_debug ("Invalid /refs/mirrors/ request: missing ref");
       soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
       return;
     }
 
-  remotes = ostree_repo_remote_list (self->repo, NULL);
+  remotes = ostree_repo_remote_list (self->repo, &remotes_len);
   if (remotes != NULL)
     {
-      guint remotes_len = g_strv_length (remotes);
+      guint i;
       for (i = 0; i < remotes_len; ++i)
         {
           g_autofree gchar *remote_collection_id = NULL;
@@ -946,6 +946,7 @@ handle_refs_mirrors (EusRepo     *self,
     }
 
   g_warning ("Requested ref ‘%s’ not found in any remote", requested_path);
+  soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
 }
 
 static void
