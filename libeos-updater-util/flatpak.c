@@ -141,10 +141,10 @@ parse_ref_kind (const gchar     *ref_kind_str,
 }
 
 static gboolean
-parse_flatpak_ref_from_detail (JsonObject      *detail,
-                               const gchar    **out_app_name,
-                               FlatpakRefKind  *out_ref_kind,
-                               GError         **error)
+parse_flatpak_ref_from_entry (JsonObject      *entry,
+                              const gchar    **out_app_name,
+                              FlatpakRefKind  *out_ref_kind,
+                              GError         **error)
 {
   const gchar *app_name = NULL;
   const gchar *ref_kind_str = NULL;
@@ -153,26 +153,26 @@ parse_flatpak_ref_from_detail (JsonObject      *detail,
   g_return_val_if_fail (out_ref_kind != NULL, FALSE);
   g_return_val_if_fail (out_app_name != NULL, FALSE);
 
-  app_name = json_object_get_string_member (detail, "app");
+  app_name = json_object_get_string_member (entry, "app");
 
   if (app_name == NULL)
     {
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected an 'app' member in the 'detail' member");
+                   "Expected an 'app' member");
 
       return FALSE;
     }
 
-  ref_kind_str = json_object_get_string_member (detail, "ref-kind");
+  ref_kind_str = json_object_get_string_member (entry, "ref-kind");
 
   if (ref_kind_str == NULL)
     {
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected a 'ref-kind' member in the 'detail' member");
+                   "Expected a 'ref-kind' member");
       return FALSE;
     }
 
@@ -186,24 +186,24 @@ parse_flatpak_ref_from_detail (JsonObject      *detail,
 }
 
 static FlatpakRemoteRef *
-flatpak_remote_ref_from_install_action_detail (JsonObject *detail,
-                                               GError    **error)
+flatpak_remote_ref_from_install_action_entry (JsonObject *entry,
+                                              GError    **error)
 {
   const gchar *app_name = NULL;
   const gchar *collection_id = NULL;
   FlatpakRefKind kind;
 
-  if (!parse_flatpak_ref_from_detail (detail, &app_name, &kind, error))
+  if (!parse_flatpak_ref_from_entry (entry, &app_name, &kind, error))
     return NULL;
 
-  collection_id = json_object_get_string_member (detail, "collection-id");
+  collection_id = json_object_get_string_member (entry, "collection-id");
 
   if (collection_id == NULL)
     {
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected a 'collection-id' member in the 'detail' member");
+                   "Expected a 'collection-id' member");
       return NULL;
     }
 
@@ -218,13 +218,13 @@ flatpak_remote_ref_from_install_action_detail (JsonObject *detail,
 }
 
 static FlatpakRemoteRef *
-flatpak_remote_ref_from_uninstall_action_detail (JsonObject  *detail,
-                                                 GError     **error)
+flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
+                                                GError     **error)
 {
   const gchar *app_name = NULL;
   FlatpakRefKind kind;
 
-  if (!parse_flatpak_ref_from_detail (detail, &app_name, &kind, error))
+  if (!parse_flatpak_ref_from_entry (entry, &app_name, &kind, error))
     return NULL;
 
   return g_object_new (FLATPAK_TYPE_REMOTE_REF,
@@ -235,16 +235,16 @@ flatpak_remote_ref_from_uninstall_action_detail (JsonObject  *detail,
 }
 
 static FlatpakRemoteRef *
-flatpak_remote_ref_from_action_detail (EosUpdaterUtilFlatpakRemoteRefActionType   action_type,
-                                       JsonObject                                *detail,
-                                       GError                                   **error)
+flatpak_remote_ref_from_action_entry (EosUpdaterUtilFlatpakRemoteRefActionType   action_type,
+                                      JsonObject                                *entry,
+                                      GError                                   **error)
 {
   switch (action_type)
     {
       case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
-        return flatpak_remote_ref_from_install_action_detail (detail, error);
+        return flatpak_remote_ref_from_install_action_entry (entry, error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
-        return flatpak_remote_ref_from_uninstall_action_detail (detail, error);
+        return flatpak_remote_ref_from_uninstall_action_entry (entry, error);
       default:
         g_assert_not_reached ();
     }
@@ -256,7 +256,6 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
 {
   const gchar *action_type_str = NULL;
   JsonObject *object = json_node_get_object (node);
-  JsonObject *detail_object = NULL;
   g_autoptr(FlatpakRemoteRef) flatpak_remote_ref = NULL;
   g_autoptr(GError) local_error = NULL;
   JsonNode *serial_node = NULL;
@@ -318,19 +317,7 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
 
   serial = (gint32) serial64;
 
-  detail_object = json_object_get_object_member (object, "detail");
-
-  if (detail_object == NULL)
-    {
-      g_autofree gchar *node_str = json_node_to_string (node);
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected a 'detail' member in the autoinstall spec (at %s)", node_str);
-      return NULL;
-    }
-
-  flatpak_remote_ref = flatpak_remote_ref_from_action_detail (action_type, detail_object, &local_error);
+  flatpak_remote_ref = flatpak_remote_ref_from_action_entry (action_type, object, &local_error);
 
   if (!flatpak_remote_ref)
     {
@@ -341,7 +328,7 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
           g_autofree gchar *node_str = json_node_to_string (node);
           g_propagate_prefixed_error (error,
                                       local_error,
-                                      "Error parsing the 'detail' member for action (at %s) '%s': ",
+                                      "Error parsing action detail (at %s) '%s': ",
                                       action_type_str,
                                       node_str);
           return NULL;

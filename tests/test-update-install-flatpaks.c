@@ -50,13 +50,10 @@ typedef struct _FlatpakToInstall {
   FlatpakToInstallFlags flags;
 } FlatpakToInstall;
 
-static JsonNode *
-install_json_detail (const FlatpakToInstall *flatpak_to_install)
+static void
+install_json_detail (const FlatpakToInstall *flatpak_to_install,
+                     JsonBuilder            *builder)
 {
-  g_autoptr(JsonBuilder) builder = json_builder_new ();
-
-  json_builder_begin_object (builder);
-
   json_builder_set_member_name (builder, "ref-kind");
   json_builder_add_string_value (builder, flatpak_to_install->ref_kind);
 
@@ -65,41 +62,29 @@ install_json_detail (const FlatpakToInstall *flatpak_to_install)
 
   json_builder_set_member_name (builder, "app");
   json_builder_add_string_value (builder, flatpak_to_install->app_id);
-
-  json_builder_end_object (builder);
-
-  return json_builder_get_root (builder);
 }
 
-static JsonNode *
-remove_json_detail (const FlatpakToInstall *flatpak_to_install)
+static void
+uninstall_json_detail (const FlatpakToInstall *flatpak_to_install,
+                       JsonBuilder            *builder)
 {
-  g_autoptr(JsonBuilder) builder = json_builder_new ();
-
-  json_builder_begin_object (builder);
-
   json_builder_set_member_name (builder, "ref-kind");
   json_builder_add_string_value (builder, flatpak_to_install->ref_kind);
 
   json_builder_set_member_name (builder, "app");
   json_builder_add_string_value (builder, flatpak_to_install->app_id);
-
-  json_builder_end_object (builder);
-
-  return json_builder_get_root (builder);
 }
 
-static JsonNode *
-detail_for_action_type (const FlatpakToInstall *flatpak_to_install)
+static void
+add_detail_for_action_type (const FlatpakToInstall *flatpak_to_install,
+                            JsonBuilder            *builder)
 {
   if (g_strcmp0 (flatpak_to_install->action, "install") == 0)
-    return install_json_detail (flatpak_to_install);
-
-  if (g_strcmp0 (flatpak_to_install->action, "uninstall") == 0)
-    return remove_json_detail (flatpak_to_install);
-
-  g_assert_not_reached ();
-  return NULL;
+    install_json_detail (flatpak_to_install, builder);
+  else if (g_strcmp0 (flatpak_to_install->action, "uninstall") == 0)
+    uninstall_json_detail (flatpak_to_install, builder);
+  else
+    g_assert_not_reached ();
 }
 
 static JsonNode *
@@ -181,8 +166,7 @@ flatpak_to_install_to_json_entry (const FlatpakToInstall *flatpak_to_install,
   json_builder_set_member_name (builder, "serial");
   json_builder_add_int_value (builder, serial);
 
-  json_builder_set_member_name (builder, "detail");
-  json_builder_add_value (builder, detail_for_action_type (flatpak_to_install));
+  add_detail_for_action_type (flatpak_to_install, builder);
 
   json_builder_set_member_name (builder, "filters");
   json_builder_add_value (builder, filters_for_action (flatpak_to_install));

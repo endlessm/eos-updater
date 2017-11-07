@@ -4,43 +4,22 @@
     "type": "object",
     "title": "Autoinstall Flatpak Entry",
     "description": "A description of an action to be performed by the system updater when updating to a given OSTree revision",
-    "properties": {
-        "action": {
-            "description": "The machine-readable type of event",
-            "type": "string",
-            "enum": ["install", "uninstall"]
-        },
-        "serial": {
-            "description": "A unique serial number for this event, unique to the domain named after the autoinstall file. Serial numbers must be assigned monotonically increasing values.",
-            "type": "integer"
-        },
-        "detail": {
-            "description": "Details specific to the event type",
-            "type": "object",
-            "oneOf": [
-                { "$ref": "#/definitions/install" },
-                { "$ref": "#/definitions/uninstall" }
-            ]
-        },
-        "filters": {
-            "description": "Tests to apply to see whether this action should be performed or skipped. If it is skipped, the test to check whether it should be performed or skipped will never run again.",
-            "type": "object",
-            "oneOf": [
-                { "$ref": "#/definitions/filters" }
-            ]
-        }
-    },
-    "required": ["action", "serial", "detail"],
-    "definitions": {
-        "install": {
-            "type": "object",
-            "title": "Detail for Flatpak Install",
-            "description": "A description of a flatpak to be automatically installed",
+    "oneOf": [
+        {
             "properties": {
+                "action": {
+                    "const": "install",
+                    "description": "The machine-readable type of event",
+                    "type": "string"
+                },
+                "serial": {
+                    "$ref": "#/definitions/serial"
+                },
+                "filters": {
+                    "$ref": "#/definitions/filters"
+                },
                 "ref-kind": {
-                    "description": "The flatpak ref kind",
-                    "type": "string",
-                    "enum": ["app", "runtime"]
+                    "$ref": "#/definitions/ref-kind"
                 },
                 "app": {
                     "description": "The app-id to be installed",
@@ -51,7 +30,7 @@
                 }
             }
         },
-        "uninstall": {
+        {
             "properties": {
                 "action": {
                     "const": "uninstall",
@@ -65,7 +44,7 @@
             },
             "required": ["ref-kind", "app", "remote"]
         }
-    },
+    ],
     "required": ["action", "serial"],
     "definitions": {
         "filters": {
@@ -97,17 +76,47 @@
             "title": "Detail for Flatpak Removal",
             "description": "A description of a flatpak to be automatically removed",
             "properties": {
+                "action": {
+                    "const": "uninstall",
+                    "description": "The machine-readable type of event",
+                    "type": "string"
+                },
+                "serial": {
+                    "$ref": "#/definitions/serial"
+                },
+                "filters": {
+                    "$ref": "#/definitions/filters"
+                },
                 "ref-kind": {
-                    "description": "The flatpak ref kind",
-                    "type": "string",
-                    "enum": ["app", "runtime"]
+                    "$ref": "#/definitions/ref-kind"
                 },
                 "app": {
-                    "description": "The app-id to be removed",
-                    "type": "string"
+                    "$ref": "#/definitions/app"
                 }
-            },
-            "required": ["ref-kind", "app"]
+            }
+        }
+    },
+    "required": ["action", "serial", "detail"],
+    "definitions": {
+        "filters": {
+            "description": "Tests to apply to see whether this action should be performed or skipped. If it is skipped, the test to check whether it should be performed or skipped will never run again.",
+            "type": "object",
+            "oneOf": [
+                { "$ref": "#/definitions/filters" }
+            ]
+        },
+        "serial": {
+            "description": "A unique serial number for this event, unique to the domain named after the autoinstall file. Serial numbers must be assigned monotonically increasing values.",
+            "type": "integer"
+        },
+        "ref-kind": {
+            "description": "The flatpak ref kind",
+            "type": "string",
+            "enum": ["app", "runtime"]
+        },
+        "app": {
+            "description": "The app-id to be installed",
+            "type": "string"
         },
         "filters": {
             "type": "object",
