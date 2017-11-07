@@ -600,6 +600,7 @@ main (int    argc,
   g_autoptr(GHashTable) flatpak_ref_actions_progress = NULL;
   g_autofree gchar *formatted_flatpak_ref_actions_for_this_boot = NULL;
   g_autofree gchar *formatted_flatpak_ref_actions_progress_for_this_boot = NULL;
+  const gchar *resolved_mode = NULL;
   EosUpdaterInstallerMode parsed_mode;
 
   gchar *mode = NULL;
@@ -621,7 +622,9 @@ main (int    argc,
   if (!g_option_context_parse (context, &argc, &argv, &error))
     return usage (context, "Failed to parse options: %s", error->message);
 
-  if (!parse_installer_mode (mode != NULL ? mode : "perform",
+  resolved_mode = mode != NULL ? mode : "perform";
+
+  if (!parse_installer_mode (resolved_mode,
                              &parsed_mode,
                              &error))
     {
@@ -629,10 +632,10 @@ main (int    argc,
       return EXIT_FAILURE;
     }
 
-  g_message ("Running in mode '%s'", mode);
+  g_message ("Running in mode '%s'", resolved_mode);
 
   if (also_pull)
-    g_message ("Will pull flatpaks as well as deploying them", mode);
+    g_message ("Will pull flatpaks as well as deploying them");
 
   flatpak_ref_actions_for_this_boot = incoming_flatpak_ref_actions (&error);
 
