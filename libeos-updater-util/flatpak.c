@@ -1017,3 +1017,77 @@ eos_updater_util_flatten_flatpak_ref_actions_table (GHashTable *flatpak_ref_acti
 
   return flatpaks;
 }
+
+static const gchar *
+format_remote_ref_action_type (EosUpdaterUtilFlatpakRemoteRefActionType action_type)
+{
+  GEnumClass *enum_class = g_type_class_ref (EOS_TYPE_UPDATER_UTIL_FLATPAK_REMOTE_REF_ACTION_TYPE);
+  GEnumValue *enum_value = g_enum_get_value (enum_class, action_type);
+
+  g_type_class_unref (enum_class);
+
+  g_assert (enum_value != NULL);
+
+  return enum_value->value_nick;
+}
+
+gchar *
+eos_updater_util_format_all_flatpak_ref_actions (const gchar *title,
+                                                 GHashTable  *flatpak_ref_actions_for_this_boot)
+{
+  gpointer key, value;
+  GHashTableIter iter;
+  GString *string = g_string_new ("");
+
+  g_string_append_printf (string, "%s:\n", title);
+
+  g_hash_table_iter_init (&iter, flatpak_ref_actions_for_this_boot);
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      const gchar *source = (const gchar *) key;
+      GPtrArray *actions = (GPtrArray *) value;
+
+      gsize i;
+
+      g_message ("  %s:", source);
+
+      for (i = 0; i < actions->len; ++i)
+        {
+          FlatpakRemoteRefAction *action = g_ptr_array_index (actions, i);
+          const gchar *formatted_action_type = NULL;
+          g_autofree gchar *formatted_ref = NULL;
+
+          formatted_action_type = format_remote_ref_action_type (action->type);
+          formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (action->ref));
+
+          g_string_append_printf (string,
+                                  "    - %s %s:%s\n",
+                                  formatted_action_type,
+                                  flatpak_remote_ref_get_remote_name (action->ref),
+                                  formatted_ref);
+        }
+    }
+
+  return g_string_free (string, FALSE);
+}
+
+gchar *
+eos_updater_util_format_all_flatpak_ref_actions_progresses (GHashTable *flatpak_ref_action_progresses)
+{
+  gpointer key, value;
+  GHashTableIter iter;
+  GString *string = g_string_new ("Action application progresses:\n");
+
+  g_hash_table_iter_init (&iter, flatpak_ref_action_progresses);
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      const gchar *source = (const gchar *) key;
+      gint32 progress = GPOINTER_TO_INT (value);
+
+      g_message ("  %s: %lli", source, progress);
+    }
+
+  return g_string_free (string, FALSE);
+}

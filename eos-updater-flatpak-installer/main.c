@@ -576,75 +576,6 @@ parse_installer_mode (const gchar              *mode,
   return TRUE;
 }
 
-static const gchar *
-format_remote_ref_action_type (EosUpdaterUtilFlatpakRemoteRefActionType action_type)
-{
-  GEnumClass *enum_class = g_type_class_ref (EOS_TYPE_UPDATER_UTIL_FLATPAK_REMOTE_REF_ACTION_TYPE);
-  GEnumValue *enum_value = g_enum_get_value (enum_class, action_type);
-
-  g_type_class_unref (enum_class);
-
-  g_assert (enum_value != NULL);
-
-  return enum_value->value_nick;
-}
-
-static void
-log_all_flatpak_ref_actions (const gchar *title,
-                             GHashTable  *flatpak_ref_actions_for_this_boot)
-{
-  gpointer key, value;
-  GHashTableIter iter;
-
-  g_message ("%s:", title);
-
-  g_hash_table_iter_init (&iter, flatpak_ref_actions_for_this_boot);
-
-  while (g_hash_table_iter_next (&iter, &key, &value))
-    {
-      const gchar *source = (const gchar *) key;
-      GPtrArray *actions = (GPtrArray *) value;
-
-      gsize i;
-
-      g_message ("  %s:", source);
-
-      for (i = 0; i < actions->len; ++i)
-        {
-          FlatpakRemoteRefAction *action = g_ptr_array_index (actions, i);
-          const gchar *formatted_action_type = NULL;
-          g_autofree gchar *formatted_ref = NULL;
-
-          formatted_action_type = format_remote_ref_action_type (action->type);
-          formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (action->ref));
-
-          g_message ("    - %s %s:%s",
-                     formatted_action_type,
-                     flatpak_remote_ref_get_remote_name (action->ref),
-                     formatted_ref);
-        }
-    }
-}
-
-static void
-log_all_flatpak_ref_action_progresses (GHashTable *flatpak_ref_action_progresses)
-{
-  gpointer key, value;
-  GHashTableIter iter;
-
-  g_message ("Action application progresses:");
-
-  g_hash_table_iter_init (&iter, flatpak_ref_action_progresses);
-
-  while (g_hash_table_iter_next (&iter, &key, &value))
-    {
-      const gchar *source = (const gchar *) key;
-      gint32 progress = GPOINTER_TO_INT (value);
-
-      g_message ("  %s: %lli", source, progress);
-    }
-}
-
 int
 main (int    argc,
       char **argv)
@@ -654,6 +585,8 @@ main (int    argc,
   g_autoptr(GFile) flatpaks_to_export_file = NULL;
   g_autoptr(GHashTable) flatpak_ref_actions_for_this_boot = NULL;
   g_autoptr(GHashTable) flatpak_ref_actions_progress = NULL;
+  g_autofree gchar *formatted_flatpak_ref_actions_for_this_boot = NULL;
+  g_autofree gchar *formatted_flatpak_ref_actions_progress_for_this_boot = NULL;
   EosUpdaterInstallerMode parsed_mode;
 
   gchar *mode = NULL;
@@ -692,8 +625,10 @@ main (int    argc,
       return EXIT_FAILURE;
     }
 
-  log_all_flatpak_ref_actions ("All flatpak ref actions",
-                               flatpak_ref_actions_for_this_boot);
+  formatted_flatpak_ref_actions_for_this_boot =
+    eos_updater_util_format_all_flatpak_ref_actions ("Flatpak ref actions that should be applied once this boot is complete",
+                                                     flatpak_ref_actions_for_this_boot);
+  g_message ("%s", formatted_flatpak_ref_actions_for_this_boot);
 
   flatpak_ref_actions_progress = eos_updater_util_flatpak_ref_action_application_progress_in_state_path (NULL, &error);
 
@@ -704,7 +639,8 @@ main (int    argc,
       return EXIT_FAILURE;
     }
 
-  log_all_flatpak_ref_action_progresses (flatpak_ref_actions_for_this_boot);
+  formatted_flatpak_ref_actions_progress_for_this_boot = eos_updater_util_format_all_flatpak_ref_actions_progresses (flatpak_ref_actions_for_this_boot);
+  g_message ("%s", formatted_flatpak_ref_actions_progress_for_this_boot);
 
   /* Check mode is completely different - we need to read in the action
    * application state and check if there's a delta between what we expect
@@ -723,9 +659,11 @@ main (int    argc,
           g_autoptr(GHashTable) flatpak_ref_actions_to_check =
             eos_updater_util_filter_for_existing_flatpak_ref_actions (flatpak_ref_actions_for_this_boot,
                                                                       flatpak_ref_actions_progress);
+          g_autofree gchar *formatted_flatpak_ref_actions_to_check =
+            eos_updater_util_format_all_flatpak_ref_actions ("All flatpak ref actions that should have been applied",
+                                                             flatpak_ref_actions_to_check);
 
-          log_all_flatpak_ref_actions ("All flatpak ref actions that should have been applied",
-                                       flatpak_ref_actions_to_check);
+          g_message ("%s", formatted_flatpak_ref_actions_to_check);
 
           if (!check_flatpak_ref_actions_applied (flatpak_ref_actions_to_check,
                                                   &error))
@@ -743,9 +681,11 @@ main (int    argc,
           g_autoptr(GHashTable) new_flatpak_ref_actions_to_apply =
             eos_updater_util_filter_for_new_flatpak_ref_actions (flatpak_ref_actions_for_this_boot,
                                                                  flatpak_ref_actions_progress);
+          g_autofree gchar *formatted_flatpak_ref_actions_to_apply =
+            eos_updater_util_format_all_flatpak_ref_actions ("All flatpak ref actions that are not yet applied",
+                                                             new_flatpak_ref_actions_to_apply);
 
-          log_all_flatpak_ref_actions ("All flatpak ref actions that are not yet applied",
-                                       new_flatpak_ref_actions_to_apply);
+          g_message ("%s", formatted_flatpak_ref_actions_to_apply);
 
           if (!apply_flatpak_ref_actions (new_flatpak_ref_actions_to_apply,
                                           parsed_mode,
