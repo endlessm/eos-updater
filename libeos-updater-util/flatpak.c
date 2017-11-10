@@ -384,103 +384,95 @@ eos_updater_get_system_architecture_string (void)
                                     flatpak_get_default_arch ());
 }
 
-static gboolean
-architecture_skip_filter_applies (JsonNode  *filter_value,
-                                  gboolean  *is_filtered,
-                                  GError   **error)
+static GList *
+lookup_array_nodes (JsonObject   *object,
+                    const gchar  *key,
+                    GError      **error)
 {
-  JsonArray *skip_architectures_array = json_node_get_array (filter_value);
-  g_autoptr(GList) architecture_nodes = NULL;
-  GList *iter = NULL;
+  JsonNode *filter_value = json_object_get_member (object, key);
+  JsonArray *filter_array = json_node_get_array (filter_value);
 
-  g_return_val_if_fail (is_filtered != NULL, FALSE);
-
-  if (skip_architectures_array == NULL)
+  if (filter_array == NULL)
     {
       g_autofree gchar *node_str = json_node_to_string (filter_value);
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected '~architectures' filter to be an array, was: %s",
+                   "Expected '%s' filter to be an array, was: %s",
+                   key,
                    node_str);
       return FALSE;
     }
 
-  architecture_nodes = json_array_get_elements (skip_architectures_array);
+  return json_array_get_elements (filter_array);
+}
 
-  for (iter = architecture_nodes; iter != NULL; iter = iter->next)
+static gboolean
+strv_element_in_json_string_node_list (GStrv      strv,
+                                       GList     *nodes,
+                                       gboolean  *out_in_array,
+                                       GError   **error)
+{
+  GList *iter;
+
+  g_assert (out_in_array != NULL);
+
+  for (iter = nodes; iter != NULL; iter = iter->next)
     {
+      GStrv strv_iter = NULL;
       const gchar *string = json_node_get_string (iter->data);
 
       if (string == NULL)
         {
-          g_autofree gchar *node_str = json_node_to_string (filter_value);
+          g_autofree gchar *node_str = json_node_to_string (iter->data);
           g_set_error (error,
                        EOS_UPDATER_ERROR,
                        EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                       "Expected '~architectures' array to contain string values, was: %s",
+                       "Unexpected non-string value: %s",
                        node_str);
           return FALSE;
         }
 
-      if (g_strcmp0 (string, eos_updater_get_system_architecture_string ()) == 0)
+      for (strv_iter = strv; *strv_iter != NULL; ++strv_iter)
         {
-          *is_filtered = TRUE;
-          return TRUE;
+          if (g_strcmp0 (string, *strv_iter) == 0)
+            {
+              *out_in_array = TRUE;
+              return TRUE;
+            }
         }
     }
 
-  *is_filtered = FALSE;
+  *out_in_array = FALSE;
   return TRUE;
 }
 
 static gboolean
-architecture_only_filter_applies (JsonNode  *filter_value,
-                                  gboolean  *is_filtered,
-                                  GError   **error)
+strv_element_in_json_member (GStrv        strv,
+                             JsonObject   *object,
+                             const gchar  *key,
+                             gboolean     *out_in_array,
+                             GError      **error)
 {
-  JsonArray *skip_architectures_array = json_node_get_array (filter_value);
-  g_autoptr(GList) architecture_nodes = NULL;
-  GList *iter = NULL;
+  GList *array_nodes = lookup_array_nodes (object, key, error);
 
-  g_return_val_if_fail (is_filtered != NULL, FALSE);
+  if (array_nodes == NULL)
+    return FALSE;
 
-  if (skip_architectures_array == NULL)
-    {
-      g_autofree gchar *node_str = json_node_to_string (filter_value);
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected 'architectures' filter to be an array, was: %s",
-                   node_str);
-      return FALSE;
-    }
+  if (!strv_element_in_json_string_node_list (strv, array_nodes, out_in_array, error))
+    return FALSE;
 
-  architecture_nodes = json_array_get_elements (skip_architectures_array);
+  return TRUE;
+}
 
-  for (iter = architecture_nodes; iter != NULL; iter = iter->next)
-    {
-      const gchar *string = json_node_get_string (iter->data);
+/* This is just a composable way to get the outvalue */
+static gboolean
+invert_outvalue (gboolean *out_value)
+{
+  g_assert (out_value != NULL);
 
-      if (string == NULL)
-        {
-          g_autofree gchar *node_str = json_node_to_string (filter_value);
-          g_set_error (error,
-                       EOS_UPDATER_ERROR,
-                       EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                       "Expected 'architectures' array to contain string values, was: %s",
-                       node_str);
-          return FALSE;
-        }
+  *out_value = !(*out_value);
 
-      if (g_strcmp0 (string, eos_updater_get_system_architecture_string ()) == 0)
-        {
-          *is_filtered = FALSE;
-          return TRUE;
-        }
-    }
-
-  *is_filtered = TRUE;
   return TRUE;
 }
 
@@ -510,119 +502,10 @@ get_locales_list_from_flatpak_installation (GStrv  *out_strv,
 
   /* TODO: Right now this returns a only the testing override or NULL,
    * but we might want to do something a little more clever based on what is
-   * supported by Flatpak in future */
+   * supported by Flatpak in future, see
+   * https://github.com/flatpak/flatpak/issues/1156 */
   *out_strv = eos_updater_override_locales_list ();
 
-  return TRUE;
-}
-
-static gboolean
-locale_skip_filter_applies (JsonNode  *filter_value,
-                            gboolean  *is_filtered,
-                            GError   **error)
-{
-  JsonArray *skip_locales_array = json_node_get_array (filter_value);
-  g_autoptr(GList) locale_nodes = NULL;
-  GList *iter = NULL;
-  g_auto(GStrv) supported_languages = NULL;
-
-  g_return_val_if_fail (is_filtered != NULL, FALSE);
-
-  if (!get_locales_list_from_flatpak_installation (&supported_languages,
-                                                   error))
-    return FALSE;
-
-  if (skip_locales_array == NULL)
-    {
-      g_autofree gchar *node_str = json_node_to_string (filter_value);
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected '~locales' filter to be an array, was: %s",
-                   node_str);
-      return FALSE;
-    }
-
-  locale_nodes = json_array_get_elements (skip_locales_array);
-
-  for (iter = locale_nodes; iter != NULL; iter = iter->next)
-    {
-      const gchar *string = json_node_get_string (iter->data);
-
-      if (string == NULL)
-        {
-          g_autofree gchar *node_str = json_node_to_string (filter_value);
-          g_set_error (error,
-                       EOS_UPDATER_ERROR,
-                       EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                       "Expected '~locales' array to contain string values, was: %s",
-                       node_str);
-          return FALSE;
-        }
-
-      if (g_strv_contains ((const gchar * const *) supported_languages, string))
-        {
-          *is_filtered = TRUE;
-          return TRUE;
-        }
-    }
-
-  *is_filtered = FALSE;
-  return TRUE;
-}
-
-static gboolean
-locale_only_filter_applies (JsonNode  *filter_value,
-                                  gboolean  *is_filtered,
-                                  GError   **error)
-{
-  JsonArray *skip_locales_array = json_node_get_array (filter_value);
-  g_autoptr(GList) locale_nodes = NULL;
-  GList *iter = NULL;
-  g_auto(GStrv) supported_languages = NULL;
-
-  g_return_val_if_fail (is_filtered != NULL, FALSE);
-
-  if (!get_locales_list_from_flatpak_installation (&supported_languages,
-                                                   error))
-    return FALSE;
-
-  if (skip_locales_array == NULL)
-    {
-      g_autofree gchar *node_str = json_node_to_string (filter_value);
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected 'locales' filter to be an array, was: %s",
-                   node_str);
-      return FALSE;
-    }
-
-  locale_nodes = json_array_get_elements (skip_locales_array);
-
-  for (iter = locale_nodes; iter != NULL; iter = iter->next)
-    {
-      const gchar *string = json_node_get_string (iter->data);
-
-      if (string == NULL)
-        {
-          g_autofree gchar *node_str = json_node_to_string (filter_value);
-          g_set_error (error,
-                       EOS_UPDATER_ERROR,
-                       EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                       "Expected 'locales' array to contain string values, was: %s",
-                       node_str);
-          return FALSE;
-        }
-
-      if (g_strv_contains ((const gchar * const *) supported_languages, string))
-        {
-          *is_filtered = FALSE;
-          return TRUE;
-        }
-    }
-
-  *is_filtered = TRUE;
   return TRUE;
 }
 
@@ -632,21 +515,51 @@ action_filter_applies (JsonObject   *object,
                        gboolean     *is_filtered,
                        GError      **error)
 {
-  JsonNode *filter_value = json_object_get_member (object, filter_key_name);
+  const gchar *current_architecture_strv[] =
+  {
+    eos_updater_get_system_architecture_string (),
+    NULL
+  };
+  g_auto(GStrv) supported_languages = NULL;
 
   g_return_val_if_fail (is_filtered != NULL, FALSE);
 
-  if (g_strcmp0 (filter_key_name, "~architectures") == 0 &&
-      architecture_skip_filter_applies (filter_value, is_filtered, error))
-    return TRUE;
+  if (!get_locales_list_from_flatpak_installation (&supported_languages,
+                                                   error))
+    return FALSE;
+
   if (g_strcmp0 (filter_key_name, "architectures") == 0 &&
-           architecture_only_filter_applies (filter_value, is_filtered, error))
+      strv_element_in_json_member ((GStrv) current_architecture_strv,
+                                   object,
+                                   filter_key_name,
+                                   is_filtered,
+                                   error) &&
+      invert_outvalue (is_filtered))
     return TRUE;
-  if (g_strcmp0 (filter_key_name, "~locales") == 0 &&
-           locale_skip_filter_applies (filter_value, is_filtered, error))
+
+  if (g_strcmp0 (filter_key_name, "~architectures") == 0 &&
+      strv_element_in_json_member ((GStrv) current_architecture_strv,
+                                   object,
+                                   filter_key_name,
+                                   is_filtered,
+                                   error))
     return TRUE;
+
   if (g_strcmp0 (filter_key_name, "locales") == 0 &&
-           locale_only_filter_applies (filter_value, is_filtered, error))
+      strv_element_in_json_member (supported_languages,
+                                   object,
+                                   filter_key_name,
+                                   is_filtered,
+                                   error) &&
+      invert_outvalue (is_filtered))
+    return TRUE;
+
+  if (g_strcmp0 (filter_key_name, "~locales") == 0 &&
+      strv_element_in_json_member (supported_languages,
+                                   object,
+                                   filter_key_name,
+                                   is_filtered,
+                                   error))
     return TRUE;
 
   g_set_error (error,
