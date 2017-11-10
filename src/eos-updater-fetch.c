@@ -460,7 +460,10 @@ find_first_flatpak_repo_for_collection_id (FlatpakInstallation        *installat
   allocated_results = ostree_repo_find_remotes_finish (repo, find_result, error);
 
   if (!allocated_results)
-    return NULL;
+    {
+      g_main_context_pop_thread_default (context);
+      return NULL;
+    }
 
   /* TODO: Currently returning the highest priority result,
    * might want to do something smarter than this, but that will depend
@@ -470,10 +473,13 @@ find_first_flatpak_repo_for_collection_id (FlatpakInstallation        *installat
       g_set_error (error,
                    G_IO_ERROR,
                    G_IO_ERROR_FAILED,
-                   "Couldn't find any flatpak remotes for collection-id '%s'",
+                   "Couldn't find any flatpak remotes for collection ID '%s'",
                    collection_ref->collection_id);
+      g_main_context_pop_thread_default (context);
       return NULL;
     }
+
+  g_main_context_pop_thread_default (context);
 
   return g_strdup (ostree_remote_get_name (highest_priority_repo_finder_result (allocated_results)->remote));
 }
@@ -481,7 +487,7 @@ find_first_flatpak_repo_for_collection_id (FlatpakInstallation        *installat
 
 /* Given a GPtrArray of FlatpakRemoteRefAction, set the remote-name property
  * in each action "ref" to the name of the actual remote we will be pulling
- * from as opposed to the collection-id.
+ * from as opposed to the collection ID.
  *
  * TODO: This is transitional for now, until flatpak supports pulling
  * from collection refs natively */
@@ -510,7 +516,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
 
       /* If we didn't hit the remote name cache, figure it out now. This operation
        * hits the network, so we only want to perform it if necessary */
-      if (!remote_name)
+      if (remote_name == NULL)
         {
           g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (to_install));
           g_autofree gchar *found_remote_name = NULL;
@@ -520,33 +526,33 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
             formatted_ref
           };
 
-          g_message ("Looking up flatpak remote name for collection-id %s", collection_id);
+          g_message ("Looking up flatpak remote name for collection ID %s", collection_id);
 
           /* Recall that the remote name we put into the FlatpakRemoteRef
            * is not actually a remote name, it is a (TODO transitional)
-           * collection-id. We'll use OstreeRepoFinder to figure out what remote
-           * name to use in place of the collection-id and pass it to
+           * collection ID. We'll use OstreeRepoFinder to figure out what remote
+           * name to use in place of the collection ID and pass it to
            * flatpak_installation_install_full below.
            *
            * Once flatpak_installation_install_full gains support for passing
-           * collection-id's as opposed to remotes, then we can drop this code */
+           * collection ID's as opposed to remotes, then we can drop this code */
           found_remote_name = find_first_flatpak_repo_for_collection_id (installation,
                                                                          &collection_ref,
                                                                          cancellable,
                                                                          &local_error);
           remote_name = found_remote_name;
 
-          /* Should be able to find a remote name for all collection-ids */
+          /* Should be able to find a remote name for all collection IDs */
           if (remote_name == NULL)
             {
-              g_message ("Failed to find a remote name for collection-id %s: %s",
+              g_message ("Failed to find a remote name for collection ID %s: %s",
                          collection_id,
                          local_error->message);
               g_propagate_error (error, g_steal_pointer (&local_error));
               return FALSE;
             }
 
-          g_message ("Found remote name %s for collection-id %s",
+          g_message ("Found remote name %s for collection ID %s",
                      remote_name,
                      collection_id);
 
@@ -569,7 +575,7 @@ pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
 {
   g_autoptr(FlatpakInstallation) installation = eos_updater_get_flatpak_installation (cancellable,
                                                                                       error);
-  gsize i = 0;
+  gsize i;
 
   if (!installation)
     return FALSE;
@@ -577,7 +583,7 @@ pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
   /* From this point onwards, remote-name properties in the action refs are
    * "resolved" - they refer to actual remotes as opposed to collections. We
    * do this here once for N actions as opposed to inline below because
-   * (1) we only need to resolve each collection-id once and
+   * (1) we only need to resolve each collection ID once and
    * (2) in case deployment fails, we need to revert the pulled flatpaks which
    *     requires knowing the remote names for all of them */
   if (!transition_pending_ref_action_collection_ids_to_remote_names (installation,
@@ -586,7 +592,7 @@ pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
                                                                      error))
     return FALSE;
 
-  for (; i < pending_flatpak_ref_actions->len; ++i)
+  for (i = 0; i < pending_flatpak_ref_actions->len; ++i)
     {
       FlatpakRemoteRefAction *action = g_ptr_array_index (pending_flatpak_ref_actions, i);
       FlatpakRemoteRef *to_install = action->ref;
@@ -619,10 +625,10 @@ pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
                                          &local_error);
 
       /* This is highly highly unlikely to happen and should usually only
-       * occurr in cases of deployment or programmer error,
+       * occur in cases of deployment or programmer error,
        * FLATPAK_INSTALL_FLAGS_NO_DEPLOY is documented to always return
        * the error FLATPAK_ERROR_ONLY_PULLED */
-      if (!local_error)
+      if (local_error == NULL)
         {
           g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Flatpak installation should not have succeeded!");
           return FALSE;
@@ -654,7 +660,7 @@ compute_flatpak_ref_actions_tables (OstreeRepo    *repo,
                                     GCancellable  *cancellable,
                                     GError       **error)
 {
-  g_auto(GStrv) override_dirs = g_strsplit(eos_updater_util_flatpak_autoinstall_override_paths (), ";", -1);
+  g_auto(GStrv) override_dirs = g_strsplit (eos_updater_util_flatpak_autoinstall_override_paths (), ";", -1);
   GStrv iter = NULL;
   gint priority_counter = 0;
   g_autoptr(GHashTable) ref_actions = flatpak_ref_actions_for_commit (repo,

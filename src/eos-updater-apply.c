@@ -172,7 +172,6 @@ apply_internal (EosUpdater     *updater,
 
   bootversion = ostree_sysroot_get_bootversion (sysroot);
 
-  /* Deploy the new system, but roll back pulled flatpaks if that fails */
   new_deployment = deploy_new_sysroot (updater,
                                        repo,
                                        sysroot,

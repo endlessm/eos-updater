@@ -31,6 +31,11 @@
 
 G_BEGIN_DECLS
 
+/**
+ * The priority markers for directories where flatpak ref action files
+ * are placed. A lower number indicates a higher priority. Generally speaking,
+ * ref actions files shipped on the ostree have the lowest priority and
+ * overrides in the system configuration have a higher priority */
 #define FLATPAKS_IN_OSTREE_PRIORITY 100
 #define FLATPAKS_IN_OVERRIDE_DIR_PRIORITY 0
 
@@ -40,7 +45,7 @@ typedef enum {
 } EosUpdaterUtilFlatpakRemoteRefActionType;
 
 typedef struct {
-  unsigned int                             ref_cnt;
+  guint                                    ref_count;
 
   EosUpdaterUtilFlatpakRemoteRefActionType type;
   FlatpakRemoteRef                         *ref;
@@ -89,7 +94,6 @@ GHashTable * eos_updater_util_filter_for_existing_flatpak_ref_actions (GHashTabl
                                                                        GHashTable *progresses);
 GHashTable * eos_updater_util_squash_remote_ref_actions (GHashTable *ref_actions);
 GPtrArray * eos_updater_util_flatten_flatpak_ref_actions_table (GHashTable *flatpak_ref_actions);
-GHashTable * eos_updater_util_remote_ref_actions_to_expected_progresses (GHashTable *ref_actions_table);
 
 gchar * eos_updater_util_format_all_flatpak_ref_actions (const gchar *title,
                                                          GHashTable  *flatpak_ref_actions_for_this_boot);

@@ -96,16 +96,6 @@ flatpak_remote_ref_action_type_parse (const gchar                               
   return TRUE;
 }
 
-static gboolean
-parse_monotonic_counter (const gchar  *component,
-                         guint64      *out_counter,
-                         GError      **error)
-{
-  g_return_val_if_fail (out_counter != NULL, FALSE);
-
-  return eos_string_to_unsigned (component, 10, 0, G_MAXUINT32, out_counter, error);
-}
-
 static gchar *
 json_node_to_string (JsonNode *node)
 {
@@ -482,7 +472,7 @@ eos_updater_override_locales_list (void)
   const gchar *override_locales = eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_OVERRIDE_LOCALES", NULL);
 
   if (override_locales)
-    return g_strsplit(override_locales, ";", -1);
+    return g_strsplit (override_locales, ";", -1);
 
   return NULL;
 }
@@ -492,9 +482,6 @@ get_locales_list_from_flatpak_installation (GStrv  *out_strv,
                                             GError **error)
 {
   g_autoptr(FlatpakInstallation) installation = eos_updater_get_flatpak_installation (NULL, error);
-  g_autoptr(GError) local_error = NULL;
-  g_autofree gchar *value = NULL;
-
   g_assert (out_strv != NULL);
 
   if (!installation)
@@ -797,13 +784,6 @@ eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relat
       if (!file || !info)
         break;
 
-      action_refs = read_flatpak_ref_actions_from_file (file,
-                                                        cancellable,
-                                                        error);
-
-      if (!action_refs)
-        return FALSE;
-
       filename = g_file_info_get_name (info);
 
       /* We may already have a remote_ref_actions_file in the hash table
@@ -815,6 +795,13 @@ eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relat
       if (existing_actions_file &&
           existing_actions_file->priority < priority)
         continue;
+
+      action_refs = read_flatpak_ref_actions_from_file (file,
+                                                        cancellable,
+                                                        error);
+
+      if (!action_refs)
+        return FALSE;
 
       g_hash_table_replace (ref_actions_for_files,
                             g_strdup (filename),
@@ -905,7 +892,7 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions)
                                                             flatpak_ref_equal,
                                                             g_object_unref,
                                                             (GDestroyNotify) flatpak_remote_ref_action_unref);
-  GPtrArray *squashed_ref_actions = NULL;
+  g_autoptr(GPtrArray) squashed_ref_actions = NULL;
   gsize i;
   gpointer key;
   gpointer value;
@@ -929,7 +916,7 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions)
 
   g_ptr_array_sort (squashed_ref_actions, sort_flatpak_remote_ref_actions);
 
-  return squashed_ref_actions;
+  return g_steal_pointer (&squashed_ref_actions);
 }
 
 /* Given a hash table of filenames to FlatpakRemoteRefActionsFile, hoist
@@ -989,42 +976,6 @@ eos_updater_util_squash_remote_ref_actions (GHashTable *ref_actions_table)
     }
 
   return squashed_ref_actions_table;
-}
-
-/* Take the most recent (eg, last) entry in each ref actions list in the
- * ref_actions_table and return a hash table mapping each ref action filename
- * to a counter indicating how up to date we are on the system for that
- * file */
-GHashTable *
-eos_updater_util_remote_ref_actions_to_expected_progresses (GHashTable *ref_actions_table)
-{
-  g_autoptr(GHashTable) counts = g_hash_table_new_full (g_str_hash,
-                                                        g_str_equal,
-                                                        g_free,
-                                                        NULL);
-  GHashTableIter iter;
-  gpointer key, value;
-
-  while (g_hash_table_iter_next (&iter, &key, &value))
-    {
-      GPtrArray *ref_actions = value;
-
-      /* This probably shouldn't happen, but at least we shouldn't crash if
-       * it does */
-      if (ref_actions->len == 0)
-        {
-          g_warning ("Remote ref actions file %s has no actions, that's odd...",
-                     key);
-          continue;
-        }
-
-      g_hash_table_insert (counts,
-                           g_strdup (key),
-                           GINT_TO_POINTER (g_ptr_array_index (ref_actions,
-                                                               ref_actions->len - 1)));
-    }
-
-  return g_steal_pointer (&counts);
 }
 
 typedef GPtrArray * (*FilterFlatpakRefActionsFunc)(const gchar  *table_name,
@@ -1163,8 +1114,8 @@ const gchar *
 eos_updater_util_flatpak_autoinstall_override_paths (void)
 {
   return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS",
-                                    LOCALSTATEDIR "/lib/eos-application-tools/flatpak-autoinstall.d;"
-                                    SYSCONFDIR "/eos-application-tools/flatpak-autoinstall.d");
+                                    SYSCONFDIR "/eos-application-tools/flatpak-autoinstall.d;"
+                                    LOCALSTATEDIR "/lib/eos-application-tools/flatpak-autoinstall.d");
 }
 
 GHashTable *
@@ -1199,31 +1150,22 @@ eos_updater_util_flatpak_ref_action_application_progress_in_state_path (GCancell
     }
 
   /* Enumerate each section. The section name is the path to the file */
-  groups_iter = groups = g_key_file_get_groups (state_key_file, NULL);
+  groups = g_key_file_get_groups (state_key_file, NULL);
 
-  while (*groups_iter != NULL)
+  for (groups_iter = groups; *groups_iter != NULL; ++groups_iter)
     {
       const gchar *source_path = *groups_iter;
-      g_autofree gchar *progress_string = NULL;
-      guint64 progress;
-
-      /* We need to use g_key_file_get_value here to guard against errors */
-      progress_string = g_key_file_get_value (state_key_file,
+      gint progress = g_key_file_get_integer (state_key_file,
                                               *groups_iter,
                                               "Progress",
                                               error);
 
-      if (progress_string == NULL)
-        return NULL;
-
-      if (!parse_monotonic_counter (progress_string, &progress, error))
+      if (progress == 0)
         return NULL;
 
       g_hash_table_insert (ref_action_progress_for_files,
                            g_strdup (source_path),
-                           GUINT_TO_POINTER (progress));
-
-      ++groups_iter;
+                           GINT_TO_POINTER (progress));
     }
 
   return g_steal_pointer (&ref_action_progress_for_files);
@@ -1273,7 +1215,7 @@ eos_updater_util_format_all_flatpak_ref_actions (const gchar *title,
 {
   gpointer key, value;
   GHashTableIter iter;
-  GString *string = g_string_new ("");
+  g_autoptr(GString) string = g_string_new ("");
 
   g_string_append_printf (string, "%s:\n", title);
 
@@ -1305,7 +1247,7 @@ eos_updater_util_format_all_flatpak_ref_actions (const gchar *title,
         }
     }
 
-  return g_string_free (string, FALSE);
+  return g_string_free (g_steal_pointer (&string), FALSE);
 }
 
 gchar *
@@ -1313,7 +1255,7 @@ eos_updater_util_format_all_flatpak_ref_actions_progresses (GHashTable *flatpak_
 {
   gpointer key, value;
   GHashTableIter iter;
-  GString *string = g_string_new ("Action application progresses:\n");
+  g_autoptr(GString) string = g_string_new ("Action application progresses:\n");
 
   g_hash_table_iter_init (&iter, flatpak_ref_action_progresses);
 
@@ -1325,5 +1267,5 @@ eos_updater_util_format_all_flatpak_ref_actions_progresses (GHashTable *flatpak_
       g_message ("  %s: %lli", source, progress);
     }
 
-  return g_string_free (string, FALSE);
+  return g_string_free (g_steal_pointer (&string), FALSE);
 }

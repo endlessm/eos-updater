@@ -320,6 +320,7 @@ get_refspec_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
   g_autoptr(GVariant) commit = NULL;
   g_autoptr(GVariant) metadata = NULL;
   g_autoptr(GVariant) ref_for_deployment_variant = NULL;
+  g_autofree gchar *refspec_for_deployment = NULL;
   OstreeRepo *repo = NULL;
 
   g_return_val_if_fail (out_refspec_to_upgrade_from_deployment != NULL, FALSE);
@@ -347,7 +348,13 @@ get_refspec_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
       return TRUE;
     }
 
-  *out_refspec_to_upgrade_from_deployment = g_variant_dup_string (ref_for_deployment_variant, NULL);
+  refspec_for_deployment = g_variant_dup_string (ref_for_deployment_variant, NULL);
+
+  if (refspec_for_deployment != NULL &&
+      !ostree_parse_refspec (refspec_for_deployment, NULL, NULL, NULL))
+      return FALSE;
+
+  *out_refspec_to_upgrade_from_deployment = g_steal_pointer (&refspec_for_deployment);
   return TRUE;
 }
 
@@ -901,22 +908,6 @@ run_fetchers (EosMetadataFetchData *fetch_data,
       EosUpdateInfo *latest_update = NULL;
       g_autofree gchar *booted_ref = NULL;
       g_autoptr(GError) metrics_error = NULL;
-
-      /* Send metrics about our ref: this is the ref we’re going to upgrade to,
-       * which is usually the same as the one we’re currently on, but in
-       * the case where we are upgrading from a checkpoint, the ref that we
-       * are going to switch to. */
-      if (get_refspec_to_upgrade_on (NULL, NULL, &booted_ref, NULL, &metrics_error))
-        {
-          g_autoptr(EosMetricsInfo) metrics = NULL;
-
-          metrics = eos_metrics_info_new (booted_ref);
-          maybe_send_metric (metrics);
-        }
-      else
-        {
-          g_message ("Failed to get metrics: %s", metrics_error->message);
-        }
 
       latest_update = get_latest_update (sources, source_to_update);
       if (latest_update != NULL)
