@@ -135,6 +135,38 @@ parse_ref_kind (const gchar     *ref_kind_str,
   return TRUE;
 }
 
+static const gchar *
+maybe_get_json_object_string_member (JsonObject   *object,
+                                     const gchar  *key,
+                                     GError      **error)
+{
+  JsonNode *member = json_object_get_member (object, key);
+
+  if (key == NULL)
+    {
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected an '%s' member",
+                   key);
+
+      return NULL;
+    }
+
+  if (json_node_get_value_type (member) != G_TYPE_STRING)
+    {
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected '%s' member to be a string",
+                   key);
+
+      return NULL;
+    }
+
+  return json_node_get_string (member);
+}
+
 static gboolean
 parse_flatpak_ref_from_entry (JsonObject      *entry,
                               const gchar    **out_app_name,
@@ -148,28 +180,15 @@ parse_flatpak_ref_from_entry (JsonObject      *entry,
   g_return_val_if_fail (out_ref_kind != NULL, FALSE);
   g_return_val_if_fail (out_app_name != NULL, FALSE);
 
-  app_name = json_object_get_string_member (entry, "app");
+  app_name = maybe_get_json_object_string_member (entry, "app", error);
 
   if (app_name == NULL)
-    {
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected an 'app' member");
+    return FALSE;
 
-      return FALSE;
-    }
-
-  ref_kind_str = json_object_get_string_member (entry, "ref-kind");
+  ref_kind_str = maybe_get_json_object_string_member (entry, "ref-kind", error);
 
   if (ref_kind_str == NULL)
-    {
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected a 'ref-kind' member");
-      return FALSE;
-    }
+    return FALSE;
 
   if (!parse_ref_kind (ref_kind_str, &kind, error))
     return FALSE;
@@ -191,16 +210,10 @@ flatpak_remote_ref_from_install_action_entry (JsonObject *entry,
   if (!parse_flatpak_ref_from_entry (entry, &app_name, &kind, error))
     return NULL;
 
-  collection_id = json_object_get_string_member (entry, "collection-id");
+  collection_id = maybe_get_json_object_string_member (entry, "collection-id", error);
 
   if (collection_id == NULL)
-    {
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected a 'collection-id' member");
-      return NULL;
-    }
+    return NULL;
 
   /* TODO: Right now we "stuff" the collection-id in the remote-name part
    * of the FlatpakRemoteRef and look up the corresponding remote later on
@@ -250,7 +263,7 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
                                           GError **error)
 {
   const gchar *action_type_str = NULL;
-  JsonObject *object = json_node_get_object (node);
+  JsonObject *object = NULL;
   g_autoptr(FlatpakRemoteRef) flatpak_remote_ref = NULL;
   g_autoptr(GError) local_error = NULL;
   JsonNode *serial_node = NULL;
@@ -258,7 +271,7 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
   gint32 serial;
   EosUpdaterUtilFlatpakRemoteRefActionType action_type;
 
-  if (object == NULL)
+  if (!JSON_NODE_HOLDS_OBJECT (node))
     {
       g_autofree gchar *node_str = json_node_to_string (node);
       g_set_error (error,
@@ -269,18 +282,11 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
       return NULL;
     }
 
-  action_type_str = json_object_get_string_member (object, "action");
+  object = json_node_get_object (node);
+  action_type_str = maybe_get_json_object_string_member (object, "action", error);
 
   if (action_type_str == NULL)
-    {
-      g_autofree gchar *node_str = json_node_to_string (node);
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected an 'action' member in the autoinstall spec (at %s)", node_str);
-
-      return NULL;
-    }
+    return NULL;
 
   if (!flatpak_remote_ref_action_type_parse (action_type_str, &action_type, error))
     return NULL;
@@ -289,14 +295,7 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
   if (serial_node == NULL ||
       !JSON_NODE_HOLDS_VALUE (serial_node) ||
       json_node_get_value_type (serial_node) != G_TYPE_INT64)
-    {
-      g_autofree gchar *node_str = json_node_to_string (node);
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected a 'serial' member in the autoinstall spec (at %s)", node_str);
-      return NULL;
-    }
+    return NULL;
 
   serial64 = json_node_get_int (serial_node);
 
@@ -380,7 +379,13 @@ lookup_array_nodes (JsonObject   *object,
                     GError      **error)
 {
   JsonNode *filter_value = json_object_get_member (object, key);
-  JsonArray *filter_array = json_node_get_array (filter_value);
+  JsonArray *filter_array = NULL;
+
+  /* Asserting here, since this function is meant to be called with
+   * an object that has a known key */
+  g_return_val_if_fail (filter_value != NULL, NULL);
+
+  filter_array = json_node_get_array (filter_value);
 
   if (filter_array == NULL)
     {
