@@ -291,6 +291,10 @@ eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
 	eos-updater-flatpak-installer/main.c \
 	$(NULL)
 
+dist_man5_MANS += \
+	eos-updater-flatpak-installer/docs/eos-updater-flatpak-autoinstall.d.5 \
+	$(NULL)
+
 dist_man8_MANS += \
 	eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8 \
 	$(NULL)
