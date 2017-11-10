@@ -890,12 +890,12 @@ eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relat
 
       /* We may already have a remote_ref_actions_file in the hash table
        * and we cannot just blindly replace it. Replace it only if
-       * the priority of the incoming directory is greater */
+       * the priority of the incoming directory is less */
       existing_actions_file = g_hash_table_lookup (ref_actions_for_files,
                                                    filename);
 
       if (existing_actions_file &&
-          existing_actions_file->priority > priority)
+          existing_actions_file->priority < priority)
         continue;
 
       g_hash_table_replace (ref_actions_for_files,
@@ -1242,10 +1242,11 @@ eos_updater_util_pending_flatpak_deployments_state_path (void)
 }
 
 const gchar *
-eos_updater_util_flatpak_autoinstall_override_path (void)
+eos_updater_util_flatpak_autoinstall_override_paths (void)
 {
-  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIR",
-                                    LOCALSTATEDIR "/lib/eos-application-tools/override/flatpak-autoinstall.d");
+  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS",
+                                    LOCALSTATEDIR "/lib/eos-application-tools/flatpak-autoinstall.d;"
+                                    SYSCONFDIR "/eos-application-tools/flatpak-autoinstall.d");
 }
 
 GHashTable *

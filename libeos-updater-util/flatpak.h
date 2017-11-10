@@ -31,8 +31,8 @@
 
 G_BEGIN_DECLS
 
-#define FLATPAKS_IN_OSTREE_PRIORITY 0
-#define FLATPAKS_IN_OVERRIDE_DIR_PRIORITY 1
+#define FLATPAKS_IN_OSTREE_PRIORITY 100
+#define FLATPAKS_IN_OVERRIDE_DIR_PRIORITY 0
 
 typedef enum {
   EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL = 0,
@@ -97,6 +97,6 @@ gchar * eos_updater_util_format_all_flatpak_ref_actions_progresses (GHashTable *
 
 
 const gchar * eos_updater_util_pending_flatpak_deployments_state_path (void);
-const gchar * eos_updater_util_flatpak_autoinstall_override_path (void);
+const gchar * eos_updater_util_flatpak_autoinstall_override_paths (void);
 
 G_END_DECLS

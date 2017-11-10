@@ -654,6 +654,9 @@ compute_flatpak_ref_actions_tables (OstreeRepo    *repo,
                                     GCancellable  *cancellable,
                                     GError       **error)
 {
+  g_auto(GStrv) override_dirs = g_strsplit(eos_updater_util_flatpak_autoinstall_override_paths (), ";", -1);
+  GStrv iter = NULL;
+  gint priority_counter = 0;
   g_autoptr(GHashTable) ref_actions = flatpak_ref_actions_for_commit (repo,
                                                                       update_id,
                                                                       cancellable,
@@ -662,12 +665,15 @@ compute_flatpak_ref_actions_tables (OstreeRepo    *repo,
   if (!ref_actions)
     return NULL;
 
-  if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (eos_updater_util_flatpak_autoinstall_override_path (),
-                                                                         ref_actions,
-                                                                         FLATPAKS_IN_OVERRIDE_DIR_PRIORITY,
-                                                                         cancellable,
-                                                                         error))
-    return NULL;
+  for (iter = override_dirs; *iter != NULL; ++iter, ++priority_counter)
+    {
+      if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (*iter,
+                                                                             ref_actions,
+                                                                             FLATPAKS_IN_OVERRIDE_DIR_PRIORITY + priority_counter,
+                                                                             NULL,
+                                                                             error))
+        return NULL;
+    }
 
   return eos_updater_util_hoist_flatpak_remote_ref_actions (ref_actions);
 }

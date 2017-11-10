@@ -86,6 +86,9 @@ incoming_flatpak_ref_actions (GError **error)
                                                                                            FLATPAKS_IN_OSTREE_PRIORITY,
                                                                                            NULL,
                                                                                            &local_error);
+  g_auto(GStrv) override_dirs = g_strsplit(eos_updater_util_flatpak_autoinstall_override_paths (), ";", -1);
+  GStrv iter = NULL;
+  gint priority_counter = 0;
   GHashTable *hoisted_actions = NULL;
 
   /* If we don't have any from the deployment, we might still have some
@@ -105,12 +108,15 @@ incoming_flatpak_ref_actions (GError **error)
                                            (GDestroyNotify) flatpak_remote_ref_actions_file_free);
     }
 
-  if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (eos_updater_util_flatpak_autoinstall_override_path (),
-                                                                         ref_actions,
-                                                                         FLATPAKS_IN_OVERRIDE_DIR_PRIORITY,
-                                                                         NULL,
-                                                                         error))
-    return NULL;
+  for (iter = override_dirs; *iter != NULL; ++iter, ++priority_counter)
+    {
+      if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (*iter,
+                                                                             ref_actions,
+                                                                             FLATPAKS_IN_OVERRIDE_DIR_PRIORITY + priority_counter,
+                                                                             NULL,
+                                                                             error))
+        return NULL;
+    }
 
   hoisted_actions = eos_updater_util_hoist_flatpak_remote_ref_actions (ref_actions);
   return hoisted_actions;
