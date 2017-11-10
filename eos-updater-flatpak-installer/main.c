@@ -33,6 +33,8 @@
 
 #include "installer.h"
 
+#define EXIT_CHECK_FAILED 3
+
 typedef enum {
   EU_INSTALLER_FLAGS_NONE = 0,
   EU_INSTALLER_FLAGS_ALSO_PULL = (1 << 0)
@@ -701,7 +703,7 @@ main (int    argc,
             {
               g_message ("Flatpak ref actions are not up to date: %s",
                          error->message);
-              return EXIT_FAILURE;
+              return EXIT_CHECK_FAILED;
             }
 
           break;
