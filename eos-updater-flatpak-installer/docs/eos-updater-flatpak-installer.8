@@ -1,10 +1,10 @@
 .\" Manpage for eos-updater-flatpak-installer.
 .\" Documentation is under the same licence as the eos-updater package.
-.TH man 8 "13 Apr 2017" "1.0" "eos\-updater\-flatpak\-installer man page"
+.TH man 8 "10 Nov 2017" "1.0" "eos\-updater\-flatpak\-installer man page"
 .\"
 .SH NAME
 .IX Header "NAME"
-eos\-updater\-flatpak\-installer — Endless OS Updater - Flatpak Installer
+eos\-updater\-flatpak\-installer — Endless OS Updater Flatpak Installer
 .\"
 .SH SYNOPSIS
 .IX Header "SYNOPSIS"
@@ -62,25 +62,27 @@ not installed or removed.
 .SH "FILES"
 .IX Header "FILES"
 .\"
-.IP \fI/usr/share/eos-application-tools/flatpak-autoinstall.d/*\fP 4
+.PP
+\fI/var/lib/eos-application-tools/flatpak-autoinstall.d/*\fP
+.\"
+.\"
+.PP
+\fI/etc/eos-application-tools/flatpak-autoinstall.d/*\fP
+.\"
+.PP
+\fI/usr/share/eos-application-tools/flatpak-autoinstall.d/*\fP
+.\"
 .IX Item "/usr/share/eos-application-tools/flatpak-autoinstall.d/*"
 Each of the files in this directory contain a list of actions to be applied
 by the installer.
 .\"
-.IP \fI/var/lib/eos-application-tools/flatpak-autoinstall.d/*\fP 4
-.IX Item "/var/lib/eos-application-tools/flatpak-autoinstall.d/*"
-Each of the files in this directory mirrors the files in
-"/usr/share/eos-application-tools/flatpak-autoinstall.d/*" and contains
-a single number with the index of the most recently applied action (with
-the assumption that all actions prior to that have been applied).
-.\"
-.\"
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 .\"
-\fBeos\-updater\-service\fP(8),
+\fBeos\-updater.service\fP(8),
 \fBeos\-updater\fP(8),
 \fBeos\-updater\-flatpak\-autoinstall.d\fP(5)
+\fBflatpak\fP(1)
 .\"
 .SH BUGS
 .IX Header "BUGS"
