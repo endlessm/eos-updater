@@ -315,6 +315,9 @@ EXTRA_DIST += \
 
 CLEANFILES += $(eos_updater_flatpak_installer_in:%.in=%)
 
+dist_man5_MANS += eos-updater-flatpak-installer/docs/eos-updater-flatpak-autoinstall.d.5
+dist_man8_MANS += eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8
+
 # Generic systemd rules
 edit = sed \
 	-e 's|[@]bindir[@]|$(bindir)|g' \
