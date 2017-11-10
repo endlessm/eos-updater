@@ -604,7 +604,7 @@ compute_flatpak_ref_actions_tables (OstreeRepo    *repo,
   return eos_updater_util_hoist_flatpak_remote_ref_actions (ref_actions);
 }
 
-static GPtrArray *
+static gboolean
 prepare_flatpaks_to_deploy (OstreeRepo    *repo,
                             const gchar   *update_id,
                             GCancellable  *cancellable,
@@ -624,7 +624,7 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
                                                                               error);
 
   if (!flatpak_ref_actions_this_commit_wants)
-    return NULL;
+    return FALSE;
 
   formatted_flatpak_ref_actions_this_commit_wants =
     eos_updater_util_format_all_flatpak_ref_actions ("All flatpak ref actions that this commit wants to have applied on deployment",
@@ -636,7 +636,7 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
                                                                             error);
 
   if (!flatpak_ref_action_progresses)
-    return NULL;
+    return FALSE;
 
   formatted_flatpak_ref_actions_progress = eos_updater_util_format_all_flatpak_ref_actions_progresses (flatpak_ref_action_progresses);
   g_message ("%s", formatted_flatpak_ref_actions_progress);
@@ -656,9 +656,9 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
   flatpaks_to_deploy = eos_updater_util_flatten_flatpak_ref_actions_table (relevant_flatpak_ref_actions);
 
   if (!pull_flatpaks (flatpaks_to_deploy, cancellable, error))
-    return NULL;
+    return FALSE;
 
-  return g_steal_pointer (&flatpaks_to_deploy);
+  return TRUE;
 }
 
 static gboolean

@@ -180,15 +180,16 @@ static JsonNode *
 flatpaks_to_install_to_json (const FlatpakToInstall *flatpaks,
                              gsize                   n_flatpaks)
 {
-  guint serial;
+  guint i;
   g_autoptr(JsonBuilder) builder = json_builder_new ();
 
   json_builder_begin_array (builder);
 
-  for (serial = 0; serial < n_flatpaks; ++serial)
+  /* Zero is not a valid serial, we pass i + 1 */
+  for (i = 0; i < n_flatpaks; ++i)
     json_builder_add_value (builder,
-                            flatpak_to_install_to_json_entry (&flatpaks[serial],
-                                                              serial));
+                            flatpak_to_install_to_json_entry (&flatpaks[i],
+                                                              i + 1));
 
   json_builder_end_array (builder);
 
