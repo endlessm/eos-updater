@@ -82,7 +82,9 @@
         },
         "serial": {
             "description": "A unique serial number for this event, unique to the domain named after the autoinstall file. Serial numbers must be assigned monotonically increasing values.",
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
         },
         "ref-kind": {
             "description": "The flatpak ref kind",
