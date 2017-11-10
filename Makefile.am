@@ -71,12 +71,11 @@ enum_sources = \
 	libeos-updater-util/enums.c \
 	$(NULL)
 
-# FIXME: We can't use the --output switch as documented in https://git.gnome.org/browse/glib/commit/?id=cd97f93bf7c44cb5736f6cbcb4db773ca592e462
 libeos-updater-util/enums.h:
-	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) > $@
+	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $@
 
 libeos-updater-util/enums.c:
-	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) > $@
+	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $@
 
 BUILT_SOURCES += $(enum_sources)
 CLEANFILES += $(enum_sources)
