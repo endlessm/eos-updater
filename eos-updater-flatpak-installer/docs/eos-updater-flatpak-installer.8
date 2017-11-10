@@ -9,34 +9,34 @@ eos\-updater\-flatpak\-installer — Endless OS Updater Flatpak Installer
 .SH SYNOPSIS
 .IX Header "SYNOPSIS"
 .\"
-\fBeos\-updater\-flatpak\-installer [\-m \-\-mode\fB] [\-p \-\-pull\fB]
+\fBeos\-updater\-flatpak\-installer [\-m \-\-mode] [\-p \-\-pull]
 .\"
 .SH DESCRIPTION
 .IX Header "DESCRIPTION"
 .\"
 \fBeos\-updater\-flatpak\-installer\fP installs downloaded flatpaks on Endless OS
-updates upon rebooting into the new update. It is the part of the system that
+updates upon booting into the new OS deployment. It is the part of the system that
 ensures that when new flatpaks are installed on OS Updates, they are
-installed "seamlessly", only appearing when rebooting into the new system.
+only made available when rebooting into the new OS deployment and not while
+the old OS deployment is still running..
 .PP
 .SH OPTIONS
 .IX Header "OPTIONS"
 .\"
 .IP "\fB\-m\fP, \fB\-\-mode\fP"
 Which mode to run the flatpak installer in. When set to \fBperform\fP, the
-installer will examine the list of applications to install in
-$(datadir)/eos-application-tools/flatpak-autoinstall.d/*,
-/var/lib/eos-updater/flatpak-autoinstall.d/override/* and the counter state
-in /var/lib/eos-application-tools/flatpak-autoinstall.progress, then for each
-basename, perform only newly updated actions and save the most up to date
-serial number for each file in
+installer will examine the list of applications in the directories specified
+by \fBeos\-updater\-flatpak\-autoinstall.d\fP(5) and the counter state
+in \f/var/lib/eos-application-tools/flatpak-autoinstall.progress\fP, then for
+each basename, perform only newly updated actions and save the most up to date
+serial number for each file in ther counter state file.
 \".
 When set to \fBstamp\fP, \fBeos\-updater\-flatpak\-installer\fP will only save
 the updated actions to
-/var/lib/eos-application-tools/flatpak-autoinstall.progress. When set to
+\f/var/lib/eos-application-tools/flatpak-autoinstall.progress\fP. When set to
 \fBcheck\fP, the tool will check to see if all actions are applied (e.g., that
 applications that should have been installed are installed and every app that
-should have been removed are removed).
+should have been uninstalled is not installed).
 .\"
 .IP "\fB\-p\fP, \fB\-\-pull\fP"
 Whether to pull flatpaks as well as deploying them. By default, flatpaks are
@@ -46,16 +46,16 @@ not pulled during this step, it is expected that they will be pulled by
 .SH "KERNEL COMMAND LINE"
 .IX Header "KERNEL COMMAND LINE"
 .\"
-If the \fPeos\-updater\-flatpak\-installer.service\fP unit is started when
-the kernel command line contains \fPeos\-updater\-disable\fP, then 
+If the \fBeos\-updater\-flatpak\-installer.service\fP unit is started when
+the kernel command line contains \fBeos\-updater\-disable\fP, then
 it will have no effect.
 .\"
 .SH "EXIT STATUS"
 .IX Header "EXIT STATUS"
 .\"
-\fBeos\-updater\-flatpak\-installer\fP returns \fBEXIT_SUCCESS\fP in case of normal
-operation and \fBEXIT_FAILURE\fP in case a file was missing or we were unable
-apply some actions. It also returns \fBEXIT_FAILURE\fP when \fB\-\-mode\fP is
+\fBeos\-updater\-flatpak\-installer\fP returns \0\fP in case of normal
+operation and \1\fP in case a file was missing or we were unable
+apply some actions. It returns \3\fP when \fB\-\-mode\fP is
 set to \fBcheck\fP and flatpaks expected to be installed or removed are
 not installed or removed.
 .\"
