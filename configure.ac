@@ -121,17 +121,17 @@ AS_IF([test "$GDBUS_CODEGEN" = ""],[
 
 AC_PATH_PROG([OSTREE_BINARY],[ostree])
 AS_IF([test "$OSTREE_BINARY" = ""],[
-	AC_MSG_ERROR([ostree is required for tests])
+	AC_MSG_ERROR([ostree command line tool is required for tests])
 ])
 
 AC_PATH_PROG([GPG_BINARY],[gpg])
 AS_IF([test "$GPG_BINARY" = ""],[
-	AC_MSG_ERROR([gpg is required for tests])
+	AC_MSG_ERROR([gpg command line tool is required for tests])
 ])
 
 AC_PATH_PROG([FLATPAK_BINARY],[flatpak])
 AS_IF([test "$FLATPAK_BINARY" = ""],[
-	AC_MSG_ERROR([flatpak is required for tests])
+	AC_MSG_ERROR([flatpak command line tool is required for tests])
 ])
 
 AC_PATH_PROG([GLIB_COMPILE_RESOURCES],[glib-compile-resources])
