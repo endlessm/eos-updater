@@ -789,7 +789,7 @@ eos_updater_get_flatpak_installation (GCancellable *cancellable, GError **error)
 {
   const gchar *override_path = g_getenv ("EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR");
 
-  if (override_path)
+  if (override_path != NULL)
     {
       g_autoptr(GFile) override = g_file_new_for_path (override_path);
       return flatpak_installation_new_for_path (override, TRUE, cancellable, error);
