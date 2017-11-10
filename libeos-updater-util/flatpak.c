@@ -40,7 +40,7 @@ flatpak_remote_ref_action_new (EosUpdaterUtilFlatpakRemoteRefActionType  type,
 {
   FlatpakRemoteRefAction *action = g_slice_new0 (FlatpakRemoteRefAction);
 
-  action->ref_cnt = 1;
+  action->ref_count = 1;
   action->type = type;
   action->ref = g_object_ref (ref);
   action->serial = serial;
@@ -51,14 +51,19 @@ flatpak_remote_ref_action_new (EosUpdaterUtilFlatpakRemoteRefActionType  type,
 FlatpakRemoteRefAction *
 flatpak_remote_ref_action_ref (FlatpakRemoteRefAction *action)
 {
-  ++action->ref_cnt;
+  g_return_val_if_fail (action->ref_count > 0, NULL);
+  g_return_val_if_fail (action->ref_count < G_MAXUINT, NULL);
+
+  ++action->ref_count;
   return action;
 }
 
 void
 flatpak_remote_ref_action_unref (FlatpakRemoteRefAction *action)
 {
-  if (--action->ref_cnt != 0)
+  g_return_if_fail (action->ref_count > 0);
+
+  if (--action->ref_count != 0)
     return;
 
   g_object_unref (action->ref);
