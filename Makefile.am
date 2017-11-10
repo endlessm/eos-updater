@@ -164,7 +164,6 @@ CLEANFILES += $(eos_updater_avahi_in:%.in=%)
 
 dist_man8_MANS += \
 	eos-updater-avahi/docs/eos-updater-avahi.8 \
-	eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8 \
 	$(NULL)
 
 # Server utility library
@@ -290,6 +289,10 @@ eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDADD = \
 	$(NULL)
 eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
 	eos-updater-flatpak-installer/main.c \
+	$(NULL)
+
+dist_man8_MANS += \
+	eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8 \
 	$(NULL)
 
 # Generic systemd rules
