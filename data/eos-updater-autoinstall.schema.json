@@ -28,31 +28,57 @@
                 "collection-id": {
                     "$ref": "#/definitions/collection-id"
                 }
-            }
+            },
+            "required": ["ref-kind", "app", "collection-id"]
         },
-        "uninstall": {
+        {
             "properties": {
                 "action": {
                     "const": "uninstall",
                     "description": "The machine-readable type of event",
                     "type": "string"
                 },
-                "remote": {
-                    "description": "The remote to install the app from",
-                    "type": "string"
-                }
+                "serial": {
+                    "$ref": "#/definitions/serial"
+                },
+                "filters": {
+                    "$ref": "#/definitions/filters"
+                },
+                "ref-kind": {
+                    "$ref": "#/definitions/ref-kind"
+                },
+                "app": {
+                    "description": "The app-id to be installed",
+                    "$ref": "#/definitions/app"
+                },
             },
-            "required": ["ref-kind", "app", "remote"]
+            "required": ["ref-kind", "app"]
         }
     ],
     "required": ["action", "serial"],
     "definitions": {
         "filters": {
+            "title": "Filter to apply to action",
             "description": "Tests to apply to see whether this action should be performed or skipped. If it is skipped, the test to check whether it should be performed or skipped will never run again.",
             "type": "object",
-            "oneOf": [
-                { "$ref": "#/definitions/filters" }
-            ]
+            "properties": {
+                "~architectures": {
+                    "description": "Which architectures forbid performing this action on",
+                    "$ref": "#/definitions/filter"
+                },
+                "architectures": {
+                    "description": "Which architectures to only perform this action on",
+                    "$ref": "#/definitions/filter"
+                },
+                "~locales": {
+                    "description": "Which locales forbid performing this action on",
+                    "$ref": "#/definitions/filter"
+                },
+                "locales": {
+                    "description": "Which locales to only perform this action on",
+                    "$ref": "#/definitions/filter"
+                },
+            }
         },
         "serial": {
             "description": "A unique serial number for this event, unique to the domain named after the autoinstall file. Serial numbers must be assigned monotonically increasing values.",
@@ -71,68 +97,14 @@
             "description": "The collection-id to install the app from",
             "type": "string"
         },
-        "filters": {
-            "type": "object",
-            "title": "Detail for Flatpak Removal",
-            "description": "A description of a flatpak to be automatically removed",
-            "properties": {
-                "action": {
-                    "const": "uninstall",
-                    "description": "The machine-readable type of event",
-                    "type": "string"
-                },
-                "serial": {
-                    "$ref": "#/definitions/serial"
-                },
-                "filters": {
-                    "$ref": "#/definitions/filters"
-                },
-                "ref-kind": {
-                    "$ref": "#/definitions/ref-kind"
-                },
-                "app": {
-                    "$ref": "#/definitions/app"
-                }
-            }
+        "filter": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+                "type": "string"
+            },
+            "uniqueItems": true
         }
     },
-    "required": ["action", "serial", "detail"],
-    "definitions": {
-        "filters": {
-            "description": "Tests to apply to see whether this action should be performed or skipped. If it is skipped, the test to check whether it should be performed or skipped will never run again.",
-            "type": "object",
-            "oneOf": [
-                { "$ref": "#/definitions/filters" }
-            ]
-        },
-        "serial": {
-            "description": "A unique serial number for this event, unique to the domain named after the autoinstall file. Serial numbers must be assigned monotonically increasing values.",
-            "type": "integer"
-        },
-        "ref-kind": {
-            "description": "The flatpak ref kind",
-            "type": "string",
-            "enum": ["app", "runtime"]
-        },
-        "app": {
-            "description": "The app-id to be installed",
-            "type": "string"
-        },
-        "filters": {
-            "type": "object",
-            "title": "Filters to apply to action",
-            "description": "Tests to apply to see if action should be applied or skipped",
-            "properties": {
-                "~architectures": {
-                    "description": "Which architectures forbid performing this action on",
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                        "type": "string"
-                    },
-                    "uniqueItems": true
-                }
-            }
-        }
-    }
+    "required": ["action", "serial"]
 }
