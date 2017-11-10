@@ -18,7 +18,6 @@ eos_autoupdater_in = \
 	eos-autoupdater.service.in \
 	eos-autoupdater.timer.in \
 	eos-updater.service.in \
-	eos-updater-flatpak-installer.service.in \
 	$(NULL)
 
 systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)

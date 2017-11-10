@@ -291,6 +291,14 @@ eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
 	eos-updater-flatpak-installer/main.c \
 	$(NULL)
 
+eos_updater_flatpak_installer_systemd_unit_in = \
+	eos-updater-flatpak-installer/eos-updater-flatpak-installer.service.in \
+	$(NULL)
+
+systemdsystemunit_DATA += \
+	$(eos_updater_flatpak_installer_systemd_unit_in:%.in=%) \
+	$(NULL)
+
 dist_man5_MANS += \
 	eos-updater-flatpak-installer/docs/eos-updater-flatpak-autoinstall.d.5 \
 	$(NULL)
