@@ -111,12 +111,12 @@ AS_IF([test "$GDBUS_CODEGEN" = ""],[
 
 AC_PATH_PROG([OSTREE],[ostree])
 AS_IF([test "$OSTREE" = ""],[
-	AC_MSG_ERROR([ostree is required for tests])
+	AC_MSG_ERROR([ostree command line tool is required for tests])
 ])
 
 AC_PATH_PROG([GPG],[gpg])
 AS_IF([test "$GPG" = ""],[
-	AC_MSG_ERROR([gpg is required for tests])
+	AC_MSG_ERROR([gpg command line tool is required for tests])
 ])
 
 AC_PATH_PROG([GLIB_COMPILE_RESOURCES],[glib-compile-resources])
