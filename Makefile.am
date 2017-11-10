@@ -223,7 +223,7 @@ EXTRA_DIST += \
 	$(NULL)
 
 # eos-update-server program
-libexec_PROGRAMS += eos-update-server/eos-update-server eos-updater-flatpak-installer/eos-updater-flatpak-installer
+libexec_PROGRAMS += eos-update-server/eos-update-server
 
 eos_update_server_eos_update_server_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -269,6 +269,8 @@ dist_bin_SCRIPTS += eos-updater-prepare-volume/eos-updater-prepare-volume
 dist_man8_MANS += eos-updater-prepare-volume/docs/eos-updater-prepare-volume.8
 
 # eos-updater-flatpak-installer program
+libexec_PROGRAMS += eos-updater-flatpak-installer/eos-updater-flatpak-installer
+
 eos_updater_flatpak_installer_eos_updater_flatpak_installer_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DG_LOG_DOMAIN=\""eos-updater-flatpak-installer"\" \
@@ -292,21 +294,26 @@ eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
 	eos-updater-flatpak-installer/main.c \
 	$(NULL)
 
-eos_updater_flatpak_installer_systemd_unit_in = \
+eos_updater_flatpak_installer_in = \
 	eos-updater-flatpak-installer/eos-updater-flatpak-installer.service.in \
 	$(NULL)
 
 systemdsystemunit_DATA += \
-	$(eos_updater_flatpak_installer_systemd_unit_in:%.in=%) \
+	$(eos_updater_flatpak_installer_in:%.in=%) \
 	$(NULL)
 
-dist_man5_MANS += \
-	eos-updater-flatpak-installer/docs/eos-updater-flatpak-autoinstall.d.5 \
+flatpakinstallerschemadir = $(datadir)/eos-updater/schemas
+
+eos_updater_flatpak_installer_schemas = eos-updater-flatpak-installer/eos-updater-autoinstall.schema.json
+
+flatpakinstallerschema_DATA = $(eos_updater_flatpak_installer_schemas)
+
+EXTRA_DIST += \
+	$(eos_updater_flatpak_installer_in) \
+	$(eos_updater_flatpak_installer_schemas) \
 	$(NULL)
 
-dist_man8_MANS += \
-	eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8 \
-	$(NULL)
+CLEANFILES += $(eos_updater_flatpak_installer_in:%.in=%)
 
 # Generic systemd rules
 edit = sed \
