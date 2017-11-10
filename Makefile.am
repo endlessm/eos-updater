@@ -165,9 +165,7 @@ systemdsystemunit_DATA += $(eos_updater_avahi_in:%.in=%)
 EXTRA_DIST += $(eos_updater_avahi_in)
 CLEANFILES += $(eos_updater_avahi_in:%.in=%)
 
-dist_man8_MANS += \
-	eos-updater-avahi/docs/eos-updater-avahi.8 \
-	$(NULL)
+dist_man8_MANS += eos-updater-avahi/docs/eos-updater-avahi.8
 
 # Server utility library
 noinst_LTLIBRARIES += libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la
