@@ -267,7 +267,7 @@ dist_bin_SCRIPTS += eos-updater-prepare-volume/eos-updater-prepare-volume
 
 dist_man8_MANS += eos-updater-prepare-volume/docs/eos-updater-prepare-volume.8
 
-# eos-updater-install-flatpaks program
+# eos-updater-flatpak-installer program
 eos_updater_flatpak_installer_eos_updater_flatpak_installer_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DG_LOG_DOMAIN=\""eos-updater-flatpak-installer"\" \
