@@ -405,85 +405,6 @@ flatpak_ref_actions_for_commit (OstreeRepo    *repo,
   return g_steal_pointer (&flatpak_ref_actions_table);
 }
 
-/* As documented in OstreeRepoFinderResult, lower numbers indicate higher
- * priority */
-static OstreeRepoFinderResult *
-highest_priority_repo_finder_result (OstreeRepoFinderResultv results)
-{
-  gint best_priority_score = G_MAXINT;
-  OstreeRepoFinderResult *best = NULL;
-  gsize i;
-
-  for (i = 0; results[i] != NULL; ++i)
-    {
-      if (results[i]->priority < best_priority_score)
-        {
-          best_priority_score = results[i]->priority;
-          best = results[i];
-        }
-    }
-
-  return best;
-}
-
-static gchar *
-find_first_flatpak_repo_for_collection_id (FlatpakInstallation        *installation,
-                                           const OstreeCollectionRef  *collection_ref,
-                                           GCancellable               *cancellable,
-                                           GError                    **error)
-{
-  g_autoptr(GFile) installation_directory = flatpak_installation_get_path (installation);
-  g_autoptr(GFile) repo_directory = g_file_get_child (installation_directory, "repo");
-  g_autoptr(GMainContext) context = g_main_context_new ();
-  g_autoptr(OstreeRepo) repo = ostree_repo_new (repo_directory);
-  g_autoptr(GAsyncResult) find_result = NULL;
-  g_auto(OstreeRepoFinderResultv) allocated_results = NULL;
-  OstreeCollectionRef const * collection_refs_to_fetch[2] = { collection_ref, NULL };
-
-  g_main_context_push_thread_default (context);
-
-  if (!ostree_repo_open (repo, cancellable, error))
-    return NULL;
-
-  ostree_repo_find_remotes_async (repo,
-                                  collection_refs_to_fetch,
-                                  NULL,
-                                  NULL,
-                                  NULL,
-                                  NULL,
-                                  async_result_cb,
-                                  &find_result);
-
-  while (find_result == NULL)
-    g_main_context_iteration (context, TRUE);
-
-  allocated_results = ostree_repo_find_remotes_finish (repo, find_result, error);
-
-  if (!allocated_results)
-    {
-      g_main_context_pop_thread_default (context);
-      return NULL;
-    }
-
-  /* TODO: Currently returning the highest priority result,
-   * might want to do something smarter than this, but that will depend
-   * on libflatpak getting support for OstreeCollectionRef */
-  if (allocated_results[0] == NULL)
-    {
-      g_set_error (error,
-                   G_IO_ERROR,
-                   G_IO_ERROR_FAILED,
-                   "Couldn't find any flatpak remotes for collection ID '%s'",
-                   collection_ref->collection_id);
-      g_main_context_pop_thread_default (context);
-      return NULL;
-    }
-
-  g_main_context_pop_thread_default (context);
-
-  return g_strdup (ostree_remote_get_name (highest_priority_repo_finder_result (allocated_results)->remote));
-}
-
 
 /* Given a GPtrArray of FlatpakRemoteRefAction, set the remote-name property
  * in each action "ref" to the name of the actual remote we will be pulling
@@ -530,16 +451,15 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
 
           /* Recall that the remote name we put into the FlatpakRemoteRef
            * is not actually a remote name, it is a (TODO transitional)
-           * collection ID. We'll use OstreeRepoFinder to figure out what remote
-           * name to use in place of the collection ID and pass it to
-           * flatpak_installation_install_full below.
+           * collection ID. We'll look up the actual remote name by checking
+           * each OstreeRepo to find the first one that supports our collection
+           * ID.
            *
            * Once flatpak_installation_install_full gains support for passing
            * collection ID's as opposed to remotes, then we can drop this code */
-          found_remote_name = find_first_flatpak_repo_for_collection_id (installation,
-                                                                         &collection_ref,
-                                                                         cancellable,
-                                                                         &local_error);
+          found_remote_name = eos_updater_util_lookup_flatpak_repo_for_collection_id (installation,
+                                                                                      collection_ref.collection_id,
+                                                                                      &local_error);
           remote_name = found_remote_name;
 
           /* Should be able to find a remote name for all collection IDs */

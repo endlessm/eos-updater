@@ -1274,3 +1274,50 @@ eos_updater_util_format_all_flatpak_ref_actions_progresses (GHashTable *flatpak_
 
   return g_string_free (g_steal_pointer (&string), FALSE);
 }
+
+/* FIXME: Flatpak doesn't have any concept of installing from a collection-id
+ * right now, but to future proof the file format against the upcoming change
+ * we need to simulate that in the autoinstall file. We can't use the conventional
+ * method of ostree_repo_find_remotes_async since this code does not have
+ * network access. Instead, we have to be a little more naive and hope that
+ * the collection-id we're after is specified in at least one remote configuration
+ * on the underlying OSTree repo. */
+gchar *
+eos_updater_util_lookup_flatpak_repo_for_collection_id (FlatpakInstallation  *installation,
+                                                        const gchar          *collection_id,
+                                                        GError              **error)
+{
+  g_autoptr(GFile) installation_directory = flatpak_installation_get_path (installation);
+  g_autoptr(GFile) repo_directory = g_file_get_child (installation_directory, "repo");
+  g_autoptr(OstreeRepo) repo = ostree_repo_new (repo_directory);
+  g_auto(GStrv) remotes = NULL;
+  GStrv iter = NULL;
+
+  if (!ostree_repo_open (repo, NULL, error))
+    return NULL;
+
+  remotes = ostree_repo_remote_list (repo, NULL);
+
+  for (iter = remotes; *iter != NULL; ++iter)
+    {
+      g_autofree gchar *remote_collection_id = NULL;
+
+      if (!ostree_repo_get_remote_option (repo,
+                                          *iter,
+                                          "collection-id",
+                                          NULL,
+                                          &remote_collection_id,
+                                          error))
+        return NULL;
+
+      if (g_strcmp0 (remote_collection_id, collection_id) == 0)
+        return g_strdup (*iter);
+    }
+
+  g_set_error (error,
+               G_IO_ERROR,
+               G_IO_ERROR_NOT_FOUND,
+               "Could not found remote that supports collection-id '%s'",
+               collection_id);
+  return NULL;
+}
