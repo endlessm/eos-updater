@@ -119,18 +119,18 @@ AS_IF([test "$GDBUS_CODEGEN" = ""],[
 	AC_MSG_ERROR([gdbus-codegen is required for build])
 ])
 
-AC_PATH_PROG([OSTREE],[ostree])
-AS_IF([test "$OSTREE" = ""],[
+AC_PATH_PROG([OSTREE_BINARY],[ostree])
+AS_IF([test "$OSTREE_BINARY" = ""],[
 	AC_MSG_ERROR([ostree is required for tests])
 ])
 
-AC_PATH_PROG([GPG],[gpg])
-AS_IF([test "$GPG" = ""],[
+AC_PATH_PROG([GPG_BINARY],[gpg])
+AS_IF([test "$GPG_BINARY" = ""],[
 	AC_MSG_ERROR([gpg is required for tests])
 ])
 
-AC_PATH_PROG([FLATPAK],[flatpak])
-AS_IF([test "$FLATPAK" = ""],[
+AC_PATH_PROG([FLATPAK_BINARY],[flatpak])
+AS_IF([test "$FLATPAK_BINARY" = ""],[
 	AC_MSG_ERROR([flatpak is required for tests])
 ])
 

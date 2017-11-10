@@ -24,9 +24,9 @@ testlib = libeos-updater-test.la
 noinst_LTLIBRARIES += $(testlib)
 
 libeos_updater_test_la_CPPFLAGS = \
-	-DOSTREE_BINARY=\""$(OSTREE)"\" \
-	-DGPG_BINARY=\""$(GPG)"\" \
-	-DFLATPAK_BINARY=\""$(FLATPAK)"\" \
+	-DOSTREE_BINARY=\""$(OSTREE_BINARY)"\" \
+	-DGPG_BINARY=\""$(GPG_BINARY)"\" \
+	-DFLATPAK_BINARY=\""$(FLATPAK_BINARY)"\" \
 	-DOSTREE_WITH_AUTOCLEANUPS \
 	-I$(top_srcdir) \
 	-I$(top_builddir) \
