@@ -71,10 +71,10 @@ enum_sources = \
 	libeos-updater-util/enums.c \
 	$(NULL)
 
-libeos-updater-util/enums.h:
+libeos-updater-util/enums.h: $(enum_template_h_file) $(enum_header_files)
 	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $@
 
-libeos-updater-util/enums.c:
+libeos-updater-util/enums.c: $(enum_template_c_file) $(enum_header_files)
 	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $@
 
 BUILT_SOURCES += $(enum_sources)
@@ -123,6 +123,9 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/types.h \
 	libeos-updater-util/util.c \
 	libeos-updater-util/util.h \
+	$(NULL)
+
+nodist_libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	$(enum_sources) \
 	$(NULL)
 
