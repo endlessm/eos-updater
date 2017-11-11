@@ -1726,6 +1726,118 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_assert (!g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[0].app_id));
 }
 
+/* Have flatpaks that are pending deployment but induce a failure in
+ * the flatpak pulling. The new OSTree should not be deployed. */
+static void
+test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
+                                                   gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  DownloadSource main_source = DOWNLOAD_MAIN;
+  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
+  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", NULL, "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
+                                                                    G_N_ELEMENTS (flatpaks_to_install));
+  g_autofree gchar *flatpak_remote_path = NULL;
+  g_autoptr(GFile) flatpak_remote_dir = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *expected_directory_relative_path = NULL;
+  g_autoptr(GFile) expected_directory = NULL;
+  g_autoptr(GFile) expected_directory_child = NULL;
+  g_autoptr(GFile) autoupdater_root = NULL;
+  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
+  g_auto(GStrv) initial_deployment_ids = NULL;
+  g_autofree gchar *deployment_id = NULL;
+  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
+  g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_auto(GStrv) after_update_deployment_ids = NULL;
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T16682");
+
+  etc_data_init (data, fixture);
+
+  /* Commit number 1 will install some flatpaks
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              G_N_ELEMENTS (flatpaks_to_install),
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
+  eos_test_client_get_deployments (data->client,
+                                   default_remote_name,
+                                   &initial_deployment_ids,
+                                   &error);
+  g_assert_no_error (error);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  flatpak_remote_path = g_build_filename (g_file_get_path (updater_directory),
+                                          "flatpak",
+                                          NULL);
+  flatpak_remote_dir = g_file_new_for_path (flatpak_remote_path);
+  eos_test_setup_flatpak_repo (updater_directory,
+                               "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
+                               (const gchar **) wanted_flatpaks,
+                               &error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+
+  /* Before updating the client, nuke the flatpak remote directory. This
+   * will make the pull operation fail, which should make the entire
+   * deployment fail */
+  rm_rf (flatpak_remote_dir, &error);
+  g_assert_no_error (error);
+
+  /* Attempt to update client - run updater daemon */
+  eos_test_client_run_updater (data->client,
+                               &main_source,
+                               1,
+                               NULL,
+                               &updater_cmd,
+                               &error);
+  g_assert_no_error (error);
+
+  /* Trigger update */
+  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
+  autoupdater = eos_test_autoupdater_new (autoupdater_root,
+                                          UPDATE_STEP_APPLY,
+                                          1,
+                                          TRUE,
+                                          &error);
+  g_assert_no_error (error);
+
+  /* Update should have failed */
+  g_assert (g_spawn_check_exit_status (autoupdater->cmd->exit_status, NULL) == FALSE);
+
+  /* Assert that the deployment checksum is the same as earlier */
+  eos_test_client_get_deployments (data->client,
+                                   default_remote_name,
+                                   &after_update_deployment_ids,
+                                   &error);
+  g_assert_no_error (error);
+
+  g_assert_cmpstr (initial_deployment_ids[0], ==, after_update_deployment_ids[0]);
+}
+
+
 /* Insert a list of flatpaks to automatically install on the commit
  * and ensure that they are not installed before reboot */
 static void
@@ -2563,6 +2675,7 @@ main (int argc,
   eos_test_add ("/updater/reinstall-flatpak-if-counter-is-later", NULL, test_update_force_reinstall_flatpak);
   eos_test_add ("/updater/update-deploy-fail-flatpaks-stay-in-repo", NULL, test_update_deploy_fail_flatpaks_stay_in_repo);
   eos_test_add ("/updater/update-deploy-fail-flatpaks-not-deployed", NULL, test_update_deploy_fail_flatpaks_not_deployed);
+  eos_test_add ("/updater/update-flatpaks-pull-fail-system-not-deployed", NULL, test_update_flatpak_pull_fail_system_not_deployed);
   eos_test_add ("/updater/update-install-through-squashed-list", NULL, test_update_install_through_squashed_list);
 
   return g_test_run ();
