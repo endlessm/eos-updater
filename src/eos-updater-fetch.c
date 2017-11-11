@@ -427,42 +427,49 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
   for (i = 0; i < pending_flatpak_ref_actions->len; ++i)
     {
       FlatpakRemoteRefAction *action = g_ptr_array_index (pending_flatpak_ref_actions, i);
-      FlatpakRemoteRef *to_install = action->ref;
-      const gchar *collection_id = flatpak_remote_ref_get_remote_name (to_install);
-      const gchar *remote_name = g_hash_table_lookup (collection_ids_to_remote_names, collection_id);
+      FlatpakLocationRef *to_install = action->ref;
+      const gchar *collection_id = to_install->collection_id;
+      const gchar *candidate_remote_name = NULL;
       g_autoptr(GError) local_error = NULL;
 
       if (action->type != EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL)
         continue;
 
+      /* Invariant - must have either a remote name or a collection ID
+       * by this point */
+      g_assert (collection_id || to_install->remote);
+
+      /* If a collection ID was not specified, then we already have the
+       * remote, so we can just continue here */
+      if (collection_id == NULL)
+        continue;
+
       /* If we didn't hit the remote name cache, figure it out now. */
-      if (remote_name == NULL)
+      if (candidate_remote_name == NULL)
         {
-          g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (to_install));
+          g_autofree gchar *formatted_ref = flatpak_ref_format_ref (to_install->ref);
           g_autofree gchar *found_remote_name = NULL;
           OstreeCollectionRef collection_ref =
           {
-            (gchar *) flatpak_remote_ref_get_remote_name (to_install),
+            (gchar *) to_install->collection_id,
             formatted_ref
           };
 
           g_message ("Looking up flatpak remote name for collection ID %s", collection_id);
 
-          /* Recall that the remote name we put into the FlatpakRemoteRef
-           * is not actually a remote name, it is a (TODO transitional)
-           * collection ID. We'll look up the actual remote name by checking
-           * each OstreeRepo to find the first one that supports our collection
-           * ID.
+          /* FlatpakLocationRef supports specifying both a collection ID and/or
+           * a remote name.
            *
            * Once flatpak_installation_install_full gains support for passing
            * collection ID's as opposed to remotes, then we can drop this code */
           found_remote_name = eos_updater_util_lookup_flatpak_repo_for_collection_id (installation,
                                                                                       collection_ref.collection_id,
                                                                                       &local_error);
-          remote_name = found_remote_name;
+          candidate_remote_name = found_remote_name;
 
           /* Should be able to find a remote name for all collection IDs */
-          if (remote_name == NULL)
+          if (candidate_remote_name == NULL &&
+              to_install->remote == NULL)
             {
               g_message ("Failed to find a remote name for collection ID %s: %s",
                          collection_id,
@@ -472,7 +479,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
             }
 
           g_message ("Found remote name %s for collection ID %s",
-                     remote_name,
+                     candidate_remote_name,
                      collection_id);
 
           g_hash_table_insert (collection_ids_to_remote_names,
@@ -480,8 +487,33 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
                                g_steal_pointer (&found_remote_name));
         }
 
-      /* Guaranteed to have remote_name by now. Change the property */
-      g_object_set (to_install, "remote-name", remote_name, NULL);
+      /* If we had a remote name from before, check to make sure the two
+       * match, otherwise bail out */
+      if (to_install->remote != NULL)
+        {
+          if (candidate_remote_name != NULL &&
+              g_strcmp0 (to_install->remote,
+                         candidate_remote_name) != 0)
+            {
+              g_set_error (error,
+                           EOS_UPDATER_ERROR,
+                           EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT,
+                           "Specified flatpak remote '%s' conflicts with the remote "
+                           "detected for collection ID '%s' ('%s'), cannot continue.",
+                           to_install->remote,
+                           collection_id,
+                           candidate_remote_name);
+              return FALSE;
+            }
+
+           /* The detected remote name and candidate remote name will be
+            * the same here, so no need to do anything */
+        }
+      else
+        {
+          /* Set the remote name now */
+          to_install->remote = g_strdup (candidate_remote_name);
+        }
     }
 
   return TRUE;
@@ -489,13 +521,13 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
 
 static gboolean
 perform_install_preparation (FlatpakInstallation  *installation,
-                             FlatpakRemoteRef     *ref,
+                             FlatpakLocationRef   *ref,
                              GCancellable         *cancellable,
                              GError              **error)
 {
-  FlatpakRefKind kind = flatpak_ref_get_kind (FLATPAK_REF (ref));
-  const gchar *remote = flatpak_remote_ref_get_remote_name (ref);
-  const gchar *name = flatpak_ref_get_name (FLATPAK_REF (ref));
+  FlatpakRefKind kind = flatpak_ref_get_kind (ref->ref);
+  const gchar *remote = ref->remote;
+  const gchar *name = flatpak_ref_get_name (ref->ref);
   g_autoptr(GError) local_error = NULL;
 
   /* We have to pass in a local_error instance here and check to see
@@ -528,7 +560,7 @@ perform_install_preparation (FlatpakInstallation  *installation,
 
   if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
     {
-      g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (ref));
+      g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref->ref);
       g_message ("%s:%s already installed, updating to most recent version instead",
                  remote,
                  formatted_ref);
@@ -559,7 +591,7 @@ perform_install_preparation (FlatpakInstallation  *installation,
    * them. */
   if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ONLY_PULLED))
     {
-      g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (ref));
+      g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref->ref);
       g_message ("Error occurred whilst pulling flatpak %s:%s: %s",
                  remote,
                  formatted_ref,
@@ -573,12 +605,12 @@ perform_install_preparation (FlatpakInstallation  *installation,
 
 static gboolean
 perform_update_preparation (FlatpakInstallation  *installation,
-                            FlatpakRemoteRef     *ref,
+                            FlatpakLocationRef   *ref,
                             GCancellable         *cancellable,
                             GError              **error)
 {
-  FlatpakRefKind kind = flatpak_ref_get_kind (FLATPAK_REF (ref));
-  const gchar *name = flatpak_ref_get_name (FLATPAK_REF (ref));
+  FlatpakRefKind kind = flatpak_ref_get_kind (ref->ref);
+  const gchar *name = flatpak_ref_get_name (ref->ref);
   g_autoptr(GError) local_error = NULL;
 
   if (!flatpak_installation_update (installation,
@@ -610,7 +642,7 @@ perform_action_preparation (FlatpakInstallation      *installation,
                             GCancellable             *cancellable,
                             GError                  **error)
 {
-  FlatpakRemoteRef *ref = action->ref;
+  FlatpakLocationRef *ref = action->ref;
 
   switch (action->type)
     {

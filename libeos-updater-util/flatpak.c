@@ -33,16 +33,56 @@
 #include "flatpak.h"
 #include "util.h"
 
+FlatpakLocationRef *
+flatpak_location_ref_new (FlatpakRef  *ref,
+                          const gchar *remote,
+                          const gchar *collection_id)
+{
+  FlatpakLocationRef *location_ref = g_slice_new0 (FlatpakLocationRef);
+
+  location_ref->ref_count = 1;
+  location_ref->ref = g_object_ref (ref);
+  location_ref->remote = g_strdup (remote);
+  location_ref->collection_id = g_strdup (collection_id);
+
+  return location_ref;
+}
+
+void
+flatpak_location_ref_unref (FlatpakLocationRef *location_ref)
+{
+  g_return_if_fail (location_ref->ref_count > 0);
+
+  if (--location_ref->ref_count != 0)
+    return;
+
+  g_clear_object (&location_ref->ref);
+  g_clear_pointer (&location_ref->remote, g_free);
+  g_clear_pointer (&location_ref->collection_id, g_free);
+
+  g_slice_free (FlatpakLocationRef, location_ref);
+}
+
+FlatpakLocationRef *
+flatpak_location_ref_ref (FlatpakLocationRef *location_ref)
+{
+  g_return_val_if_fail (location_ref->ref_count > 0, NULL);
+  g_return_val_if_fail (location_ref->ref_count < G_MAXUINT, NULL);
+
+  ++location_ref->ref_count;
+  return location_ref;
+}
+
 static FlatpakRemoteRefAction *
 flatpak_remote_ref_action_new (EosUpdaterUtilFlatpakRemoteRefActionType  type,
-                               FlatpakRemoteRef                         *ref,
+                               FlatpakLocationRef                       *ref,
                                gint32                                    serial)
 {
   FlatpakRemoteRefAction *action = g_slice_new0 (FlatpakRemoteRefAction);
 
   action->ref_count = 1;
   action->type = type;
-  action->ref = g_object_ref (ref);
+  action->ref = flatpak_location_ref_ref (ref);
   action->serial = serial;
 
   return action;
@@ -66,7 +106,7 @@ flatpak_remote_ref_action_unref (FlatpakRemoteRefAction *action)
   if (--action->ref_count != 0)
     return;
 
-  g_object_unref (action->ref);
+  flatpak_location_ref_unref (action->ref);
 
   g_slice_free (FlatpakRemoteRefAction, action);
 }
@@ -199,67 +239,115 @@ parse_flatpak_ref_from_entry (JsonObject      *entry,
   return TRUE;
 }
 
-static FlatpakRemoteRef *
+static FlatpakLocationRef *
 flatpak_remote_ref_from_install_action_entry (JsonObject *entry,
                                               GError    **error)
 {
   const gchar *app_name = NULL;
   const gchar *collection_id = NULL;
+  const gchar *remote = NULL;
+  g_autoptr(FlatpakRef) ref = NULL;
+  g_autoptr(GError) local_error = NULL;
   FlatpakRefKind kind;
 
   if (!parse_flatpak_ref_from_entry (entry, &app_name, &kind, error))
     return NULL;
 
-  collection_id = maybe_get_json_object_string_member (entry, "collection-id", error);
+  collection_id = maybe_get_json_object_string_member (entry, "collection-id", &local_error);
 
   if (collection_id == NULL)
-    return NULL;
+    {
+      if (!g_error_matches (local_error,
+                            EOS_UPDATER_ERROR,
+                            EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
 
-  /* TODO: Right now we "stuff" the collection-id in the remote-name part
-   * of the FlatpakRemoteRef and look up the corresponding remote later on
-   * when actually pulling the flatpaks */
-  return g_object_new (FLATPAK_TYPE_REMOTE_REF,
-                       "remote-name", collection_id,
-                       "name", app_name,
-                       "kind", kind,
-                       NULL);
+      g_clear_error (&local_error);
+    }
+
+  remote = maybe_get_json_object_string_member (entry, "remote", &local_error);
+
+  if (remote == NULL)
+    {
+      if (!g_error_matches (local_error,
+                            EOS_UPDATER_ERROR,
+                            EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+
+      g_clear_error (&local_error);
+    }
+
+  /* Check to see if we at least had a remote name or collection-id, if
+   * we don't have either then bail out. This invariant should hold
+   * during the rest of the process */
+  if (remote == NULL && collection_id == NULL)
+    {
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected either a valid 'remote' or 'collection-id' entry");
+      return FALSE;
+    }
+
+  ref = g_object_new (FLATPAK_TYPE_REF,
+                      "name", app_name,
+                      "kind", kind,
+                      NULL);
+
+  return flatpak_location_ref_new (ref,
+                                   remote,
+                                   collection_id);
 }
 
-static FlatpakRemoteRef *
+static FlatpakLocationRef *
 flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
                                                 GError     **error)
 {
   const gchar *app_name = NULL;
   FlatpakRefKind kind;
+  g_autoptr(FlatpakRef) ref = NULL;
 
   if (!parse_flatpak_ref_from_entry (entry, &app_name, &kind, error))
     return NULL;
 
-  return g_object_new (FLATPAK_TYPE_REMOTE_REF,
-                       "remote-name", "none",
-                       "name", app_name,
-                       "kind", kind,
-                       NULL);
+  ref = g_object_new (FLATPAK_TYPE_REF,
+                      "name", app_name,
+                      "kind", kind,
+                      NULL);
+
+  return flatpak_location_ref_new (ref,
+                                   "none",
+                                   NULL);
 }
 
-static FlatpakRemoteRef *
+static FlatpakLocationRef *
 flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
                                              GError     **error)
 {
   const gchar *app_name = NULL;
   FlatpakRefKind kind;
+  g_autoptr(FlatpakRef) ref = NULL;
 
   if (!parse_flatpak_ref_from_entry (entry, &app_name, &kind, error))
     return NULL;
 
-  return g_object_new (FLATPAK_TYPE_REMOTE_REF,
-                       "remote-name", "none",
-                       "name", app_name,
-                       "kind", kind,
-                       NULL);
+  ref = g_object_new (FLATPAK_TYPE_REF,
+                      "name", app_name,
+                      "kind", kind,
+                      NULL);
+
+  return flatpak_location_ref_new (ref,
+                                   "none",
+                                   NULL);
 }
 
-static FlatpakRemoteRef *
+static FlatpakLocationRef *
 flatpak_remote_ref_from_action_entry (EosUpdaterUtilFlatpakRemoteRefActionType   action_type,
                                       JsonObject                                *entry,
                                       GError                                   **error)
@@ -283,7 +371,7 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
 {
   const gchar *action_type_str = NULL;
   JsonObject *object = NULL;
-  g_autoptr(FlatpakRemoteRef) flatpak_remote_ref = NULL;
+  g_autoptr(FlatpakLocationRef) flatpak_location_ref = NULL;
   g_autoptr(GError) local_error = NULL;
   JsonNode *serial_node = NULL;
   gint64 serial64;
@@ -338,9 +426,9 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
 
   serial = (gint32) serial64;
 
-  flatpak_remote_ref = flatpak_remote_ref_from_action_entry (action_type, object, &local_error);
+  flatpak_location_ref = flatpak_remote_ref_from_action_entry (action_type, object, &local_error);
 
-  if (!flatpak_remote_ref)
+  if (!flatpak_location_ref)
     {
       if (g_error_matches (local_error,
                            EOS_UPDATER_ERROR,
@@ -359,7 +447,9 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
       return NULL;
     }
   
-  return flatpak_remote_ref_action_new (action_type, flatpak_remote_ref, serial);
+  return flatpak_remote_ref_action_new (action_type,
+                                        flatpak_location_ref,
+                                        serial);
 }
 
 static gint
@@ -948,7 +1038,7 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions)
        * (3) "update" does not take priority over "install", since the latter
        *     subsumes it anyway.
        */
-      existing_action_for_ref = g_hash_table_lookup (hash_table, action->ref);
+      existing_action_for_ref = g_hash_table_lookup (hash_table, action->ref->ref);
 
       if (action->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL ||
           action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL ||
@@ -956,14 +1046,14 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions)
           existing_action_for_ref->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE)
         {
           g_hash_table_replace (hash_table,
-                                g_object_ref (action->ref),
+                                g_object_ref (action->ref->ref),
                                 flatpak_remote_ref_action_ref (action));
         }
       else if (action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE)
         {
           if (existing_action_for_ref->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL)
             g_hash_table_replace (hash_table,
-                                  g_object_ref (action->ref),
+                                  g_object_ref (action->ref->ref),
                                   flatpak_remote_ref_action_ref (action));
         }
     }
@@ -1299,12 +1389,13 @@ eos_updater_util_format_all_flatpak_ref_actions (const gchar *title,
           g_autofree gchar *formatted_ref = NULL;
 
           formatted_action_type = format_remote_ref_action_type (action->type);
-          formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (action->ref));
+          formatted_ref = flatpak_ref_format_ref (action->ref->ref);
 
           g_string_append_printf (string,
-                                  "    - %s %s:%s\n",
+                                  "    - %s (collection-id: %s|remote: %s):%s\n",
                                   formatted_action_type,
-                                  flatpak_remote_ref_get_remote_name (action->ref),
+                                  action->ref->collection_id,
+                                  action->ref->remote,
                                   formatted_ref);
         }
     }

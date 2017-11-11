@@ -27,9 +27,12 @@
                 },
                 "collection-id": {
                     "$ref": "#/definitions/collection-id"
+                },
+                "remote": {
+                    "$ref": "#/definitions/remote"
                 }
             },
-            "required": ["ref-kind", "app", "collection-id"]
+            "required": ["ref-kind", "app"]
         },
         {
             "properties": {
@@ -120,6 +123,10 @@
         },
         "collection-id": {
             "description": "The collection-id to install the app from",
+            "type": "string"
+        },
+        "remote": {
+            "description": "The remote to install the app from",
             "type": "string"
         },
         "filter": {

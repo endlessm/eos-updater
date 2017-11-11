@@ -29,6 +29,7 @@
 #include <sysexits.h>
 #include <libeos-updater-util/enums.h>
 #include <libeos-updater-util/flatpak.h>
+#include <libeos-updater-util/types.h>
 #include <libeos-updater-util/util.h>
 
 #include "installer.h"
@@ -180,25 +181,46 @@ try_update_application (FlatpakInstallation       *installation,
 static gboolean
 try_install_application (FlatpakInstallation       *installation,
                          const gchar               *collection_id,
+                         const gchar               *in_remote_name,
                          FlatpakRefKind             kind,
                          const gchar               *name,
                          EosUpdaterInstallerFlags   flags,
                          GError                   **error)
 {
-  g_autofree gchar *remote_name = NULL;
+  g_autofree gchar *candidate_remote_name = NULL;
+  const gchar *remote_name = NULL;
   const gchar *formatted_kind = string_for_flatpak_kind (kind);
   g_autoptr(GError) local_error = NULL;
 
-  g_message ("Finding remote name for %s", collection_id);
+  if (collection_id != NULL)
+    {
+      g_message ("Finding remote name for %s", collection_id);
 
-  remote_name = eos_updater_util_lookup_flatpak_repo_for_collection_id (installation,
-                                                                        collection_id,
-                                                                        error);
+      candidate_remote_name = eos_updater_util_lookup_flatpak_repo_for_collection_id (installation,
+                                                                                      collection_id,
+                                                                                      error);
 
-  if (!remote_name)
+      if (in_remote_name != NULL &&
+          candidate_remote_name != NULL &&
+          g_strcmp0 (in_remote_name, candidate_remote_name) != 0)
+        {
+          g_set_error (error,
+                       EOS_UPDATER_ERROR,
+                       EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT,
+                       "Specified flatpak remote '%s' conflicts with the remote "
+                       "detected for collection ID '%s' ('%s'), cannot continue.",
+                       in_remote_name,
+                       collection_id,
+                       candidate_remote_name);
+          return FALSE;
+        }
+
+      g_message ("Remote name for %s is %s", collection_id, remote_name);
+      remote_name = candidate_remote_name;
+    }
+
+  if (remote_name == NULL)
     return FALSE;
-
-  g_message ("Remote name for %s is %s", collection_id, remote_name);
 
   g_message ("Attempting to install %s:%s/%s", remote_name, formatted_kind, name);
 
@@ -289,17 +311,17 @@ perform_action (FlatpakInstallation      *installation,
                 EosUpdaterInstallerFlags  flags,
                 GError                   **error)
 {
-  /* Again, we stuff the collection-id into the remote name and will need
-   * to do some work to get the remote name back out again */
-  const gchar *collection_id = flatpak_remote_ref_get_remote_name (action->ref);
-  FlatpakRefKind kind = flatpak_ref_get_kind (FLATPAK_REF (action->ref));
-  const gchar *name = flatpak_ref_get_name (FLATPAK_REF (action->ref));
+  const gchar *collection_id = action->ref->collection_id;
+  const gchar *remote_name = action->ref->remote;
+  FlatpakRefKind kind = flatpak_ref_get_kind (action->ref->ref);
+  const gchar *name = flatpak_ref_get_name (action->ref->ref);
 
   switch (action->type)
     {
       case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
         return try_install_application (installation,
                                         collection_id,
+                                        remote_name,
                                         kind,
                                         name,
                                         flags,
@@ -459,8 +481,8 @@ check_if_flatpak_is_installed (FlatpakInstallation     *installation,
 {
   g_autoptr(GError) local_error = NULL;
   g_autoptr(FlatpakInstalledRef) installed_ref = NULL;
-  FlatpakRef *ref = FLATPAK_REF (action->ref);
-  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (action->ref));
+  FlatpakRef *ref = action->ref->ref;
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (action->ref->ref);
 
   g_return_val_if_fail (out_is_installed != NULL, FALSE);
 
@@ -531,7 +553,7 @@ check_flatpak_ref_actions_applied (GHashTable  *table,
 
                 if (!is_installed)
                   {
-                    g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (pending_action->ref));
+                    g_autofree gchar *formatted_ref = flatpak_ref_format_ref (pending_action->ref->ref);
                     g_autofree gchar *msg = g_strdup_printf ("Flatpak %s should have been installed by "
                                                              "%s but was not installed\n",
                                                              formatted_ref,
@@ -548,7 +570,7 @@ check_flatpak_ref_actions_applied (GHashTable  *table,
 
                 if (is_installed)
                   {
-                    g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (pending_action->ref));
+                    g_autofree gchar *formatted_ref = flatpak_ref_format_ref (pending_action->ref->ref);
                     g_autofree gchar *msg = g_strdup_printf ("Flatpak %s should have been uninstalled by "
                                                              "%s but was installed",
                                                              formatted_ref,

@@ -46,10 +46,17 @@ typedef enum {
 } EosUpdaterUtilFlatpakRemoteRefActionType;
 
 typedef struct {
+  guint       ref_count;
+  FlatpakRef  *ref;
+  const gchar *remote;
+  const gchar *collection_id;
+} FlatpakLocationRef;
+
+typedef struct {
   guint                                    ref_count;
 
   EosUpdaterUtilFlatpakRemoteRefActionType type;
-  FlatpakRemoteRef                         *ref;
+  FlatpakLocationRef                       *ref;
 
   gint32                                   serial;
 } FlatpakRemoteRefAction;
@@ -58,6 +65,14 @@ typedef struct {
   GPtrArray *remote_ref_actions;
   gint priority;
 } FlatpakRemoteRefActionsFile;
+
+FlatpakLocationRef * flatpak_location_ref_new (FlatpakRef  *ref,
+                                               const gchar *remote,
+                                               const gchar *collection_id);
+FlatpakLocationRef * flatpak_location_ref_ref (FlatpakLocationRef *ref);
+void flatpak_location_ref_unref (FlatpakLocationRef *ref);
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (FlatpakLocationRef, flatpak_location_ref_unref);
 
 FlatpakRemoteRefAction * flatpak_remote_ref_action_ref (FlatpakRemoteRefAction *action);
 void flatpak_remote_ref_action_unref (FlatpakRemoteRefAction *action);
