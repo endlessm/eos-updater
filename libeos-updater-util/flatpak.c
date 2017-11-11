@@ -243,6 +243,23 @@ flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
 }
 
 static FlatpakRemoteRef *
+flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
+                                             GError     **error)
+{
+  const gchar *app_name = NULL;
+  FlatpakRefKind kind;
+
+  if (!parse_flatpak_ref_from_entry (entry, &app_name, &kind, error))
+    return NULL;
+
+  return g_object_new (FLATPAK_TYPE_REMOTE_REF,
+                       "remote-name", "none",
+                       "name", app_name,
+                       "kind", kind,
+                       NULL);
+}
+
+static FlatpakRemoteRef *
 flatpak_remote_ref_from_action_entry (EosUpdaterUtilFlatpakRemoteRefActionType   action_type,
                                       JsonObject                                *entry,
                                       GError                                   **error)
@@ -253,6 +270,8 @@ flatpak_remote_ref_from_action_entry (EosUpdaterUtilFlatpakRemoteRefActionType  
         return flatpak_remote_ref_from_install_action_entry (entry, error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
         return flatpak_remote_ref_from_uninstall_action_entry (entry, error);
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
+        return flatpak_remote_ref_from_update_action_entry (entry, error);
       default:
         g_assert_not_reached ();
     }
@@ -906,9 +925,39 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions)
   for (i = 0; i < ref_actions->len; ++i)
     {
       FlatpakRemoteRefAction *action = g_ptr_array_index (ref_actions, i);
-      g_hash_table_replace (hash_table,
-                            g_object_ref (action->ref),
-                            flatpak_remote_ref_action_ref (action));
+      FlatpakRemoteRefAction *existing_action_for_ref = NULL;
+
+      /* A little trickier than just blindly replacing, there are special
+       * rules regarding "update" since it only updates an existing installed
+       * flatpak, as opposed to installing it.
+       *
+       * (1) "install" and "uninstall" always take priority over "update"
+       *     since "install" means "install or update" and "uninstall"
+       *     means "unconditionally remove".
+       * (2) "update" takes priority over "uninstall" if "uninstall" were
+       *     present, since it will not re-install the app again, but it
+       *     will update it if the user had it installed.
+       * (3) "update" does not take priority over "install", since the latter
+       *     subsumes it anyway.
+       */
+      existing_action_for_ref = g_hash_table_lookup (hash_table, action->ref);
+
+      if (action->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL ||
+          action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL ||
+          existing_action_for_ref == NULL ||
+          existing_action_for_ref->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE)
+        {
+          g_hash_table_replace (hash_table,
+                                g_object_ref (action->ref),
+                                flatpak_remote_ref_action_ref (action));
+        }
+      else if (action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE)
+        {
+          if (existing_action_for_ref->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL)
+            g_hash_table_replace (hash_table,
+                                  g_object_ref (action->ref),
+                                  flatpak_remote_ref_action_ref (action));
+        }
     }
 
   squashed_ref_actions = g_ptr_array_new_full (g_hash_table_size (hash_table),

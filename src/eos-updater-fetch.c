@@ -435,8 +435,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
       if (action->type != EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL)
         continue;
 
-      /* If we didn't hit the remote name cache, figure it out now. This operation
-       * hits the network, so we only want to perform it if necessary */
+      /* If we didn't hit the remote name cache, figure it out now. */
       if (remote_name == NULL)
         {
           g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (to_install));
@@ -489,6 +488,146 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
 }
 
 static gboolean
+perform_install_preparation (FlatpakInstallation  *installation,
+                             FlatpakRemoteRef     *ref,
+                             GCancellable         *cancellable,
+                             GError              **error)
+{
+  FlatpakRefKind kind = flatpak_ref_get_kind (FLATPAK_REF (ref));
+  const gchar *remote = flatpak_remote_ref_get_remote_name (ref);
+  const gchar *name = flatpak_ref_get_name (FLATPAK_REF (ref));
+  g_autoptr(GError) local_error = NULL;
+
+  /* We have to pass in a local_error instance here and check to see
+   * if it was FLATPAK_ERROR_ONLY_PULLED - this is what will be
+   * thrown if we succeeded at pulling the flatpak into the local
+   * repository but did not deploy it (since no FlatpakInstalledRef
+   * will be returned). */
+  flatpak_installation_install_full (installation,
+                                     FLATPAK_INSTALL_FLAGS_NO_DEPLOY,
+                                     remote,
+                                     kind,
+                                     name,
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     cancellable,
+                                     &local_error);
+
+  /* This is highly highly unlikely to happen and should usually only
+   * occur in cases of deployment or programmer error,
+   * FLATPAK_INSTALL_FLAGS_NO_DEPLOY is documented to always return
+   * the error FLATPAK_ERROR_ONLY_PULLED */
+  if (local_error == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Flatpak installation should not have succeeded!");
+      return FALSE;
+    }
+
+  if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
+    {
+      g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (ref));
+      g_message ("%s:%s already installed, updating to most recent version instead",
+                 remote,
+                 formatted_ref);
+      g_clear_error (&local_error);
+
+      /* flatpak_installation_update will not throw
+       * FLATPAK_ERROR_ONLY_PULLED when specifying NO_DEPLOY (since
+       * the ref was already available on the system if the flatpak
+       * was already installed. So we can directly pass error. */
+      if (!flatpak_installation_update (installation,
+                                        FLATPAK_UPDATE_FLAGS_NO_DEPLOY,
+                                        kind,
+                                        name,
+                                        NULL,
+                                        NULL,
+                                        NULL,
+                                        NULL,
+                                        NULL,
+                                        error))
+        return FALSE;
+    }
+
+  /* Something unexpected failed, return early now.
+   *
+   * We are not able to meaningfully clean up here - the refs will remain
+   * in the flatpak ostree repo for the next time we want to install them
+   * but there's nothing in the public API that will allow us to get rid of
+   * them. */
+  if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ONLY_PULLED))
+    {
+      g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (ref));
+      g_message ("Error occurred whilst pulling flatpak %s:%s: %s",
+                 remote,
+                 formatted_ref,
+                 local_error->message);
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+static gboolean
+perform_update_preparation (FlatpakInstallation  *installation,
+                            FlatpakRemoteRef     *ref,
+                            GCancellable         *cancellable,
+                            GError              **error)
+{
+  FlatpakRefKind kind = flatpak_ref_get_kind (FLATPAK_REF (ref));
+  const gchar *name = flatpak_ref_get_name (FLATPAK_REF (ref));
+  g_autoptr(GError) local_error = NULL;
+
+  if (!flatpak_installation_update (installation,
+                                    FLATPAK_UPDATE_FLAGS_NO_DEPLOY,
+                                    kind,
+                                    name,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    &local_error))
+    {
+      if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+
+      g_clear_error (&local_error);
+    }
+
+  return TRUE;
+}
+
+static gboolean
+perform_action_preparation (FlatpakInstallation      *installation,
+                            FlatpakRemoteRefAction   *action,
+                            GCancellable             *cancellable,
+                            GError                  **error)
+{
+  FlatpakRemoteRef *ref = action->ref;
+
+  switch (action->type)
+    {
+      case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
+        return perform_install_preparation (installation, ref, cancellable, error);
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
+        return perform_update_preparation (installation, ref, cancellable, error);
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
+        return TRUE;
+      default:
+        g_assert_not_reached();
+        return FALSE;
+    }
+
+}
+
+static gboolean
 pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
                GCancellable  *cancellable,
                GError       **error)
@@ -515,60 +654,13 @@ pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
   for (i = 0; i < pending_flatpak_ref_actions->len; ++i)
     {
       FlatpakRemoteRefAction *action = g_ptr_array_index (pending_flatpak_ref_actions, i);
-      FlatpakRemoteRef *to_install = action->ref;
-      g_autofree gchar *formatted_ref = flatpak_ref_format_ref (FLATPAK_REF (action->ref));
-      g_autoptr(GError) local_error = NULL;
 
-      if (action->type != EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL)
+      if (!(action->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL ||
+            action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE))
         continue;
 
-      g_message ("Pulling flatpak %s:%s",
-                 flatpak_remote_ref_get_remote_name (to_install),
-                 formatted_ref);
-
-      /* We have to pass in a local_error instance here and check to see
-       * if it was FLATPAK_ERROR_ONLY_PULLED - this is what will be
-       * thrown if we succeeded at pulling the flatpak into the local
-       * repository but did not deploy it (since no FlatpakInstalledRef
-       * will be returned). */
-      flatpak_installation_install_full (installation,
-                                         FLATPAK_INSTALL_FLAGS_NO_DEPLOY,
-                                         flatpak_remote_ref_get_remote_name (to_install),
-                                         flatpak_ref_get_kind (FLATPAK_REF (to_install)),
-                                         flatpak_ref_get_name (FLATPAK_REF (to_install)),
-                                         NULL,
-                                         NULL,
-                                         NULL,
-                                         NULL,
-                                         NULL,
-                                         cancellable,
-                                         &local_error);
-
-      /* This is highly highly unlikely to happen and should usually only
-       * occur in cases of deployment or programmer error,
-       * FLATPAK_INSTALL_FLAGS_NO_DEPLOY is documented to always return
-       * the error FLATPAK_ERROR_ONLY_PULLED */
-      if (local_error == NULL)
-        {
-          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Flatpak installation should not have succeeded!");
-          return FALSE;
-        }
-
-      /* Something unexpected failed, return early now.
-       *
-       * We are not able to meaningfully clean up here - the refs will remain
-       * in the flatpak ostree repo for the next time we want to install them
-       * but there's nothing in the public API that will allow us to get rid of
-       * them. */
-      if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ONLY_PULLED))
-        {
-          g_message ("Error occurred whilst pulling flatpak %s:%s: %s",
-                     flatpak_remote_ref_get_remote_name (to_install),
-                     formatted_ref,
-                     local_error->message);
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
+      if (!perform_action_preparation (installation, action, cancellable, error))
+        return FALSE;
     }
 
   return TRUE;

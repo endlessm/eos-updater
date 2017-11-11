@@ -137,6 +137,47 @@ string_for_flatpak_kind (FlatpakRefKind kind)
 }
 
 static gboolean
+try_update_application (FlatpakInstallation       *installation,
+                        FlatpakRefKind             kind,
+                        const gchar               *name,
+                        EosUpdaterInstallerFlags   flags,
+                        GError                   **error)
+{
+  g_autofree gchar *remote_name = NULL;
+  const gchar *formatted_kind = string_for_flatpak_kind (kind);
+  g_autoptr(GError) local_error = NULL;
+
+  g_message ("Attempting to update %s/%s", remote_name, formatted_kind, name);
+
+  /* Installation may have failed because we can just update instead,
+   * try that. */
+  if (!flatpak_installation_update (installation,
+                                    FLATPAK_UPDATE_FLAGS_NO_PULL,
+                                    kind,
+                                    name,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    &local_error))
+    {
+      if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
+        {
+          g_message ("%s/%s is not installed, so not updating", formatted_kind, name);
+          g_clear_error (&local_error);
+          return TRUE;
+        }
+
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  g_message ("Successfully updated %s/%s", formatted_kind, name);
+  return TRUE;
+}
+
+static gboolean
 try_install_application (FlatpakInstallation       *installation,
                          const gchar               *collection_id,
                          FlatpakRefKind             kind,
@@ -186,7 +227,7 @@ try_install_application (FlatpakInstallation       *installation,
       g_message ("%s:%s/%s already installed, updating", remote_name, formatted_kind, name);
       g_clear_error (&local_error);
       if (!flatpak_installation_update (installation,
-                                        !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_INSTALL_FLAGS_NO_PULL : 0,
+                                        !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_UPDATE_FLAGS_NO_PULL : 0,
                                         kind,
                                         name,
                                         NULL,
@@ -263,6 +304,12 @@ perform_action (FlatpakInstallation      *installation,
                                         name,
                                         flags,
                                         error);
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
+        return try_update_application (installation,
+                                       kind,
+                                       name,
+                                       flags,
+                                       error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
         return try_uninstall_application (installation, kind, name, error);
       default:
@@ -508,6 +555,11 @@ check_flatpak_ref_actions_applied (GHashTable  *table,
                                                              counter_path);
                     g_string_append (deltas, msg);
                   }
+                break;
+              case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
+                /* Nothing meaningful we can do here - the flatpak is meant
+                 * to be installed if it would have been installed before
+                 * otherwise it stays uninstalled */
                 break;
               default:
                 g_assert_not_reached ();

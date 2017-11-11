@@ -2063,16 +2063,16 @@ set_flatpak_remote_collection_id (GFile        *updater_dir,
 GFile *
 eos_test_get_flatpak_build_dir_for_updater_dir (GFile *updater_dir)
 {
-  return g_file_get_child (updatetr_dir, "flatpak");
+  return g_file_get_child (updater_dir, "flatpak");
 }
 
-
 gboolean
-eos_test_setup_flatpak_repo (GFile        *updater_dir,
-                             const gchar  *repo_name,
-                             const gchar  *collection_id,
-                             const gchar **flatpak_names,
-                             GError      **error)
+eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
+                                                    const gchar  *repo_name,
+                                                    const gchar  *collection_id,
+                                                    const gchar **flatpak_names,
+                                                    const gchar **preinstall_flatpak_names,
+                                                    GError      **error)
 {
   /* A few steps here:
    * 1. Create a runtime (org.test.Runtime)
@@ -2097,7 +2097,7 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
   g_autofree gchar *runtime_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
                                                           "runtime",
                                                           NULL);
-  const gchar **flatpak_name_iter = flatpak_names;
+  const gchar **flatpak_name_iter = NULL;
 
   if (!g_file_make_directory_with_parents (flatpak_build_directory_path, NULL, error))
     return FALSE;
@@ -2126,19 +2126,9 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
     return FALSE;
 
 
-  /* It seems like calling ostree config set will turn
-   * GPG verification back on for the repo, so the remote
-   * collection-id needs to be set after the flatpak is installed */
-  if (!set_flatpak_remote_collection_id (updater_dir,
-                                         repo_name,
-                                         collection_id,
-                                         error))
-    return FALSE;
-
-
   /* Now that we have our runtime installed, lets go ahead and build and export
-   * all the apps into our repo */
-  for (; *flatpak_name_iter; ++flatpak_name_iter)
+   * all the apps flatpak_name_iter our repo */
+  for (flatpak_name_iter = flatpak_names; *flatpak_name_iter != NULL; ++flatpak_name_iter)
     {
       g_autofree gchar *app_dir = g_build_filename (apps_directory,
                                                     *flatpak_name_iter,
@@ -2154,7 +2144,45 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
         return FALSE;
     }
 
+  /* Now that we have our runtime installed, lets go ahead and build and export
+   * all the apps into our repo */
+  for (flatpak_name_iter = preinstall_flatpak_names; *flatpak_name_iter != NULL; ++flatpak_name_iter)
+    {
+      if (!flatpak_install (updater_dir,
+                            repo_name,
+                            *flatpak_name_iter,
+                            error))
+        return FALSE;
+    }
+
+  /* It seems like calling ostree config set will turn
+   * GPG verification back on for the repo, so the remote
+   * collection-id needs to be set after the flatpak is installed */
+  if (!set_flatpak_remote_collection_id (updater_dir,
+                                         repo_name,
+                                         collection_id,
+                                         error))
+    return FALSE;
+
   return TRUE;
+}
+
+
+gboolean
+eos_test_setup_flatpak_repo (GFile        *updater_dir,
+                             const gchar  *repo_name,
+                             const gchar  *collection_id,
+                             const gchar **flatpak_names,
+                             GError      **error)
+{
+  const gchar *empty_strv[] = { NULL };
+
+  return eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_dir,
+                                                             repo_name,
+                                                             collection_id,
+                                                             flatpak_names,
+                                                             empty_strv,
+                                                             error);
 }
 
 

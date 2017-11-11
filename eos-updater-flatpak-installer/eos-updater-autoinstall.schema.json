@@ -48,7 +48,30 @@
                     "$ref": "#/definitions/ref-kind"
                 },
                 "app": {
-                    "description": "The app-id to be installed",
+                    "description": "The app-id to be uninstalled",
+                    "$ref": "#/definitions/app"
+                },
+            },
+            "required": ["ref-kind", "app"]
+        },
+        {
+            "properties": {
+                "action": {
+                    "const": "update",
+                    "description": "The machine-readable type of event",
+                    "type": "string"
+                },
+                "serial": {
+                    "$ref": "#/definitions/serial"
+                },
+                "filters": {
+                    "$ref": "#/definitions/filters"
+                },
+                "ref-kind": {
+                    "$ref": "#/definitions/ref-kind"
+                },
+                "app": {
+                    "description": "The app-id to be updated",
                     "$ref": "#/definitions/app"
                 },
             },
