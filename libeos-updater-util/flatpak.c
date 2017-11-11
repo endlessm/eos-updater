@@ -869,8 +869,7 @@ flatpak_remote_ref_actions_file_free (FlatpakRemoteRefActionsFile *file)
 }
 
 gboolean
-eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relative_parent_path,
-                                                            GFile         *directory,
+eos_updater_util_flatpak_ref_actions_append_from_directory (GFile         *directory,
                                                             GHashTable    *ref_actions_for_files,
                                                             gint           priority,
                                                             GCancellable  *cancellable,
@@ -943,8 +942,7 @@ eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const gchar   
 {
   g_autoptr(GFile) override_directory = g_file_new_for_path (override_directory_path);
   g_autoptr(GError) local_error = NULL;
-  gboolean appended = eos_updater_util_flatpak_ref_actions_append_from_directory (override_directory_path,
-                                                                                  override_directory,
+  gboolean appended = eos_updater_util_flatpak_ref_actions_append_from_directory (override_directory,
                                                                                   ref_actions,
                                                                                   priority,
                                                                                   cancellable,
@@ -969,8 +967,7 @@ eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const gchar   
 /* Returns an associative map from action-ref list to a pointer array of
  * actions. The action-ref lists are considered to be append-only */
 GHashTable *
-eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
-                                                     GFile         *directory,
+eos_updater_util_flatpak_ref_actions_from_directory (GFile         *directory,
                                                      gint           priority,
                                                      GCancellable  *cancellable,
                                                      GError       **error)
@@ -980,8 +977,7 @@ eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_par
                                                                        g_free,
                                                                        (GDestroyNotify) flatpak_remote_ref_actions_file_free);
 
-  if (!eos_updater_util_flatpak_ref_actions_append_from_directory (relative_parent_path,
-                                                                   directory,
+  if (!eos_updater_util_flatpak_ref_actions_append_from_directory (directory,
                                                                    ref_actions_for_files,
                                                                    priority,
                                                                    cancellable,
@@ -1468,4 +1464,57 @@ eos_updater_util_lookup_flatpak_repo_for_collection_id (FlatpakInstallation  *in
                "Could not found remote that supports collection-id '%s'",
                collection_id);
   return NULL;
+}
+
+static const gchar *
+get_datadir (void)
+{
+  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_OSTREE_DATADIR",
+                                    DATADIR);
+}
+
+static GStrv
+directories_to_search_from_environment (void)
+{
+  g_autofree gchar *ref_actions_path = g_build_filename (get_datadir (),
+                                                         "eos-application-tools",
+                                                         "flatpak-autoinstall.d",
+                                                         NULL);
+  g_autoptr(GFile) ref_actions_directory = g_file_new_for_path (ref_actions_path);
+  const gchar *override_paths = eos_updater_util_flatpak_autoinstall_override_paths ();
+  g_autofree gchar *paths_to_search_string = g_strjoin (";", override_paths, ref_actions_path, NULL);
+  return g_strsplit(paths_to_search_string, ";", -1);
+}
+
+GHashTable *
+eos_updater_util_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
+                                                 GError **error)
+{
+  g_auto(GStrv) default_directories_to_search = NULL;
+  GStrv iter = NULL;
+  gint priority_counter = 0;
+  GHashTable *hoisted_actions = NULL;
+  g_autoptr(GHashTable) ref_actions = g_hash_table_new_full (g_str_hash,
+                                                             g_str_equal,
+                                                             g_free,
+                                                             (GDestroyNotify) flatpak_remote_ref_actions_file_free);
+
+  if (directories_to_search == NULL)
+    {
+      default_directories_to_search = directories_to_search_from_environment ();
+      directories_to_search = default_directories_to_search;
+    }
+
+  for (iter = directories_to_search; *iter != NULL; ++iter, ++priority_counter)
+    {
+      if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (*iter,
+                                                                             ref_actions,
+                                                                             priority_counter,
+                                                                             NULL,
+                                                                             error))
+        return NULL;
+    }
+
+  hoisted_actions = eos_updater_util_hoist_flatpak_remote_ref_actions (ref_actions);
+  return hoisted_actions;
 }

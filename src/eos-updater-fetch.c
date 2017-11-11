@@ -356,14 +356,14 @@ flatpak_ref_actions_for_commit (OstreeRepo    *repo,
                                 GCancellable  *cancellable,
                                 GError       **error)
 {
-  g_autofree gchar *checkout_directory_path = NULL;
-  const gchar *path_relative_to_deployment = "usr/share/eos-application-tools/flatpak-autoinstall.d";
   g_autoptr(GFile) checkout_directory = NULL;
+  const gchar *path_relative_to_deployment = "usr/share/eos-application-tools/flatpak-autoinstall.d";
   g_autoptr(GHashTable) flatpak_ref_actions_table = NULL;
+  const gchar *override_paths = eos_updater_util_flatpak_autoinstall_override_paths ();
+  const gchar *paths_to_search_string = NULL;
+  g_autofree gchar *allocated_paths_to_search_string = NULL;
+  g_auto(GStrv) paths_to_search = NULL;
   g_autoptr(GError) local_error = NULL;
-
-  checkout_directory = get_temporary_directory_to_checkout_in (error);
-  checkout_directory_path = g_file_get_path (checkout_directory);
 
   /* Now that we have a temporary directory, checkout the OSTree in it
    * at the /usr/share/eos-application-tools path. If it fails, there's nothing to
@@ -375,7 +375,15 @@ flatpak_ref_actions_for_commit (OstreeRepo    *repo,
                                                          cancellable,
                                                          &local_error);
 
-  if (!checkout_directory)
+  if (checkout_directory)
+    {
+      g_autofree gchar *checkout_directory_path = g_file_get_path (checkout_directory);
+
+      /* Checkout directory has the lowest priority, if it is specified */
+      allocated_paths_to_search_string = g_strjoin (";", override_paths, checkout_directory_path, NULL);
+      paths_to_search_string = allocated_paths_to_search_string;
+    }
+  else
     {
       if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
@@ -383,24 +391,20 @@ flatpak_ref_actions_for_commit (OstreeRepo    *repo,
           return NULL;
         }
 
-      return g_hash_table_new (NULL, NULL);
+      paths_to_search_string = override_paths;
     }
 
-  flatpak_ref_actions_table = eos_updater_util_flatpak_ref_actions_from_directory (path_relative_to_deployment,
-                                                                                   checkout_directory,
-                                                                                   FLATPAKS_IN_OSTREE_PRIORITY,
-                                                                                   cancellable,
-                                                                                   error);
+  paths_to_search = g_strsplit (paths_to_search_string, ";", -1);
+  flatpak_ref_actions_table = eos_updater_util_flatpak_ref_actions_from_paths (paths_to_search,
+                                                                               error);
 
   /* Regardless of whether there was an error, we always want to remove
-   * the checkout directory at this point */
-  eos_updater_remove_recursive (checkout_directory, NULL);
-
-  if (!flatpak_ref_actions_table)
-    return NULL;
-
-  if (!ostree_repo_checkout_gc (repo, cancellable, error))
-    return NULL;
+   * the checkout directory at this point and garbage-collect on the
+   * OstreeRepo. Note that these operations may fail, but we don't
+   * really care. */
+  if (checkout_directory)
+    eos_updater_remove_recursive (checkout_directory, NULL);
+  ostree_repo_checkout_gc (repo, cancellable, NULL);
 
   return g_steal_pointer (&flatpak_ref_actions_table);
 }
@@ -698,36 +702,6 @@ pull_flatpaks (GPtrArray     *pending_flatpak_ref_actions,
   return TRUE;
 }
 
-static GHashTable *
-compute_flatpak_ref_actions_tables (OstreeRepo    *repo,
-                                    const gchar   *update_id,
-                                    GCancellable  *cancellable,
-                                    GError       **error)
-{
-  g_auto(GStrv) override_dirs = g_strsplit (eos_updater_util_flatpak_autoinstall_override_paths (), ";", -1);
-  GStrv iter = NULL;
-  gint priority_counter = 0;
-  g_autoptr(GHashTable) ref_actions = flatpak_ref_actions_for_commit (repo,
-                                                                      update_id,
-                                                                      cancellable,
-                                                                      error);
-
-  if (!ref_actions)
-    return NULL;
-
-  for (iter = override_dirs; *iter != NULL; ++iter, ++priority_counter)
-    {
-      if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (*iter,
-                                                                             ref_actions,
-                                                                             FLATPAKS_IN_OVERRIDE_DIR_PRIORITY + priority_counter,
-                                                                             NULL,
-                                                                             error))
-        return NULL;
-    }
-
-  return eos_updater_util_hoist_flatpak_remote_ref_actions (ref_actions);
-}
-
 static gboolean
 prepare_flatpaks_to_deploy (OstreeRepo    *repo,
                             const gchar   *update_id,
@@ -742,10 +716,10 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
   g_autofree gchar *formatted_relevant_flatpak_ref_actions = NULL;
   g_autofree gchar *formatted_flatpak_ref_actions_progress = NULL;
 
-  flatpak_ref_actions_this_commit_wants = compute_flatpak_ref_actions_tables (repo,
-                                                                              update_id,
-                                                                              cancellable,
-                                                                              error);
+  flatpak_ref_actions_this_commit_wants = flatpak_ref_actions_for_commit (repo,
+                                                                          update_id,
+                                                                          cancellable,
+                                                                          error);
 
   if (!flatpak_ref_actions_this_commit_wants)
     return FALSE;

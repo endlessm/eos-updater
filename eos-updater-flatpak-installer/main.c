@@ -67,64 +67,6 @@ usage (GOptionContext *context,
   return 128;
 }
 
-static const gchar *
-get_datadir (void)
-{
-  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_OSTREE_DATADIR",
-                                    DATADIR);
-}
-
-static GHashTable *
-incoming_flatpak_ref_actions (GError **error)
-{
-  const gchar *ref_actions_relative_path = "usr/share/flatpak-autoinstall.d";
-  g_autofree gchar *ref_actions_path = g_build_filename (get_datadir (),
-                                                         "eos-application-tools",
-                                                         "flatpak-autoinstall.d",
-                                                         NULL);
-  g_autoptr(GFile) ref_actions_directory = g_file_new_for_path (ref_actions_path);
-  g_autoptr(GError) local_error = NULL;
-  g_autoptr(GHashTable) ref_actions = eos_updater_util_flatpak_ref_actions_from_directory (ref_actions_relative_path,
-                                                                                           ref_actions_directory,
-                                                                                           FLATPAKS_IN_OSTREE_PRIORITY,
-                                                                                           NULL,
-                                                                                           &local_error);
-  g_auto(GStrv) override_dirs = g_strsplit(eos_updater_util_flatpak_autoinstall_override_paths (), ";", -1);
-  GStrv iter = NULL;
-  gint priority_counter = 0;
-  GHashTable *hoisted_actions = NULL;
-
-  /* If we don't have any from the deployment, we might still have some
-   * vendor provided actions, so do them now */
-  if (!ref_actions)
-    {
-      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return NULL;
-        }
-
-      g_clear_error (&local_error);
-      ref_actions = g_hash_table_new_full (g_str_hash,
-                                           g_str_equal,
-                                           g_free,
-                                           (GDestroyNotify) flatpak_remote_ref_actions_file_free);
-    }
-
-  for (iter = override_dirs; *iter != NULL; ++iter, ++priority_counter)
-    {
-      if (!eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (*iter,
-                                                                             ref_actions,
-                                                                             FLATPAKS_IN_OVERRIDE_DIR_PRIORITY + priority_counter,
-                                                                             NULL,
-                                                                             error))
-        return NULL;
-    }
-
-  hoisted_actions = eos_updater_util_hoist_flatpak_remote_ref_actions (ref_actions);
-  return hoisted_actions;
-}
-
 static const gchar *flatpak_ref_kind_to_str[] = {
   "app", "runtime"
 };
@@ -676,7 +618,9 @@ main (int    argc,
   if (also_pull)
     g_message ("Will pull flatpaks as well as deploying them");
 
-  flatpak_ref_actions_for_this_boot = incoming_flatpak_ref_actions (&error);
+  /* Search the default directories as specified in the environment */
+  flatpak_ref_actions_for_this_boot = eos_updater_util_flatpak_ref_actions_from_paths (NULL,
+                                                                                       &error);
 
   if (!flatpak_ref_actions_for_this_boot)
     {

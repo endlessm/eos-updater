@@ -31,14 +31,6 @@
 
 G_BEGIN_DECLS
 
-/**
- * The priority markers for directories where flatpak ref action files
- * are placed. A lower number indicates a higher priority. Generally speaking,
- * ref actions files shipped on the ostree have the lowest priority and
- * overrides in the system configuration have a higher priority */
-#define FLATPAKS_IN_OSTREE_PRIORITY 100
-#define FLATPAKS_IN_OVERRIDE_DIR_PRIORITY 0
-
 typedef enum {
   EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL = 0,
   EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL = 1,
@@ -85,8 +77,7 @@ void flatpak_remote_ref_actions_file_free (FlatpakRemoteRefActionsFile *);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (FlatpakRemoteRefActionsFile, flatpak_remote_ref_actions_file_free);
 
-gboolean eos_updater_util_flatpak_ref_actions_append_from_directory (const gchar   *relative_parent_path,
-                                                                     GFile         *directory,
+gboolean eos_updater_util_flatpak_ref_actions_append_from_directory (GFile         *directory,
                                                                      GHashTable    *ref_actions,
                                                                      gint           priority,
                                                                      GCancellable  *cancellable,
@@ -96,8 +87,7 @@ gboolean eos_updater_util_flatpak_ref_actions_maybe_append_from_directory (const
                                                                            gint           priority,
                                                                            GCancellable  *cancellable,
                                                                            GError       **error);
-GHashTable * eos_updater_util_flatpak_ref_actions_from_directory (const gchar   *relative_parent_path,
-                                                                  GFile         *directory,
+GHashTable * eos_updater_util_flatpak_ref_actions_from_directory (GFile         *directory,
                                                                   gint           priority,
                                                                   GCancellable  *cancellable,
                                                                   GError       **error);
@@ -121,5 +111,8 @@ gchar * eos_updater_util_lookup_flatpak_repo_for_collection_id (FlatpakInstallat
 
 const gchar * eos_updater_util_pending_flatpak_deployments_state_path (void);
 const gchar * eos_updater_util_flatpak_autoinstall_override_paths (void);
+
+GHashTable * eos_updater_util_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
+                                                              GError **error);
 
 G_END_DECLS
