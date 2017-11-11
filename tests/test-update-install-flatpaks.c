@@ -20,6 +20,7 @@
  *  - Sam Spilsbury <sam@endlessm.com>
  */
 
+#include "flatpak-spawn.h"
 #include "misc-utils.h"
 #include "spawn-utils.h"
 #include "ostree-spawn.h"

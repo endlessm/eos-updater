@@ -275,16 +275,12 @@ gboolean eos_test_run_flatpak_installer (GFile        *client_root,
                                          const gchar  *remote,
                                          GError      **error);
 
-gboolean flatpak_install (GFile        *updater_path,
-                          const gchar  *remote,
-                          const gchar  *name,
-                          GError      **error);
-
-gboolean flatpak_uninstall (GFile        *updater_path,
-                            const gchar  *name,
-                            GError      **error);
-
 GStrv eos_test_get_installed_flatpaks (GFile   *updater_path,
                                        GError **error);
+
+GFile * get_flatpak_user_dir_for_updater_dir (GFile *updater_dir);
+GFile * get_flatpak_autoinstall_override_dir (GFile *client_root);
+
+GFile * eos_test_get_flatpak_build_dir_for_updater_dir (GFile *updater_dir);
 
 G_END_DECLS

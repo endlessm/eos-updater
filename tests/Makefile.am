@@ -45,6 +45,8 @@ libeos_updater_test_la_CFLAGS = \
 libeos_updater_test_la_LDFLAGS = $(WARN_LDFLAGS)
 libeos_updater_test_la_LIBADD = $(FLATPAK_LIBS) $(GIO_LIBS) $(OSTREE_LIBS)
 libeos_updater_test_la_SOURCES = \
+	flatpak-spawn.c \
+	flatpak-spawn.h \
 	spawn-utils.c \
 	spawn-utils.h \
 	misc-utils.c \
