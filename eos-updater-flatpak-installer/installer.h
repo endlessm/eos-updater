@@ -23,6 +23,7 @@
 #pragma once
 
 #include <glib.h>
+#include <flatpak.h>
 
 G_BEGIN_DECLS
 
@@ -54,5 +55,39 @@ typedef enum {
   EU_INSTALLER_MODE_STAMP = 1,
   EU_INSTALLER_MODE_CHECK = 2
 } EosUpdaterInstallerMode;
+
+/**
+ * EosUpdaterInstallerFlags
+ * @EU_INSTALLER_FLAGS_NONE: Just run the installer normally.
+ * @EU_INSTALLER_FLAGS_ALSO_PULL: Pull flatpaks as well as deploying them. This
+ *                                is not something that would run on normal
+ *                                operation, rather it is a tool for developers
+ *                                to keep installed flatpaks up to date with
+ *                                their system without having to use the
+ *                                regular updater.
+ */
+typedef enum {
+  EU_INSTALLER_FLAGS_NONE = 0,
+  EU_INSTALLER_FLAGS_ALSO_PULL = (1 << 0)
+} EosUpdaterInstallerFlags;
+
+gboolean eos_updater_flatpak_installer_check_ref_actions_applied (FlatpakInstallation  *installation,
+                                                                  const gchar          *pending_flatpak_deployments_state_path,
+                                                                  GHashTable           *table,
+                                                                  GError              **error);
+
+
+gboolean eos_updater_flatpak_installer_apply_flatpak_ref_actions (FlatpakInstallation      *installation,
+                                                                  GHashTable               *table,
+                                                                  EosUpdaterInstallerMode   mode,
+                                                                  EosUpdaterInstallerFlags  pull,
+                                                                  GError                  **error);
+
+GHashTable * eos_updater_flatpak_installer_determine_flatpak_ref_actions_to_check (GStrv    directories_to_search,
+                                                                                   GError **error);
+
+
+GHashTable * eos_updater_flatpak_installer_determine_flatpak_ref_actions_to_apply (GStrv    directories_to_search,
+                                                                                   GError **error);
 
 G_END_DECLS

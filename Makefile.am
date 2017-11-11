@@ -268,6 +268,33 @@ dist_bin_SCRIPTS += eos-updater-prepare-volume/eos-updater-prepare-volume
 
 dist_man8_MANS += eos-updater-prepare-volume/docs/eos-updater-prepare-volume.8
 
+# Flatpak installer utility library
+noinst_LTLIBRARIES += eos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUU_API_VERSION@.la
+
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-updater-flatpak"\" \
+	-DLOCALSTATEDIR=\""$(localstatedir)"\"
+	$(NULL)
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_CFLAGS = \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_CFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(NULL)
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_SOURCES = \
+	eos-updater-flatpak-installer/determine-flatpak-actions.c \
+	eos-updater-flatpak-installer/perform-flatpak-actions.c \
+	$(NULL)
+
 # eos-updater-flatpak-installer program
 libexec_PROGRAMS += eos-updater-flatpak-installer/eos-updater-flatpak-installer
 
@@ -289,6 +316,7 @@ eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDADD = \
 	$(CODE_COVERAGE_LIBS) \
 	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
 	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(top_builddir)/eos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUU_API_VERSION@.la
 	$(NULL)
 eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
 	eos-updater-flatpak-installer/main.c \
