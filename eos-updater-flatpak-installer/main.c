@@ -186,7 +186,7 @@ try_install_application (FlatpakInstallation       *installation,
       g_message ("%s:%s/%s already installed, updating", remote_name, formatted_kind, name);
       g_clear_error (&local_error);
       if (!flatpak_installation_update (installation,
-                                        FLATPAK_UPDATE_FLAGS_NO_PULL,
+                                        !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_INSTALL_FLAGS_NO_PULL : 0,
                                         kind,
                                         name,
                                         NULL,
