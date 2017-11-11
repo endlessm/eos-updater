@@ -182,7 +182,7 @@ maybe_get_json_object_string_member (JsonObject   *object,
 {
   JsonNode *member = json_object_get_member (object, key);
 
-  if (key == NULL)
+  if (member == NULL)
     {
       g_set_error (error,
                    EOS_UPDATER_ERROR,
