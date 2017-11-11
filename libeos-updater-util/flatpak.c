@@ -314,7 +314,15 @@ flatpak_remote_ref_action_from_json_node (JsonNode *node,
   if (serial_node == NULL ||
       !JSON_NODE_HOLDS_VALUE (serial_node) ||
       json_node_get_value_type (serial_node) != G_TYPE_INT64)
-    return NULL;
+    {
+      g_autofree gchar *node_str = json_node_to_string (node);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                   "Expected 'serial' member of type int in, %s", node_str);
+
+      return NULL;
+    }
 
   serial64 = json_node_get_int (serial_node);
 
