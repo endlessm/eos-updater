@@ -73,7 +73,7 @@ flatpak_location_ref_ref (FlatpakLocationRef *location_ref)
   return location_ref;
 }
 
-static FlatpakRemoteRefAction *
+FlatpakRemoteRefAction *
 flatpak_remote_ref_action_new (EosUpdaterUtilFlatpakRemoteRefActionType  type,
                                FlatpakLocationRef                       *ref,
                                gint32                                    serial)

@@ -66,6 +66,9 @@ void flatpak_location_ref_unref (FlatpakLocationRef *ref);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (FlatpakLocationRef, flatpak_location_ref_unref);
 
+FlatpakRemoteRefAction * flatpak_remote_ref_action_new (EosUpdaterUtilFlatpakRemoteRefActionType  type,
+                                                        FlatpakLocationRef                       *ref,
+                                                        gint32                                    serial);
 FlatpakRemoteRefAction * flatpak_remote_ref_action_ref (FlatpakRemoteRefAction *action);
 void flatpak_remote_ref_action_unref (FlatpakRemoteRefAction *action);
 
