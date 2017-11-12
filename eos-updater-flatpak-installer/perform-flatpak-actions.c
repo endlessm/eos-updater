@@ -95,7 +95,7 @@ try_install_application (FlatpakInstallation       *installation,
                          GError                   **error)
 {
   g_autofree gchar *candidate_remote_name = NULL;
-  const gchar *remote_name = NULL;
+  const gchar *remote_name = in_remote_name;
   const gchar *formatted_kind = string_for_flatpak_kind (kind);
   g_autoptr(GError) local_error = NULL;
 
