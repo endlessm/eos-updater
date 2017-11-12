@@ -83,15 +83,15 @@ Where the fB"\action\fP"\fP property of a "\fBFlatpak Ref Action\fP" entry is
 "\fB"install"\fP", the action will describe a flatpak that should be
 installed upon the next boot of the deployment in which the action was
 introduced. The entry must have the additional properties "\fB"app"\fP",
-"\fB"ref-kind"\fP" and one of either "\fB"collection-id"\fP" or
-"\fB"remote"\fP", which describe the flatpak app ID, whether the flatpak is a
+"\fB"ref-kind"\fP" and both "\fB"collection-id"\fP" and "\fB"remote"\fP",
+which describe the flatpak app ID, whether the flatpak is a
 runtime or an app and either the \fBostree\fP(1) collection ID or remote to
 install the app from. See \fBflatpak\fP(1) and \fBostree\fP(1) for more
 information on flatpak app IDs, ref-kinds and remotes, and ostree(1)
 on collection IDs generally. If the flatpak is already installed when the action
 is applied, \fBeos-updater-flatpak-installer\fP(8) will attempt to upgrade it.
 \."
-If both "\fB"collection-id"\fP" and "\fB"remote"\fP" are specified, the
+Because both "\fB"collection-id"\fP" and "\fB"remote"\fP" are specified, the
 updater will check that the given remote matches the first remote for
 the given collection ID, otherwise an error occurrs. If neither
 "\fB"collection-id"\fP" nor "\fB"remote"\fP" are specified, an error
