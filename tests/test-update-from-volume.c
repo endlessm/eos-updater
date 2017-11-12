@@ -20,9 +20,9 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "misc-utils.h"
-#include "spawn-utils.h"
-#include "eos-test-utils.h"
+#include <test-common/misc-utils.h>
+#include <test-common/spawn-utils.h>
+#include <test-common/eos-test-utils.h>
 
 #include <gio/gio.h>
 

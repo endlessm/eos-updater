@@ -19,46 +19,6 @@ include $(top_srcdir)/glib-tap.mk
 installed_testdir = $(libexecdir)/installed-tests/eos-updater-@EU_API_VERSION@
 installed_test_metadir = $(datadir)/installed-tests/eos-updater-@EU_API_VERSION@
 
-# Test utility library
-testlib = libeos-updater-test.la
-noinst_LTLIBRARIES += $(testlib)
-
-libeos_updater_test_la_CPPFLAGS = \
-	-DOSTREE_BINARY=\""$(OSTREE_BINARY)"\" \
-	-DGPG_BINARY=\""$(GPG_BINARY)"\" \
-	-DFLATPAK_BINARY=\""$(FLATPAK_BINARY)"\" \
-	-DOSTREE_WITH_AUTOCLEANUPS \
-	-I$(top_srcdir) \
-	-I$(top_builddir) \
-	-include "config.h" \
-	-I$(top_srcdir)/src \
-	-I$(top_builddir)/src \
-	$(NULL)
-libeos_updater_test_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(STD_CFLAGS) \
-	$(WARN_CFLAGS) \
-	$(FLATPAK_CFLAGS) \
-	$(GIO_CFLAGS) \
-	$(OSTREE_CFLAGS) \
-	$(NULL)
-libeos_updater_test_la_LDFLAGS = $(WARN_LDFLAGS)
-libeos_updater_test_la_LIBADD = $(FLATPAK_LIBS) $(GIO_LIBS) $(OSTREE_LIBS)
-libeos_updater_test_la_SOURCES = \
-	flatpak-spawn.c \
-	flatpak-spawn.h \
-	spawn-utils.c \
-	spawn-utils.h \
-	misc-utils.c \
-	misc-utils.h \
-	ostree-spawn.c \
-	ostree-spawn.h \
-	eos-test-utils.c \
-	eos-test-utils.h \
-	eos-test-convenience.c \
-	eos-test-convenience.h \
-	$(NULL)
-
 @VALGRIND_CHECK_RULES@
 @CODE_COVERAGE_RULES@
 CODE_COVERAGE_IGNORE_PATTERN = \
@@ -114,7 +74,7 @@ test_ldadd = \
 	$(GIO_LIBS) \
 	$(OSTREE_LIBS) \
 	$(FLATPAK_LIBS) \
-	$(testlib) \
+	$(top_builddir)/test-common/libeos-updater-test-common.la \
 	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
 	$(NULL)
 

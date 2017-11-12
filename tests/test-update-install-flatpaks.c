@@ -20,12 +20,12 @@
  *  - Sam Spilsbury <sam@endlessm.com>
  */
 
-#include "flatpak-spawn.h"
-#include "misc-utils.h"
-#include "spawn-utils.h"
-#include "ostree-spawn.h"
-#include "eos-test-utils.h"
-#include "eos-test-convenience.h"
+#include <test-common/flatpak-spawn.h>
+#include <test-common/misc-utils.h>
+#include <test-common/spawn-utils.h>
+#include <test-common/ostree-spawn.h>
+#include <test-common/eos-test-utils.h>
+#include <test-common/eos-test-convenience.h>
 
 #include <ostree.h>
 #include <flatpak.h>

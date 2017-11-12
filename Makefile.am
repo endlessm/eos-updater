@@ -346,6 +346,55 @@ CLEANFILES += $(eos_updater_flatpak_installer_in:%.in=%)
 dist_man5_MANS += eos-updater-flatpak-installer/docs/eos-updater-flatpak-autoinstall.d.5
 dist_man8_MANS += eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8
 
+# Test helper library
+noinst_LTLIBRARIES += test-common/libeos-updater-test-common.la
+
+test_common_libeos_updater_test_common_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DOSTREE_BINARY=\""$(OSTREE_BINARY)"\" \
+	-DGPG_BINARY=\""$(GPG_BINARY)"\" \
+	-DFLATPAK_BINARY=\""$(FLATPAK_BINARY)"\" \
+	-DOSTREE_WITH_AUTOCLEANUPS \
+	-DG_LOG_DOMAIN=\""eos-updater-test-common"\" \
+	-DLOCALSTATEDIR=\""$(localstatedir)"\"
+	-I$(top_srcdir) \
+	-I$(top_builddir) \
+	-include "config.h" \
+	-I$(top_srcdir)/src \
+	-I$(top_builddir)/src \
+	$(NULL)
+test_common_libeos_updater_test_common_la_CFLAGS = \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(FLATPAK_CFLAGS) \
+	$(GIO_CFLAGS) \
+	$(OSTREE_CFLAGS) \
+	$(NULL)
+test_common_libeos_updater_test_common_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+test_common_libeos_updater_test_common_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(FLATPAK_LIBS) \
+	$(GIO_LIBS) \
+	$(OSTREE_LIBS) \
+	$(NULL)
+test_common_libeos_updater_test_common_la_SOURCES = \
+	test-common/flatpak-spawn.c \
+	test-common/flatpak-spawn.h \
+	test-common/spawn-utils.c \
+	test-common/spawn-utils.h \
+	test-common/misc-utils.c \
+	test-common/misc-utils.h \
+	test-common/ostree-spawn.c \
+	test-common/ostree-spawn.h \
+	test-common/eos-test-utils.c \
+	test-common/eos-test-utils.h \
+	test-common/eos-test-convenience.c \
+	test-common/eos-test-convenience.h \
+	$(NULL)
+
 # Generic systemd rules
 edit = sed \
 	-e 's|[@]bindir[@]|$(bindir)|g' \
