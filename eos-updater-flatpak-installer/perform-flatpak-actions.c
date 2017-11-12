@@ -248,11 +248,9 @@ perform_action (FlatpakInstallation      *installation,
 
 static void
 complain_about_failure_to_update_system_installation_counter (const gchar *failing_name,
+                                                              const gchar  *counter_path,
                                                               GError      *error)
 {
-  g_autofree gchar *counter_path = g_build_filename (eos_updater_util_pending_flatpak_deployments_state_path (),
-                                                     failing_name,
-                                                     NULL);
   g_autofree gchar *incoming_actions_path = g_build_filename (DATADIR,
                                                               "eos-application-tools",
                                                               "flatpak-autoinstall.d",
@@ -271,11 +269,11 @@ complain_about_failure_to_update_system_installation_counter (const gchar *faili
 
 static gboolean
 update_counter (FlatpakRemoteRefAction  *action,
+                const gchar             *counter_path,
                 const gchar             *source_path,
                 GError                 **error)
 {
-  const gchar *counter_file_path = eos_updater_util_pending_flatpak_deployments_state_path ();
-  g_autoptr(GFile) counter_file = g_file_new_for_path (counter_file_path);
+  g_autoptr(GFile) counter_file = g_file_new_for_path (counter_path);
   g_autoptr(GFile) parent = g_file_get_parent (counter_file);
   g_autoptr(GKeyFile) counter_keyfile = g_key_file_new ();
   g_autoptr(GError) local_error = NULL;
@@ -293,7 +291,7 @@ update_counter (FlatpakRemoteRefAction  *action,
     }
 
   if (!g_key_file_load_from_file (counter_keyfile, 
-                                  counter_file_path,
+                                  counter_path,
                                   G_KEY_FILE_NONE,
                                   &local_error))
     {
@@ -308,7 +306,7 @@ update_counter (FlatpakRemoteRefAction  *action,
 
   g_key_file_set_int64 (counter_keyfile, source_path, "Progress", action->serial);
 
-  if (!g_key_file_save_to_file (counter_keyfile, counter_file_path, error))
+  if (!g_key_file_save_to_file (counter_keyfile, counter_path, error))
     return FALSE;
 
   return TRUE;
@@ -316,17 +314,20 @@ update_counter (FlatpakRemoteRefAction  *action,
 
 static void
 update_counter_complain_on_error (FlatpakRemoteRefAction  *action,
+                                  const gchar             *counter_path,
                                   const gchar             *source_path)
 {
   g_autoptr(GError) error = NULL;
 
-  if (!update_counter (action, source_path, &error))
+  if (!update_counter (action, counter_path, source_path, &error))
     complain_about_failure_to_update_system_installation_counter (source_path,
+                                                                  counter_path,
                                                                   error);
 }
 
 gboolean
 eos_updater_flatpak_installer_apply_flatpak_ref_actions (FlatpakInstallation      *installation,
+                                                         const gchar              *state_counter_path,
                                                          GHashTable               *table,
                                                          EosUpdaterInstallerMode   mode,
                                                          EosUpdaterInstallerFlags  pull,
@@ -363,6 +364,7 @@ eos_updater_flatpak_installer_apply_flatpak_ref_actions (FlatpakInstallation    
                * that we don't perform the same action again next time */
               if (last_successful_action)
                 update_counter_complain_on_error (last_successful_action,
+                                                  state_counter_path,
                                                   source_path);
               return FALSE;
             }
@@ -373,7 +375,10 @@ eos_updater_flatpak_installer_apply_flatpak_ref_actions (FlatpakInstallation    
       /* Once we're done, update the state of the counter, but bail out
        * if it fails */
       if (last_successful_action &&
-          !update_counter (last_successful_action, source_path, error))
+          !update_counter (last_successful_action,
+                           state_counter_path,
+                           source_path,
+                           error))
         return FALSE;
     }
 

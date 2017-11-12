@@ -209,6 +209,7 @@ main (int    argc,
           g_message ("%s", formatted_flatpak_ref_actions_to_apply);
 
           if (!eos_updater_flatpak_installer_apply_flatpak_ref_actions (installation,
+                                                                        eos_updater_util_pending_flatpak_deployments_state_path (),
                                                                         new_flatpak_ref_actions_to_apply,
                                                                         parsed_mode,
                                                                         also_pull ? EU_INSTALLER_FLAGS_ALSO_PULL : EU_INSTALLER_FLAGS_NONE,

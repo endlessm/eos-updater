@@ -78,6 +78,7 @@ gboolean eos_updater_flatpak_installer_check_ref_actions_applied (FlatpakInstall
 
 
 gboolean eos_updater_flatpak_installer_apply_flatpak_ref_actions (FlatpakInstallation      *installation,
+                                                                  const gchar              *state_counter_path,
                                                                   GHashTable               *table,
                                                                   EosUpdaterInstallerMode   mode,
                                                                   EosUpdaterInstallerFlags  pull,
