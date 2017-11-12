@@ -16,7 +16,7 @@
 
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 
-SUBDIRS = . src libeos-updater-util/tests data tests
+SUBDIRS = . src libeos-updater-util/tests eos-updater-flatpak-installer/tests data tests
 
 sysconfexampledir = $(pkgdatadir)
 
