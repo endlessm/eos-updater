@@ -32,7 +32,7 @@
                     "$ref": "#/definitions/remote"
                 }
             },
-            "required": ["ref-kind", "app"]
+            "required": ["ref-kind", "app", "remote", "collection-id"]
         },
         {
             "properties": {

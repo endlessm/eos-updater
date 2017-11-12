@@ -439,14 +439,9 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
       if (action->type != EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL)
         continue;
 
-      /* Invariant - must have either a remote name or a collection ID
+      /* Invariant - must have both a remote name or a collection ID
        * by this point */
-      g_assert (collection_id || to_install->remote);
-
-      /* If a collection ID was not specified, then we already have the
-       * remote, so we can just continue here */
-      if (collection_id == NULL)
-        continue;
+      g_assert (collection_id != NULL && to_install->remote != NULL);
 
       /* If we didn't hit the remote name cache, figure it out now. */
       if (candidate_remote_name == NULL)
@@ -472,8 +467,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
           candidate_remote_name = found_remote_name;
 
           /* Should be able to find a remote name for all collection IDs */
-          if (candidate_remote_name == NULL &&
-              to_install->remote == NULL)
+          if (candidate_remote_name == NULL)
             {
               g_message ("Failed to find a remote name for collection ID %s: %s",
                          collection_id,
@@ -491,33 +485,24 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
                                g_steal_pointer (&found_remote_name));
         }
 
-      /* If we had a remote name from before, check to make sure the two
-       * match, otherwise bail out */
-      if (to_install->remote != NULL)
+      /* Cross check the remote name from before with the one we have now */
+      if (candidate_remote_name != NULL &&
+          g_strcmp0 (to_install->remote,
+                     candidate_remote_name) != 0)
         {
-          if (candidate_remote_name != NULL &&
-              g_strcmp0 (to_install->remote,
-                         candidate_remote_name) != 0)
-            {
-              g_set_error (error,
-                           EOS_UPDATER_ERROR,
-                           EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT,
-                           "Specified flatpak remote '%s' conflicts with the remote "
-                           "detected for collection ID '%s' ('%s'), cannot continue.",
-                           to_install->remote,
-                           collection_id,
-                           candidate_remote_name);
-              return FALSE;
-            }
+          g_set_error (error,
+                       EOS_UPDATER_ERROR,
+                       EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT,
+                       "Specified flatpak remote '%s' conflicts with the remote "
+                       "detected for collection ID '%s' ('%s'), cannot continue.",
+                       to_install->remote,
+                       collection_id,
+                       candidate_remote_name);
+          return FALSE;
+        }
 
-           /* The detected remote name and candidate remote name will be
-            * the same here, so no need to do anything */
-        }
-      else
-        {
-          /* Set the remote name now */
-          to_install->remote = g_strdup (candidate_remote_name);
-        }
+       /* The detected remote name and candidate remote name will be
+        * the same here, so no need to do anything further */
     }
 
   return TRUE;

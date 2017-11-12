@@ -247,54 +247,23 @@ flatpak_remote_ref_from_install_action_entry (JsonObject *entry,
   const gchar *collection_id = NULL;
   const gchar *remote = NULL;
   g_autoptr(FlatpakRef) ref = NULL;
-  g_autoptr(GError) local_error = NULL;
   FlatpakRefKind kind;
 
   if (!parse_flatpak_ref_from_entry (entry, &app_name, &kind, error))
     return NULL;
 
-  collection_id = maybe_get_json_object_string_member (entry, "collection-id", &local_error);
+  collection_id = maybe_get_json_object_string_member (entry, "collection-id", error);
 
   if (collection_id == NULL)
-    {
-      if (!g_error_matches (local_error,
-                            EOS_UPDATER_ERROR,
-                            EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
+    return FALSE;
 
-      g_clear_error (&local_error);
-    }
-
-  remote = maybe_get_json_object_string_member (entry, "remote", &local_error);
+  remote = maybe_get_json_object_string_member (entry, "remote", error);
 
   if (remote == NULL)
-    {
-      if (!g_error_matches (local_error,
-                            EOS_UPDATER_ERROR,
-                            EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
+    return FALSE;
 
-      g_clear_error (&local_error);
-    }
-
-  /* Check to see if we at least had a remote name or collection-id, if
-   * we don't have either then bail out. This invariant should hold
-   * during the rest of the process */
-  if (remote == NULL && collection_id == NULL)
-    {
-      g_set_error (error,
-                   EOS_UPDATER_ERROR,
-                   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected either a valid 'remote' or 'collection-id' entry");
-      return FALSE;
-    }
-
+  /* Invariant from this point onwards is that we have both a remote
+   * and a collection-id */
   ref = g_object_new (FLATPAK_TYPE_REF,
                       "name", app_name,
                       "kind", kind,
