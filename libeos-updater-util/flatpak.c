@@ -1272,13 +1272,18 @@ eos_updater_util_flatpak_ref_action_application_progress_in_state_path (GCancell
   for (groups_iter = groups; *groups_iter != NULL; ++groups_iter)
     {
       const gchar *source_path = *groups_iter;
+      g_autoptr(GError) get_integer_local_error = NULL;
       gint progress = g_key_file_get_integer (state_key_file,
                                               *groups_iter,
                                               "Progress",
-                                              error);
+                                              &get_integer_local_error);
 
       if (progress == 0)
-        return NULL;
+        {
+          g_assert (get_integer_local_error != NULL && "Invariant violation: 'Progress' must be > 0 in key file");
+          g_propagate_error (error, g_steal_pointer (&get_integer_local_error));
+          return NULL;
+        }
 
       g_hash_table_insert (ref_action_progress_for_files,
                            g_strdup (source_path),
