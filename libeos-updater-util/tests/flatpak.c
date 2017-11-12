@@ -133,6 +133,26 @@ test_compress_install_update_as_install (Fixture       *fixture,
   g_assert (((FlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
 }
 
+/* Test that actions 'uninstall', then 'update' get compressed as 'uninstall' */
+static void
+test_compress_uninstall_update_as_uninstall (Fixture       *fixture,
+                                             gconstpointer  user_data G_GNUC_UNUSED)
+{
+  FlatpakToInstallEntry entries[] = {
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", 2 }
+  };
+  FlatpakToInstallFile files[] = {
+    { "autoinstall", entries, G_N_ELEMENTS (entries) }
+  };
+  FlatpakToInstallDirectory directory = { files, G_N_ELEMENTS (files) };
+  g_autoptr(GHashTable) uncompressed_ref_actions_table = flatpak_to_install_directory_to_hash_table (&directory);
+  g_autoptr(GPtrArray) flattened_actions_list = eos_updater_util_flatten_flatpak_ref_actions_table (uncompressed_ref_actions_table);
+
+  g_assert (flattened_actions_list->len == 1);
+  g_assert (((FlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
+}
+
 /* Test that actions 'install', then 'uninstall' get compressed as 'uninstall' */
 static void
 test_compress_install_uninstall_as_uninstall (Fixture       *fixture,
@@ -225,6 +245,8 @@ main (int   argc,
 
   g_test_add ("/flatpak/compress-install-update-as-install", Fixture, NULL, setup,
               test_compress_install_update_as_install, teardown);
+  g_test_add ("/flatpak/compress-uninstall-update-as-uninstall", Fixture, NULL, setup,
+              test_compress_uninstall_update_as_uninstall, teardown);
   g_test_add ("/flatpak/compress-install-uninstall-as-uninstall", Fixture, NULL, setup,
               test_compress_install_uninstall_as_uninstall, teardown);
   g_test_add ("/flatpak/compress-install-uninstall-install-as-install", Fixture, NULL, setup,

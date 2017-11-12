@@ -997,11 +997,10 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions)
        * (1) "install" and "uninstall" always take priority over "update"
        *     since "install" means "install or update" and "uninstall"
        *     means "unconditionally remove".
-       * (2) "update" takes priority over "uninstall" if "uninstall" were
-       *     present, since it will not re-install the app again, but it
-       *     will update it if the user had it installed.
-       * (3) "update" does not take priority over "install", since the latter
-       *     subsumes it anyway.
+       * (2) "update" does not take priority over "install" or "uninstall",
+       *     since the former would subsumes it anyway and the latter would
+       *     make the app no longer be installed in that run of the flatpak
+       *     installer.
        */
       existing_action_for_ref = g_hash_table_lookup (hash_table, action->ref->ref);
 
@@ -1013,13 +1012,6 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions)
           g_hash_table_replace (hash_table,
                                 g_object_ref (action->ref->ref),
                                 flatpak_remote_ref_action_ref (action));
-        }
-      else if (action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE)
-        {
-          if (existing_action_for_ref->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL)
-            g_hash_table_replace (hash_table,
-                                  g_object_ref (action->ref->ref),
-                                  flatpak_remote_ref_action_ref (action));
         }
     }
 
