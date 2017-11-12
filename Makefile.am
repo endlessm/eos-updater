@@ -74,7 +74,7 @@ enum_sources = \
 libeos-updater-util/enums.h: $(enum_template_h_file) $(enum_header_files)
 	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $@
 
-libeos-updater-util/enums.c: $(enum_template_c_file) $(enum_header_files)
+libeos-updater-util/enums.c: $(enum_template_c_file) $(enum_header_files) libeos-updater-util/enums.h
 	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $@
 
 BUILT_SOURCES += $(enum_sources)
