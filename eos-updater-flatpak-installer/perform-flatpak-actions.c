@@ -164,10 +164,16 @@ try_install_application (FlatpakInstallation       *installation,
                                         NULL,
                                         NULL,
                                         NULL,
-                                        error))
+                                        &local_error))
         {
-          g_message ("Failed to update %s:%s/%s", remote_name, formatted_kind, name);
-          return FALSE;
+          if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
+            {
+              g_message ("Failed to update %s:%s/%s", remote_name, formatted_kind, name);
+              g_propagate_error (error, g_steal_pointer (&local_error));
+              return FALSE;
+            }
+
+          g_clear_error (&local_error);
         }
     }
 
