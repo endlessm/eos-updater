@@ -24,7 +24,8 @@ removes the Avahi advertisements for them.
 The Avahi advertisements are DNS\-SD records which allow other computers on the
 local network to check which updates are available to download from this
 computer, and which port to download them from. By default, they are stored in
-\fI/etc/avahi/services/eos\-updater.service\fP.
+\fI/etc/avahi/services/eos\-ostree\-updater\-*.service\fP (and, on older
+machines, \fI/etc/avahi/services/eos\-updater.service\fP).
 .PP
 Advertisement of updates can be disabled by setting the \fIAdvertiseUpdates=\fP
 key to \fIfalse\fP in \fBeos\-update\-server.conf\fP(5).
