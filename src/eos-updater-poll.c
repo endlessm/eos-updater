@@ -300,7 +300,7 @@ metadata_fetch_new (OstreeRepo    *repo,
       g_auto(GVariantBuilder) builder = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE ("a{sv}"));
 
       g_debug ("%s: Finding remotes advertising upgrade_collection_ref: (%s, %s)",
-               upgrade_collection_ref->collection_id, upgrade_collection_ref->ref_name);
+               G_STRFUNC, upgrade_collection_ref->collection_id, upgrade_collection_ref->ref_name);
 
       ostree_repo_find_remotes_async (repo, refs, NULL  /* options */,
                                       (OstreeRepoFinder **) finders->pdata,
