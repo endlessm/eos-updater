@@ -24,8 +24,7 @@ removes the Avahi advertisements for them.
 The Avahi advertisements are DNS\-SD records which allow other computers on the
 local network to check which updates are available to download from this
 computer, and which port to download them from. By default, they are stored in
-\fI/etc/avahi/services/eos\-ostree\-updater\-*.service\fP (and, on older
-machines, \fI/etc/avahi/services/eos\-updater.service\fP).
+\fI/etc/avahi/services/eos\-ostree\-updater\-*.service\fP.
 .PP
 Advertisement of updates can be disabled by setting the \fIAdvertiseUpdates=\fP
 key to \fIfalse\fP in \fBeos\-update\-server.conf\fP(5).
@@ -112,18 +111,12 @@ parsed.
 .SH "FILES"
 .IX Header "FILES"
 .\"
-.IP \fI/etc/avahi/services/eos\-updater.service\fP 4
-.IX Item "/etc/avahi/services/eos\-updater.service"
-Describes the DNS\-SD record for Avahi to advertise to the local network. No
-advertisement will be made if this file is not present. This is the file which
-\fBeos\-updater\-avahi\fP adds, updates and removes when run.
-.\"
 .IP \fI/etc/avahi/services/eos\-ostree\-updater\-[0–65535].service\fP 4
 .IX Item "/etc/avahi/services/eos-ostree-updater\-[0–65535].service"
-Similarly to the \fI/etc/avahi/services/eos\-updater.service\fP file,
-it describes the DNS\-SD record for Avahi, but a different DNS-SD record
-format is used. Many files can exist, one for each advertised repository.
-These files are managed by \fBeos\-updater\-avahi\fP.
+Describes the DNS\-SD record for Avahi to advertise to the local network.
+Many files can exist, one for each advertised repository. No advertisement will
+be made if none of these files are present. These files are managed by
+\fBeos\-updater\-avahi\fP.
 .\"
 .IP \fI/etc/eos\-updater/eos\-update\-server.conf\fP 4
 .IX Item "/etc/eos\-updater/eos\-update\-server.conf"

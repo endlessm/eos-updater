@@ -1,7 +1,7 @@
 [Unit]
 Description=Socket for Endless OS Automatic Updater
 Documentation=man:eos-update-server(8)
-ConditionPathExists=@sysconfdir@/avahi/services/eos-updater.service
+ConditionPathExistsGlob=@sysconfdir@/avahi/services/eos-ostree-updater-*.service
 After=eos-updater-avahi.service
 
 # We want all the default dependencies except Before=sockets.target, otherwise

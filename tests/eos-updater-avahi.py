@@ -36,13 +36,16 @@ class TestEosUpdaterAvahi(unittest.TestCase):
 
     It must be run as root in order to be able to modify all the files it needs
     to touch.
+
+    It verifies that the old service file is never generated. We only care
+    about the new service file from now on.
     """
 
     def setUp(self):
         self.timeout_seconds = 10  # seconds per test
         self._main_context = GLib.main_context_default()
         self.__timed_out = False
-        self.__service_file = '/etc/avahi/services/eos-updater.service'
+        self.__old_service_file = '/etc/avahi/services/eos-updater.service'
         self.__new_service_file = '/etc/avahi/services/eos-ostree-updater-0.service'
         self.__config_file = '/etc/eos-updater/eos-update-server.conf'
 
@@ -51,7 +54,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         self._main_context = None
 
         try:
-            os.unlink(self.__service_file)
+            os.unlink(self.__old_service_file)
         except OSError:
             pass
         try:
@@ -101,7 +104,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
 
     def test_disabled_by_default(self):
         """Test Avahi adverts are disabled by default, on a clean install."""
-        self.assertFalse(os.path.isfile(self.__service_file))
+        self.assertFalse(os.path.isfile(self.__old_service_file))
         self.assertFalse(os.path.isfile(self.__new_service_file))
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
@@ -115,7 +118,27 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: os.path.isfile(self.__service_file) and os.path.isfile(self.__new_service_file)
+            lambda s: not os.path.isfile(self.__old_service_file) and os.path.isfile(self.__new_service_file)
+        )
+
+    @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
+    def test_enable_via_configuration_file_delete_old(self):
+        """Test enabling the configuration file deletes old .service file."""
+        os.makedirs('/etc/avahi/services/', mode=0o755, exist_ok=True)
+        with open(self.__old_service_file, 'w') as old_service_file:
+            old_service_file.write(
+                '<!-- this file should be deleted -->\n'
+            )
+
+        os.makedirs('/etc/eos-updater/', mode=0o755, exist_ok=True)
+        with open(self.__config_file, 'w') as conf_file:
+            conf_file.write(
+                '[Local Network Updates]\n'
+                'AdvertiseUpdates=true\n'
+            )
+
+        self._wait_for_condition(
+            lambda s: not os.path.isfile(self.__old_service_file) and os.path.isfile(self.__new_service_file)
         )
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
@@ -129,7 +152,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: not os.path.isfile(self.__service_file) and not os.path.isfile(self.__new_service_file)
+            lambda s: not os.path.isfile(self.__old_service_file) and not os.path.isfile(self.__new_service_file)
         )
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
@@ -151,8 +174,9 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: os.path.isfile(self.__service_file))
-        before = get_mtime_if_exists(self.__service_file)
+            lambda s: not os.path.isfile(self.__old_service_file) and os.path.isfile(self.__new_service_file)
+        )
+        before = get_mtime_if_exists(self.__new_service_file)
 
         # Wait 2s to ensure the mtimes will change from after enabling
         # advertisements.
@@ -174,7 +198,7 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         self.assertTrue(done, 'no suitable deployment ref found')
 
         self._wait_for_condition(
-            lambda s: get_mtime_if_exists(self.__service_file) > before)
+            lambda s: get_mtime_if_exists(self.__new_service_file) > before)
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
     def test_services_enabled_by_default(self):
