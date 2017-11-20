@@ -300,6 +300,25 @@ update_service_file (gboolean       advertise_updates,
       delete = FALSE;
     }
 
+  /* Delete the old format service file, regardless of the current state. */
+    {
+      g_autoptr(GFile) old_service_file = NULL;
+      g_autofree gchar *old_service_file_path = NULL;
+
+      old_service_file_path = g_build_filename (avahi_service_directory,
+                                                "eos-updater.service", NULL);
+      old_service_file = g_file_new_for_path (old_service_file_path);
+
+      if (!g_file_delete (old_service_file, cancellable, &local_error) &&
+          !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        {
+          g_debug ("Error deleting old Avahi service file (‘%s’); ignoring: %s",
+                   old_service_file_path, local_error->message);
+        }
+
+      g_clear_error (&local_error);
+    }
+
   /* Apply the policy. */
   if (!delete)
     {
@@ -313,16 +332,6 @@ update_service_file (gboolean       advertise_updates,
                                            error))
         return FALSE;
 
-      if (!eos_avahi_service_file_generate (avahi_service_directory,
-                                            commit_ostree_path,
-                                            commit_date_time,
-                                            cancellable,
-                                            error))
-        {
-          eos_avahi_service_file_delete (avahi_service_directory, cancellable,
-                                         NULL);
-          return FALSE;
-        }
       if (!eos_ostree_avahi_service_file_generate (avahi_service_directory,
                                                    refs,
                                                    summary_timestamp,
@@ -334,8 +343,6 @@ update_service_file (gboolean       advertise_updates,
                                                 0,
                                                 cancellable,
                                                 NULL);
-          eos_avahi_service_file_delete (avahi_service_directory, cancellable,
-                                         NULL);
           return FALSE;
         }
 
@@ -343,9 +350,6 @@ update_service_file (gboolean       advertise_updates,
     }
   else
     {
-      if (!eos_avahi_service_file_delete (avahi_service_directory,
-                                          cancellable, error))
-        return FALSE;
       return eos_ostree_avahi_service_file_delete (avahi_service_directory,
                                                    0,
                                                    cancellable,

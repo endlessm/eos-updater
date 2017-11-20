@@ -4,7 +4,7 @@ Documentation=man:eos-update-server(8)
 After=network.target
 
 # Only run when Avahi is advertising the port.
-ConditionPathExists=@sysconfdir@/avahi/services/eos-updater.service
+ConditionPathExistsGlob=@sysconfdir@/avahi/services/eos-ostree-updater-*.service
 
 [Service]
 Type=simple

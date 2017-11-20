@@ -34,11 +34,6 @@
 #error "EOS_AVAHI_PORT is not defined"
 #endif
 
-const gchar * const EOS_UPDATER_AVAHI_SERVICE_TYPE = "_eos_updater._tcp";
-
-const gchar * const eos_avahi_v1_ostree_path = "eos_ostree_path";
-const gchar * const eos_avahi_v1_head_commit_timestamp = "eos_head_commit_timestamp";
-
 typedef enum
   {
     TXT_VALUE_TYPE_TEXT,
@@ -364,39 +359,6 @@ generate_avahi_service_template_to_file (GFile         *path,
                                   error);
 }
 
-static gboolean
-generate_v1_service_file (const gchar   *ostree_path,
-                          GDateTime     *head_commit_timestamp,
-                          GFile         *service_file,
-                          GCancellable  *cancellable,
-                          GError       **error)
-{
-  g_autofree gchar *timestamp_str = NULL;
-  const GVariantType *records_type = G_VARIANT_TYPE ("a(sv)");
-  g_auto(GVariantBuilder) records_builder = G_VARIANT_BUILDER_INIT (records_type);
-  g_auto(GVariantDict) empty_options_dict = G_VARIANT_DICT_INIT (NULL);
-
-  timestamp_str = g_date_time_format (head_commit_timestamp, "%s");
-  g_variant_builder_add (&records_builder, "(sv)",
-                         "eos_txt_version",
-                         g_variant_new_string ("1"));
-  g_variant_builder_add (&records_builder, "(sv)",
-                         eos_avahi_v1_ostree_path,
-                         g_variant_new_string (ostree_path));
-  g_variant_builder_add (&records_builder, "(sv)",
-                         eos_avahi_v1_head_commit_timestamp,
-                         g_variant_new_string (timestamp_str));
-
-  return generate_avahi_service_template_to_file (service_file,
-                                                  "EOS update service on %h",
-                                                  EOS_UPDATER_AVAHI_SERVICE_TYPE,
-                                                  EOS_AVAHI_PORT,
-                                                  g_variant_builder_end (&records_builder),
-                                                  &empty_options_dict,
-                                                  cancellable,
-                                                  error);
-}
-
 /**
  * eos_avahi_service_file_get_directory:
  *
@@ -416,65 +378,6 @@ eos_avahi_service_file_get_directory (void)
                                     SYSCONFDIR "/avahi/services");
 }
 
-static GFile *
-get_service_file (const gchar *avahi_service_directory)
-{
-  g_autofree gchar *service_file_path = NULL;
-
-  service_file_path = g_build_filename (avahi_service_directory,
-                                        "eos-updater.service", NULL);
-  return g_file_new_for_path (service_file_path);
-}
-
-/**
- * eos_avahi_service_file_generate:
- * @avahi_service_directory: path to the directory containing `.service` files
- * @ostree_path: OSTree path of the commit to advertise
- * @head_commit_timestamp: (transfer none): timestamp of the commit to
- *    advertise
- * @cancellable: (nullable): a #GCancellable
- * @error: return location for a #GError
- *
- * Create a `.service` file in @avahi_service_directory for the updater. This
- * instructs Avahi to advertise a DNS-SD service for the updater, with TXT
- * records indicating this machine has the refs for @ostree_path available with
- * a commit at @head_commit_timestamp.
- *
- * The latest version of the DNS-SD record structure will be used, and a
- * version record will be added if appropriate.
- *
- * If the `.service` file already exists, it will be atomically replaced. If the
- * @avahi_service_directory does not exist, or is not writeable, an error will
- * be returned. If an error is returned, the old file will remain in place (if
- * it exists), unmodified.
- *
- * @ostree_path should have the same format as returned by
- * eos_updater_get_ostree_path().
- *
- * Returns: %TRUE on success, %FALSE otherwise
- */
-gboolean
-eos_avahi_service_file_generate (const gchar   *avahi_service_directory,
-                                 const gchar   *ostree_path,
-                                 GDateTime     *head_commit_timestamp,
-                                 GCancellable  *cancellable,
-                                 GError       **error)
-{
-  g_autoptr(GFile) service_file = NULL;
-
-  g_return_val_if_fail (avahi_service_directory != NULL, FALSE);
-  g_return_val_if_fail (ostree_path != NULL, FALSE);
-  g_return_val_if_fail (head_commit_timestamp != NULL, FALSE);
-  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
-                        FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  service_file = get_service_file (avahi_service_directory);
-
-  return generate_v1_service_file (ostree_path, head_commit_timestamp,
-                                   service_file, cancellable, error);
-}
-
 static gboolean
 delete_file_if_exists (GFile         *file,
                        GCancellable  *cancellable,
@@ -488,38 +391,6 @@ delete_file_if_exists (GFile         *file,
       g_propagate_error (error, g_steal_pointer (&local_error));
       return FALSE;
     }
-
-  return TRUE;
-}
-
-/**
- * eos_avahi_service_file_delete:
- * @avahi_service_directory: path to the directory containing `.service` files
- * @cancellable: (nullable): a #GCancellable
- * @error: return location for a #GError
- *
- * Delete the updater’s `.service` file from the @avahi_service_directory. This
- * has the same semantics as g_file_delete(); except if no `.service` file
- * exists, or if @avahi_service_directory does not exist, %TRUE is returned.
- *
- * Returns: %TRUE on success, %FALSE otherwise
- */
-gboolean
-eos_avahi_service_file_delete (const gchar   *avahi_service_directory,
-                               GCancellable  *cancellable,
-                               GError       **error)
-{
-  g_autoptr(GFile) service_file = NULL;
-
-  g_return_val_if_fail (avahi_service_directory != NULL, FALSE);
-  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable),
-                        FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  service_file = get_service_file (avahi_service_directory);
-
-  if (!delete_file_if_exists (service_file, cancellable, error))
-    return FALSE;
 
   return TRUE;
 }
@@ -1186,8 +1057,7 @@ iterate_and_remove_ostree_service_files (GFileEnumerator  *enumerator,
  * Delete the updater’s `.service` files for the repository indices in
  * range from 0 to 65535 (inclusive) from the
  * @avahi_service_directory. If other files exist in the directory,
- * they are left untouched. Note that it will not remove the file
- * generated by the eos_avahi_service_file_generate() function.
+ * they are left untouched.
  *
  * Returns: %TRUE on success, %FALSE otherwise
  */
