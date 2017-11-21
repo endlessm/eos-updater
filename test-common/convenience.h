@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "eos-test-utils.h"
+#include <test-common/utils.h>
 
 G_BEGIN_DECLS
 

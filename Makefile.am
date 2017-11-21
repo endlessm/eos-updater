@@ -235,6 +235,43 @@ dist_bin_SCRIPTS += eos-updater-prepare-volume/eos-updater-prepare-volume
 
 dist_man8_MANS += eos-updater-prepare-volume/docs/eos-updater-prepare-volume.8
 
+# Test helper library
+noinst_LTLIBRARIES += test-common/libeos-updater-test-common.la
+
+test_common_libeos_updater_test_common_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DOSTREE_BINARY=\""$(OSTREE)"\" \
+	-DGPG_BINARY=\""$(GPG)"\" \
+	-DG_LOG_DOMAIN=\""eos-updater-test-common"\" \
+	$(NULL)
+test_common_libeos_updater_test_common_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(GIO_CFLAGS) \
+	$(OSTREE_CFLAGS) \
+	$(NULL)
+test_common_libeos_updater_test_common_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+test_common_libeos_updater_test_common_la_LIBADD = \
+	$(GIO_LIBS) \
+	$(OSTREE_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(NULL)
+test_common_libeos_updater_test_common_la_SOURCES = \
+	test-common/convenience.c \
+	test-common/convenience.h \
+	test-common/misc-utils.c \
+	test-common/misc-utils.h \
+	test-common/ostree-spawn.c \
+	test-common/ostree-spawn.h \
+	test-common/spawn-utils.c \
+	test-common/spawn-utils.h \
+	test-common/utils.c \
+	test-common/utils.h \
+	$(NULL)
+
 # Generic systemd rules
 edit = sed \
 	-e 's|[@]bindir[@]|$(bindir)|g' \

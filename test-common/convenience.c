@@ -23,12 +23,11 @@
 /* Functions here implement the common actions the test implementer
  * may want to execute (like set up a server or a client or update
  * either one). These are of a higher level than the functions in
- * eos-test-utils.
+ * `utils.h`.
  */
 
-#include "eos-test-convenience.h"
-
 #include <string.h>
+#include <test-common/convenience.h>
 
 /* This initializes the EtcData structure. In the beginning, nothing
  * is available. Use etc_set_up_server() and

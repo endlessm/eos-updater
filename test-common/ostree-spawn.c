@@ -20,9 +20,9 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-test-utils.h"
-#include "misc-utils.h"
-#include "ostree-spawn.h"
+#include <test-common/misc-utils.h>
+#include <test-common/ostree-spawn.h>
+#include <test-common/utils.h>
 
 #ifndef OSTREE_BINARY
 #error OSTREE_BINARY is not defined

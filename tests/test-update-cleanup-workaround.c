@@ -20,11 +20,11 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "misc-utils.h"
-#include "spawn-utils.h"
-#include "ostree-spawn.h"
-#include "eos-test-utils.h"
-#include "eos-test-convenience.h"
+#include <test-common/convenience.h>
+#include <test-common/misc-utils.h>
+#include <test-common/ostree-spawn.h>
+#include <test-common/spawn-utils.h>
+#include <test-common/utils.h>
 
 #include <gio/gio.h>
 #include <locale.h>
