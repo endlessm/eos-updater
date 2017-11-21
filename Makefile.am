@@ -92,6 +92,8 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/ostree.c \
 	libeos-updater-util/ostree.h \
 	libeos-updater-util/refcounted.h \
+	libeos-updater-util/types.c \
+	libeos-updater-util/types.h \
 	libeos-updater-util/util.c \
 	libeos-updater-util/util.h \
 	$(NULL)

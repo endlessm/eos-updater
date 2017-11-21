@@ -26,9 +26,10 @@
 
 #include <glib.h>
 
+#include <libeos-updater-util/types.h>
+
 #include "eos-updater-generated.h"
 #include "eos-updater-object.h"
-#include "eos-updater-types.h"
 
 static void
 eos_updater_set_state_changed (EosUpdater *updater, EosUpdaterState state)

@@ -27,7 +27,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 
-#include "eos-updater-types.h"
+#include "types.h"
 
 static const GDBusErrorEntry eos_updater_error_entries[] = {
   { EOS_UPDATER_ERROR_WRONG_STATE, "com.endlessm.Updater.Error.WrongState" },

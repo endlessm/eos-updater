@@ -43,8 +43,6 @@ libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
 libeos_updater_dbus_la_SOURCES = \
 	eos-updater-object.c \
 	eos-updater-object.h \
-	eos-updater-types.c \
-	eos-updater-types.h \
 	$(NULL)
 nodist_libeos_updater_dbus_la_SOURCES = $(BUILT_SOURCES)
 
