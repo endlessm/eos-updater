@@ -36,6 +36,7 @@ uninstalled_test_programs = \
 	test-update-from-volume \
 	test-update-cleanup-workaround \
 	test-update-broken-delta \
+	test-update-refspec-checkpoint \
 	$(NULL)
 
 AM_TESTS_ENVIRONMENT = \
@@ -100,6 +101,12 @@ test_update_broken_delta_CFLAGS = $(test_cflags)
 test_update_broken_delta_LDFLAGS = $(test_ldflags)
 test_update_broken_delta_LDADD = $(test_ldadd)
 test_update_broken_delta_SOURCES = test-update-broken-delta.c
+
+test_update_refspec_checkpoint_CPPFLAGS = $(test_cppflags)
+test_update_refspec_checkpoint_CFLAGS = $(test_cflags)
+test_update_refspec_checkpoint_LDFLAGS = $(test_ldflags)
+test_update_refspec_checkpoint_LDADD = $(test_ldadd)
+test_update_refspec_checkpoint_SOURCES = test-update-refspec-checkpoint.c
 
 dist_uninstalled_test_data = \
 	gpghome/C1EB8F4E.asc \
