@@ -109,4 +109,7 @@ gboolean eos_string_to_unsigned (const gchar  *str,
                                  guint64      *out_num,
                                  GError      **error);
 
+gboolean eos_updater_remove_recursive (GFile   *topdir,
+                                       GError **error);
+
 G_END_DECLS
