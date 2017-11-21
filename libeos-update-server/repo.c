@@ -933,7 +933,7 @@ handle_refs_mirrors (EusRepo     *self,
           raw_path = g_build_filename (self->cached_repo_root,
                                        "refs",
                                        "remotes",
-                                       self->remote_name,
+                                       remotes[i],
                                        collection_ref,
                                        NULL);
 
