@@ -20,18 +20,17 @@
  *  - Sam Spilsbury <sam@endlessm.com>
  */
 
-#include "enums.h"
-#include "types.h"
-
-#include <string.h>
 #include <errno.h>
-
 #include <flatpak.h>
+#include <glib.h>
 #include <json-glib/json-glib.h>
 #include <ostree.h>
+#include <string.h>
 
-#include "flatpak.h"
-#include "util.h"
+#include "libeos-updater-util/enums.h"
+#include "libeos-updater-util/flatpak.h"
+#include "libeos-updater-util/types.h"
+#include "libeos-updater-util/util.h"
 
 FlatpakLocationRef *
 flatpak_location_ref_new (FlatpakRef  *ref,
