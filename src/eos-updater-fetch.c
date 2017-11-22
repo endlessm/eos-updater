@@ -295,18 +295,14 @@ content_fetch_old (EosUpdater      *updater,
   return TRUE;
 }
 
-static void
-content_fetch (GTask *task,
-               gpointer object,
-               gpointer task_data,
-               GCancellable *cancellable)
+static gboolean
+content_fetch (EosUpdater      *updater,
+               EosUpdaterData  *data,
+               GMainContext    *context,
+               GCancellable    *cancellable,
+               GError         **error)
 {
-  EosUpdater *updater = EOS_UPDATER (object);
-  EosUpdaterData *data = task_data;
-  g_autoptr(GError) error = NULL;
-  g_autoptr(GMainContext) task_context = g_main_context_new ();
-
-  g_main_context_push_thread_default (task_context);
+  g_autoptr(GError) local_error = NULL;
 
   /* Do we want to use the new libostree code for P2P, or fall back on the old
    * eos-updater code?
@@ -316,30 +312,51 @@ content_fetch (GTask *task,
     {
       g_message ("Fetch: using results %p", data->results);
 
-      if (content_fetch_new (updater, data, task_context, cancellable, &error))
+      if (content_fetch_new (updater, data, context, cancellable, &local_error))
         g_message ("Fetch: finished pulling using libostree P2P code");
       else
         g_warning ("Error fetching updates using libostree P2P code; falling back to old code: %s",
-                   error->message);
+                   local_error->message);
     }
 
-  if (error != NULL || data->results == NULL)
+  if (local_error != NULL || data->results == NULL)
     {
-      g_clear_error (&error);
+      g_clear_error (&local_error);
 
       if (data->results == NULL)
         g_message ("Fetch: using old code due to lack of repo finder results");
 
-      if (content_fetch_old (updater, data, task_context, cancellable, &error))
+      if (content_fetch_old (updater, data, context, cancellable, &local_error))
         g_message ("Fetch: finished pulling using old code");
       else
-        g_message ("Fetch: error pulling using old code: %s", error->message);
+        {
+          g_message ("Fetch: error pulling using old code: %s", local_error->message);
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
     }
 
-  if (error == NULL)
-    g_task_return_boolean (task, TRUE);
-  else
+  return TRUE;
+}
+
+static void
+content_fetch_task (GTask        *task,
+                    gpointer      object,
+                    gpointer      task_data,
+                    GCancellable *cancellable)
+{
+  EosUpdater *updater = EOS_UPDATER (object);
+  EosUpdaterData *data = task_data;
+  g_autoptr(GPtrArray) flatpaks_to_deploy = NULL;
+  g_autoptr(GError) error = NULL;
+  g_autoptr(GMainContext) task_context = g_main_context_new ();
+
+  g_main_context_push_thread_default (task_context);
+
+  if (!content_fetch (updater, data, task_context, cancellable, &error))
     g_task_return_error (task, g_steal_pointer (&error));
+  else
+    g_task_return_boolean (task, TRUE);
 
   g_main_context_pop_thread_default (task_context);
 }
@@ -364,7 +381,7 @@ handle_fetch (EosUpdater            *updater,
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_FETCHING);
   task = g_task_new (updater, NULL, content_fetch_finished, user_data);
   g_task_set_task_data (task, user_data, NULL);
-  g_task_run_in_thread (task, content_fetch);
+  g_task_run_in_thread (task, content_fetch_task);
 
   eos_updater_complete_fetch (updater, call);
 
