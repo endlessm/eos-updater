@@ -24,6 +24,10 @@
 #include "eos-updater-data.h"
 #include "eos-updater-object.h"
 
+#include <string.h>
+#include <errno.h>
+
+#include <libeos-updater-util/types.h>
 #include <libeos-updater-util/util.h>
 
 #include <ostree.h>
@@ -73,24 +77,87 @@ get_test_osname (void)
   return g_getenv ("EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME");
 }
 
+static OstreeDeployment *
+deploy_new_sysroot (EosUpdater     *updater,
+                    OstreeRepo     *repo,
+                    OstreeSysroot  *sysroot,
+                    const gchar    *update_id,
+                    GCancellable   *cancellable,
+                    GError        **error)
+{
+  const gchar *update_refspec = eos_updater_get_update_refspec (updater);
+  const gchar *orig_refspec = eos_updater_get_original_refspec (updater);
+  g_autoptr(OstreeDeployment) booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
+                                                                                                         error);
+  g_autoptr(OstreeDeployment) new_deployment = NULL;
+  g_autoptr(GKeyFile) origin = NULL;
+  const gchar *osname = get_test_osname ();
+
+  if (booted_deployment == NULL)
+    return NULL;
+
+  origin = ostree_sysroot_origin_new_from_refspec (sysroot, update_refspec);
+
+  if (!ostree_sysroot_deploy_tree (sysroot,
+                                   osname,
+                                   update_id,
+                                   origin,
+                                   booted_deployment,
+                                   NULL,
+                                   &new_deployment,
+                                   cancellable,
+                                   error))
+    return NULL;
+
+  /* If the original refspec is not the update refspec, then we may have
+   * a ref to a no longer needed tree. Delete that remote ref so the
+   * cleanup done in simple_write_deployment() really removes that tree
+   * if no deployments point to it anymore.
+   */
+  if (g_strcmp0 (update_refspec, orig_refspec) != 0)
+    {
+      g_autofree gchar *rev = NULL;
+
+      if (!ostree_repo_resolve_rev (repo, orig_refspec, TRUE, &rev, error))
+        return NULL;
+
+      if (rev)
+        {
+          if (!ostree_repo_prepare_transaction (repo, NULL, cancellable, error))
+            return NULL;
+
+          ostree_repo_transaction_set_refspec (repo, orig_refspec, NULL);
+
+          if (!ostree_repo_commit_transaction (repo, NULL, cancellable, error))
+            return NULL;
+        }
+    }
+
+  if (!ostree_sysroot_simple_write_deployment (sysroot,
+                                               osname,
+                                               new_deployment,
+                                               booted_deployment,
+                                               OSTREE_SYSROOT_SIMPLE_WRITE_DEPLOYMENT_FLAGS_NO_CLEAN,
+                                               cancellable,
+                                               error))
+    return NULL;
+
+  return g_steal_pointer (&new_deployment);
+}
+
 static gboolean
-apply_internal (EosUpdater *updater,
+apply_internal (EosUpdater     *updater,
                 EosUpdaterData *data,
-                GCancellable *cancel,
-                gboolean *out_bootversion_changed,
-                GError **error)
+                GCancellable   *cancel,
+                gboolean       *out_bootversion_changed,
+                GError        **error)
 {
   OstreeRepo *repo = data->repo;
   const gchar *update_id = eos_updater_get_update_id (updater);
-  const gchar *update_refspec = eos_updater_get_update_refspec (updater);
-  const gchar *orig_refspec = eos_updater_get_original_refspec (updater);
-  gint bootversion = 0;
-  gint newbootver = 0;
-  g_autoptr(OstreeDeployment) booted_deployment = NULL;
+  gint bootversion = -1;
+  gint newbootver = -1;
   g_autoptr(OstreeDeployment) new_deployment = NULL;
-  g_autoptr(GKeyFile) origin = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
-  const gchar *osname = get_test_osname ();
   g_autoptr(GError) local_error = NULL;
 
   sysroot = ostree_sysroot_new_default ();
@@ -104,54 +171,16 @@ apply_internal (EosUpdater *updater,
     return FALSE;
 
   bootversion = ostree_sysroot_get_bootversion (sysroot);
-  booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
-                                                                             error);
-  if (booted_deployment == NULL)
-    return FALSE;
-  origin = ostree_sysroot_origin_new_from_refspec (sysroot, update_refspec);
 
-  if (!ostree_sysroot_deploy_tree (sysroot,
-                                   osname,
-                                   update_id,
-                                   origin,
-                                   booted_deployment,
-                                   NULL,
-                                   &new_deployment,
-                                   cancel,
-                                   error))
-    return FALSE;
+  /* Deploy the new system, but roll back pulled flatpaks if that fails */
+  new_deployment = deploy_new_sysroot (updater,
+                                       repo,
+                                       sysroot,
+                                       update_id,
+                                       cancel,
+                                       error);
 
-  /* If the original refspec is not the update refspec, then we may have
-   * a ref to a no longer needed tree. Delete that remote ref so the
-   * cleanup done in simple_write_deployment() really removes that tree
-   * if no deployments point to it anymore.
-   */
-  if (g_strcmp0 (update_refspec, orig_refspec) != 0)
-    {
-      g_autofree gchar *rev = NULL;
-
-      if (!ostree_repo_resolve_rev (repo, orig_refspec, TRUE, &rev, error))
-        return FALSE;
-
-      if (rev)
-        {
-          if (!ostree_repo_prepare_transaction (repo, NULL, cancel, error))
-            return FALSE;
-
-          ostree_repo_transaction_set_refspec (repo, orig_refspec, NULL);
-
-          if (!ostree_repo_commit_transaction (repo, NULL, cancel, error))
-            return FALSE;
-        }
-    }
-
-  if (!ostree_sysroot_simple_write_deployment (sysroot,
-                                               osname,
-                                               new_deployment,
-                                               booted_deployment,
-                                               OSTREE_SYSROOT_SIMPLE_WRITE_DEPLOYMENT_FLAGS_NO_CLEAN,
-                                               cancel,
-                                               error))
+  if (!new_deployment)
     return FALSE;
 
   newbootver = ostree_deployment_get_deployserial (new_deployment);

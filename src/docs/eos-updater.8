@@ -35,9 +35,11 @@ Updates are retrieved in several stages: \fIpoll\fP, \fIfetch\fP and
 \fIapply\fP. The \fIpoll\fP stage checks each enabled update source to see if
 it has any newer OSTree commits than are present on the booted system. If that
 finds updates, the \fIfetch\fP stage downloads the OSTree objects and metadata
-from the latest commit on the source to the local OSTree repository. Then, the
-\fIapply\fP stage deploys that commit and prepares the system to boot into it
-when next rebooted.
+from the latest commit on the source to the local OSTree repository. If any
+flatpaks should also be installed at the same time as that OSTree commit, those
+flatpaks are also downloaded in accordance with
+\fBeos\-updater\-flatpak-\autoinstall.d\fP(5) Then, the \fIapply\fP stage
+deploys that commit and prepares the system to boot into it when next rebooted.
 .PP
 \fBeos\-update\fP provides the implementation of these stages, but the policy
 of when to run each stage is provided by other processes — typically by
@@ -111,7 +113,9 @@ at regular intervals. See \fBsystemd.timer\fP(5) and \fBeos\-autoupdater\fP(8).
 \fBeos\-autoupdater\fP(8),
 \fBeos\-update\-server\fP(8),
 \fBeos\-updater.conf\fP(5),
-\fBeos\-updater\-ctl\fP(8)
+\fBeos\-updater\-ctl\fP(8),
+\fBeos\-updater\-flatpak-\installer\fP(8),
+\fBeos\-updater\-flatpak-\autoinstall.d\fP(5),
 .\"
 .SH BUGS
 .IX Header "BUGS"

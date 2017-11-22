@@ -26,6 +26,7 @@ noinst_LTLIBRARIES += $(testlib)
 libeos_updater_test_la_CPPFLAGS = \
 	-DOSTREE_BINARY=\""$(OSTREE)"\" \
 	-DGPG_BINARY=\""$(GPG)"\" \
+	-DFLATPAK_BINARY=\""$(FLATPAK)"\" \
 	-DOSTREE_WITH_AUTOCLEANUPS \
 	-I$(top_srcdir) \
 	-I$(top_builddir) \
@@ -37,11 +38,12 @@ libeos_updater_test_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(STD_CFLAGS) \
 	$(WARN_CFLAGS) \
-	$(OSTREE_CFLAGS) \
+	$(FLATPAK_CFLAGS) \
 	$(GIO_CFLAGS) \
+	$(OSTREE_CFLAGS) \
 	$(NULL)
 libeos_updater_test_la_LDFLAGS = $(WARN_LDFLAGS)
-libeos_updater_test_la_LIBADD = $(OSTREE_LIBS) $(GIO_LIBS)
+libeos_updater_test_la_LIBADD = $(FLATPAK_LIBS) $(GIO_LIBS) $(OSTREE_LIBS)
 libeos_updater_test_la_SOURCES = \
 	spawn-utils.c \
 	spawn-utils.h \
@@ -72,6 +74,7 @@ uninstalled_test_programs = \
 	test-update-from-volume \
 	test-update-cleanup-workaround \
 	test-update-broken-delta \
+	test-update-install-flatpaks \
 	$(NULL)
 
 AM_TESTS_ENVIRONMENT = \
@@ -96,6 +99,9 @@ test_cflags = \
 	$(WARN_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(GIO_CFLAGS) \
+	$(JSON_GLIB_CFLAGS) \
+	$(OSTREE_CFLAGS) \
+	$(FLATPAK_CFLAGS) \
 	$(NULL)
 test_ldflags = \
 	$(WARN_LDFLAGS) \
@@ -103,7 +109,10 @@ test_ldflags = \
 test_ldadd = \
 	$(OSTREE_LIBS) \
 	$(GIO_LIBS) \
+	$(OSTREE_LIBS) \
+	$(FLATPAK_LIBS) \
 	$(testlib) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
 	$(NULL)
 
 test_update_from_main_CPPFLAGS = $(test_cppflags)
@@ -129,6 +138,12 @@ test_update_cleanup_workaround_CFLAGS = $(test_cflags)
 test_update_cleanup_workaround_LDFLAGS = $(test_ldflags)
 test_update_cleanup_workaround_LDADD = $(test_ldadd)
 test_update_cleanup_workaround_SOURCES = test-update-cleanup-workaround.c
+
+test_update_install_flatpaks_CPPFLAGS = $(test_cppflags)
+test_update_install_flatpaks_CFLAGS = $(test_cflags)
+test_update_install_flatpaks_LDFLAGS = $(test_ldflags)
+test_update_install_flatpaks_LDADD = $(test_ldadd)
+test_update_install_flatpaks_SOURCES = test-update-install-flatpaks.c
 
 test_update_broken_delta_CPPFLAGS = $(test_cppflags)
 test_update_broken_delta_CFLAGS = $(test_cflags)

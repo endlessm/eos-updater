@@ -26,8 +26,8 @@
 
 G_BEGIN_DECLS
 
-gboolean rm_rf (GFile *topdir,
-		GError **error);
+gboolean rm_rf (GFile   *topdir,
+                GError **error);
 
 static inline GPtrArray *
 string_array_new (void)
@@ -35,44 +35,38 @@ string_array_new (void)
   return g_ptr_array_new_with_free_func (g_free);
 }
 
-static inline GPtrArray *
-object_array_new (void)
-{
-  return g_ptr_array_new_with_free_func (g_object_unref);
-}
-
 gboolean load_to_bytes (GFile *file,
-			GBytes **bytes,
-			GError **error);
+                        GBytes **bytes,
+                        GError **error);
 
 gboolean create_file (GFile *path,
-		      GBytes* bytes,
-		      GError **error);
+                      GBytes* bytes,
+                      GError **error);
 
 gboolean create_directory (GFile *path,
-			   GError **error);
+                           GError **error);
 
 gboolean create_symlink (const gchar *target,
-			 GFile *link,
-			 GError **error);
+                         GFile *link,
+                         GError **error);
 
 gboolean load_key_file (GFile *file,
-			GKeyFile **out_keyfile,
-			GError **error);
+                        GKeyFile **out_keyfile,
+                        GError **error);
 
 gboolean save_key_file (GFile *file,
-			GKeyFile *keyfile,
-			GError **error);
+                        GKeyFile *keyfile,
+                        GError **error);
 
 GDateTime *days_ago (guint days);
 
 gboolean input_stream_to_string (GInputStream *stream,
-				 gchar **out_str,
-				 GError **error);
+                                 gchar **out_str,
+                                 GError **error);
 
 gboolean cp (GFile *source,
-	     GFile *target,
-	     GError **error);
+	           GFile *target,
+	           GError **error);
 
 gboolean read_port_file (GFile *port_file,
                          guint16 *out_port,

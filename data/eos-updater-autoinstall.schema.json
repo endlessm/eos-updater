@@ -1,0 +1,138 @@
+{
+    "$comment": "Copyright (c) 2017 Endless Mobile, Inc. This library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version. This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.  You should have received a copy of the GNU Lesser General Public License along with this library; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA.",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "title": "Autoinstall Flatpak Entry",
+    "description": "A description of an action to be performed by the system updater when updating to a given OSTree revision",
+    "oneOf": [
+        {
+            "properties": {
+                "action": {
+                    "const": "install",
+                    "description": "The machine-readable type of event",
+                    "type": "string"
+                },
+                "serial": {
+                    "$ref": "#/definitions/serial"
+                },
+                "filters": {
+                    "$ref": "#/definitions/filters"
+                },
+                "ref-kind": {
+                    "$ref": "#/definitions/ref-kind"
+                },
+                "app": {
+                    "description": "The app-id to be installed",
+                    "$ref": "#/definitions/app"
+                },
+                "collection-id": {
+                    "$ref": "#/definitions/collection-id"
+                }
+            }
+        },
+        {
+            "properties": {
+                "action": {
+                    "const": "uninstall",
+                    "description": "The machine-readable type of event",
+                    "type": "string"
+                },
+                "remote": {
+                    "description": "The remote to install the app from",
+                    "type": "string"
+                }
+            },
+            "required": ["ref-kind", "app", "remote"]
+        }
+    ],
+    "required": ["action", "serial"],
+    "definitions": {
+        "filters": {
+            "description": "Tests to apply to see whether this action should be performed or skipped. If it is skipped, the test to check whether it should be performed or skipped will never run again.",
+            "type": "object",
+            "oneOf": [
+                { "$ref": "#/definitions/filters" }
+            ]
+        },
+        "serial": {
+            "description": "A unique serial number for this event, unique to the domain named after the autoinstall file. Serial numbers must be assigned monotonically increasing values.",
+            "type": "integer"
+        },
+        "ref-kind": {
+            "description": "The flatpak ref kind",
+            "type": "string",
+            "enum": ["app", "runtime"]
+        },
+        "app": {
+            "description": "The app-id to be installed",
+            "type": "string"
+        },
+        "collection-id": {
+            "description": "The collection-id to install the app from",
+            "type": "string"
+        },
+        "filters": {
+            "type": "object",
+            "title": "Detail for Flatpak Removal",
+            "description": "A description of a flatpak to be automatically removed",
+            "properties": {
+                "action": {
+                    "const": "uninstall",
+                    "description": "The machine-readable type of event",
+                    "type": "string"
+                },
+                "serial": {
+                    "$ref": "#/definitions/serial"
+                },
+                "filters": {
+                    "$ref": "#/definitions/filters"
+                },
+                "ref-kind": {
+                    "$ref": "#/definitions/ref-kind"
+                },
+                "app": {
+                    "$ref": "#/definitions/app"
+                }
+            }
+        }
+    },
+    "required": ["action", "serial", "detail"],
+    "definitions": {
+        "filters": {
+            "description": "Tests to apply to see whether this action should be performed or skipped. If it is skipped, the test to check whether it should be performed or skipped will never run again.",
+            "type": "object",
+            "oneOf": [
+                { "$ref": "#/definitions/filters" }
+            ]
+        },
+        "serial": {
+            "description": "A unique serial number for this event, unique to the domain named after the autoinstall file. Serial numbers must be assigned monotonically increasing values.",
+            "type": "integer"
+        },
+        "ref-kind": {
+            "description": "The flatpak ref kind",
+            "type": "string",
+            "enum": ["app", "runtime"]
+        },
+        "app": {
+            "description": "The app-id to be installed",
+            "type": "string"
+        },
+        "filters": {
+            "type": "object",
+            "title": "Filters to apply to action",
+            "description": "Tests to apply to see if action should be applied or skipped",
+            "properties": {
+                "~architectures": {
+                    "description": "Which architectures forbid performing this action on",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                }
+            }
+        }
+    }
+}

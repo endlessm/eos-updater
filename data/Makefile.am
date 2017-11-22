@@ -18,6 +18,7 @@ eos_autoupdater_in = \
 	eos-autoupdater.service.in \
 	eos-autoupdater.timer.in \
 	eos-updater.service.in \
+	eos-updater-flatpak-installer.service.in \
 	$(NULL)
 
 systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
@@ -48,6 +49,7 @@ CLEANFILES = $(systemdsystemunit_DATA)
 dist_man5_MANS = \
 	docs/eos-autoupdater.conf.5 \
 	docs/eos-updater.conf.5 \
+	docs/eos-updater-flatpak-autoinstall.d.5 \
 	$(NULL)
 
 -include $(top_srcdir)/git.mk

@@ -27,6 +27,7 @@
 #include <libeos-updater-util/refcounted.h>
 
 #include <ostree.h>
+#include <flatpak.h>
 
 #include <glib.h>
 #include <glib-object.h>
@@ -108,5 +109,11 @@ gboolean eos_string_to_unsigned (const gchar  *str,
                                  guint64       max,
                                  guint64      *out_num,
                                  GError      **error);
+
+gboolean eos_updater_remove_recursive (GFile   *topdir,
+                                       GError **error);
+
+FlatpakInstallation * eos_updater_get_flatpak_installation (GCancellable *cancellable,
+                                                            GError      **error);
 
 G_END_DECLS

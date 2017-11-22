@@ -41,6 +41,12 @@ gboolean ostree_init (GFile *repo,
                       CmdResult *cmd,
                       GError **error);
 
+gboolean ostree_cmd_remote_set_collection_id (GFile        *repo,
+                                              const gchar  *remote_name,
+                                              const gchar  *collection_id,
+                                              CmdResult    *cmd,
+                                              GError      **error);
+
 gboolean ostree_commit (GFile *repo,
                         GFile *tree_root,
                         const gchar *subject,
@@ -140,6 +146,10 @@ gboolean ostree_undeploy (GFile *sysroot,
                           int deployment_index,
                           CmdResult *cmd,
                           GError **error);
+
+gboolean ostree_list_refs_in_repo (GFile      *repo,
+                                   CmdResult  *cmd,
+                                   GError    **error);
 
 /* due to some bug I don't know where (either my fault, or ostree
  * trivial-httpd's in lackluster or just cursory daemonizing or
