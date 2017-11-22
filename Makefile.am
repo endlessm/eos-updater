@@ -61,25 +61,23 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
 enum_header_files = \
-	libeos-updater-util/flatpak.h \
-	eos-updater-flatpak-installer/installer.h \
+	$(top_srcdir)/libeos-updater-util/flatpak.h \
+	$(top_srcdir)/eos-updater-flatpak-installer/installer.h \
 	$(NULL)
-enum_template_h_file = libeos-updater-util/enums.h.in
-enum_template_c_file = libeos-updater-util/enums.c.in
 enum_sources = \
 	libeos-updater-util/enums.h \
 	libeos-updater-util/enums.c \
 	$(NULL)
 
-libeos-updater-util/enums.h: $(enum_template_h_file) $(enum_header_files)
-	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $@
+libeos-updater-util/enums.h: libeos-updater-util/enums.h.in $(enum_header_files)
+	$(AM_V_GEN)$(GLIB_MKENUMS) --template=$< $(enum_header_files) --output $@
 
-libeos-updater-util/enums.c: $(enum_template_c_file) $(enum_header_files) libeos-updater-util/enums.h
-	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $@
+libeos-updater-util/enums.c: libeos-updater-util/enums.c.in $(enum_header_files) libeos-updater-util/enums.h
+	$(AM_V_GEN)$(GLIB_MKENUMS) --template=$< $(enum_header_files) --output $@
 
 BUILT_SOURCES += $(enum_sources)
 CLEANFILES += $(enum_sources)
-EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
+EXTRA_DIST += libeos-updater-util/enums.h.in libeos-updater-util/enums.c.in
 
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 	$(AM_CFLAGS) \
