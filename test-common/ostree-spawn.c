@@ -24,6 +24,8 @@
 #include "misc-utils.h"
 #include "ostree-spawn.h"
 
+#include <string.h>
+
 #ifndef OSTREE_BINARY
 #error OSTREE_BINARY is not defined
 #endif
@@ -114,6 +116,75 @@ ostree_init (GFile *repo,
                                     error);
 }
 
+static void
+copy_additional_metadata_args_from_hashtable (GArray      *cmd_args,
+                                              GHashTable  *metadata,
+                                              GPtrArray  **out_cmd_args_membuf)
+{
+  gpointer key;
+  gpointer value;
+  GHashTableIter iter;
+
+  g_return_if_fail (out_cmd_args_membuf != NULL);
+
+  if (metadata == NULL)
+    return;
+
+  *out_cmd_args_membuf = g_ptr_array_new_with_free_func (g_free);
+
+  g_hash_table_iter_init (&iter, metadata);
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      g_autofree gchar *formatted_metadata_string = g_strdup_printf ("%s=%s",
+                                                                     (const char *) key,
+                                                                     (const gchar *) value);
+      CmdArg arg =
+        {
+          "add-metadata-string",
+          formatted_metadata_string
+        };
+
+      /* Note that in most cases, we are passing values to CmdArg which
+       * are owned by g_autoptrs in the scope of the function where CmdArg
+       * is used itself, however in this case, we are dynamically populating
+       * CmdArg based on the values in the hashtable. Making matters worse is
+       * the fact that the values we append to the CmdArg array
+       * needs to be heap allocated strings. Those strings must have an
+       * owner, but that owner cannot be CmdArg because we cannot know which
+       * strings were stack allocated (or already owned) and that owner
+       * is cmd_args_membuf here, which is expected to be free'd by the
+       * caller. */
+      g_ptr_array_add (*out_cmd_args_membuf,
+                       g_steal_pointer (&formatted_metadata_string));
+      g_array_append_val (cmd_args, arg);
+    }
+}
+
+gboolean
+ostree_cmd_remote_set_collection_id (GFile        *repo,
+                                     const gchar  *remote_name,
+                                     const gchar  *collection_id,
+                                     CmdResult    *cmd,
+                                     GError      **error)
+{
+  g_autofree gchar *section_name = g_strdup_printf ("remote \"%s\".collection-id",
+                                                    remote_name);
+  CmdArg args[] =
+    {
+      { NULL, "config" },
+      { NULL, "set" },
+      { NULL, section_name },
+      { NULL, collection_id },
+      { NULL, NULL }
+    };
+
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
+}
+
 gboolean
 ostree_commit (GFile *repo,
                GFile *tree_root,
@@ -122,13 +193,14 @@ ostree_commit (GFile *repo,
                GFile *gpg_home,
                const gchar *keyid,
                GDateTime *timestamp,
+               GHashTable *metadata,
                CmdResult *cmd,
                GError **error)
 {
   g_autofree gchar *gpg_home_path = g_file_get_path (gpg_home);
   g_autofree gchar *formatted_timestamp = g_date_time_format (timestamp, "%F");
   g_autofree gchar *raw_tree_path = g_file_get_path (tree_root);
-  CmdArg args[] =
+  CmdArg initial_args[] =
     {
       { NULL, "commit" },
       { "subject", subject },
@@ -137,11 +209,20 @@ ostree_commit (GFile *repo,
       { "gpg-homedir", gpg_home_path },
       { "timestamp", formatted_timestamp },
       { NULL, raw_tree_path },
-      { NULL, NULL }
     };
+  CmdArg empty = { NULL, NULL };
+  g_autoptr(GArray) cmd_args = g_array_sized_new (FALSE, TRUE, sizeof (CmdArg), 8);
+  g_autoptr(GPtrArray) formatted_cmd_args_membuf = NULL;
+
+  g_array_append_vals (cmd_args, initial_args, G_N_ELEMENTS (initial_args));
+
+  copy_additional_metadata_args_from_hashtable (cmd_args,
+                                                metadata,
+                                                &formatted_cmd_args_membuf);
+  g_array_append_val (cmd_args, empty);
 
   return spawn_ostree_in_repo_args (repo,
-                                    args,
+                                    (CmdArg *) cmd_args->data,
                                     cmd,
                                     error);
 }
@@ -160,6 +241,25 @@ ostree_summary (GFile *repo,
       { "update", NULL },
       { "gpg-sign", keyid },
       { "gpg-homedir", gpg_home_path },
+      { NULL, NULL }
+    };
+
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
+}
+
+gboolean
+ostree_show (GFile *repo,
+             const gchar *refspec,
+             CmdResult *cmd,
+             GError **error)
+{
+  CmdArg args[] =
+    {
+      { NULL, "show" },
+      { NULL, refspec },
       { NULL, NULL }
     };
 
@@ -487,6 +587,27 @@ ostree_undeploy (GFile *sysroot,
                                         args,
                                         cmd,
                                         error);
+}
+
+gboolean
+ostree_list_refs_in_repo (GFile      *repo,
+                          CmdResult  *cmd,
+                          GError    **error)
+{
+  g_autoptr(GPtrArray) argv = string_array_new ();
+  CmdArg args[] =
+    {
+      { NULL, OSTREE_BINARY },
+      { NULL, "refs" },
+      { "repo", g_file_get_path (repo) },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) raw_args = build_cmd_args (args);
+
+  return test_spawn ((const gchar * const *) raw_args,
+                     NULL,
+                     cmd,
+                     error);
 }
 
 gboolean

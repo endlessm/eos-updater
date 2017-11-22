@@ -21,12 +21,15 @@
  */
 
 #include "eos-test-utils.h"
+#include "flatpak-spawn.h"
 #include "misc-utils.h"
 #include "ostree-spawn.h"
 
 #include <errno.h>
 #include <ostree.h>
 #include <string.h>
+
+#include <libeos-updater-util/util.h>
 
 #ifndef GPG_BINARY
 #error "GPG_BINARY is not defined"
@@ -138,6 +141,7 @@ static void
 eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 {
   g_clear_pointer (&subserver->ref_to_commit, g_hash_table_unref);
+  g_clear_pointer (&subserver->additional_metadata_for_commit, g_hash_table_unref);
   g_clear_object (&subserver->repo);
   g_clear_object (&subserver->tree);
   g_clear_object (&subserver->gpg_home);
@@ -163,7 +167,10 @@ eos_test_subserver_new (const gchar *collection_id,
                         GFile *gpg_home,
                         const gchar *keyid,
                         const gchar *ostree_path,
-                        GHashTable *ref_to_commit)
+                        GHashTable *ref_to_commit,
+                        GHashTable *additional_directories_for_commit,
+                        GHashTable *additional_files_for_commit,
+                        GHashTable *additional_metadata_for_commit)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
@@ -172,6 +179,9 @@ eos_test_subserver_new (const gchar *collection_id,
   subserver->keyid = g_strdup (keyid);
   subserver->ostree_path = g_strdup (ostree_path);
   subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
+  subserver->additional_directories_for_commit = additional_directories_for_commit ? g_hash_table_ref (additional_directories_for_commit) : NULL;
+  subserver->additional_files_for_commit = additional_files_for_commit ? g_hash_table_ref (additional_files_for_commit) : NULL;
+  subserver->additional_metadata_for_commit = additional_metadata_for_commit ? g_hash_table_ref (additional_metadata_for_commit) : NULL;
 
   return subserver;
 }
@@ -220,13 +230,13 @@ static const gchar *const os_release =
   "VERSION_ID=\"2.6.1\"\n"
   "PRETTY_NAME=\"Endless 2.6.1\"\n";
 
-typedef struct
+struct _SimpleFile
 {
   gchar *rel_path;
   gchar *contents;
-} SimpleFile;
+};
 
-static SimpleFile *
+SimpleFile *
 simple_file_new_steal (gchar *rel_path,
                        gchar *contents)
 {
@@ -238,7 +248,7 @@ simple_file_new_steal (gchar *rel_path,
   return file;
 }
 
-static void
+void
 simple_file_free (gpointer file_ptr)
 {
   SimpleFile *file = file_ptr;
@@ -298,23 +308,25 @@ get_sysroot_dirs (const gchar *kernel_version)
 }
 
 static gboolean
-prepare_sysroot_contents (GFile *repo,
-                          GFile *tree_root,
-                          GError **error)
+create_directories (GFile *tree_root, GStrv directories, GError **error)
 {
-  const gchar *kernel_version = "4.6";
-  g_autoptr(GPtrArray) files = get_sysroot_files (kernel_version);
-  guint idx;
-  g_auto(GStrv) dirs = get_sysroot_dirs (kernel_version);
   gchar **iter;
 
-  for (iter = dirs; *iter != NULL; ++iter)
+  for (iter = directories; *iter != NULL; ++iter)
     {
       g_autoptr(GFile) path = g_file_get_child (tree_root, *iter);
 
       if (!create_directory (path, error))
         return FALSE;
     }
+
+  return TRUE;
+}
+
+static gboolean
+create_files (GFile *tree_root, GPtrArray *files, GError **error)
+{
+  guint idx;
 
   for (idx = 0; idx < files->len; ++idx)
     {
@@ -327,6 +339,42 @@ prepare_sysroot_contents (GFile *repo,
       if (!create_file (path, bytes, error))
         return FALSE;
     }
+
+  return TRUE;
+}
+
+static gboolean
+create_additional_directories_for_commit (GFile *tree_root, GStrv dirs, GError **error)
+{
+  if (!dirs)
+    return TRUE;
+
+  return create_directories (tree_root, dirs, error);
+}
+
+static gboolean
+create_additional_files_for_commit (GFile *tree_root, GPtrArray *files, GError **error)
+{
+  if (!files)
+    return TRUE;
+
+  return create_files (tree_root, files, error);
+}
+
+static gboolean
+prepare_sysroot_contents (GFile   *repo,
+                          GFile   *tree_root,
+                          GError **error)
+{
+  const gchar *kernel_version = "4.6";
+  g_autoptr(GPtrArray) files = get_sysroot_files (kernel_version);
+  g_auto(GStrv) dirs = get_sysroot_dirs (kernel_version);
+
+  if (!create_directories (tree_root, dirs, error))
+    return FALSE;
+
+  if (!create_files (tree_root, files, error))
+    return FALSE;
 
   return TRUE;
 }
@@ -489,6 +537,15 @@ get_current_commit_checksum (GFile *repo,
   return TRUE;
 }
 
+static gpointer
+maybe_hashtable_lookup (GHashTable *table, gpointer key)
+{
+  if (!table)
+    return NULL;
+
+  return g_hash_table_lookup (table, key);
+}
+
 /* Prepare a commit. It will prepare a sysroot environment and commits
  * from 0 to the given commit_number.
  */
@@ -499,6 +556,9 @@ prepare_commit (GFile *repo,
                 const OstreeCollectionRef *collection_ref,
                 GFile *gpg_home,
                 const gchar *keyid,
+                GHashTable *additional_directories_for_commit,
+                GHashTable *additional_files_for_commit,
+                GHashTable *additional_metadata_for_commit,
                 gchar **out_checksum,
                 GError **error)
 {
@@ -519,7 +579,15 @@ prepare_commit (GFile *repo,
     g_autoptr(GFile) commit_file = g_file_get_child (tree_root, commit_filename);
 
     if (g_file_query_exists (commit_file, NULL))
-      return TRUE;
+      {
+        if (out_checksum != NULL)
+          return get_current_commit_checksum (repo,
+                                              collection_ref,
+                                              out_checksum,
+                                              error);
+
+        return TRUE;
+      }
   }
 
   if (commit_number > 0)
@@ -530,6 +598,9 @@ prepare_commit (GFile *repo,
                            collection_ref,
                            gpg_home,
                            keyid,
+                           additional_directories_for_commit,
+                           additional_files_for_commit,
+                           additional_metadata_for_commit,
                            NULL,
                            error))
         return FALSE;
@@ -543,8 +614,21 @@ prepare_commit (GFile *repo,
   if (!create_commit_files_and_directories (tree_root, commit_number, error))
     return FALSE;
 
+  if (!create_additional_directories_for_commit (tree_root,
+                                                 maybe_hashtable_lookup (additional_directories_for_commit,
+                                                                         GUINT_TO_POINTER (commit_number)),
+                                                 error))
+    return FALSE;
+
+  if (!create_additional_files_for_commit (tree_root,
+                                           maybe_hashtable_lookup (additional_files_for_commit,
+                                                                   GUINT_TO_POINTER (commit_number)),
+                                           error))
+    return FALSE;
+
   subject = g_strdup_printf ("Test commit %u", commit_number);
   timestamp = days_ago (max_commit_number - commit_number);
+
   if (!ostree_commit (repo,
                       tree_root,
                       subject,
@@ -552,6 +636,8 @@ prepare_commit (GFile *repo,
                       gpg_home,
                       keyid,
                       timestamp,
+                      maybe_hashtable_lookup (additional_metadata_for_commit,
+                                              GUINT_TO_POINTER (commit_number)),
                       &cmd,
                       error))
     return FALSE;
@@ -579,6 +665,46 @@ generate_delta_files (GFile *repo,
   return cmd_result_ensure_ok (&cmd, error);
 }
 
+/**
+ * get_last_ref:
+ * @ref_to_commit: (element-type utf8 uint): a #GHashTable mapping refs to commit numbers.
+ * @wanted_commit_number: the commit number to count down from.
+ *
+ * Look through the ref_to_commit hashtable (which maps refs to
+ * commit numbers) to try and find the last known ref before
+ * wanted_commit_number. It handles the case where we have commits
+ * N, N - J and don't have (N - 1)..(N - J) in the hashtable.
+ *
+ * Returns: the last known ref before wanted_commit_number
+ */
+static OstreeCollectionRef *
+get_last_ref (GHashTable *ref_to_commit,
+              guint       wanted_commit_number)
+{
+  gpointer key = NULL;
+  gpointer value = NULL;
+
+  /* Decrement at least once, since we want to find a commit
+   * before this one */
+  wanted_commit_number--;
+
+  for (; wanted_commit_number > 0; wanted_commit_number--)
+    {
+      GHashTableIter iter;
+
+      g_hash_table_iter_init (&iter, ref_to_commit);
+      while (g_hash_table_iter_next (&iter, &key, &value))
+        {
+          guint commit_number = GPOINTER_TO_UINT (value);
+
+          if (commit_number == wanted_commit_number)
+            return key;
+        }
+    }
+
+  return NULL;
+}
+
 /* Updates the subserver to a new commit number in the ref_to_commit
  * hash table.  This involves creating the commits, generating ref
  * files and delta files, and updating the summary.
@@ -602,8 +728,13 @@ update_commits (EosTestSubserver *subserver,
 
       if (commit_number > 0)
         {
+          /* O(N^2), sadly */
+          const OstreeCollectionRef *last_ref = get_last_ref (subserver->ref_to_commit,
+                                                              commit_number);
+          /* Get the checksum of the commit on the last ref, since
+           * it may have changed in the meantime */
           if (!get_current_commit_checksum (subserver->repo,
-                                            collection_ref,
+                                            last_ref ? last_ref : collection_ref,
                                             &old_checksum,
                                             error))
             return FALSE;
@@ -615,9 +746,16 @@ update_commits (EosTestSubserver *subserver,
                            collection_ref,
                            subserver->gpg_home,
                            subserver->keyid,
+                           subserver->additional_directories_for_commit,
+                           subserver->additional_files_for_commit,
+                           subserver->additional_metadata_for_commit,
                            &checksum,
                            error))
         return FALSE;
+
+      /* No checksum means that we've already written out this commit's ref */
+      if (checksum == NULL)
+        continue;
 
       if (commit_number > 0)
         {
@@ -832,6 +970,9 @@ eos_test_server_new_quick (GFile *server_root,
                            GFile *gpg_home,
                            const gchar *keyid,
                            const gchar *ostree_path,
+                           GHashTable *additional_directories_for_commit,
+                           GHashTable *additional_files_for_commit,
+                           GHashTable *additional_metadata_for_commit,
                            GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
@@ -844,7 +985,10 @@ eos_test_server_new_quick (GFile *server_root,
                                                        gpg_home,
                                                        keyid,
                                                        ostree_path,
-                                                       ref_to_commit));
+                                                       ref_to_commit,
+                                                       additional_directories_for_commit,
+                                                       additional_files_for_commit,
+                                                       additional_metadata_for_commit));
 
   return eos_test_server_new (server_root,
                               subservers,
@@ -1137,6 +1281,24 @@ updater_hw_file (GFile *updater_dir)
   return g_file_get_child (updater_dir, "hw");
 }
 
+static GFile *
+flatpak_upgrade_state (GFile *updater_dir)
+{
+  return g_file_get_child (updater_dir, "flatpak-deployments");
+}
+
+GFile *
+get_flatpak_user_dir_for_updater_dir (GFile *updater_dir)
+{
+  return g_file_get_child (updater_dir, "flatpak-user");
+}
+
+GFile *
+get_flatpak_autoinstall_override_dir (GFile *client_root)
+{
+  return g_file_get_child (client_root, "flatpak-autoinstall-override");
+}
+
 static gboolean
 prepare_updater_dir (GFile *updater_dir,
                      GKeyFile *config_file,
@@ -1279,6 +1441,9 @@ spawn_updater (GFile *sysroot,
                GFile *config_file,
                GFile *hw_file,
                GFile *quit_file,
+               GFile *flatpak_upgrade_state_dir,
+               GFile *flatpak_installation_dir,
+               GFile *flatpak_autoinstall_override_dir,
                const gchar *osname,
                CmdAsyncResult *cmd,
                GError **error)
@@ -1296,6 +1461,11 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_QUIT_FILE", NULL, quit_file },
       { "EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS", "yes", NULL },
       { "EOS_UPDATER_TEST_UPDATER_OSTREE_OSNAME", osname, NULL },
+      { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
+      { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
+      { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
+      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", NULL },
+      { "EOS_UPDATER_TEST_UPDATER_OVERRIDE_LOCALES", "locale", NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
@@ -1351,12 +1521,18 @@ spawn_updater_simple (GFile *sysroot,
   g_autoptr(GFile) config_file_path = updater_config_file (updater_dir);
   g_autoptr(GFile) hw_file_path = updater_hw_file (updater_dir);
   g_autoptr(GFile) quit_file_path = updater_quit_file (updater_dir);
+  g_autoptr(GFile) flatpak_upgrade_state_dir_path = flatpak_upgrade_state (updater_dir);
+  g_autoptr(GFile) flatpak_installation_dir_path = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  g_autoptr(GFile) flatpak_autoinstall_override_dir = get_flatpak_autoinstall_override_dir (updater_dir);
 
   return spawn_updater (sysroot,
                         repo,
                         config_file_path,
                         hw_file_path,
                         quit_file_path,
+                        flatpak_upgrade_state_dir_path,
+                        flatpak_installation_dir_path,
+                        flatpak_autoinstall_override_dir,
                         osname,
                         cmd,
                         error);
@@ -1748,6 +1924,267 @@ get_update_server_dir (GFile *client_root)
 {
   return g_file_get_child (client_root, "update-server");
 }
+
+gboolean
+eos_test_run_flatpak_installer (GFile        *client_root,
+                                const gchar  *deployment_csum,
+                                const gchar  *remote,
+                                GError      **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_autofree gchar *eos_flatpak_installer_binary = g_test_build_filename (G_TEST_BUILT,
+                                                                          "..",
+                                                                          "eos-updater-flatpak-installer",
+                                                                          "eos-updater-flatpak-installer",
+                                                                          NULL);
+  g_autoptr(GFile) updater_dir = g_file_get_child (client_root, "updater");
+  g_autoptr(GFile) flatpak_installation_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  g_autoptr(GFile) flatpak_upgrade_state_dir = flatpak_upgrade_state (updater_dir);
+  g_autoptr(GFile) flatpak_autoinstall_override_dir = get_flatpak_autoinstall_override_dir (updater_dir);
+  g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
+  g_autofree gchar *sysroot_path = g_file_get_path (sysroot);
+  g_autofree gchar *deployment_id = g_strdup_printf("%s.0", deployment_csum);
+  g_autofree gchar *deployment_datadir = g_build_filename (sysroot_path,
+                                                           "ostree",
+                                                           "deploy",
+                                                           remote,
+                                                           "deploy",
+                                                           deployment_id,
+                                                           "usr",
+                                                           "share",
+                                                           NULL);
+  g_autoptr(GFile) datadir = g_file_new_for_path (deployment_datadir);
+
+  CmdArg args[] = {
+    { NULL, eos_flatpak_installer_binary },
+    { NULL, NULL }
+  };
+  CmdEnvVar envv[] =
+    {
+      { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
+      { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
+      { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
+      { "EOS_UPDATER_TEST_OSTREE_DATADIR", NULL, datadir },
+      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", NULL },
+      { NULL, NULL, NULL }
+    };
+
+  g_auto(GStrv) argv = build_cmd_args (args);
+  g_auto(GStrv) envp = build_cmd_env (envv);
+
+  if (!test_spawn ((const gchar * const *) argv,
+                   (const gchar * const *) envp,
+                   &cmd,
+                   error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+static GStrv
+g_hash_set_to_strv (GHashTable *string_hash_set)
+{
+  GStrv strv = g_new0 (gchar *, g_hash_table_size (string_hash_set) + 1);
+  GList *iter = g_hash_table_get_keys (string_hash_set);
+  gsize i = 0;
+
+  for (; iter; iter = iter->next, ++i)
+    strv[i] = g_strdup (iter->data);
+
+  return strv;
+}
+
+GStrv
+eos_test_get_installed_flatpaks (GFile   *updater_dir,
+                                 GError **error)
+{
+  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(GStrv) installed_flatpaks_lines = NULL;
+  GStrv installed_flatpaks_lines_iter = NULL;
+  g_autoptr(GHashTable) installed_flatpaks_set = g_hash_table_new_full (g_str_hash,
+                                                                        g_str_equal,
+                                                                        g_free,
+                                                                        NULL);
+  g_autoptr(GRegex) flatpak_id_regex = g_regex_new ("(.*?)/.*?/.*?", 0, 0, error);
+
+  if (!flatpak_id_regex)
+    return FALSE;
+
+  if (!flatpak_list (updater_dir, &cmd, error))
+    return FALSE;
+
+  installed_flatpaks_lines = g_strsplit (cmd.standard_output, "\n", -1);
+  for (installed_flatpaks_lines_iter = installed_flatpaks_lines;
+       *installed_flatpaks_lines_iter;
+       ++installed_flatpaks_lines_iter)
+    {
+      g_autoptr(GMatchInfo) match_info = NULL;
+      g_autofree gchar *matched_flatpak_name = NULL;
+
+      if (!g_regex_match (flatpak_id_regex,
+                          *installed_flatpaks_lines_iter,
+                          0,
+                          &match_info))
+        continue;
+
+      matched_flatpak_name = g_match_info_fetch (match_info, 1);
+
+      if (!matched_flatpak_name)
+        continue;
+
+      g_hash_table_add (installed_flatpaks_set,
+                        g_steal_pointer (&matched_flatpak_name));
+    }
+
+  return g_hash_set_to_strv (installed_flatpaks_set);
+}
+
+static gboolean
+set_flatpak_remote_collection_id (GFile        *updater_dir,
+                                  const gchar  *repo_name,
+                                  const gchar  *collection_id,
+                                  GError      **error)
+{
+  CmdResult result = CMD_RESULT_CLEARED;
+  g_autoptr(GFile) flatpak_installation_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  g_autoptr(GFile) flatpak_installation_repo_dir = g_file_get_child (flatpak_installation_dir, "repo");
+
+  if (!ostree_cmd_remote_set_collection_id (flatpak_installation_repo_dir,
+                                            repo_name,
+                                            collection_id,
+                                            &result,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&result, error);
+}
+
+
+GFile *
+eos_test_get_flatpak_build_dir_for_updater_dir (GFile *updater_dir)
+{
+  return g_file_get_child (updater_dir, "flatpak");
+}
+
+gboolean
+eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
+                                                    const gchar  *repo_name,
+                                                    const gchar  *collection_id,
+                                                    const gchar **flatpak_names,
+                                                    const gchar **preinstall_flatpak_names,
+                                                    GError      **error)
+{
+  /* A few steps here:
+   * 1. Create a runtime (org.test.Runtime)
+   * 2. Install the runtime
+   * 3. Build and export each app in the repo
+   * 4. Add the repo to the user installation
+   *
+   * Note that while testing, the updater will need to use the user repository
+   * since the system one is locked down even if the directory is overridden.
+   */
+  g_autoptr(GFile) flatpak_build_directory_path = g_file_get_child (updater_dir,
+                                                                    "flatpak");
+  g_autoptr(GFile) runtime_directory_path = g_file_get_child (flatpak_build_directory_path,
+                                                          "runtime");
+  g_autofree gchar *apps_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+                                                       "apps",
+                                                       NULL);
+  g_autofree gchar *repo_directory_path = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+                                                            "repo",
+                                                            NULL);
+  g_autoptr(GFile) repo_directory = g_file_new_for_path (repo_directory_path);
+  g_autofree gchar *runtime_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+                                                          "runtime",
+                                                          NULL);
+  const gchar **flatpak_name_iter = NULL;
+
+  if (!g_file_make_directory_with_parents (flatpak_build_directory_path, NULL, error))
+    return FALSE;
+
+  /* We need to set the collection-id on both the remote end (the repo
+   * are pulling from) and in the remote configuration in the local mirror
+   * below */
+  if (!flatpak_populate_runtime (updater_dir,
+                                 runtime_directory_path,
+                                 repo_directory_path,
+                                 "org.test.Runtime",
+                                 collection_id,
+                                 error))
+    return FALSE;
+
+  if (!flatpak_remote_add (updater_dir,
+                           repo_name,
+                           repo_directory_path,
+                           error))
+    return FALSE;
+
+  if (!flatpak_install (updater_dir,
+                        "test-repo",
+                        "org.test.Runtime",
+                        error))
+    return FALSE;
+
+
+  /* Now that we have our runtime installed, lets go ahead and build and export
+   * all the apps flatpak_name_iter our repo */
+  for (flatpak_name_iter = flatpak_names; *flatpak_name_iter != NULL; ++flatpak_name_iter)
+    {
+      g_autofree gchar *app_dir = g_build_filename (apps_directory,
+                                                    *flatpak_name_iter,
+                                                    NULL);
+      g_autoptr(GFile) app_path = g_file_new_for_path (app_dir);
+
+      if (!flatpak_populate_app (updater_dir,
+                                 app_path,
+                                 *flatpak_name_iter,
+                                 "org.test.Runtime",
+                                 repo_directory_path,
+                                 error))
+        return FALSE;
+    }
+
+  /* Now that we have our runtime installed, lets go ahead and build and export
+   * all the apps into our repo */
+  for (flatpak_name_iter = preinstall_flatpak_names; *flatpak_name_iter != NULL; ++flatpak_name_iter)
+    {
+      if (!flatpak_install (updater_dir,
+                            repo_name,
+                            *flatpak_name_iter,
+                            error))
+        return FALSE;
+    }
+
+  /* It seems like calling ostree config set will turn
+   * GPG verification back on for the repo, so the remote
+   * collection-id needs to be set after the flatpak is installed */
+  if (!set_flatpak_remote_collection_id (updater_dir,
+                                         repo_name,
+                                         collection_id,
+                                         error))
+    return FALSE;
+
+  return TRUE;
+}
+
+
+gboolean
+eos_test_setup_flatpak_repo (GFile        *updater_dir,
+                             const gchar  *repo_name,
+                             const gchar  *collection_id,
+                             const gchar **flatpak_names,
+                             GError      **error)
+{
+  const gchar *empty_strv[] = { NULL };
+
+  return eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_dir,
+                                                             repo_name,
+                                                             collection_id,
+                                                             flatpak_names,
+                                                             empty_strv,
+                                                             error);
+}
+
 
 gboolean
 eos_test_client_run_update_server (EosTestClient *client,

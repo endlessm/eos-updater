@@ -268,24 +268,28 @@ metadata_fetch_new (OstreeRepo    *repo,
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
   g_autofree gchar *booted_refspec = NULL, *new_refspec = NULL;
-  g_autoptr(OstreeCollectionRef) booted_collection_ref = NULL, new_collection_ref = NULL;
+  g_autoptr(OstreeCollectionRef) collection_ref_to_upgrade_on_for_booted_deployment = NULL, new_collection_ref = NULL;
   const gchar *upgrade_refspec;
   const OstreeCollectionRef *upgrade_collection_ref;
   g_autoptr(GPtrArray) finders = NULL;  /* (element-type OstreeRepoFinder) */
   g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
   gboolean redirect_followed = FALSE;
 
-  if (!get_booted_refspec (&booted_refspec, NULL, NULL, &booted_collection_ref, error))
+  if (!get_refspec_to_upgrade_on (&booted_refspec,
+                                  NULL,
+                                  NULL,
+                                  &collection_ref_to_upgrade_on_for_booted_deployment,
+                                  error))
     return NULL;
 
-  if (booted_collection_ref == NULL)
+  if (collection_ref_to_upgrade_on_for_booted_deployment == NULL)
     {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
                    "No collection ID set for currently booted deployment.");
       return NULL;
     }
 
-  upgrade_collection_ref = booted_collection_ref;
+  upgrade_collection_ref = collection_ref_to_upgrade_on_for_booted_deployment;
   upgrade_refspec = booted_refspec;
 
   finders = get_finders (config, context, &finder_avahi);

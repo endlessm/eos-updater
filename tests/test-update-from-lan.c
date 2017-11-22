@@ -20,9 +20,11 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "misc-utils.h"
-#include "spawn-utils.h"
-#include "eos-test-utils.h"
+#include <test-common/misc-utils.h>
+#include <test-common/spawn-utils.h>
+#include <test-common/eos-test-utils.h>
+
+#include <libeos-updater-util/util.h>
 
 #include <gio/gio.h>
 #include <locale.h>
@@ -72,6 +74,9 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                       fixture->gpg_home,
                                       keyid,
                                       default_ostree_path,
+                                      NULL,
+                                      NULL,
+                                      NULL,
                                       &error);
   g_assert_no_error (error);
   g_assert_cmpuint (server->subservers->len, ==, 1u);

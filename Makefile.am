@@ -16,7 +16,7 @@
 
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 
-SUBDIRS = . src libeos-updater-util/tests data tests
+SUBDIRS = . src libeos-updater-util/tests eos-updater-flatpak-installer/tests data tests
 
 sysconfexampledir = $(pkgdatadir)
 
@@ -60,12 +60,33 @@ AM_CPPFLAGS = \
 # Utility library
 noinst_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
+enum_header_files = \
+	$(top_srcdir)/libeos-updater-util/flatpak.h \
+	$(top_srcdir)/eos-updater-flatpak-installer/installer.h \
+	$(NULL)
+enum_sources = \
+	libeos-updater-util/enums.h \
+	libeos-updater-util/enums.c \
+	$(NULL)
+
+libeos-updater-util/enums.h: libeos-updater-util/enums.h.in $(enum_header_files)
+	$(AM_V_GEN)$(GLIB_MKENUMS) --template=$< $(enum_header_files) --output $@
+
+libeos-updater-util/enums.c: libeos-updater-util/enums.c.in $(enum_header_files) libeos-updater-util/enums.h
+	$(AM_V_GEN)$(GLIB_MKENUMS) --template=$< $(enum_header_files) --output $@
+
+BUILT_SOURCES += $(enum_sources)
+CLEANFILES += $(enum_sources)
+EXTRA_DIST += libeos-updater-util/enums.h.in libeos-updater-util/enums.c.in
+
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(STD_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(WARN_CFLAGS) \
+	$(FLATPAK_CFLAGS) \
 	$(GIO_CFLAGS) \
+	$(JSON_GLIB_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	$(NULL)
@@ -78,7 +99,9 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LDFLAGS = \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LIBADD = \
 	$(CODE_COVERAGE_LIBS) \
+	$(FLATPAK_LIBS) \
 	$(GIO_LIBS) \
+	$(JSON_GLIB_LIBS) \
 	$(OSTREE_LIBS) \
 	$(SOUP_LIBS) \
 	$(NULL)
@@ -87,13 +110,21 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/avahi-service-file.h \
 	libeos-updater-util/config.c \
 	libeos-updater-util/config.h \
+	libeos-updater-util/flatpak.c \
+	libeos-updater-util/flatpak.h \
 	libeos-updater-util/ostree-bloom-private.h \
 	libeos-updater-util/ostree-bloom.c \
 	libeos-updater-util/ostree.c \
 	libeos-updater-util/ostree.h \
 	libeos-updater-util/refcounted.h \
+	libeos-updater-util/types.c \
+	libeos-updater-util/types.h \
 	libeos-updater-util/util.c \
 	libeos-updater-util/util.h \
+	$(NULL)
+
+nodist_libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
+	$(enum_sources) \
 	$(NULL)
 
 # eos-updater-avahi program
@@ -234,6 +265,133 @@ dist_man8_MANS += eos-update-server/docs/eos-update-server.8
 dist_bin_SCRIPTS += eos-updater-prepare-volume/eos-updater-prepare-volume
 
 dist_man8_MANS += eos-updater-prepare-volume/docs/eos-updater-prepare-volume.8
+
+# Flatpak installer utility library
+noinst_LTLIBRARIES += eos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUU_API_VERSION@.la
+
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-updater-flatpak"\" \
+	-DLOCALSTATEDIR=\""$(localstatedir)"\"
+	$(NULL)
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_CFLAGS = \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_CFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(NULL)
+eos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUU_API_VERSION@_la_SOURCES = \
+	eos-updater-flatpak-installer/determine-flatpak-actions.c \
+	eos-updater-flatpak-installer/perform-flatpak-actions.c \
+	$(NULL)
+
+# eos-updater-flatpak-installer program
+libexec_PROGRAMS += eos-updater-flatpak-installer/eos-updater-flatpak-installer
+
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-updater-flatpak-installer"\" \
+	-DLOCALSTATEDIR=\""$(localstatedir)"\"
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_CFLAGS = \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_CFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(top_builddir)/eos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUU_API_VERSION@.la
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
+	eos-updater-flatpak-installer/main.c \
+	$(NULL)
+
+eos_updater_flatpak_installer_in = \
+	eos-updater-flatpak-installer/eos-updater-flatpak-installer.service.in \
+	$(NULL)
+
+systemdsystemunit_DATA += \
+	$(eos_updater_flatpak_installer_in:%.in=%) \
+	$(NULL)
+
+flatpakinstallerschemadir = $(datadir)/eos-updater/schemas
+
+eos_updater_flatpak_installer_schemas = eos-updater-flatpak-installer/eos-updater-autoinstall.schema.json
+
+flatpakinstallerschema_DATA = $(eos_updater_flatpak_installer_schemas)
+
+EXTRA_DIST += \
+	$(eos_updater_flatpak_installer_in) \
+	$(eos_updater_flatpak_installer_schemas) \
+	$(NULL)
+
+CLEANFILES += $(eos_updater_flatpak_installer_in:%.in=%)
+
+dist_man5_MANS += eos-updater-flatpak-installer/docs/eos-updater-flatpak-autoinstall.d.5
+dist_man8_MANS += eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8
+
+# Test helper library
+noinst_LTLIBRARIES += test-common/libeos-updater-test-common.la
+
+test_common_libeos_updater_test_common_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DOSTREE_BINARY=\""$(OSTREE_BINARY)"\" \
+	-DGPG_BINARY=\""$(GPG_BINARY)"\" \
+	-DFLATPAK_BINARY=\""$(FLATPAK_BINARY)"\" \
+	-DOSTREE_WITH_AUTOCLEANUPS \
+	-DG_LOG_DOMAIN=\""eos-updater-test-common"\" \
+	-DLOCALSTATEDIR=\""$(localstatedir)"\"
+	-I$(top_srcdir) \
+	-I$(top_builddir) \
+	-include "config.h" \
+	-I$(top_srcdir)/src \
+	-I$(top_builddir)/src \
+	$(NULL)
+test_common_libeos_updater_test_common_la_CFLAGS = \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(FLATPAK_CFLAGS) \
+	$(GIO_CFLAGS) \
+	$(OSTREE_CFLAGS) \
+	$(NULL)
+test_common_libeos_updater_test_common_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+test_common_libeos_updater_test_common_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(FLATPAK_LIBS) \
+	$(GIO_LIBS) \
+	$(OSTREE_LIBS) \
+	$(NULL)
+test_common_libeos_updater_test_common_la_SOURCES = \
+	test-common/flatpak-spawn.c \
+	test-common/flatpak-spawn.h \
+	test-common/spawn-utils.c \
+	test-common/spawn-utils.h \
+	test-common/misc-utils.c \
+	test-common/misc-utils.h \
+	test-common/ostree-spawn.c \
+	test-common/ostree-spawn.h \
+	test-common/eos-test-utils.c \
+	test-common/eos-test-utils.h \
+	test-common/eos-test-convenience.c \
+	test-common/eos-test-convenience.h \
+	$(NULL)
 
 # Generic systemd rules
 edit = sed \

@@ -1,0 +1,172 @@
+.\" Manpage for eos-updater-flatpak-autoinstall.d.5.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 5 "8 Nov 2017" "1.0" "eos\-updater\-flatpak\-autoinstall.d man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-updater\-flatpak\-autoinstall.d — Endless OS Configuration for Flatpak Installation on Updates
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fB/etc/eos\-application\-tools/flatpak\-autoinstall.d/\fP
+.br
+.\"
+\fB/var/lib/eos\-application\-tools/flatpak\-autoinstall.d/\fP
+.br
+.\"
+\fB/usr/share/eos\-application\-tools/flatpak-autoinstall.d/\fP
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-updater\-flatpak\-autoinstall.d\fP provides a list of ‘flatpak ref action’
+files, which specify flatpaks that should be installed, updated and uninstalled
+by \fBeos\-updater\-flatpak\-installer\fP(8) when booting into a new deployment.
+.PP
+Configuration files take priority over each other in the directory descending
+order listed above. If a file in a higher priority directory has the same
+basename as a file in a lower priority directory, only the configuration from
+the higher priority directory is used. The list of actions to apply is
+determined first sorting the new actions in each file ascending by its
+serial number, then by sorting the files in lexicographical order
+and concatenating their sorted contents to each other. This means that the
+most up-to-date action in a filename that is lexicographically ordered after
+another filename will take priority in the event that the two
+most up-to-date actions conflict, even if the most up-to-date action in the
+lower-priority file has a newer
+serial number.
+.\"
+.SH ACTION SPECIFICATION
+.IX Header "FILE FORMAT"
+.\"
+The file format of each ‘flatpak ref action’ file in a
+\fBeos\-updater\-flatpak\-autoinstall.d(5)\fP directory is
+RFC\ 7159 compliant JSON. Each file must be a JSON array containing
+objects describing a ‘flatpak ref action’, as described below in
+\fBFlatpak Ref Action\fP. These files are intended to be append-only
+and the \fB"serial"\P property in each object must be a monotonically
+increasing counter within the domain of that filename.
+.\"
+.IP "\fIFlatpak Ref Action\fP"
+.IX Flatpak Ref Action
+.\"
+A JSON object containing, at minimum, properties \fB"action"\fP,
+\fB"serial"\fP and optionally \fB"filters"\fP. Valid values for
+\fB"action"\fP are \fB"install"\fP, and \fB"uninstall"\fP, each having
+their own required properties as explained below. The only valid type
+for \fB"serial"\fP, is an integer, which must be monotonically
+increasing as new entries are appended to the file.
+.\"
+.IP "\fIThe "filters" entry\fP"
+.IX Action filters
+.\"
+A \fB"\fIFlatpak Ref Action\fP"\fP may have a \fB"filters"\fP entry which
+is a JSON object with properties \fB"architectures"\fP, \fB"~architectures"\fP,
+\fB"locales"\fP and \fB"~locales"\fP. Each filter property takes a JSON
+array of strings containing architectures or locales to apply to the filter.
+.\"
+Where a filter is prefixed with a tilde (~), the action will not be applied
+if the system architecture or locales matches any entry in the array. Otherwise,
+the action will only be applied if the system architectures or locales matches
+at least one entry in the array.
+.\"
+Where an action is filtered out and not applied, it will never be applied
+again, even if the property being filtered on changes. For instance, if the
+system locale changes, the action will not be re-evaluated to see if it
+matches the new locale.
+.\"
+.IP "\fI"install" actions\fP"
+.IX Install action
+.\"
+Where the fB"\action\fP"\fP property of a "\fBFlatpak Ref Action\fP" entry is
+"\fB"install"\fP", the action will describe a flatpak that should be
+installed upon the next boot of the deployment in which the action was
+introduced. The entry must have the additional properties "\fB"app"\fP",
+"\fB"ref-kind"\fP" and both "\fB"collection-id"\fP" and "\fB"remote"\fP",
+which describe the flatpak app ID, whether the flatpak is a
+runtime or an app and either the \fBostree\fP(1) collection ID or remote to
+install the app from. See \fBflatpak\fP(1) and \fBostree\fP(1) for more
+information on flatpak app IDs, ref-kinds and remotes, and ostree(1)
+on collection IDs generally. If the flatpak is already installed when the action
+is applied, \fBeos-updater-flatpak-installer\fP(8) will attempt to upgrade it.
+\."
+Because both "\fB"collection-id"\fP" and "\fB"remote"\fP" are specified, the
+updater will check that the given remote matches the first remote for
+the given collection ID, otherwise an error occurrs. If neither
+"\fB"collection-id"\fP" nor "\fB"remote"\fP" are specified, an error
+occurrs.
+\."
+Note that flatpaks are not pulled from the remote upon booting into
+the deployment, they are instead downloaded by \fBeos-updater\fP(8) during its
+‘fetch’ step whilst it prepares the commit to be deployed.
+\."
+.IP "\fI"uninstall" actions\fP"
+.IX Uninstall action
+.\"
+Where the fB"\action\fP"\fP property of a "\fBFlatpak Ref Action\fP" entry is
+"\fB"uninstall"\fP", the action will describe a flatpak that should be
+uninstalled upon the next boot of the deployment in which the action was
+introduced. The entry must have the additional properties "\fB"app"\fP",
+"\fB"ref-kind"\fP". It is not an error if the flatpak is already uninstalled
+when the action is applied.
+\."
+.SH "EXAMPLES"
+.IX Header "EXAMPLES"
+.\"
+[
+    {
+        "action": "install",
+        "serial": 2017100100,
+        "ref-kind": "app",
+        "name": "org.example.MyApp",
+        "collection-id": "com.endlessm.Apps"
+    },
+    {
+        "action": "uninstall",
+        "serial": 2017100101,
+        "ref-kind": "app",
+        "name": "org.example.OutdatedApp",
+        "collection-id": "com.endlessm.Apps"
+    },
+    {
+        "action": "install",
+        "serial": 2017100500,
+        "ref-kind": "runtime",
+        "name": "org.example.PreinstalledRuntime",
+        "remote": "eos-runtimes"
+    },
+    {
+        "action": "install",
+        "serial": 2017110100,
+        "ref-kind": "runtime",
+        "name": "org.example.NVidiaRuntime",
+        "collection-id": "com.endlessm.Runtimes"
+    },
+    {
+        "action": "install",
+        "serial": 2017110200,
+        "ref-kind": "app",
+        "name": "org.example.IndonesiaNonArmGame",
+        "filters": {
+            "locale": ["id_ID"],
+            "~architecture": ["armhf"]
+        }
+    }
+]
+\."
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-updater\fP(8),
+\fBeos\-updater\-flatpak\-installer\fP(8)
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.

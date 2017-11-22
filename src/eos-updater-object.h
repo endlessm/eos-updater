@@ -28,8 +28,9 @@
 
 #include <glib.h>
 
+#include <libeos-updater-util/types.h>
+
 #include "eos-updater-generated.h"
-#include "eos-updater-types.h"
 
 G_BEGIN_DECLS
 

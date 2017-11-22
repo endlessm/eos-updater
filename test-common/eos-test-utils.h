@@ -71,6 +71,21 @@ struct _EosTestSubserver
   gchar *ostree_path;
   GHashTable *ref_to_commit;
 
+  /* This is a hashtable of string vectors - the key is the commit
+   * number to insert the directories on and the value is a vector of
+   * directories. Note that directories are not created recursively, but the
+   * value for each key is traversed in order, so you will need to create
+   * any directory parents yourself by specifying them first. */
+  GHashTable *additional_directories_for_commit;
+
+  /* Same thing, but for files. Note that directories are not created. Values
+   * are a pointer array of SimpleFile instances. */
+  GHashTable *additional_files_for_commit;
+
+  /* Mapping from commit numbers to hashtables of metadata string
+   * key-value pairs */
+  GHashTable *additional_metadata_for_commit;
+
   GFile *repo;
   GFile *tree;
   gchar *url;
@@ -88,7 +103,10 @@ EosTestSubserver *eos_test_subserver_new (const gchar *collection_id,
                                           GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
-                                          GHashTable *ref_to_commit);
+                                          GHashTable *ref_to_commit,
+                                          GHashTable *additional_directories_for_commit,
+                                          GHashTable *additional_files_for_commit,
+                                          GHashTable *additional_metadata_for_commit);
 
 gboolean eos_test_subserver_update (EosTestSubserver *subserver,
                                     GError **error);
@@ -121,6 +139,9 @@ EosTestServer *eos_test_server_new_quick (GFile *server_root,
                                           GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
+                                          GHashTable *additional_directories_for_commit,
+                                          GHashTable *additional_files_for_commit,
+                                          GHashTable *additional_metadata_for_commit,
                                           GError **error);
 
 #define EOS_TEST_TYPE_CLIENT eos_test_client_get_type ()
@@ -237,5 +258,36 @@ EosTestAutoupdater *eos_test_autoupdater_new (GFile *autoupdater_root,
                                               GError **error);
 
 gboolean eos_test_has_ostree_boot_id (void);
+
+typedef struct _SimpleFile SimpleFile;
+
+SimpleFile * simple_file_new_steal (gchar *rel_path, gchar *contents);
+void         simple_file_free (gpointer file_ptr);
+
+gboolean eos_test_setup_flatpak_repo (GFile        *updater_path,
+                                      const gchar  *repo_name,
+                                      const gchar  *collection_id,
+                                      const gchar **flatpak_names,
+                                      GError      **error);
+
+gboolean eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_path,
+                                                             const gchar  *repo_name,
+                                                             const gchar  *collection_id,
+                                                             const gchar **flatpak_names,
+                                                             const gchar **preinstalled_flatpak_names,
+                                                             GError      **error);
+
+gboolean eos_test_run_flatpak_installer (GFile        *client_root,
+                                         const gchar  *deployment_csum,
+                                         const gchar  *remote,
+                                         GError      **error);
+
+GStrv eos_test_get_installed_flatpaks (GFile   *updater_path,
+                                       GError **error);
+
+GFile * get_flatpak_user_dir_for_updater_dir (GFile *updater_dir);
+GFile * get_flatpak_autoinstall_override_dir (GFile *client_root);
+
+GFile * eos_test_get_flatpak_build_dir_for_updater_dir (GFile *updater_dir);
 
 G_END_DECLS

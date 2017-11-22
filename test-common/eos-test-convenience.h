@@ -36,6 +36,9 @@ typedef struct
   EosTestServer *server;
   EosTestSubserver *subserver;
   EosTestClient *client;
+  GHashTable *additional_directories_for_commit;
+  GHashTable *additional_files_for_commit;
+  GHashTable *additional_metadata_for_commit;
 } EtcData;
 
 void etc_data_init (EtcData *data,
