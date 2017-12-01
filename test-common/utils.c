@@ -140,6 +140,9 @@ static void
 eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 {
   g_clear_pointer (&subserver->ref_to_commit, g_hash_table_unref);
+  g_clear_pointer (&subserver->additional_files_for_commit, g_hash_table_unref);
+  g_clear_pointer (&subserver->additional_directories_for_commit, g_hash_table_unref);
+  g_clear_pointer (&subserver->additional_metadata_for_commit, g_hash_table_unref);
   g_clear_object (&subserver->repo);
   g_clear_object (&subserver->tree);
   g_clear_object (&subserver->gpg_home);
@@ -165,7 +168,10 @@ eos_test_subserver_new (const gchar *collection_id,
                         GFile *gpg_home,
                         const gchar *keyid,
                         const gchar *ostree_path,
-                        GHashTable *ref_to_commit)
+                        GHashTable *ref_to_commit,
+                        GHashTable *additional_directories_for_commit,
+                        GHashTable *additional_files_for_commit,
+                        GHashTable *additional_metadata_for_commit)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
@@ -174,6 +180,9 @@ eos_test_subserver_new (const gchar *collection_id,
   subserver->keyid = g_strdup (keyid);
   subserver->ostree_path = g_strdup (ostree_path);
   subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
+  subserver->additional_directories_for_commit = additional_directories_for_commit ? g_hash_table_ref (additional_directories_for_commit) : NULL;
+  subserver->additional_files_for_commit = additional_files_for_commit ? g_hash_table_ref (additional_files_for_commit) : NULL;
+  subserver->additional_metadata_for_commit = additional_metadata_for_commit ? g_hash_table_ref (additional_metadata_for_commit) : NULL;
 
   return subserver;
 }
@@ -300,23 +309,29 @@ get_sysroot_dirs (const gchar *kernel_version)
 }
 
 static gboolean
-prepare_sysroot_contents (GFile *repo,
-                          GFile *tree_root,
-                          GError **error)
+create_directories (GFile   *tree_root,
+                    GStrv    directories,
+                    GError **error)
 {
-  const gchar *kernel_version = "4.6";
-  g_autoptr(GPtrArray) files = get_sysroot_files (kernel_version);
-  guint idx;
-  g_auto(GStrv) dirs = get_sysroot_dirs (kernel_version);
   gchar **iter;
 
-  for (iter = dirs; *iter != NULL; ++iter)
+  for (iter = directories; *iter != NULL; ++iter)
     {
       g_autoptr(GFile) path = g_file_get_child (tree_root, *iter);
 
       if (!create_directory (path, error))
         return FALSE;
     }
+
+  return TRUE;
+}
+
+static gboolean
+create_files (GFile      *tree_root,
+              GPtrArray  *files,
+              GError    **error)
+{
+  guint idx;
 
   for (idx = 0; idx < files->len; ++idx)
     {
@@ -329,6 +344,46 @@ prepare_sysroot_contents (GFile *repo,
       if (!create_file (path, bytes, error))
         return FALSE;
     }
+
+  return TRUE;
+}
+
+static gboolean
+create_additional_directories_for_commit (GFile   *tree_root,
+                                          GStrv    dirs,
+                                          GError **error)
+{
+  if (dirs == NULL)
+    return TRUE;
+
+  return create_directories (tree_root, dirs, error);
+}
+
+static gboolean
+create_additional_files_for_commit (GFile      *tree_root,
+                                    GPtrArray  *files,
+                                    GError    **error)
+{
+  if (files == NULL)
+    return TRUE;
+
+  return create_files (tree_root, files, error);
+}
+
+static gboolean
+prepare_sysroot_contents (GFile   *repo,
+                          GFile   *tree_root,
+                          GError **error)
+{
+  const gchar *kernel_version = "4.6";
+  g_autoptr(GPtrArray) files = get_sysroot_files (kernel_version);
+  g_auto(GStrv) dirs = get_sysroot_dirs (kernel_version);
+
+  if (!create_directories (tree_root, dirs, error))
+    return FALSE;
+
+  if (!create_files (tree_root, files, error))
+    return FALSE;
 
   return TRUE;
 }
@@ -491,6 +546,16 @@ get_current_commit_checksum (GFile *repo,
   return TRUE;
 }
 
+static gpointer
+maybe_hashtable_lookup (GHashTable *table,
+                        gpointer    key)
+{
+  if (table == NULL)
+    return NULL;
+
+  return g_hash_table_lookup (table, key);
+}
+
 /* Prepare a commit. It will prepare a sysroot environment and commits
  * from 0 to the given commit_number.
  */
@@ -501,6 +566,9 @@ prepare_commit (GFile *repo,
                 const OstreeCollectionRef *collection_ref,
                 GFile *gpg_home,
                 const gchar *keyid,
+                GHashTable *additional_directories_for_commit,
+                GHashTable *additional_files_for_commit,
+                GHashTable *additional_metadata_for_commit,
                 gchar **out_checksum,
                 GError **error)
 {
@@ -532,6 +600,9 @@ prepare_commit (GFile *repo,
                            collection_ref,
                            gpg_home,
                            keyid,
+                           additional_directories_for_commit,
+                           additional_files_for_commit,
+                           additional_metadata_for_commit,
                            NULL,
                            error))
         return FALSE;
@@ -545,8 +616,21 @@ prepare_commit (GFile *repo,
   if (!create_commit_files_and_directories (tree_root, commit_number, error))
     return FALSE;
 
+  if (!create_additional_directories_for_commit (tree_root,
+                                                 maybe_hashtable_lookup (additional_directories_for_commit,
+                                                                         GUINT_TO_POINTER (commit_number)),
+                                                 error))
+    return FALSE;
+
+  if (!create_additional_files_for_commit (tree_root,
+                                           maybe_hashtable_lookup (additional_files_for_commit,
+                                                                   GUINT_TO_POINTER (commit_number)),
+                                           error))
+    return FALSE;
+
   subject = g_strdup_printf ("Test commit %u", commit_number);
   timestamp = days_ago (max_commit_number - commit_number);
+
   if (!ostree_commit (repo,
                       tree_root,
                       subject,
@@ -554,6 +638,8 @@ prepare_commit (GFile *repo,
                       gpg_home,
                       keyid,
                       timestamp,
+                      maybe_hashtable_lookup (additional_metadata_for_commit,
+                                              GUINT_TO_POINTER (commit_number)),
                       &cmd,
                       error))
     return FALSE;
@@ -617,6 +703,9 @@ update_commits (EosTestSubserver *subserver,
                            collection_ref,
                            subserver->gpg_home,
                            subserver->keyid,
+                           subserver->additional_directories_for_commit,
+                           subserver->additional_files_for_commit,
+                           subserver->additional_metadata_for_commit,
                            &checksum,
                            error))
         return FALSE;
@@ -834,6 +923,9 @@ eos_test_server_new_quick (GFile *server_root,
                            GFile *gpg_home,
                            const gchar *keyid,
                            const gchar *ostree_path,
+                           GHashTable *additional_directories_for_commit,
+                           GHashTable *additional_files_for_commit,
+                           GHashTable *additional_metadata_for_commit,
                            GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
@@ -846,7 +938,10 @@ eos_test_server_new_quick (GFile *server_root,
                                                        gpg_home,
                                                        keyid,
                                                        ostree_path,
-                                                       ref_to_commit));
+                                                       ref_to_commit,
+                                                       additional_directories_for_commit,
+                                                       additional_files_for_commit,
+                                                       additional_metadata_for_commit));
 
   return eos_test_server_new (server_root,
                               subservers,

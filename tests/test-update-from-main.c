@@ -64,6 +64,7 @@ test_update_from_main (EosUpdaterFixture *fixture,
                                       fixture->gpg_home,
                                       keyid,
                                       default_ostree_path,
+                                      NULL, NULL, NULL,
                                       &error);
   g_assert_no_error (error);
   g_assert_cmpuint (server->subservers->len, ==, 1u);

@@ -71,6 +71,21 @@ struct _EosTestSubserver
   gchar *ostree_path;
   GHashTable *ref_to_commit;
 
+  /* This is a hashtable of string vectors - the key is the commit
+   * number to insert the directories on and the value is a vector of
+   * directories. Note that directories are not created recursively, but the
+   * value for each key is traversed in order, so you will need to create
+   * any directory parents yourself by specifying them first. */
+  GHashTable *additional_directories_for_commit;  /* (element-type guint GStrv) */
+
+  /* Same thing, but for files. Note that directories are not created. Values
+   * are a pointer array of SimpleFile instances. */
+  GHashTable *additional_files_for_commit;  /* (element-type guint GPtrArray<SimpleFile>) */
+
+  /* Mapping from commit numbers to hashtables of metadata string
+   * key-value pairs */
+  GHashTable *additional_metadata_for_commit;  /* (element-type guint GHashTable<utf8, utf8>) */
+
   GFile *repo;
   GFile *tree;
   gchar *url;
@@ -88,7 +103,10 @@ EosTestSubserver *eos_test_subserver_new (const gchar *collection_id,
                                           GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
-                                          GHashTable *ref_to_commit);
+                                          GHashTable *ref_to_commit,
+                                          GHashTable *additional_directories_for_commit,
+                                          GHashTable *additional_files_for_commit,
+                                          GHashTable *additional_metadata_for_commit);
 
 gboolean eos_test_subserver_update (EosTestSubserver *subserver,
                                     GError **error);
@@ -121,6 +139,9 @@ EosTestServer *eos_test_server_new_quick (GFile *server_root,
                                           GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
+                                          GHashTable *additional_directories_for_commit,
+                                          GHashTable *additional_files_for_commit,
+                                          GHashTable *additional_metadata_for_commit,
                                           GError **error);
 
 #define EOS_TEST_TYPE_CLIENT eos_test_client_get_type ()
