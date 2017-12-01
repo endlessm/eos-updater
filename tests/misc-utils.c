@@ -22,119 +22,17 @@
 
 #include "misc-utils.h"
 
+#include <libeos-updater-util/util.h>
+
 #include <errno.h>
 
 #include <unistd.h>
 
-static gboolean
-rm_file_ignore_noent (GFile         *file,
-                      GCancellable  *cancellable,
-                      GError       **error)
-{
-  g_autoptr(GError) local_error = NULL;
-
-  if (g_file_delete (file, cancellable, &local_error))
-    return TRUE;
-
-  if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
-    return TRUE;
-
-  g_propagate_error (error, g_steal_pointer (&local_error));
-  return FALSE;
-}
-
-static gboolean
-rm_rf_internal (GFile *topdir,
-                GError **error)
-{
-  GQueue queue = G_QUEUE_INIT;
-  GList *dir_stack = NULL;
-  g_autoptr(GError) local_error = NULL;
-  g_autoptr(GFileInfo) top_info = NULL;
-
-  top_info = g_file_query_info (topdir,
-                                G_FILE_ATTRIBUTE_STANDARD_TYPE,
-                                G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
-                                NULL,
-                                &local_error);
-  if (top_info == NULL)
-    {
-      if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
-        return TRUE;
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
-    }
-  if (g_file_info_get_file_type (top_info) != G_FILE_TYPE_DIRECTORY)
-    return rm_file_ignore_noent (topdir, NULL, error);
-
-  g_queue_push_head (&queue, g_object_ref (topdir));
-  dir_stack = g_list_prepend (dir_stack, g_object_ref (topdir));
-  while (!g_queue_is_empty (&queue))
-    {
-      g_autoptr(GFile) dir = G_FILE (g_queue_pop_tail (&queue));
-      g_autoptr(GFileEnumerator) enumerator = g_file_enumerate_children (dir,
-                                                                         G_FILE_ATTRIBUTE_STANDARD_TYPE,
-                                                                         G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
-                                                                         NULL,
-                                                                         error);
-
-      if (enumerator == NULL)
-        return FALSE;
-
-      for (;;)
-        {
-          GFileInfo *info;
-          GFile* child;
-
-          if (!g_file_enumerator_iterate (enumerator,
-                                          &info,
-                                          &child,
-                                          NULL,
-                                          error))
-            return FALSE;
-
-          if (info == NULL || child == NULL)
-            break;
-
-          if (g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY)
-            {
-              g_queue_push_head (&queue, g_object_ref (child));
-              dir_stack = g_list_prepend (dir_stack, g_object_ref (child));
-            }
-          else if (!rm_file_ignore_noent (child, NULL, error))
-            return FALSE;
-        }
-    }
-
-  while (dir_stack != NULL)
-    {
-      GList *first = dir_stack;
-      g_autoptr(GFile) dir = G_FILE (first->data);
-
-      dir_stack = g_list_remove_link (dir_stack, first);
-      g_list_free_1 (first);
-      if (!rm_file_ignore_noent (dir, NULL, error))
-        return FALSE;
-    }
-
-  return TRUE;
-}
-
 gboolean
-rm_rf (GFile *topdir,
+rm_rf (GFile   *file,
        GError **error)
 {
-  if (!rm_rf_internal (topdir, error))
-    {
-      g_autofree gchar *raw_path = g_file_get_path (topdir);
-      g_prefix_error (error,
-                      "Failed to remove the file or directory in %s, this should not happen: ",
-                      raw_path);
-
-      return FALSE;
-    }
-
-  return TRUE;
+  return eos_updater_remove_recursive (file, error);
 }
 
 gboolean

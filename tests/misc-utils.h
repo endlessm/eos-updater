@@ -26,7 +26,7 @@
 
 G_BEGIN_DECLS
 
-gboolean rm_rf (GFile *topdir,
+gboolean rm_rf (GFile   *topdir,
                 GError **error);
 
 static inline GPtrArray *
