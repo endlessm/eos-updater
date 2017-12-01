@@ -160,6 +160,30 @@ copy_additional_metadata_args_from_hashtable (GArray      *cmd_args,
 }
 
 gboolean
+ostree_cmd_remote_set_collection_id (GFile        *repo,
+                                     const gchar  *remote_name,
+                                     const gchar  *collection_id,
+                                     CmdResult    *cmd,
+                                     GError      **error)
+{
+  g_autofree gchar *section_name = g_strdup_printf ("remote \"%s\".collection-id",
+                                                    remote_name);
+  CmdArg args[] =
+    {
+      { NULL, "config" },
+      { NULL, "set" },
+      { NULL, section_name },
+      { NULL, collection_id },
+      { NULL, NULL }
+    };
+
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
+}
+
+gboolean
 ostree_commit (GFile *repo,
                GFile *tree_root,
                const gchar *subject,
