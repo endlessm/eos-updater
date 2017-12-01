@@ -24,6 +24,8 @@
 #include "spawn-utils.h"
 #include "eos-test-utils.h"
 
+#include <libeos-updater-util/util.h>
+
 #include <gio/gio.h>
 #include <locale.h>
 

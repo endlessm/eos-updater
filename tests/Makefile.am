@@ -104,6 +104,7 @@ test_ldadd = \
 	$(OSTREE_LIBS) \
 	$(GIO_LIBS) \
 	$(testlib) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
 	$(NULL)
 
 test_update_from_main_CPPFLAGS = $(test_cppflags)

@@ -24,6 +24,8 @@
 #include "misc-utils.h"
 #include "ostree-spawn.h"
 
+#include <libeos-updater-util/util.h>
+
 #include <errno.h>
 #include <ostree.h>
 #include <string.h>

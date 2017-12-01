@@ -35,12 +35,6 @@ string_array_new (void)
   return g_ptr_array_new_with_free_func (g_free);
 }
 
-static inline GPtrArray *
-object_array_new (void)
-{
-  return g_ptr_array_new_with_free_func (g_object_unref);
-}
-
 gboolean load_to_bytes (GFile *file,
                         GBytes **bytes,
                         GError **error);
