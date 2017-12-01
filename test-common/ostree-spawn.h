@@ -64,6 +64,11 @@ gboolean ostree_summary (GFile *repo,
                          CmdResult *cmd,
                          GError **error);
 
+gboolean ostree_show (GFile *sysroot,
+                      const gchar *refspec,
+                      CmdResult *cmd,
+                      GError **error);
+
 gboolean ostree_pull (GFile *repo,
                       const gchar *remote_name,
                       const gchar *ref,

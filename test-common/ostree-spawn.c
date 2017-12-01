@@ -251,6 +251,25 @@ ostree_summary (GFile *repo,
 }
 
 gboolean
+ostree_show (GFile *repo,
+             const gchar *refspec,
+             CmdResult *cmd,
+             GError **error)
+{
+  CmdArg args[] =
+    {
+      { NULL, "show" },
+      { NULL, refspec },
+      { NULL, NULL }
+    };
+
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
+}
+
+gboolean
 ostree_pull (GFile *repo,
              const gchar *remote_name,
              const gchar *ref,
