@@ -60,6 +60,20 @@ AM_CPPFLAGS = \
 # Utility library
 noinst_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
+enum_header_files = \
+	$(top_srcdir)/libeos-updater-util/types.h \
+	$(NULL)
+
+libeos-updater-util/enums.h: libeos-updater-util/enums.h.in $(enum_header_files)
+	$(AM_V_GEN)$(GLIB_MKENUMS) --template $< $(enum_header_files) --output $@
+
+libeos-updater-util/enums.c: libeos-updater-util/enums.c.in $(enum_header_files) $(top_builddir)/libeos-updater-util/enums.h
+	$(AM_V_GEN)$(GLIB_MKENUMS) --template $< $(enum_header_files) --output $@
+
+BUILT_SOURCES += $(top_builddir)/libeos-updater-util/enums.c $(top_builddir)/libeos-updater-util/enums.h
+CLEANFILES += $(top_builddir)/libeos-updater-util/enums.c $(top_builddir)/libeos-updater-util/enums.h
+EXTRA_DIST += libeos-updater-util/enums.h.in libeos-updater-util/enums.c.in
+
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(STD_CFLAGS) \
@@ -96,6 +110,11 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/types.h \
 	libeos-updater-util/util.c \
 	libeos-updater-util/util.h \
+	$(NULL)
+
+nodist_libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
+	libeos-updater-util/enums.c \
+	libeos-updater-util/enums.h \
 	$(NULL)
 
 # eos-updater-avahi program

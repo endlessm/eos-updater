@@ -124,6 +124,11 @@ AS_IF([test "$GLIB_COMPILE_RESOURCES" == ""],[
 	AC_MSG_ERROR([glib-compile-resources not found])
 ])
 
+AC_PATH_PROG([GLIB_MKENUMS],[glib-mkenums])
+AS_IF([test "$GLIB_MKENUMS" == ""],[
+	AC_MSG_ERROR([glib-mkenums not found])
+])
+
 # Ensure we have the libOSTree experimental API available
 ostree_features=$($PKG_CONFIG --variable=features ostree-1)
 AS_CASE(["$ostree_features"],
