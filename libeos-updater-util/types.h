@@ -35,7 +35,8 @@ typedef enum {
   EOS_UPDATER_ERROR_FETCHING,
   EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
   EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC,
-  EOS_UPDATER_ERROR_LAST = EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC /*< skip >*/
+  EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT,
+  EOS_UPDATER_ERROR_LAST = EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT, /*< skip >*/
 } EosUpdaterError;
 
 #define EOS_UPDATER_ERROR (eos_updater_error_quark ())
@@ -55,5 +56,50 @@ typedef enum {
 } EosUpdaterState;
 
 const gchar *eos_updater_state_to_string (EosUpdaterState state);
+
+/**
+ * EosUpdaterInstallerMode:
+ * @EU_INSTALLER_MODE_PERFORM: Actually perform actions in the installer
+ *                             installing or uninstalling flatpaks as necessary,
+ *                             this is the default mode.
+ * @EU_INSTALLER_MODE_STAMP: Just update the counter files to the most
+ *                           up-to-date counter for each of the auto-install
+ *                           files but don't perform actions. This is typically
+ *                           used by the image builder to keep the auto-install
+ *                           state in sync with the installed flatpaks.
+ * @EU_INSTALLER_MODE_CHECK: Check that flatpak ref actions up to a
+ *                           certain serial number are applied on the system,
+ *                           that is that all flatpaks that should have been
+ *                           installed are installed and all flatpaks that
+ *                           should have been uninstalled are not installed.
+ *                           Note that this mode is not useful as a debugging
+ *                           tool, because a user can legitimately uninstall
+ *                           or install flatpaks of the same name after
+ *                           an update has occurred.
+ *
+ * Enum values used to specify the mode that the flatpak-installer runs in.
+ */
+typedef enum {
+  EU_INSTALLER_MODE_PERFORM = 0,
+  EU_INSTALLER_MODE_STAMP = 1,
+  EU_INSTALLER_MODE_CHECK = 2
+} EosUpdaterInstallerMode;
+
+/**
+ * EosUpdaterInstallerFlags
+ * @EU_INSTALLER_FLAGS_NONE: Just run the installer normally.
+ * @EU_INSTALLER_FLAGS_ALSO_PULL: Pull flatpaks as well as deploying them. This
+ *                                is not something that would run on normal
+ *                                operation, rather it is a tool for developers
+ *                                to keep installed flatpaks up to date with
+ *                                their system without having to use the
+ *                                regular updater.
+ *
+ * Flags to change the behaviour of the flatpak-instasller.
+ */
+typedef enum {
+  EU_INSTALLER_FLAGS_NONE = 0,
+  EU_INSTALLER_FLAGS_ALSO_PULL = (1 << 0)
+} EosUpdaterInstallerFlags;
 
 G_END_DECLS

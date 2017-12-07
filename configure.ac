@@ -17,6 +17,7 @@ dnl Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  U
 # API versions
 m4_define([eu_api_version],[0])
 m4_define([euu_api_version],[0])
+m4_define([eufi_api_version],[0])
 m4_define([eus_api_version],[0])
 
 AC_INIT([eos-updater],[1.0])
@@ -39,6 +40,7 @@ GOBJECT_INTROSPECTION_CHECK([1.30.0])
 # Versioning
 AC_SUBST([EU_API_VERSION],eu_api_version)
 AC_SUBST([EUU_API_VERSION],euu_api_version)
+AC_SUBST([EUFI_API_VERSION],eufi_api_version)
 AC_SUBST([EUS_API_VERSION],eus_api_version)
 
 # Compiler warnings and --disable-Werror
@@ -103,6 +105,8 @@ PKG_CHECK_MODULES([EOS_AUTOUPDATER],
 AX_PKG_CHECK_MODULES([EOS_UPDATE_SERVER],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4 libsystemd])
 AX_PKG_CHECK_MODULES([EOS_UPDATER_AVAHI],[glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION])
 AX_PKG_CHECK_MODULES([EOS_UPDATER_UTIL_TESTS],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 json-glib-1.0 >= $JSON_GLIB_REQUIRED_VERSION ostree-1 >= $OSTREE_REQUIRED_VERSION libsoup-2.4])
+AX_PKG_CHECK_MODULES([EOS_UPDATER_FLATPAK_INSTALLER_TESTS],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 json-glib-1.0 >= $JSON_GLIB_REQUIRED_VERSION ostree-1 >= $OSTREE_REQUIRED_VERSION])
+AX_PKG_CHECK_MODULES([EOS_UPDATER_FLATPAK_INSTALLER],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 json-glib-1.0 >= $JSON_GLIB_REQUIRED_VERSION ostree-1 >= $OSTREE_REQUIRED_VERSION])
 
 EOS_UPDATER_MODULES="avahi-client >= $AVAHI_REQUIRED_VERSION avahi-glib >= $AVAHI_REQUIRED_VERSION"
 
@@ -174,6 +178,7 @@ AC_SUBST([ENABLE_INSTALLED_TESTS],[$enable_installed_tests])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 Makefile
+libeos-updater-flatpak-installer/tests/Makefile
 libeos-updater-util/tests/Makefile
 src/Makefile
 data/Makefile

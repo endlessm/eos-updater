@@ -16,7 +16,7 @@
 
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 
-SUBDIRS = . src libeos-updater-util/tests data tests
+SUBDIRS = . src libeos-updater-util/tests libeos-updater-flatpak-installer/tests data tests
 
 sysconfexampledir = $(pkgdatadir)
 
@@ -262,6 +262,34 @@ dist_man8_MANS += eos-update-server/docs/eos-update-server.8
 dist_bin_SCRIPTS += eos-updater-prepare-volume/eos-updater-prepare-volume
 
 dist_man8_MANS += eos-updater-prepare-volume/docs/eos-updater-prepare-volume.8
+
+# Flatpak installer utility library
+noinst_LTLIBRARIES += libeos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUFI_API_VERSION@.la
+
+libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERSION@_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""libeos-updater-flatpak-installer"\" \
+	$(NULL)
+libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERSION@_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_CFLAGS) \
+	$(NULL)
+libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERSION@_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERSION@_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUFI_API_VERSION@.la \
+	$(NULL)
+libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERSION@_la_SOURCES = \
+	libeos-updater-flatpak-installer/determine-flatpak-actions.c \
+	libeos-updater-flatpak-installer/installer.h \
+	libeos-updater-flatpak-installer/perform-flatpak-actions.c \
+	$(NULL)
 
 # Test helper library
 noinst_LTLIBRARIES += test-common/libeos-updater-test-common.la
