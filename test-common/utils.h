@@ -264,4 +264,30 @@ typedef struct _SimpleFile SimpleFile;
 SimpleFile * simple_file_new_steal (gchar *rel_path, gchar *contents);
 void         simple_file_free (gpointer file_ptr);
 
+gboolean eos_test_setup_flatpak_repo (GFile        *updater_path,
+                                      const gchar  *repo_name,
+                                      const gchar  *collection_id,
+                                      const gchar **flatpak_names,
+                                      GError      **error);
+
+gboolean eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_path,
+                                                             const gchar  *repo_name,
+                                                             const gchar  *collection_id,
+                                                             const gchar **flatpak_names,
+                                                             const gchar **preinstalled_flatpak_names,
+                                                             GError      **error);
+
+gboolean eos_test_run_flatpak_installer (GFile        *client_root,
+                                         const gchar  *deployment_csum,
+                                         const gchar  *remote,
+                                         GError      **error);
+
+GStrv eos_test_get_installed_flatpaks (GFile   *updater_path,
+                                       GError **error);
+
+GFile * get_flatpak_user_dir_for_updater_dir (GFile *updater_dir);
+GFile * get_flatpak_autoinstall_override_dir (GFile *client_root);
+
+GFile * eos_test_get_flatpak_build_dir_for_updater_dir (GFile *updater_dir);
+
 G_END_DECLS

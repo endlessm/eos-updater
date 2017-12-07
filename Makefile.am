@@ -263,6 +263,8 @@ test_common_libeos_updater_test_common_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DOSTREE_BINARY=\""$(OSTREE)"\" \
 	-DGPG_BINARY=\""$(GPG)"\" \
+	-DFLATPAK_BINARY=\""$(FLATPAK)"\" \
+	-DOSTREE_WITH_AUTOCLEANUPS \
 	-DG_LOG_DOMAIN=\""eos-updater-test-common"\" \
 	$(NULL)
 test_common_libeos_updater_test_common_la_CFLAGS = \
@@ -283,6 +285,8 @@ test_common_libeos_updater_test_common_la_LIBADD = \
 test_common_libeos_updater_test_common_la_SOURCES = \
 	test-common/convenience.c \
 	test-common/convenience.h \
+	test-common/flatpak-spawn.c \
+	test-common/flatpak-spawn.h \
 	test-common/misc-utils.c \
 	test-common/misc-utils.h \
 	test-common/ostree-spawn.c \
