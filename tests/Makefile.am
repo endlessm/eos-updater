@@ -36,6 +36,7 @@ uninstalled_test_programs = \
 	test-update-from-volume \
 	test-update-cleanup-workaround \
 	test-update-broken-delta \
+	test-update-install-flatpaks \
 	test-update-refspec-checkpoint \
 	$(NULL)
 
@@ -95,6 +96,12 @@ test_update_cleanup_workaround_CFLAGS = $(test_cflags)
 test_update_cleanup_workaround_LDFLAGS = $(test_ldflags)
 test_update_cleanup_workaround_LDADD = $(test_ldadd)
 test_update_cleanup_workaround_SOURCES = test-update-cleanup-workaround.c
+
+test_update_install_flatpaks_CPPFLAGS = $(test_cppflags)
+test_update_install_flatpaks_CFLAGS = $(test_cflags) $(FLATPAK_CFLAGS) $(JSON_GLIB_CFLAGS)
+test_update_install_flatpaks_LDFLAGS = $(test_ldflags)
+test_update_install_flatpaks_LDADD = $(test_ldadd) $(FLATPAK_LIBS) $(JSON_GLIB_LIBS)
+test_update_install_flatpaks_SOURCES = test-update-install-flatpaks.c
 
 test_update_broken_delta_CPPFLAGS = $(test_cppflags)
 test_update_broken_delta_CFLAGS = $(test_cflags)
