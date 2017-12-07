@@ -153,6 +153,10 @@ gboolean ostree_undeploy (GFile *sysroot,
                           CmdResult *cmd,
                           GError **error);
 
+gboolean ostree_list_refs_in_repo (GFile      *repo,
+                                   CmdResult  *cmd,
+                                   GError    **error);
+
 /* due to some bug I don't know where (either my fault, or ostree
  * trivial-httpd's in lackluster or just cursory daemonizing or
  * g_spawn_sync's in pipe handling), we get no output here at all -

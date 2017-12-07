@@ -590,6 +590,27 @@ ostree_undeploy (GFile *sysroot,
 }
 
 gboolean
+ostree_list_refs_in_repo (GFile      *repo,
+                          CmdResult  *cmd,
+                          GError    **error)
+{
+  g_autoptr(GPtrArray) argv = string_array_new ();
+  CmdArg args[] =
+    {
+      { NULL, OSTREE_BINARY },
+      { NULL, "refs" },
+      { "repo", g_file_get_path (repo) },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) raw_args = build_cmd_args (args);
+
+  return test_spawn ((const gchar * const *) raw_args,
+                     NULL,
+                     cmd,
+                     error);
+}
+
+gboolean
 ostree_httpd (GFile *served_dir,
               GFile *port_file,
               CmdResult *cmd,
