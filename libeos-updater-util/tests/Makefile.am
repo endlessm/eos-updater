@@ -28,17 +28,14 @@ AM_CPPFLAGS = \
 	$(NULL)
 AM_CFLAGS = \
 	$(STD_CFLAGS) \
-	$(CODE_COVERAGE_CFLAGS) \
 	$(WARN_CFLAGS) \
 	$(EOS_UPDATER_UTIL_TESTS_CFLAGS) \
 	$(NULL)
 AM_LDFLAGS = \
 	$(WARN_LDFLAGS) \
-	$(CODE_COVERAGE_LDFLAGS) \
 	$(NULL)
 LDADD = \
 	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
-	$(CODE_COVERAGE_LIBS) \
 	$(EOS_UPDATER_UTIL_TESTS_LIBS) \
 	$(NULL)
 
