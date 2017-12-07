@@ -291,6 +291,54 @@ libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERS
 	libeos-updater-flatpak-installer/perform-flatpak-actions.c \
 	$(NULL)
 
+
+# eos-updater-flatpak-installer program
+libexec_PROGRAMS += eos-updater-flatpak-installer/eos-updater-flatpak-installer
+
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-updater-flatpak-installer"\" \
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_CFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(top_builddir)/libeos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUFI_API_VERSION@.la
+	$(NULL)
+eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
+	eos-updater-flatpak-installer/main.c \
+	$(NULL)
+
+eos_updater_flatpak_installer_in = \
+	eos-updater-flatpak-installer/eos-updater-flatpak-installer.service.in \
+	$(NULL)
+
+systemdsystemunit_DATA += $(eos_updater_flatpak_installer_in:%.in=%)
+
+eos_updater_flatpak_installer_schemas = eos-updater-flatpak-installer/eos-updater-autoinstall.schema.json
+flatpakinstallerschemadir = $(datadir)/eos-updater/schemas
+flatpakinstallerschema_DATA = $(eos_updater_flatpak_installer_schemas)
+
+EXTRA_DIST += \
+	$(eos_updater_flatpak_installer_in) \
+	$(eos_updater_flatpak_installer_schemas) \
+	$(NULL)
+
+CLEANFILES += $(eos_updater_flatpak_installer_in:%.in=%)
+
+dist_man5_MANS += eos-updater-flatpak-installer/docs/eos-updater-flatpak-autoinstall.d.5
+dist_man8_MANS += eos-updater-flatpak-installer/docs/eos-updater-flatpak-installer.8
+
 # Test helper library
 noinst_LTLIBRARIES += test-common/libeos-updater-test-common.la
 

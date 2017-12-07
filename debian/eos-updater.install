@@ -4,11 +4,13 @@ lib/systemd/system/eos-update-server.service
 lib/systemd/system/eos-update-server.socket
 lib/systemd/system/eos-updater-avahi.path
 lib/systemd/system/eos-updater-avahi.service
+lib/systemd/system/eos-updater-flatpak-installer.service
 lib/systemd/system/eos-updater.service
 usr/bin/eos-updater
 usr/lib/*/eos-autoupdater
 usr/lib/*/eos-update-server
 usr/lib/*/eos-updater-avahi
+usr/lib/*/eos-updater-flatpak-installer
 usr/share/dbus-1/system-services/com.endlessm.Updater.service
 usr/share/dbus-1/system.d/com.endlessm.Updater.conf
 usr/share/dbus-1/interfaces/com.endlessm.Updater.xml
@@ -17,8 +19,10 @@ usr/share/eos-updater/eos-updater.conf
 usr/share/eos-updater/eos-update-server.conf
 usr/share/man/man5/eos-autoupdater.conf.5
 usr/share/man/man5/eos-updater.conf.5
+usr/share/man/man5/eos-updater-flatpak-autoinstall.d.5
 usr/share/man/man5/eos-update-server.conf.5
 usr/share/man/man8/eos-autoupdater.8
 usr/share/man/man8/eos-updater-avahi.8
 usr/share/man/man8/eos-update-server.8
 usr/share/man/man8/eos-updater.8
+usr/share/man/man8/eos-updater-flatpak-installer.8

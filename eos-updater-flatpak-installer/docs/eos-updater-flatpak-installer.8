@@ -1,0 +1,140 @@
+.\" Manpage for eos-updater-flatpak-installer.
+.\" Documentation is under the same licence as the eos-updater package.
+.TH man 8 "10 Nov 2017" "1.0" "eos\-updater\-flatpak\-installer man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-updater\-flatpak\-installer — Endless OS Updater Flatpak Installer
+.\"
+.SH SYNOPSIS
+.IX Header "SYNOPSIS"
+.\"
+\fBeos\-updater\-flatpak\-installer [\-m \fPmode\fB] [\-p]
+.\"
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+\fBeos\-updater\-flatpak\-installer\fP installs downloaded flatpaks on Endless OS
+updates upon booting into the new OS deployment. It is the part of the system that
+ensures that when new flatpaks are installed on OS updates, they are
+only made available when rebooting into the new OS deployment and not while
+the old OS deployment is still running.
+.PP
+.SH OPTIONS
+.IX Header "OPTIONS"
+.\"
+.IP "\fB\-m\fP, \fB\-\-mode=\fP"
+Which mode to run the flatpak installer in. (Default: \fBperform\fP.)
+\".
+When set to \fBperform\fP, the installer will examine the list of applications
+in the directories specified by \fBeos\-updater\-flatpak\-autoinstall.d\fP(5)
+and the counter state in
+\fI/var/lib/eos\-application\-tools/flatpak\-autoinstall.progress\fP, then for
+each basename, perform only newly updated actions and save the most up to date
+serial number for each file in ther counter state file.
+\".
+When set to \fBstamp\fP, \fBeos\-updater\-flatpak\-installer\fP will only save
+the updated actions to
+\fI/var/lib/eos\-application\-tools/flatpak\-autoinstall.progress\fP.
+\".
+When set to \fBcheck\fP, the tool will check to see if all actions are applied (e.g., that
+applications that should have been installed are installed and every app that
+should have been uninstalled is not installed).
+.\"
+.IP "\fB\-p\fP, \fB\-\-pull\fP"
+Pull flatpaks as well as deploying them. By default, flatpaks are
+not pulled during this step; it is expected that they will be pulled by
+\fBeos\-updater\fP(8) when it fetches and applies system updates.
+.\"
+.SH "ENVIRONMENT"
+.IX Header "ENVIRONMENT"
+.\"
+\fPeos\-updater\-flatpak\-installer\fP supports the standard GLib environment
+variables for debugging. These variables are \fBnot\fP intended to be used in
+production:
+.\"
+.IP \fI$G_MESSAGES_DEBUG\fP 4
+.IX Item "$G_MESSAGES_DEBUG"
+This variable can contain one or more debug domain names to display debug output
+for. The value \fIall\fP will enable all debug output. The default is for no
+debug output to be enabled.
+.\"
+.SH "KERNEL COMMAND LINE"
+.IX Header "KERNEL COMMAND LINE"
+.\"
+If the \fBeos\-updater\-flatpak\-installer.service\fP unit is started when
+the kernel command line contains \fBeos\-updater\-disable\fP, then
+it will exit immediately. If started manually, it will execute as normal,
+regardless of the kernel command line.
+.\"
+.SH "EXIT STATUS"
+.IX Header "EXIT STATUS"
+.\"
+\fBeos\-updater\-flatpak\-installer\fP may return one of several error codes
+if it encounters problems.
+.\"
+.IP "0" 4
+.IX Item "0"
+No problems occurred. The check, stamp or perform operation completed
+successfully.
+.\"
+.IP "1" 4
+.IX Item "1"
+There was an error while loading or manipulating the flatpak installation.
+.\"
+.IP "2" 4
+.IX Item "2"
+An invalid option was passed to \fBeos\-updater\-flatpak\-installer\fP on
+startup.
+.\"
+.IP "3" 4
+.IX Item "3"
+The \fBcheck\fP operation found an inconsistency. Only returned with
+\fB\-\-mode=check\fP.
+.\"
+.IP "4" 4
+.IX Item "4"
+The \fBapply\fP operation failed to apply one or more actions. Only returned
+with \fB\-\-mode=apply\fP.
+.\"
+.SH "FILES"
+.IX Header "FILES"
+.\"
+.IP \fI/var/lib/eos\-application\-tools/flatpak\-autoinstall.d/*\fP 4
+.IX Item "/etc/eos\-application\-tools/flatpak\-autoinstall.d/*"
+.IX Item "/var/lib/eos\-applications\-tools/flatpak\-autoinstall.d/*"
+.IX Item "/usr/share/eos\-application\-tools/flatpak\-autoinstall.d/*"
+Each of the files in this directory contain a list of actions to be applied
+by the installer. Files are also loaded from matching subdirectories in
+\fI/var/lib\fP and \fI/usr/share\fP. See
+\fBeos\-updater\-flatpak\-autoinstall.d\fP(5).
+.\"
+.IP \fI/var/lib/eos\-application\-tools/flatpak\-autoinstall.progress\fP 4
+.IX Item "/etc/eos\-application\-tools/flatpak\-autoinstall.progress"
+Local state file storing the serial numbers of the latest applied actions for
+each basename in the \fIautoinstall.d\fP directories.
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-updater.service\fP(8),
+\fBeos\-updater\fP(8),
+\fBeos\-updater\-flatpak\-autoinstall.d\fP(5),
+\fBflatpak\fP(1)
+.\"
+.SH BUGS
+.IX Header "BUGS"
+.\"
+Any bugs which are found should be reported on the project website:
+.br
+\fIhttps://support.endlessm.com/\fP
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless Mobile, Inc.
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright © 2017 Endless Mobile, Inc.
