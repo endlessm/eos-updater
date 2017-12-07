@@ -61,6 +61,7 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
 enum_header_files = \
+	$(top_srcdir)/libeos-updater-util/flatpak.h \
 	$(top_srcdir)/libeos-updater-util/types.h \
 	$(NULL)
 
@@ -79,7 +80,9 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS = \
 	$(STD_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(WARN_CFLAGS) \
+	$(FLATPAK_CFLAGS) \
 	$(GIO_CFLAGS) \
+	$(JSON_GLIB_CFLAGS) \
 	$(OSTREE_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	$(NULL)
@@ -92,7 +95,9 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LDFLAGS = \
 	$(NULL)
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LIBADD = \
 	$(CODE_COVERAGE_LIBS) \
+	$(FLATPAK_LIBS) \
 	$(GIO_LIBS) \
+	$(JSON_GLIB_LIBS) \
 	$(OSTREE_LIBS) \
 	$(SOUP_LIBS) \
 	$(NULL)
@@ -101,6 +106,8 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/avahi-service-file.h \
 	libeos-updater-util/config.c \
 	libeos-updater-util/config.h \
+	libeos-updater-util/flatpak.c \
+	libeos-updater-util/flatpak.h \
 	libeos-updater-util/ostree-bloom-private.h \
 	libeos-updater-util/ostree-bloom.c \
 	libeos-updater-util/ostree.c \
