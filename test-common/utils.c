@@ -1964,6 +1964,9 @@ eos_test_get_installed_flatpaks (GFile   *updater_dir,
    * Ref                                             Options
    * org.gnome.Recipes/x86_64/master                 user,current
    * org.gnome.Platform/x86_64/3.24                  user,runtime
+   *
+   * We use a regex here, rather than libflatpak, because the test library
+   * explicitly does not depend on libflatpak to avoid tautologies.
    */
   g_autoptr(GRegex) flatpak_id_regex = g_regex_new ("(.*?)/.*?/.*?", 0, 0, error);
 
