@@ -10,6 +10,7 @@ Build-Depends:
  dh-python,
  dh-systemd,
  eos-metrics-0-dev,
+ flatpak (>= 0.9.8),
  gir1.2-flatpak-1.0,
  gir1.2-glib-2.0,
  gir1.2-ostree-1.0,
