@@ -468,8 +468,12 @@ parse_json_from_file (GFile         *file,
     }
 
   /* Treat an empty file the same as an empty root array. */
-  root_node = json_parser_steal_root (parser);
-  if (root_node == NULL)
+  root_node = json_parser_get_root (parser);
+  if (root_node != NULL)
+    {
+      json_node_ref (root_node);
+    }
+  else
     {
       root_node = json_node_new (JSON_NODE_ARRAY);
       json_node_take_array (root_node, json_array_new ());
@@ -924,8 +928,12 @@ euu_flatpak_ref_actions_from_data (const gchar   *data,
     }
 
 /* Treat an empty file the same as an empty root array. */
-  root_node = json_parser_steal_root (parser);
-  if (root_node == NULL)
+  root_node = json_parser_get_root (parser);
+  if (root_node != NULL)
+    {
+      json_node_ref (root_node);
+    }
+  else
     {
       root_node = json_node_new (JSON_NODE_ARRAY);
       json_node_take_array (root_node, json_array_new ());
