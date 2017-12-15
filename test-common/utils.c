@@ -2048,16 +2048,17 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
    */
   g_autoptr(GFile) flatpak_build_directory_path = g_file_get_child (updater_dir,
                                                                     "flatpak");
+  g_autofree gchar *flatpak_build_directory_path_str = g_file_get_path (flatpak_build_directory_path);
   g_autoptr(GFile) runtime_directory_path = g_file_get_child (flatpak_build_directory_path,
                                                           "runtime");
-  g_autofree gchar *apps_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+  g_autofree gchar *apps_directory = g_build_filename (flatpak_build_directory_path_str,
                                                        "apps",
                                                        NULL);
-  g_autofree gchar *repo_directory_path = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+  g_autofree gchar *repo_directory_path = g_build_filename (flatpak_build_directory_path_str,
                                                             "repo",
                                                             NULL);
   g_autoptr(GFile) repo_directory = g_file_new_for_path (repo_directory_path);
-  g_autofree gchar *runtime_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+  g_autofree gchar *runtime_directory = g_build_filename (flatpak_build_directory_path_str,
                                                           "runtime",
                                                           NULL);
   const gchar **flatpak_name_iter = NULL;
