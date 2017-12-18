@@ -595,11 +595,12 @@ ostree_list_refs_in_repo (GFile      *repo,
                           GError    **error)
 {
   g_autoptr(GPtrArray) argv = string_array_new ();
+  g_autofree gchar *repo_path = g_file_get_path (repo);
   CmdArg args[] =
     {
       { NULL, OSTREE_BINARY },
       { NULL, "refs" },
-      { "repo", g_file_get_path (repo) },
+      { "repo", repo_path },
       { NULL, NULL }
     };
   g_auto(GStrv) raw_args = build_cmd_args (args);
