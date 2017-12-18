@@ -1,4 +1,5 @@
 usr/bin/eos-updater-prepare-volume
 usr/bin/eos-updater-ctl
+usr/share/eos-updater/schemas/eos-updater-autoinstall.schema.json
 usr/share/man/man8/eos-updater-ctl.8
 usr/share/man/man8/eos-updater-prepare-volume.8
