@@ -590,7 +590,15 @@ prepare_commit (GFile *repo,
     g_autoptr(GFile) commit_file = g_file_get_child (tree_root, commit_filename);
 
     if (g_file_query_exists (commit_file, NULL))
-      return TRUE;
+      {
+        if (out_checksum != NULL)
+          return get_current_commit_checksum (repo,
+                                              collection_ref,
+                                              out_checksum,
+                                              error);
+
+        return TRUE;
+      }
   }
 
   if (commit_number > 0)
@@ -668,6 +676,48 @@ generate_delta_files (GFile *repo,
   return cmd_result_ensure_ok (&cmd, error);
 }
 
+/**
+ * get_last_ref:
+ * @ref_to_commit: (element-type utf8 uint): a #GHashTable mapping refs to commit numbers.
+ * @wanted_commit_number: the commit number to count down from.
+ *
+ * Look through the ref_to_commit hashtable (which maps refs to
+ * commit numbers) to try and find the last known ref before
+ * wanted_commit_number. It handles the case where we have commits
+ * N, N - J and don't have (N - 1)..(N - J) in the hashtable.
+ *
+ * Returns: the last known ref before wanted_commit_number
+ */
+static OstreeCollectionRef *
+get_last_ref (GHashTable *ref_to_commit,
+              guint       wanted_commit_number)
+{
+  gpointer key = NULL;
+  gpointer value = NULL;
+
+  g_assert (wanted_commit_number > 0);
+
+  /* Decrement at least once, since we want to find a commit
+   * before this one */
+  wanted_commit_number--;
+
+  for (; wanted_commit_number > 0; wanted_commit_number--)
+    {
+      GHashTableIter iter;
+
+      g_hash_table_iter_init (&iter, ref_to_commit);
+      while (g_hash_table_iter_next (&iter, &key, &value))
+        {
+          guint commit_number = GPOINTER_TO_UINT (value);
+
+          if (commit_number == wanted_commit_number)
+            return key;
+        }
+    }
+
+  return NULL;
+}
+
 /* Updates the subserver to a new commit number in the ref_to_commit
  * hash table.  This involves creating the commits, generating ref
  * files and delta files, and updating the summary.
@@ -689,10 +739,16 @@ update_commits (EosTestSubserver *subserver,
       g_autofree gchar *checksum = NULL;
       g_autofree gchar *old_checksum = NULL;
 
+
       if (commit_number > 0)
         {
+          /* O(N^2), sadly */
+          const OstreeCollectionRef *last_ref = get_last_ref (subserver->ref_to_commit,
+                                                              commit_number);
+          /* Get the checksum of the commit on the last ref, since
+           * it may have changed in the meantime */
           if (!get_current_commit_checksum (subserver->repo,
-                                            collection_ref,
+                                            (last_ref != NULL) ? last_ref : collection_ref,
                                             &old_checksum,
                                             error))
             return FALSE;

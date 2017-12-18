@@ -271,13 +271,13 @@ eos_metrics_info_new (const gchar *booted_ref)
 }
 
 gboolean
-get_booted_refspec (gchar               **booted_refspec,
+get_booted_refspec (OstreeDeployment     *booted_deployment,
+                    gchar               **booted_refspec,
                     gchar               **booted_remote,
                     gchar               **booted_ref,
                     OstreeCollectionRef **booted_collection_ref,
                     GError              **error)
 {
-  g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
@@ -285,8 +285,6 @@ get_booted_refspec (gchar               **booted_refspec,
   g_autoptr(OstreeRepo) repo = NULL;
 
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  booted_deployment = eos_updater_get_booted_deployment (error);
 
   if (!get_origin_refspec (booted_deployment, &refspec, error))
     return FALSE;
@@ -308,6 +306,122 @@ get_booted_refspec (gchar               **booted_refspec,
     *booted_remote = g_steal_pointer (&remote);
   if (booted_ref != NULL)
     *booted_ref = g_steal_pointer (&ref);
+
+  return TRUE;
+}
+
+static gboolean
+get_refspec_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
+                                           OstreeDeployment  *booted_deployment,
+                                           gchar            **out_refspec_to_upgrade_from_deployment,
+                                           GError           **error)
+{
+  const gchar *checksum = ostree_deployment_get_csum (booted_deployment);
+  g_autoptr(GVariant) commit = NULL;
+  g_autoptr(GVariant) metadata = NULL;
+  g_autoptr(GVariant) ref_for_deployment_variant = NULL;
+  const gchar *refspec_for_deployment = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
+  g_autoptr(GError) local_error = NULL;
+
+  g_return_val_if_fail (out_refspec_to_upgrade_from_deployment != NULL, FALSE);
+
+  if (!ostree_sysroot_get_repo (sysroot, &repo, NULL, error))
+   return FALSE;
+
+  if (!ostree_repo_load_variant (repo,
+                                 OSTREE_OBJECT_TYPE_COMMIT,
+                                 checksum,
+                                 &commit,
+                                 error))
+    return FALSE;
+
+  /* Look up the checkpoint target to see if there is one on this commit. */
+  metadata = g_variant_get_child_value (commit, 0);
+  ref_for_deployment_variant = g_variant_lookup_value (metadata,
+                                                       "eos.checkpoint-target",
+                                                       G_VARIANT_TYPE_STRING);
+
+  /* No metadata tag on this commit, just return TRUE with no value */
+  if (ref_for_deployment_variant == NULL)
+    {
+      *out_refspec_to_upgrade_from_deployment = NULL;
+      return TRUE;
+    }
+
+  refspec_for_deployment = g_variant_get_string (ref_for_deployment_variant, NULL);
+
+  if (!ostree_parse_refspec (refspec_for_deployment, NULL, NULL, &local_error))
+    {
+      g_warning ("Failed to parse eos.checkpoint-target refspec '%s', ignoring it",
+                 refspec_for_deployment);
+      *out_refspec_to_upgrade_from_deployment = NULL;
+      return TRUE;
+    }
+
+  *out_refspec_to_upgrade_from_deployment = g_strdup (refspec_for_deployment);
+  return TRUE;
+}
+
+gboolean
+get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
+                           gchar               **remote_to_upgrade_on,
+                           gchar               **ref_to_upgrade_on,
+                           OstreeCollectionRef **collection_ref_to_upgrade_on,
+                           GError              **error)
+{
+  g_autofree gchar *refspec = NULL;
+  g_autofree gchar *remote = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *collection_id = NULL;
+  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
+  g_autoptr(GError) local_error = NULL;
+
+  if (!ostree_sysroot_load (sysroot, NULL, error))
+    return FALSE;
+
+  booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
+                                                                             error);
+
+  if (booted_deployment == NULL)
+    return FALSE;
+
+  if (!get_refspec_to_upgrade_on_from_deployment (sysroot,
+                                                  booted_deployment,
+                                                  &refspec,
+                                                  error))
+    return FALSE;
+
+  /* Nothing here */
+  if (refspec == NULL)
+    return get_booted_refspec (booted_deployment,
+                               refspec_to_upgrade_on,
+                               remote_to_upgrade_on,
+                               ref_to_upgrade_on,
+                               collection_ref_to_upgrade_on,
+                               error);
+
+  /* We'll need the repo to get the collection-id */
+  if (!ostree_sysroot_get_repo (sysroot, &repo, NULL, error))
+    return FALSE;
+
+  /* Found a refspec on this commit's metadata */
+  if (!ostree_parse_refspec (refspec, &remote, &ref, error))
+    return FALSE;
+
+  if (!ostree_repo_get_remote_option (repo, remote, "collection-id", NULL, &collection_id, error))
+    return FALSE;
+
+  if (collection_ref_to_upgrade_on != NULL)
+    *collection_ref_to_upgrade_on = (collection_id != NULL) ? ostree_collection_ref_new (collection_id, ref) : NULL;
+  if (refspec_to_upgrade_on != NULL)
+    *refspec_to_upgrade_on = g_steal_pointer (&refspec);
+  if (remote_to_upgrade_on != NULL)
+    *remote_to_upgrade_on = g_steal_pointer (&remote);
+  if (ref_to_upgrade_on != NULL)
+    *ref_to_upgrade_on = g_steal_pointer (&ref);
 
   return TRUE;
 }
