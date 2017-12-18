@@ -54,7 +54,7 @@ flatpak_remote_add (GFile        *updater_dir,
                     const gchar  *repo_directory,
                     GError      **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   CmdArg args[] =
     {
       { NULL, FLATPAK_BINARY },
@@ -82,7 +82,7 @@ flatpak_install (GFile        *updater_dir,
                  const gchar  *app_id,
                  GError      **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   CmdArg args[] =
     {
       { NULL, FLATPAK_BINARY },
@@ -108,7 +108,7 @@ flatpak_uninstall (GFile        *updater_dir,
                    const gchar  *app_id,
                    GError      **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   CmdArg args[] =
     {
       { NULL, FLATPAK_BINARY },
@@ -135,7 +135,7 @@ flatpak_build_init (GFile        *updater_dir,
                     const gchar  *runtime_name,
                     GError      **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   CmdArg args[] =
     {
       { NULL, FLATPAK_BINARY },
@@ -164,7 +164,7 @@ flatpak_build_export (GFile        *updater_dir,
                       const gchar  *repo_path,
                       GError      **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   CmdArg args[] =
     {
       { NULL, FLATPAK_BINARY },
@@ -190,7 +190,7 @@ flatpak_build_finish (GFile        *updater_dir,
                       const gchar  *binary,
                       GError      **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   CmdArg args[] =
     {
       { NULL, FLATPAK_BINARY },
@@ -286,7 +286,7 @@ flatpak_populate_runtime (GFile        *updater_dir,
                           const gchar  *collection_id,
                           GError      **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   g_autofree gchar *runtime_directory_path_str = g_file_get_path (runtime_directory_path);
   g_autofree gchar *metadata_path = g_build_filename (runtime_directory_path_str,

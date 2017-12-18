@@ -1336,7 +1336,7 @@ static gboolean
 chmod_a_x (GFile *path,
            GError **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autofree gchar *raw_path = g_file_get_path (path);
   const gchar *argv[] =
     {
@@ -1885,7 +1885,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
                                 const gchar  *remote,
                                 GError      **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autofree gchar *eos_flatpak_installer_binary = g_test_build_filename (G_TEST_BUILT,
                                                                           "..",
                                                                           "eos-updater-flatpak-installer",
@@ -1952,7 +1952,7 @@ GStrv
 eos_test_get_installed_flatpaks (GFile   *updater_dir,
                                  GError **error)
 {
-  CmdResult cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_auto(GStrv) installed_flatpaks_lines = NULL;
   GStrv installed_flatpaks_lines_iter = NULL;
   g_autoptr(GHashTable) installed_flatpaks_set = g_hash_table_new_full (g_str_hash,
@@ -2008,7 +2008,7 @@ set_flatpak_remote_collection_id (GFile        *updater_dir,
                                   const gchar  *collection_id,
                                   GError      **error)
 {
-  CmdResult result = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) result = CMD_RESULT_CLEARED;
   g_autoptr(GFile) flatpak_installation_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
   g_autoptr(GFile) flatpak_installation_repo_dir = g_file_get_child (flatpak_installation_dir, "repo");
 
@@ -2048,16 +2048,17 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
    */
   g_autoptr(GFile) flatpak_build_directory_path = g_file_get_child (updater_dir,
                                                                     "flatpak");
+  g_autofree gchar *flatpak_build_directory_path_str = g_file_get_path (flatpak_build_directory_path);
   g_autoptr(GFile) runtime_directory_path = g_file_get_child (flatpak_build_directory_path,
                                                           "runtime");
-  g_autofree gchar *apps_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+  g_autofree gchar *apps_directory = g_build_filename (flatpak_build_directory_path_str,
                                                        "apps",
                                                        NULL);
-  g_autofree gchar *repo_directory_path = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+  g_autofree gchar *repo_directory_path = g_build_filename (flatpak_build_directory_path_str,
                                                             "repo",
                                                             NULL);
   g_autoptr(GFile) repo_directory = g_file_new_for_path (repo_directory_path);
-  g_autofree gchar *runtime_directory = g_build_filename (g_file_get_path(flatpak_build_directory_path),
+  g_autofree gchar *runtime_directory = g_build_filename (flatpak_build_directory_path_str,
                                                           "runtime",
                                                           NULL);
   const gchar **flatpak_name_iter = NULL;
