@@ -81,13 +81,24 @@ Description: Updater for Endless OS - tools
  This package contains tools for preparing updates for distribution
  using USB sticks.
 
+Package: libeos-updater-flatpak-installer-0-tests
+Section: misc
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Updater for Endless OS - flatpak installer tests
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains unit tests for the APIs used by the flatpak installer.
+
 Package: libeos-updater-util-0-tests
 Section: misc
 Architecture: any
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
-Description: Updater for Endless OS - tests
+Description: Updater for Endless OS - utility tests
  This package contains the components for keeping Endless OS up to date.
  .
  This package contains unit tests for the APIs used by the updater and
