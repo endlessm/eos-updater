@@ -1521,6 +1521,9 @@ euu_format_all_flatpak_ref_actions (const gchar *title,
         }
     }
 
+  if (g_hash_table_size (flatpak_ref_actions_for_this_boot) == 0)
+    g_string_append (string, "    (None)");
+
   return g_string_free (g_steal_pointer (&string), FALSE);
 }
 
@@ -1551,6 +1554,9 @@ euu_format_flatpak_ref_actions_array (const gchar *title,
                               action->source);
     }
 
+  if (flatpak_ref_actions->len == 0)
+    g_string_append (string, "    (None)");
+
   return g_string_free (g_steal_pointer (&string), FALSE);
 }
 
@@ -1570,6 +1576,9 @@ euu_format_all_flatpak_ref_actions_progresses (GHashTable *flatpak_ref_action_pr
 
       g_message ("  %s: %" G_GINT32_FORMAT, source, progress);
     }
+
+  if (g_hash_table_size (flatpak_ref_action_progresses) == 0)
+    g_string_append (string, "    (None)");
 
   return g_string_free (g_steal_pointer (&string), FALSE);
 }
