@@ -21,9 +21,9 @@
                 "ref-kind": {
                     "$ref": "#/definitions/ref-kind"
                 },
-                "app": {
+                "name": {
                     "description": "The app-id to be installed",
-                    "$ref": "#/definitions/app"
+                    "$ref": "#/definitions/name"
                 },
                 "collection-id": {
                     "$ref": "#/definitions/collection-id"
@@ -32,7 +32,7 @@
                     "$ref": "#/definitions/remote"
                 }
             },
-            "required": ["ref-kind", "app", "remote", "collection-id"]
+            "required": ["ref-kind", "name", "remote", "collection-id"]
         },
         {
             "properties": {
@@ -50,12 +50,12 @@
                 "ref-kind": {
                     "$ref": "#/definitions/ref-kind"
                 },
-                "app": {
+                "name": {
                     "description": "The app-id to be uninstalled",
-                    "$ref": "#/definitions/app"
+                    "$ref": "#/definitions/name"
                 },
             },
-            "required": ["ref-kind", "app"]
+            "required": ["ref-kind", "name"]
         },
         {
             "properties": {
@@ -73,12 +73,12 @@
                 "ref-kind": {
                     "$ref": "#/definitions/ref-kind"
                 },
-                "app": {
+                "name": {
                     "description": "The app-id to be updated",
-                    "$ref": "#/definitions/app"
+                    "$ref": "#/definitions/name"
                 },
             },
-            "required": ["ref-kind", "app"]
+            "required": ["ref-kind", "name"]
         }
     ],
     "required": ["action", "serial"],
@@ -117,7 +117,7 @@
             "type": "string",
             "enum": ["app", "runtime"]
         },
-        "app": {
+        "name": {
             "description": "The app-id to be installed",
             "type": "string"
         },
