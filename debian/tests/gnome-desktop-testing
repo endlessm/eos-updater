@@ -21,4 +21,4 @@
 set -e
 exec 2>&1
 
-exec gnome-desktop-testing-runner libeos-updater-util-0
+exec gnome-desktop-testing-runner libeos-updater-util-0 libeos-updater-flatpak-installer-0
