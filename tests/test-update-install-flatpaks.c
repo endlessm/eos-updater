@@ -450,18 +450,19 @@ get_checksum_for_flatpak_in_installation_dir (GFile        *flatpak_installation
                                               const gchar  *partial_refspec,
                                               GError      **error)
 {
-  CmdResult cmd;
+  g_auto(CmdResult) refs_cmd = CMD_RESULT_CLEARED;
+  g_auto(CmdResult) show_cmd = CMD_RESULT_CLEARED;
   g_autoptr(GFile) flatpak_repo = g_file_get_child (flatpak_installation_dir, "repo");
   g_auto(GStrv) all_refs_in_repo = NULL;
   const gchar *matching_refspec = NULL;
 
-  if (!ostree_list_refs_in_repo (flatpak_repo, &cmd, error))
+  if (!ostree_list_refs_in_repo (flatpak_repo, &refs_cmd, error))
     return FALSE;
 
-  if (!cmd_result_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&refs_cmd, error))
     return FALSE;
 
-  all_refs_in_repo = g_strsplit (cmd.standard_output, "\n", -1);
+  all_refs_in_repo = g_strsplit (refs_cmd.standard_output, "\n", -1);
   matching_refspec = find_matching_ref_for_listed_refs (all_refs_in_repo,
                                                         partial_refspec,
                                                         error);
@@ -471,14 +472,14 @@ get_checksum_for_flatpak_in_installation_dir (GFile        *flatpak_installation
 
   if (!ostree_show (flatpak_repo,
                     matching_refspec,
-                    &cmd,
+                    &show_cmd,
                     error))
     return FALSE;
 
-  if (!cmd_result_ensure_ok (&cmd, error))
+  if (!cmd_result_ensure_ok (&show_cmd, error))
     return FALSE;
 
-  return parse_ostree_checksum_from_stdout (cmd.standard_output, error);
+  return parse_ostree_checksum_from_stdout (show_cmd.standard_output, error);
 }
 
 /* Inspect the underlying OSTree repo for flatpak refs that are
@@ -590,6 +591,7 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -614,7 +616,8 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -660,6 +663,7 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
                                                                     G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autoptr(GFile) autoupdater_root = NULL;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
@@ -688,7 +692,8 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -755,6 +760,7 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autoptr(GFile) autoupdater_root = NULL;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
@@ -783,7 +789,8 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -852,6 +859,7 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
                                                                     G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autoptr(GFile) autoupdater_root = NULL;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
@@ -880,7 +888,8 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -985,7 +994,7 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
 
   updater_directory = g_file_get_child (data->client->root, "updater");
   updater_directory_path = g_file_get_path (updater_directory);
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  flatpak_user_installation = g_build_filename (updater_directory_path,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1105,7 +1114,7 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
 
   updater_directory = g_file_get_child (data->client->root, "updater");
   updater_directory_path = g_file_get_path (updater_directory);
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  flatpak_user_installation = g_build_filename (updater_directory_path,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1185,6 +1194,7 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                                                        G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autofree gchar *to_export_flatpaks_contents = NULL;
   g_autoptr(GError) error = NULL;
 
@@ -1210,7 +1220,8 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1258,6 +1269,7 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                                                        G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1282,7 +1294,8 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1330,6 +1343,7 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                                                        G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1354,7 +1368,8 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1402,6 +1417,7 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                                                        G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1426,7 +1442,8 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1479,9 +1496,11 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
                                                                             NULL);
   g_autoptr(GFile) remote_repo_directory = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autofree gchar *expected_directory_relative_path = NULL;
   g_autoptr(GFile) expected_directory = NULL;
   g_autoptr(GFile) expected_directory_child = NULL;
+  g_autofree gchar *expected_directory_child_str = NULL;
   g_autoptr(GFile) autoupdater_root = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autofree gchar *deployment_csum = NULL;
@@ -1510,7 +1529,8 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1556,7 +1576,8 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   g_file_make_directory_with_parents (expected_directory, NULL, &error);
   g_assert_no_error (error);
 
-  g_file_set_contents (g_file_get_path (expected_directory_child), "", -1, &error);
+  expected_directory_child_str = g_file_get_path (expected_directory_child);
+  g_file_set_contents (expected_directory_child_str, "", -1, &error);
   g_assert_no_error (error);
 
   /* Attempt to update client - run updater daemon */
@@ -1621,9 +1642,11 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                                                             NULL);
   g_autoptr(GFile) remote_repo_directory = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autofree gchar *expected_directory_relative_path = NULL;
   g_autoptr(GFile) expected_directory = NULL;
   g_autoptr(GFile) expected_directory_child = NULL;
+  g_autofree gchar *expected_directory_child_str = NULL;
   g_autoptr(GFile) autoupdater_root = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
@@ -1656,7 +1679,8 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1680,7 +1704,7 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
    * or a nonempty directory and return an error otherwise.
    *
    * When the error occurrs, the updater should catch it and revert the
-   * operations done to pre-install flatpaks. */  
+   * operations done to pre-install flatpaks. */
   remote_repo_directory = g_file_get_child (data->fixture->tmpdir,
                                             remote_repo_directory_relative_path);
   anticipated_deployment_csum = get_checksum_for_deploy_repo_dir (remote_repo_directory,
@@ -1702,7 +1726,8 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_file_make_directory_with_parents (expected_directory, NULL, &error);
   g_assert_no_error (error);
 
-  g_file_set_contents (g_file_get_path (expected_directory_child), "", -1, &error);
+  expected_directory_child_str = g_file_get_path (expected_directory_child);
+  g_file_set_contents (expected_directory_child_str, "", -1, &error);
   g_assert_no_error (error);
 
   /* Attempt to update client - run updater daemon */
@@ -1770,6 +1795,7 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   g_autofree gchar *flatpak_remote_path = NULL;
   g_autoptr(GFile) flatpak_remote_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autofree gchar *expected_directory_relative_path = NULL;
   g_autoptr(GFile) expected_directory = NULL;
   g_autoptr(GFile) expected_directory_child = NULL;
@@ -1811,7 +1837,8 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   g_assert_no_error (error);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_remote_path = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_remote_path = g_build_filename (updater_directory_str,
                                           "flatpak",
                                           NULL);
   flatpak_remote_dir = g_file_new_for_path (flatpak_remote_path);
@@ -1880,6 +1907,7 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) deployed_flatpaks = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1904,7 +1932,8 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -1954,6 +1983,7 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1978,7 +2008,8 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -2041,6 +2072,7 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2065,7 +2097,8 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -2129,6 +2162,7 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2145,7 +2179,8 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -2229,6 +2264,7 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2245,7 +2281,8 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -2338,6 +2375,7 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2370,7 +2408,8 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
@@ -2465,6 +2504,7 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2497,7 +2537,8 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
   etc_set_up_client_synced_to_server (data);
 
   updater_directory = g_file_get_child (data->client->root, "updater");
-  flatpak_user_installation = g_build_filename (g_file_get_path (updater_directory),
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
