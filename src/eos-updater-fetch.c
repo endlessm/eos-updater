@@ -606,6 +606,22 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
                                         flatpak_ref_actions_this_commit_wants);
   g_message ("%s", formatted_flatpak_ref_actions_this_commit_wants);
 
+  /* Note: This will only fetch applied progresses for actions that
+   * have actually been executed by eos-updater-flatpak-installer.
+   *
+   * The effect of this is that if we fetch commit N, which causes us to
+   * prepare actions P to Q, then commit N + 1 adds action Q + 1, without
+   * having run eos-updater-flatpak-installer in between, then actions
+   * P to Q + 1 will be prepared again when commit N + 1 is pulled.
+   *
+   * For now, this is relatively benign since it would only cause all
+   * the pulled refs to be updated to their most recent version in the
+   * remote, which is what would have happened anyway if commits N
+   * and N + 1 were pulled at the same time, but it may prove to be
+   * problematic if we do any sort of destructive "preparation" in
+   * a fetch operation in future. That would require tracking
+   * the preparation that has been done in a separate state file
+   * to the one here. */
   flatpak_ref_action_progresses =
     euu_flatpak_ref_action_application_progress_in_state_path (cancellable,
                                                                error);
