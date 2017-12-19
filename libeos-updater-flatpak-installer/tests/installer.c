@@ -264,11 +264,11 @@ test_deploy_failure_previous_flatpaks_stay_deployed (FlatpakDeploymentsFixture *
   g_assert_no_error (error);
 
   eufi_apply_flatpak_ref_actions (installation,
-                                                           state_counter_path,
-                                                           actions,
-                                                           EU_INSTALLER_MODE_PERFORM,
-                                                           TRUE,
-                                                           &error);
+                                  state_counter_path,
+                                  actions,
+                                  EU_INSTALLER_MODE_PERFORM,
+                                  TRUE,
+                                  &error);
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
 
   g_assert (g_file_test (directory_expected_to_exist_path, G_FILE_TEST_EXISTS));
@@ -305,11 +305,11 @@ test_deploy_failure_counter_state_updated (FlatpakDeploymentsFixture *fixture,
   g_assert_no_error (error);
 
   eufi_apply_flatpak_ref_actions (installation,
-                                                           state_counter_path,
-                                                           actions,
-                                                           EU_INSTALLER_MODE_PERFORM,
-                                                           TRUE,
-                                                           &error);
+                                  state_counter_path,
+                                  actions,
+                                  EU_INSTALLER_MODE_PERFORM,
+                                  TRUE,
+                                  &error);
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
 
   g_clear_error (&error);
@@ -354,11 +354,11 @@ test_deploy_failure_resume_from_latest (FlatpakDeploymentsFixture *fixture,
   g_assert_no_error (error);
 
   eufi_apply_flatpak_ref_actions (installation,
-                                                           state_counter_path,
-                                                           actions,
-                                                           EU_INSTALLER_MODE_PERFORM,
-                                                           TRUE,
-                                                           &error);
+                                  state_counter_path,
+                                  actions,
+                                  EU_INSTALLER_MODE_PERFORM,
+                                  TRUE,
+                                  &error);
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
 
   g_clear_error (&error);
@@ -367,11 +367,11 @@ test_deploy_failure_resume_from_latest (FlatpakDeploymentsFixture *fixture,
 
   /* Run the installer again after deleting the file, it should succeed this time */
   eufi_apply_flatpak_ref_actions (installation,
-                                                           state_counter_path,
-                                                           actions,
-                                                           EU_INSTALLER_MODE_PERFORM,
-                                                           TRUE,
-                                                           &error);
+                                  state_counter_path,
+                                  actions,
+                                  EU_INSTALLER_MODE_PERFORM,
+                                  TRUE,
+                                  &error);
 
   g_assert_no_error (error);
 
@@ -405,19 +405,19 @@ test_flatpak_check_succeeds_if_actions_are_up_to_date (FlatpakDeploymentsFixture
   g_assert_no_error (error);
 
   eufi_apply_flatpak_ref_actions (installation,
-                                                           state_counter_path,
-                                                           actions,
-                                                           EU_INSTALLER_MODE_PERFORM,
-                                                           TRUE,
-                                                           &error);
+                                  state_counter_path,
+                                  actions,
+                                  EU_INSTALLER_MODE_PERFORM,
+                                  TRUE,
+                                  &error);
   g_assert_no_error (error);
 
   /* Run the checker - it should return true because all actions will be
    * up to date */
   eufi_check_ref_actions_applied (installation,
-                                                           state_counter_path,
-                                                           actions,
-                                                           &error);
+                                  state_counter_path,
+                                  actions,
+                                  &error);
   g_assert_no_error (error);
 }
 
@@ -450,9 +450,9 @@ test_flatpak_check_fails_if_installed_flatpak_is_not_installed (FlatpakDeploymen
   /* Run the checker - it should return false because the flatpak that
    * needs to be installed is not yet installed */
   eufi_check_ref_actions_applied (installation,
-                                                           state_counter_path,
-                                                           actions,
-                                                           &error);
+                                  state_counter_path,
+                                  actions,
+                                  &error);
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_FAILED);
 }
 
@@ -487,9 +487,9 @@ test_flatpak_check_fails_if_unininstalled_flatpak_is_installed (FlatpakDeploymen
   /* Run the checker - it should return false because the preinstalled flatpak
    * is still installed */
   eufi_check_ref_actions_applied (installation,
-                                                           state_counter_path,
-                                                           actions,
-                                                           &error);
+                                  state_counter_path,
+                                  actions,
+                                  &error);
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_FAILED);
 }
 
