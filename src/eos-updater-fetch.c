@@ -459,6 +459,8 @@ perform_install_preparation (FlatpakInstallation    *installation,
                                         NULL,
                                         error))
         return FALSE;
+
+      return TRUE;
     }
 
   /* Something unexpected failed, return early now.
