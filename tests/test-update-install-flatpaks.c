@@ -2189,6 +2189,254 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[0].app_id));
 }
 
+#define EUFI_EXIT_CODE_APPLY_FAILED 4
+
+/* Insert a list of flatpaks to automatically install on the commit
+ * and simulate a reboot by running eos-updater-flatpak-installer. This
+ * should check the deployment for a list of flatpaks to install and
+ * install them from the local repo into the installation.
+ *
+ * In this scenario, we attempt to install two flatpaks, but the second one
+ * will fail to install due to a file being in the way. Verify that
+ * an error was set from the flatpak installer and that the first one
+ * is installed but the second one isn't. */
+static void
+test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *fixture,
+                                                            gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test2", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
+                                                                    G_N_ELEMENTS (flatpaks_to_install));
+  g_auto(GStrv) deployed_flatpaks = NULL;
+  g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
+  g_autofree gchar *deployment_csum = NULL;
+  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
+  g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
+  const gchar *test_broken_flatpak_relative_path = "app/org.test.Test2/current/active";
+  const gchar *app_executable_relative_path = "files/bin/test";
+  g_autofree gchar *app_executable_path = NULL;
+  g_autofree gchar *installed_app_executable_path = NULL;
+  g_autoptr(GFile) installed_app_executable = NULL;
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T16682");
+
+  etc_data_init (data, fixture);
+
+  /* Commit number 1 will install some flatpaks
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              G_N_ELEMENTS (flatpaks_to_install),
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  deployment_repo_dir = g_file_get_child (data->client->root,
+                                          deployment_repo_relative_path);
+  eos_test_setup_flatpak_repo (updater_directory,
+                               "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
+                               (const gchar **) wanted_flatpaks,
+                               &error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Before rebooting and running the installer, put a directory
+   * in place of where one of the deployed files needs to be */
+  installed_app_executable_path = g_build_filename (flatpak_user_installation,
+                                                    test_broken_flatpak_relative_path,
+                                                    app_executable_relative_path,
+                                                    NULL);
+  installed_app_executable = g_file_new_for_path (installed_app_executable_path);
+
+  g_file_make_directory_with_parents (installed_app_executable, NULL, &error);
+  g_assert_no_error (error);
+
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
+  deployment_csum = get_checksum_for_deploy_repo_dir (deployment_repo_dir,
+                                                      refspec,
+                                                      &error);
+  g_assert_no_error (error);
+
+  eos_test_run_flatpak_installer (data->client->root,
+                                  deployment_csum,
+                                  default_remote_name,
+                                  &error);
+  g_assert_error (error, G_SPAWN_EXIT_ERROR, EUFI_EXIT_CODE_APPLY_FAILED);
+  g_clear_error (&error);
+
+  /* Assert that our frist flatpak was installed, but the second
+   * one was not */
+  deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
+  g_assert_no_error (error);
+
+  g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[0].app_id));
+  g_assert (!g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[1].app_id));
+}
+
+/* Insert a list of flatpaks to automatically install on the commit
+ * and simulate a reboot by running eos-updater-flatpak-installer. This
+ * should check the deployment for a list of flatpaks to install and
+ * install them from the local repo into the installation.
+ *
+ * In this scenario, we attempt to install two flatpaks, but the second one
+ * will fail to install due to a file being in the way. We then fix
+ * the probelm by removing the file that's in the way and run
+ * the installer again. Verify that although an error was set the first
+ * time, the second time around the installer successfully completes
+ * and both flatpaks are installed. */
+static void
+test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixture *fixture,
+                                                                  gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test2", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
+                                                                    G_N_ELEMENTS (flatpaks_to_install));
+  g_auto(GStrv) deployed_flatpaks = NULL;
+  g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
+  g_autofree gchar *deployment_csum = NULL;
+  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
+  g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
+  const gchar *test_broken_flatpak_relative_path = "app/org.test.Test2";
+  const gchar *test_broken_flatpak_relative_contents_path = "app/org.test.Test2/current/active";
+  const gchar *app_executable_relative_path = "files/bin/test";
+  g_autofree gchar *app_executable_path = NULL;
+  g_autofree gchar *installed_app_executable_path = NULL;
+  g_autoptr(GFile) installed_app_executable = NULL;
+  g_autoptr(GFile) failed_flatpak_installation_directory = NULL;
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T16682");
+
+  etc_data_init (data, fixture);
+
+  /* Commit number 1 will install some flatpaks
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              G_N_ELEMENTS (flatpaks_to_install),
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  deployment_repo_dir = g_file_get_child (data->client->root,
+                                          deployment_repo_relative_path);
+  eos_test_setup_flatpak_repo (updater_directory,
+                               "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
+                               (const gchar **) wanted_flatpaks,
+                               &error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Before rebooting and running the installer, put a directory
+   * in place of where one of the deployed files needs to be */
+  installed_app_executable_path = g_build_filename (flatpak_user_installation,
+                                                    test_broken_flatpak_relative_contents_path,
+                                                    app_executable_relative_path,
+                                                    NULL);
+  installed_app_executable = g_file_new_for_path (installed_app_executable_path);
+
+  g_file_make_directory_with_parents (installed_app_executable, NULL, &error);
+  g_assert_no_error (error);
+
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
+  deployment_csum = get_checksum_for_deploy_repo_dir (deployment_repo_dir,
+                                                      refspec,
+                                                      &error);
+  g_assert_no_error (error);
+
+  /* Should not have worked */
+  eos_test_run_flatpak_installer (data->client->root,
+                                  deployment_csum,
+                                  default_remote_name,
+                                  &error);
+  g_assert_error (error, G_SPAWN_EXIT_ERROR, EUFI_EXIT_CODE_APPLY_FAILED);
+  g_clear_error (&error);
+
+  /* Remove the offending partial installation and try again */
+  failed_flatpak_installation_directory = g_file_get_child (flatpak_user_installation_dir,
+                                                            test_broken_flatpak_relative_path);
+  eos_updater_remove_recursive (failed_flatpak_installation_directory, &error);
+  g_assert_no_error (error);
+
+  /* Should now work again */
+  eos_test_run_flatpak_installer (data->client->root,
+                                  deployment_csum,
+                                  default_remote_name,
+                                  &error);
+  g_assert_no_error (error);
+
+  /* Assert that our frist flatpak was installed, but the second
+   * one was not */
+  deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
+  g_assert_no_error (error);
+
+  g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[0].app_id));
+  g_assert (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[1].app_id));
+}
+
 /* Insert a list of flatpaks to automatically uninstall on the commit
  * and simulate a reboot by running eos-updater-flatpak-installer. This
  * should check the deployment for a list of flatpak actions and
@@ -3254,6 +3502,8 @@ main (int argc,
   eos_test_add ("/updater/only-install-flatpaks-on-locale", NULL, test_update_only_install_flatpaks_on_locale);
   eos_test_add ("/updater/install-flatpaks-not-deployed", NULL, test_update_install_flatpaks_not_deployed);
   eos_test_add ("/updater/install-flatpaks-deploy-on-reboot", NULL, test_update_deploy_flatpaks_on_reboot);
+  eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-partially-on-failure", NULL, test_update_deploy_flatpaks_on_reboot_partially_on_failure);
+  eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-resume-on-failure-resolved", NULL, test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved);
   eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-in-override", NULL, test_update_deploy_flatpaks_on_reboot_override_ostree);
   eos_test_add ("/updater/install-flatpaks-deploy-on-reboot-ostree-override", NULL, test_update_deploy_flatpaks_on_reboot_in_override_dir);
   eos_test_add ("/updater/update-flatpaks-no-op-if-not-installed", NULL, test_update_flatpaks_no_op_if_not_installed);
