@@ -388,6 +388,62 @@ test_parse_autoinstall_file (void)
     }
 }
 
+/* Test the autoinstall file parser successfully sorts entries by their serial
+ * numbers. Also take the opportunity to check the fields of the returned
+ * structs. */
+static void
+test_parse_autoinstall_file_unsorted (void)
+{
+  const EuuFlatpakRemoteRefAction *action0, *action1;
+  g_autofree gchar *action0_ref = NULL;
+  g_autofree gchar *action1_ref = NULL;
+  const gchar *data =
+    "["
+      "{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
+      "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
+      "   'remote': 'eos-apps' },"
+      "{ 'action': 'install', 'serial': 2017090100, 'ref-kind': 'app', "
+      "   'name': 'org.example.OtherApp', 'collection-id': 'com.endlessm.Apps', "
+      "   'remote': 'eos-apps' }"
+    "]";
+
+  g_autoptr(GPtrArray) actions = NULL;
+  g_autoptr(GPtrArray) skipped_actions = NULL;
+  g_autoptr(GError) error = NULL;
+
+  actions = euu_flatpak_ref_actions_from_data (data, -1, "test", &skipped_actions,
+                                               NULL, &error);
+  g_assert_no_error (error);
+  g_assert_nonnull (actions);
+  g_assert_cmpuint (actions->len, ==, 2);
+  g_assert_nonnull (skipped_actions);
+  g_assert_cmpuint (skipped_actions->len, ==, 0);
+
+  /* Check the actions are in the right order, and that their fields are correct. */
+  action0 = g_ptr_array_index (actions, 0);
+  action0_ref = flatpak_ref_format_ref (action0->ref->ref);
+  action1 = g_ptr_array_index (actions, 1);
+  action1_ref = flatpak_ref_format_ref (action1->ref->ref);
+
+  g_assert_cmpint (action0->ref_count, >=, 1);
+  g_assert_cmpint (action0->type, ==, EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
+  g_assert_cmpint (action0->ref->ref_count, >=, 1);
+  g_assert_cmpstr (action0_ref, ==, "app/org.example.OtherApp/x86_64/master");
+  g_assert_cmpstr (action0->ref->remote, ==, "eos-apps");
+  g_assert_cmpstr (action0->ref->collection_id, ==, "com.endlessm.Apps");
+  g_assert_cmpstr (action0->source, ==, "test");
+  g_assert_cmpint (action0->serial, ==, 2017090100);
+
+  g_assert_cmpint (action1->ref_count, >=, 1);
+  g_assert_cmpint (action1->type, ==, EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
+  g_assert_cmpint (action1->ref->ref_count, >=, 1);
+  g_assert_cmpstr (action1_ref, ==, "app/org.example.MyApp/x86_64/master");
+  g_assert_cmpstr (action1->ref->remote, ==, "eos-apps");
+  g_assert_cmpstr (action1->ref->collection_id, ==, "com.endlessm.Apps");
+  g_assert_cmpstr (action1->source, ==, "test");
+  g_assert_cmpint (action1->serial, ==, 2017100100);
+}
+
 /* Test that the filters on autoinstall files work correctly. */
 static void
 test_autoinstall_file_filters (void)
@@ -512,6 +568,8 @@ main (int   argc,
               test_compress_install_install_as_install);
   g_test_add_func ("/flatpak/parse-autoinstall-file",
                    test_parse_autoinstall_file);
+  g_test_add_func ("/flatpak/parse-autoinstall-file/unsorted",
+                   test_parse_autoinstall_file_unsorted);
   g_test_add_func ("/flatpak/autoinstall-file-filters",
                    test_autoinstall_file_filters);
 
