@@ -130,7 +130,7 @@ flatpak_remote_ref_action_type_parse (const gchar                    *action,
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC,
-                   "Unknown action type %s specified in autoinstall spec",
+                   "Unknown action type ‘%s’ specified in autoinstall spec",
                    action);
       return FALSE;
     }
