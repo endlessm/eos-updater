@@ -347,6 +347,13 @@ test_parse_autoinstall_file (void)
         "   'remote': 'example-apps', "
         "   'filters': { 'architecture': ['not allowed both'], '~architecture': ['filters'] }}]",
         0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+      { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
+        "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
+        "   'remote': 'example-apps', "
+        "   'filters': { 'nonexistent': ['invalid'] }}]",
+        0, 1, 0, 0 },
+
+      { "[{ 'action': 'invalid' }]", 0, 1, 0, 0 },
     };
   gsize i;
 
