@@ -873,6 +873,10 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
       if (is_skipped)
         {
           g_autofree gchar *node_str = json_node_to_string (element_node);
+          g_debug ("%s while parsing %s. Skipping this action and it "
+                   "will not be reapplied later. System may be in an "
+                   "inconsistent state from this point forward.",
+                   local_error->message, filename);
           g_ptr_array_add (skipped_action_entries, g_steal_pointer (&node_str));
           continue;
         }
