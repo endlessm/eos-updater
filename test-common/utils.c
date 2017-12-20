@@ -1991,19 +1991,6 @@ eos_test_run_flatpak_installer (GFile        *client_root,
   return cmd_result_ensure_ok (&cmd, error);
 }
 
-static GStrv
-g_hash_set_to_strv (GHashTable *string_hash_set)
-{
-  GStrv strv = g_new0 (gchar *, g_hash_table_size (string_hash_set) + 1);
-  GList *iter = g_hash_table_get_keys (string_hash_set);
-  gsize i = 0;
-
-  for (; iter; iter = iter->next, ++i)
-    strv[i] = g_strdup (iter->data);
-
-  return strv;
-}
-
 GStrv
 eos_test_get_installed_flatpaks (GFile   *updater_dir,
                                  GError **error)
@@ -2015,6 +2002,7 @@ eos_test_get_installed_flatpaks (GFile   *updater_dir,
                                                                         g_str_equal,
                                                                         g_free,
                                                                         NULL);
+  g_auto(GStrv) keys = NULL;
 
   /* To match output like:
    * Ref                                             Options
@@ -2055,7 +2043,9 @@ eos_test_get_installed_flatpaks (GFile   *updater_dir,
                         g_steal_pointer (&matched_flatpak_name));
     }
 
-  return g_hash_set_to_strv (installed_flatpaks_set);
+  keys = (gchar **) g_hash_table_get_keys_as_array (installed_flatpaks_set, NULL);
+  g_hash_table_steal_all (installed_flatpaks_set);
+  return g_steal_pointer (&keys);
 }
 
 static gboolean

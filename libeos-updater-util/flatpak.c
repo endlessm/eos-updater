@@ -193,7 +193,7 @@ maybe_get_json_object_string_member (JsonObject   *object,
       g_set_error (error,
                    EOS_UPDATER_ERROR,
                    EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
-                   "Expected an ‘%s’ member",
+                   "Expected a ‘%s’ member",
                    key);
 
       return NULL;
