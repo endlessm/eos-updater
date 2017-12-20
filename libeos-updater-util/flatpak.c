@@ -768,7 +768,7 @@ action_node_should_be_filtered_out (JsonNode  *node,
                          "point forward", local_error->message);
               *is_filtered = TRUE;
               g_clear_error (&local_error);
-              continue;
+              return TRUE;
             }
 
           g_propagate_error (error, g_steal_pointer (&local_error));
