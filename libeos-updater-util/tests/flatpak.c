@@ -231,132 +231,134 @@ test_parse_autoinstall_file (void)
     {
       const gchar *data;
       gsize expected_n_actions;
+      gsize expected_n_skipped_actions;
       GQuark expected_error_domain;
       gint expected_error_code;
     } vectors[] =
     {
-      { "", 0, 0, 0 },
-      { "'a json string'", 0,
+      { "", 0, 0, 0, 0 },
+      { "'a json string'", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
-      { "not valid JSON", 0,
+      { "not valid JSON", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
 
-      { "[]", 0, 0, 0 },
+      { "[]", 0, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps' }]", 1, 0, 0 },
+        "   'remote': 'eos-apps' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'uninstall', 'serial': 2017100101, 'ref-kind': 'app', "
         "   'name': 'org.example.OutdatedApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps' }]", 1, 0, 0 },
+        "   'remote': 'eos-apps' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017100500, 'ref-kind': 'runtime', "
         "   'name': 'org.example.PreinstalledRuntime', 'collection-id': 'com.endlessm.Runtimes', "
-        "   'remote': 'eos-runtimes' }]", 1, 0, 0 },
+        "   'remote': 'eos-runtimes' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110100, 'ref-kind': 'runtime', "
         "   'name': 'org.example.NVidiaRuntime', 'collection-id': 'com.endlessm.Runtimes', "
-        "   'remote': 'eos-runtimes' }]", 1, 0, 0 },
+        "   'remote': 'eos-runtimes' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
         "   'filters': { 'locale': ['nonexistent'], '~architecture': ['armhf'] }}]",
-        0, 0, 0 },
+        0, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
-        "   'filters': {}}]", 1, 0, 0 },
+        "   'filters': {}}]", 1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
-        "   'filters': { '~locale': [], 'architecture': [] }}]", 0, 0, 0 },
+        "   'filters': { '~locale': [], 'architecture': [] }}]", 0, 0, 0, 0 },
       { "[{ 'action': 'update', 'serial': 2017100101, 'ref-kind': 'app', "
         "   'name': 'org.example.OutdatedApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps' }]", 1, 0, 0 },
+        "   'remote': 'eos-apps' }]", 1, 0, 0, 0 },
 
       { "[{ 'action': 123, 'serial': 2017100100, 'ref-kind': 'app', "
-        "   'name': 'org.example.MyApp', 'remote': 'eos-apps' }]", 0,
+        "   'name': 'org.example.MyApp', 'remote': 'eos-apps' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'invalid', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps' }]", 0,
+        "   'remote': 'eos-apps' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 123, "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps' }]", 0,
+        "   'remote': 'eos-apps' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
-      { "[{}]", 0,
+      { "[{}]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
-      { "['a string']", 0,
+      { "['a string']", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
-      { "[{ 'action': 'install' }]", 0,
+      { "[{ 'action': 'install' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
-      { "[{ 'action': 'install', 'serial': 2017100100 }]", 0,
+      { "[{ 'action': 'install', 'serial': 2017100100 }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 123, 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps' }]", 0,
+        "   'remote': 'eos-apps' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 123, "
-        "   'remote': 'eos-apps' }]", 0,
+        "   'remote': 'eos-apps' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 123 }]", 0,
+        "   'remote': 123 }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2147483648, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps' }]", 0,
+        "   'remote': 'eos-apps' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': -2147483649, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps' }]", 0,
+        "   'remote': 'eos-apps' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
 
-      { "[{ 'action': 'uninstall' }]", 0,
+      { "[{ 'action': 'uninstall' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
-      { "[{ 'action': 'uninstall', 'serial': 2017100100 }]", 0,
+      { "[{ 'action': 'uninstall', 'serial': 2017100100 }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
 
-      { "[{ 'action': 'update' }]", 0,
+      { "[{ 'action': 'update' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
-      { "[{ 'action': 'update', 'serial': 2017100100 }]", 0,
+      { "[{ 'action': 'update', 'serial': 2017100100 }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
 
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
         "   'filters': 'not an object' }]",
-        0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+        0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
         "   'filters': { 'locale': 'not an array' }}]",
-        0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+        0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
         "   'filters': { 'locale': [123] }}]",
-        0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+        0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
         "   'filters': { 'locale': ['not allowed both'], '~locale': ['filters'] }}]",
-        0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+        0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
         "   'filters': { 'architecture': ['not allowed both'], '~architecture': ['filters'] }}]",
-        0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+        0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
     };
   gsize i;
 
   for (i = 0; i < G_N_ELEMENTS (vectors); i++)
     {
       g_autoptr(GPtrArray) actions = NULL;
+      g_autoptr(GPtrArray) skipped_actions = NULL;
       g_autoptr(GError) error = NULL;
 
       g_test_message ("Vector %" G_GSIZE_FORMAT ": %s", i, vectors[i].data);
 
-      actions = euu_flatpak_ref_actions_from_data (vectors[i].data, -1, "test",
+      actions = euu_flatpak_ref_actions_from_data (vectors[i].data, -1, "test", &skipped_actions,
                                                    NULL, &error);
 
       if (error != NULL)
@@ -366,12 +368,15 @@ test_parse_autoinstall_file (void)
         {
           g_assert_error (error, vectors[i].expected_error_domain, vectors[i].expected_error_code);
           g_assert_null (actions);
+          g_assert_null (skipped_actions);
         }
       else
         {
           g_assert_no_error (error);
           g_assert_nonnull (actions);
           g_assert_cmpuint (actions->len, ==, vectors[i].expected_n_actions);
+          g_assert_nonnull (skipped_actions);
+          g_assert_cmpuint (skipped_actions->len, ==, vectors[i].expected_n_skipped_actions);
         }
     }
 }
@@ -396,49 +401,51 @@ test_autoinstall_file_filters (void)
       const gchar *env_arch;
       const gchar *env_locales;
       gsize expected_n_actions;
+      gsize expected_n_skipped_actions;
     } vectors[] =
     {
       { "", "", "", 1 },
 
-      { "'architecture': []", "", "", 0 },
-      { "'architecture': ['arch1']", "arch1", "", 1 },
-      { "'architecture': ['arch1', 'arch2']", "arch1", "", 1 },
-      { "'architecture': ['arch1', 'arch2']", "arch2", "", 1 },
-      { "'architecture': ['arch1', 'arch2']", "arch3", "", 0 },
+      { "'architecture': []", "", "", 0, 0 },
+      { "'architecture': ['arch1']", "arch1", "", 1, 0 },
+      { "'architecture': ['arch1', 'arch2']", "arch1", "", 1, 0 },
+      { "'architecture': ['arch1', 'arch2']", "arch2", "", 1, 0 },
+      { "'architecture': ['arch1', 'arch2']", "arch3", "", 0, 0 },
 
-      { "'~architecture': []", "", "", 1 },
-      { "'~architecture': ['arch1']", "arch1", "", 0 },
-      { "'~architecture': ['arch1', 'arch2']", "arch1", "", 0 },
-      { "'~architecture': ['arch1', 'arch2']", "arch2", "", 0 },
-      { "'~architecture': ['arch1', 'arch2']", "arch3", "", 1 },
+      { "'~architecture': []", "", "", 1, 0 },
+      { "'~architecture': ['arch1']", "arch1", "", 0, 0 },
+      { "'~architecture': ['arch1', 'arch2']", "arch1", "", 0, 0 },
+      { "'~architecture': ['arch1', 'arch2']", "arch2", "", 0, 0 },
+      { "'~architecture': ['arch1', 'arch2']", "arch3", "", 1, 0 },
 
-      { "'locale': []", "", "", 0 },
-      { "'locale': ['locale1']", "", "locale1", 1 },
-      { "'locale': ['locale1']", "", "locale2;locale1", 1 },
-      { "'locale': ['locale1', 'locale2']", "", "locale1", 1 },
-      { "'locale': ['locale1', 'locale2']", "", "locale2;locale1", 1 },
-      { "'locale': ['locale1', 'locale2']", "", "locale3;locale1", 1 },
-      { "'locale': ['locale1', 'locale2']", "", "locale2", 1 },
-      { "'locale': ['locale1', 'locale2']", "", "locale1;locale2", 1 },
-      { "'locale': ['locale1', 'locale2']", "", "locale3", 0 },
-      { "'locale': ['locale1', 'locale2']", "", "locale3;locale4", 0 },
+      { "'locale': []", "", "", 0, 0 },
+      { "'locale': ['locale1']", "", "locale1", 1, 0 },
+      { "'locale': ['locale1']", "", "locale2;locale1", 1, 0 },
+      { "'locale': ['locale1', 'locale2']", "", "locale1", 1, 0 },
+      { "'locale': ['locale1', 'locale2']", "", "locale2;locale1", 1, 0 },
+      { "'locale': ['locale1', 'locale2']", "", "locale3;locale1", 1, 0 },
+      { "'locale': ['locale1', 'locale2']", "", "locale2", 1, 0 },
+      { "'locale': ['locale1', 'locale2']", "", "locale1;locale2", 1, 0 },
+      { "'locale': ['locale1', 'locale2']", "", "locale3", 0, 0 },
+      { "'locale': ['locale1', 'locale2']", "", "locale3;locale4", 0, 0 },
 
-      { "'~locale': []", "", "", 1 },
-      { "'~locale': ['locale1']", "", "locale1", 0 },
-      { "'~locale': ['locale1']", "", "locale2;locale1", 0 },
-      { "'~locale': ['locale1', 'locale2']", "", "locale1", 0 },
-      { "'~locale': ['locale1', 'locale2']", "", "locale2;locale1", 0 },
-      { "'~locale': ['locale1', 'locale2']", "", "locale3;locale1", 0 },
-      { "'~locale': ['locale1', 'locale2']", "", "locale2", 0 },
-      { "'~locale': ['locale1', 'locale2']", "", "locale1;locale2", 0 },
-      { "'~locale': ['locale1', 'locale2']", "", "locale3", 1 },
-      { "'~locale': ['locale1', 'locale2']", "", "locale3;locale4", 1 },
+      { "'~locale': []", "", "", 1, 0 },
+      { "'~locale': ['locale1']", "", "locale1", 0, 0 },
+      { "'~locale': ['locale1']", "", "locale2;locale1", 0, 0 },
+      { "'~locale': ['locale1', 'locale2']", "", "locale1", 0, 0 },
+      { "'~locale': ['locale1', 'locale2']", "", "locale2;locale1", 0, 0 },
+      { "'~locale': ['locale1', 'locale2']", "", "locale3;locale1", 0, 0 },
+      { "'~locale': ['locale1', 'locale2']", "", "locale2", 0, 0 },
+      { "'~locale': ['locale1', 'locale2']", "", "locale1;locale2", 0, 0 },
+      { "'~locale': ['locale1', 'locale2']", "", "locale3", 1, 0 },
+      { "'~locale': ['locale1', 'locale2']", "", "locale3;locale4", 1, 0 },
     };
   gsize i;
 
   for (i = 0; i < G_N_ELEMENTS (vectors); i++)
     {
       g_autoptr(GPtrArray) actions = NULL;
+      g_autoptr(GPtrArray) skipped_actions = NULL;
       g_autoptr(GError) error = NULL;
       g_autofree gchar *formatted_data = NULL;
 
@@ -456,12 +463,14 @@ test_autoinstall_file_filters (void)
 
       g_test_message ("%s", formatted_data);
 
-      actions = euu_flatpak_ref_actions_from_data (formatted_data, -1, "test",
+      actions = euu_flatpak_ref_actions_from_data (formatted_data, -1, "test", &skipped_actions,
                                                    NULL, &error);
 
       g_assert_no_error (error);
       g_assert_nonnull (actions);
       g_assert_cmpuint (actions->len, ==, vectors[i].expected_n_actions);
+      g_assert_nonnull (skipped_actions);
+      g_assert_cmpuint (skipped_actions->len, ==, vectors[i].expected_n_skipped_actions);
     }
 
   if (old_env_arch != NULL)
