@@ -421,6 +421,9 @@ flatpak_remote_ref_action_from_json_node (const gchar  *source,
           return NULL;
         }
 
+      /* Not currently possible to hit these lines of code, given that
+       * flatpak_remote_ref_from_action_entry() always errors with
+       * %MALFORMED_AUTOINSTALL_SPEC. */
       g_propagate_error (error, g_steal_pointer (&local_error));
       return NULL;
     }
@@ -850,6 +853,8 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
               continue;
             }
 
+          /* This code can’t currently be reached due to the limited range of
+           * errors which action_node_should_be_filtered_out() sets. */
           g_propagate_error (error, g_steal_pointer (&local_error));
           return NULL;
         }
@@ -878,6 +883,8 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
               continue;
             }
 
+          /* This code can’t currently be reached due to the limited range of
+           * errors which flatpak_remote_ref_action_from_json_node() sets. */
           g_propagate_error (error, g_steal_pointer (&local_error));
           return NULL;
         }
