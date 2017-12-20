@@ -85,11 +85,13 @@ void euu_flatpak_remote_ref_actions_file_free (EuuFlatpakRemoteRefActionsFile *f
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakRemoteRefActionsFile, euu_flatpak_remote_ref_actions_file_free);
 
 GPtrArray *euu_flatpak_ref_actions_from_file (GFile         *file,
+                                              GPtrArray    **out_skipped_actions,
                                               GCancellable  *cancellable,
                                               GError       **error);
 GPtrArray *euu_flatpak_ref_actions_from_data (const gchar   *data,
                                               gssize         length,
                                               const gchar   *path,
+                                              GPtrArray    **out_skipped_actions,
                                               GCancellable  *cancellable,
                                               GError       **error);
 gboolean euu_flatpak_ref_actions_append_from_directory (GFile         *directory,

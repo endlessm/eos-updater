@@ -752,28 +752,12 @@ action_node_should_be_filtered_out (JsonNode  *node,
   for (iter = filters_object_keys; iter != NULL; iter = iter->next)
     {
       gboolean action_is_filtered_on_this_filter;
-      g_autoptr(GError) local_error = NULL;
 
       if (!action_filter_applies (filters_object,
                                   iter->data,
                                   &action_is_filtered_on_this_filter,
-                                  &local_error))
-        {
-          if (g_error_matches (local_error,
-                               EOS_UPDATER_ERROR,
-                               EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
-            {
-              g_warning ("%s: Skipping this filter and not applying action, "
-                         "system may be in an inconsistent state from this "
-                         "point forward", local_error->message);
-              *is_filtered = TRUE;
-              g_clear_error (&local_error);
-              return TRUE;
-            }
-
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
+                                  error))
+        return FALSE;
 
       if (action_is_filtered_on_this_filter)
         {
@@ -788,10 +772,12 @@ action_node_should_be_filtered_out (JsonNode  *node,
 
 /* Load all the entries from the given @file, filtering out any which don’t
  * apply given their `filters`. If any entry fails to parse, an error is
- * returned overall. */
+ * returned overall. If any entry fails to parse non-fatally, its JSON
+ * is listed in @skipped_action_entries and the next entry is parsed. */
 static GPtrArray *  /* (element-type EuuFlatpakRemoteRefAction) */
 read_flatpak_ref_actions_from_node (JsonNode      *node,
                                     const gchar   *filename,
+                                    GPtrArray     *skipped_action_entries  /* (element-type utf8) */,
                                     GError       **error)
 {
   /* Now that we have the file contents, time to read in the list of
@@ -802,6 +788,8 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
   JsonArray *array = NULL;
   g_autoptr(GList) elements = NULL;
   GList *iter = NULL;  /* (element-type JsonNode) */
+
+  g_assert (skipped_action_entries != NULL);
 
   /* Parse each entry of the underlying array */
   if (!JSON_NODE_HOLDS_ARRAY (node))
@@ -849,6 +837,18 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
                                           "Error parsing ‘%s’: ", filename);
               return NULL;
             }
+          else if (g_error_matches (local_error,
+                                    EOS_UPDATER_ERROR,
+                                    EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
+            {
+              g_debug ("%s while parsing %s. Skipping this action and it "
+                       "will not be reapplied later. System may be in an "
+                       "inconsistent state from this point forward.",
+                       local_error->message, filename);
+              g_ptr_array_add (skipped_action_entries, json_node_to_string (element_node));
+              g_clear_error (&local_error);
+              continue;
+            }
 
           g_propagate_error (error, g_steal_pointer (&local_error));
           return NULL;
@@ -873,10 +873,7 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
                                     EOS_UPDATER_ERROR,
                                     EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
             {
-              g_warning ("%s while parsing %s. Skipping this action and it "
-                         "will not be reapplied later. System may be in an "
-                         "inconsistent state from this point forward.",
-                         local_error->message, filename);
+              g_ptr_array_add (skipped_action_entries, json_node_to_string (element_node));
               g_clear_error (&local_error);
               continue;
             }
@@ -896,15 +893,26 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
 
 GPtrArray *
 euu_flatpak_ref_actions_from_file (GFile         *file,
+                                   GPtrArray    **out_skipped_actions  /* (element-type utf8) */,
                                    GCancellable  *cancellable,
                                    GError       **error)
 {
+  g_autoptr(GPtrArray) actions = NULL;
+  g_autoptr(GPtrArray) skipped_actions = g_ptr_array_new_with_free_func (g_free);
   g_autofree gchar *path = g_file_get_path (file);
   g_autoptr(JsonNode) node = parse_json_from_file (file, cancellable, error);
   if (node == NULL)
     return NULL;
 
-  return read_flatpak_ref_actions_from_node (node, path, error);
+  actions = read_flatpak_ref_actions_from_node (node, path, skipped_actions, error);
+
+  if (actions == NULL)
+    return NULL;
+
+  if (out_skipped_actions != NULL)
+    *out_skipped_actions = g_steal_pointer (&skipped_actions);
+
+  return g_steal_pointer (&actions);
 }
 
 /* A version of euu_flatpak_ref_actions_from_file() which takes a
@@ -913,9 +921,12 @@ GPtrArray *
 euu_flatpak_ref_actions_from_data (const gchar   *data,
                                    gssize         length,
                                    const gchar   *path,
+                                   GPtrArray    **out_skipped_actions  /* (element-type utf8) */,
                                    GCancellable  *cancellable,
                                    GError       **error)
 {
+  g_autoptr(GPtrArray) actions = NULL;
+  g_autoptr(GPtrArray) skipped_actions = g_ptr_array_new_with_free_func (g_free);
   g_autoptr(JsonParser) parser = json_parser_new_immutable ();
   g_autoptr(JsonNode) root_node = NULL;
   g_autoptr(GError) local_error = NULL;
@@ -939,7 +950,15 @@ euu_flatpak_ref_actions_from_data (const gchar   *data,
       json_node_take_array (root_node, json_array_new ());
     }
 
-  return read_flatpak_ref_actions_from_node (root_node, path, error);
+  actions = read_flatpak_ref_actions_from_node (root_node, path, skipped_actions, error);
+
+  if (actions == NULL)
+    return NULL;
+
+  if (out_skipped_actions != NULL)
+    *out_skipped_actions = g_steal_pointer (&skipped_actions);
+
+  return g_steal_pointer (&actions);
 }
 
 EuuFlatpakRemoteRefActionsFile *
@@ -1011,6 +1030,7 @@ euu_flatpak_ref_actions_append_from_directory (GFile         *directory,
       GFile *file;
       GFileInfo *info;
       g_autoptr(GPtrArray) action_refs = NULL;
+      g_autoptr(GPtrArray) skipped_action_refs = NULL;
       const gchar *filename = NULL;
       EuuFlatpakRemoteRefActionsFile *existing_actions_file = NULL;
 
@@ -1034,10 +1054,20 @@ euu_flatpak_ref_actions_append_from_directory (GFile         *directory,
           existing_actions_file->priority < priority)
         continue;
 
-      action_refs = euu_flatpak_ref_actions_from_file (file, cancellable, error);
+      action_refs = euu_flatpak_ref_actions_from_file (file, &skipped_action_refs, cancellable, error);
 
       if (action_refs == NULL)
         return FALSE;
+
+      if (skipped_action_refs != NULL && skipped_action_refs->len > 0)
+        {
+          g_autofree gchar *list_str = g_strjoinv ("\n", (gchar **) skipped_action_refs->pdata);
+          g_warning ("Skipping the following actions while parsing ‘%s’, due "
+                     "to not supporting their contents. They will not be "
+                     "reapplied later; the system may be in an inconsistent "
+                     "state from this point forward.\n%s",
+                     filename, list_str);
+        }
 
       g_hash_table_replace (ref_actions_for_files,
                             g_strdup (filename),
