@@ -659,6 +659,14 @@ action_filter_applies (JsonObject   *object,
                                                    error))
     return FALSE;
 
+  /* If adding support for a new filter:
+   *  - Expand the inverse check in action_node_should_be_filtered_out().
+   *  - Add a checkpoint to the OSTree after releasing the new version of
+   *    eos-updater, but before distributing an autoinstall list which uses the
+   *    new filter, to guarantee that all clients receiving the autoinstall list
+   *    know how to handle it.
+   *  - Update the JSON Schema and the man page.
+   */
   if (g_str_equal (filter_key_name, "architecture"))
     return strv_element_in_json_member ((GStrv) current_architecture_strv,
                                         object,
