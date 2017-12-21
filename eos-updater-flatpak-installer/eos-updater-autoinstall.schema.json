@@ -53,7 +53,7 @@
                 "name": {
                     "description": "The app-id to be uninstalled",
                     "$ref": "#/definitions/name"
-                },
+                }
             },
             "required": ["ref-kind", "name"]
         },
@@ -76,7 +76,7 @@
                 "name": {
                     "description": "The app-id to be updated",
                     "$ref": "#/definitions/name"
-                },
+                }
             },
             "required": ["ref-kind", "name"]
         }
@@ -88,22 +88,22 @@
             "description": "Tests to apply to see whether this action should be performed or skipped. If it is skipped, the test to check whether it should be performed or skipped will never run again.",
             "type": "object",
             "properties": {
-                "~architectures": {
+                "~architecture": {
                     "description": "Which architectures forbid performing this action on",
                     "$ref": "#/definitions/filter"
                 },
-                "architectures": {
+                "architecture": {
                     "description": "Which architectures to only perform this action on",
                     "$ref": "#/definitions/filter"
                 },
-                "~locales": {
+                "~locale": {
                     "description": "Which locales forbid performing this action on",
                     "$ref": "#/definitions/filter"
                 },
-                "locales": {
+                "locale": {
                     "description": "Which locales to only perform this action on",
                     "$ref": "#/definitions/filter"
-                },
+                }
             }
         },
         "serial": {
@@ -137,6 +137,5 @@
             },
             "uniqueItems": true
         }
-    },
-    "required": ["action", "serial"]
+    }
 }
