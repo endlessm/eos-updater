@@ -707,7 +707,6 @@ action_filter_applies (JsonObject   *object,
 static gboolean
 action_node_should_be_filtered_out (JsonNode  *node,
                                     gboolean  *is_filtered,
-                                    gboolean  *is_skipped,
                                     GError   **error)
 {
   JsonObject *object = json_node_get_object (node);
@@ -717,13 +716,11 @@ action_node_should_be_filtered_out (JsonNode  *node,
   GList *iter = NULL;
 
   g_return_val_if_fail (is_filtered != NULL, FALSE);
-  g_return_val_if_fail (is_skipped != NULL, FALSE);
 
   /* No filters, so this action cannot be filtered out */
   if (filters_object_node == NULL)
     {
       *is_filtered = FALSE;
-      *is_skipped = FALSE;
       return TRUE;
     }
 
@@ -758,40 +755,21 @@ action_node_should_be_filtered_out (JsonNode  *node,
   for (iter = filters_object_keys; iter != NULL; iter = iter->next)
     {
       gboolean action_is_filtered_on_this_filter;
-      g_autoptr(GError) local_error = NULL;
 
       if (!action_filter_applies (filters_object,
                                   iter->data,
                                   &action_is_filtered_on_this_filter,
-                                  &local_error))
-        {
-          if (g_error_matches (local_error,
-                               EOS_UPDATER_ERROR,
-                               EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
-            {
-              g_debug ("%s: Skipping this filter and not applying action, "
-                       "system may be in an inconsistent state from this "
-                       "point forward", local_error->message);
-              *is_filtered = TRUE;
-              *is_skipped = TRUE;
-              g_clear_error (&local_error);
-              return TRUE;
-            }
-
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
+                                  error))
+        return FALSE;
 
       if (action_is_filtered_on_this_filter)
         {
           *is_filtered = TRUE;
-          *is_skipped = FALSE;
           return TRUE;
         }
     }
 
   *is_filtered = FALSE;
-  *is_skipped = FALSE;
   return TRUE;
 }
 
@@ -839,7 +817,6 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
       g_autoptr(GError) local_error = NULL;
       g_autoptr(EuuFlatpakRemoteRefAction) action = NULL;
       gboolean is_filtered = FALSE;
-      gboolean is_skipped = FALSE;
       JsonNode *element_node = iter->data;
 
       if (!JSON_NODE_HOLDS_OBJECT (element_node))
@@ -853,7 +830,7 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
           return NULL;
         }
 
-      if (!action_node_should_be_filtered_out (element_node, &is_filtered, &is_skipped, &local_error))
+      if (!action_node_should_be_filtered_out (element_node, &is_filtered, &local_error))
         {
           if (g_error_matches (local_error,
                                EOS_UPDATER_ERROR,
@@ -863,22 +840,23 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
                                           "Error parsing ‘%s’: ", filename);
               return NULL;
             }
+          else if (g_error_matches (local_error,
+                                    EOS_UPDATER_ERROR,
+                                    EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
+            {
+              g_debug ("%s while parsing %s. Skipping this action and it "
+                       "will not be reapplied later. System may be in an "
+                       "inconsistent state from this point forward.",
+                       local_error->message, filename);
+              g_ptr_array_add (skipped_action_entries, json_node_to_string (element_node));
+              g_clear_error (&local_error);
+              continue;
+            }
 
           /* This code can’t currently be reached due to the limited range of
            * errors which action_node_should_be_filtered_out() sets. */
           g_propagate_error (error, g_steal_pointer (&local_error));
           return NULL;
-        }
-
-      if (is_skipped)
-        {
-          g_autofree gchar *node_str = json_node_to_string (element_node);
-          g_debug ("%s while parsing %s. Skipping this action and it "
-                   "will not be reapplied later. System may be in an "
-                   "inconsistent state from this point forward.",
-                   local_error->message, filename);
-          g_ptr_array_add (skipped_action_entries, g_steal_pointer (&node_str));
-          continue;
         }
 
       if (is_filtered)
@@ -900,8 +878,7 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
                                     EOS_UPDATER_ERROR,
                                     EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
             {
-              g_autofree gchar *node_str = json_node_to_string (element_node);
-              g_ptr_array_add (skipped_action_entries, g_steal_pointer (&node_str));
+              g_ptr_array_add (skipped_action_entries, json_node_to_string (element_node));
               g_clear_error (&local_error);
               continue;
             }
