@@ -1,7 +1,7 @@
 [Unit]
 Description=Endless OS Post-Boot Flatpak Installer
-Wants=local-fs.target
-After=local-fs.target
+Wants=ostree-remount.service
+After=ostree-remount.service
 ConditionKernelCommandLine=!eos-updater-disable
 DefaultDependencies=no
 
