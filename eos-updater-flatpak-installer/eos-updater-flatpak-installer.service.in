@@ -34,7 +34,8 @@ ProtectSystem=no
 RestrictAddressFamilies=AF_UNIX
 RestrictRealtime=yes
 SystemCallErrorNumber=EPERM
-SystemCallFilter=@basic-io @io-event @ipc @network-io
+# @network-io is required for logging to the journal to work
+SystemCallFilter=~@resources @obsolete @mount @module @keyring @chown @privileged
 
 [Install]
 WantedBy=multi-user.target
