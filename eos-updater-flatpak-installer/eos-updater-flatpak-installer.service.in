@@ -3,6 +3,7 @@ Description=Endless OS Post-Boot Flatpak Installer
 Wants=local-fs.target
 After=local-fs.target
 ConditionKernelCommandLine=!eos-updater-disable
+DefaultDependencies=no
 
 # Only on updates
 Before=multi-user.target systemd-update-done.service
