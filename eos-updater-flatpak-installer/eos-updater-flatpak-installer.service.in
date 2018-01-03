@@ -4,6 +4,7 @@ Wants=ostree-remount.service
 After=ostree-remount.service
 ConditionKernelCommandLine=!eos-updater-disable
 DefaultDependencies=no
+Conflicts=shutdown.target
 
 # Only on updates
 Before=multi-user.target systemd-update-done.service
