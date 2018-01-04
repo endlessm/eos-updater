@@ -354,6 +354,14 @@ test_parse_autoinstall_file (void)
         0, 1, 0, 0 },
 
       { "[{ 'action': 'invalid' }]", 0, 1, 0, 0 },
+
+      { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
+        "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
+        "   'remote': 'eos-apps' }, "
+        " { 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
+        "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
+        "   'remote': 'eos-apps' }]", 0, 0,
+        EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
     };
   gsize i;
 

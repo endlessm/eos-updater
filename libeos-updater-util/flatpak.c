@@ -659,6 +659,14 @@ action_filter_applies (JsonObject   *object,
                                                    error))
     return FALSE;
 
+  /* If adding support for a new filter:
+   *  - Expand the inverse check in action_node_should_be_filtered_out().
+   *  - Add a checkpoint to the OSTree after releasing the new version of
+   *    eos-updater, but before distributing an autoinstall list which uses the
+   *    new filter, to guarantee that all clients receiving the autoinstall list
+   *    know how to handle it.
+   *  - Update the JSON Schema and the man page.
+   */
   if (g_str_equal (filter_key_name, "architecture"))
     return strv_element_in_json_member ((GStrv) current_architecture_strv,
                                         object,
@@ -791,6 +799,7 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
   JsonArray *array = NULL;
   g_autoptr(GList) elements = NULL;
   GList *iter = NULL;  /* (element-type JsonNode) */
+  gsize i;
 
   g_assert (skipped_action_entries != NULL);
 
@@ -894,6 +903,24 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
 
   /* Now that we have the remote ref actions, sort them by their ordering */
   g_ptr_array_sort (actions, sort_flatpak_remote_ref_actions);
+
+  /* Check there are no duplicate serial numbers. */
+  for (i = 1; i < actions->len; i++)
+    {
+      const EuuFlatpakRemoteRefAction *prev_action = g_ptr_array_index (actions, i - 1);
+      const EuuFlatpakRemoteRefAction *action = g_ptr_array_index (actions, i);
+
+      if (prev_action->serial == action->serial)
+        {
+          g_set_error (error,
+                       EOS_UPDATER_ERROR,
+                       EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC,
+                       "Two entries share serial number %" G_GINT32_FORMAT " in ‘%s’",
+                       prev_action->serial, filename);
+
+          return NULL;
+        }
+    }
 
   return g_steal_pointer (&actions);
 }
