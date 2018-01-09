@@ -293,6 +293,12 @@ metadata_fetch_new (OstreeRepo    *repo,
   upgrade_refspec = booted_refspec;
 
   finders = get_finders (config, context, &finder_avahi);
+  if (finders->len == 0)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "All configured update sources failed to initialize.");
+      return NULL;
+    }
 
   /* Check whether the commit is a redirection; if so, fetch the new ref and
    * check again. */
