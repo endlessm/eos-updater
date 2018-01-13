@@ -37,7 +37,8 @@ RestrictAddressFamilies=AF_UNIX
 RestrictRealtime=yes
 SystemCallErrorNumber=EPERM
 # @network-io is required for logging to the journal to work
-SystemCallFilter=~@resources @obsolete @mount @module @keyring @chown @privileged
+# @privileged is required for certain ostree operations
+SystemCallFilter=~@resources @obsolete @mount @module @keyring @chown
 
 [Install]
 WantedBy=multi-user.target
