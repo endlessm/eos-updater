@@ -151,7 +151,7 @@ try_install_application (FlatpakInstallation       *installation,
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
         {
-          g_message ("Failed to install %s:%s/%s", remote_name, formatted_kind, name);
+          g_message ("Failed to install %s:%s/%s: %s", remote_name, formatted_kind, name, local_error->message);
           g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
         }
