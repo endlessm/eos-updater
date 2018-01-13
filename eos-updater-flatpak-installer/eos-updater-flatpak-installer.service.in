@@ -14,7 +14,7 @@ ConditionNeedsUpdate=/var
 Type=oneshot
 RemainAfterExit=true
 ExecStart=@libexecdir@/eos-updater-flatpak-installer
-Restart=on-failure
+Restart=no
 
 # Sandboxing
 CapabilityBoundingSet=
