@@ -405,6 +405,7 @@ test_parse_autoinstall_file_unsorted (void)
   const EuuFlatpakRemoteRefAction *action0, *action1;
   g_autofree gchar *action0_ref = NULL;
   g_autofree gchar *action1_ref = NULL;
+  g_autofree gchar *old_env_arch = g_strdup (g_getenv ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE"));
   const gchar *data =
     "["
       "{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
@@ -418,6 +419,8 @@ test_parse_autoinstall_file_unsorted (void)
   g_autoptr(GPtrArray) actions = NULL;
   g_autoptr(GPtrArray) skipped_actions = NULL;
   g_autoptr(GError) error = NULL;
+
+  g_setenv ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", TRUE);
 
   actions = euu_flatpak_ref_actions_from_data (data, -1, "test", &skipped_actions,
                                                NULL, &error);
@@ -436,7 +439,7 @@ test_parse_autoinstall_file_unsorted (void)
   g_assert_cmpint (action0->ref_count, >=, 1);
   g_assert_cmpint (action0->type, ==, EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
   g_assert_cmpint (action0->ref->ref_count, >=, 1);
-  g_assert_cmpstr (action0_ref, ==, "app/org.example.OtherApp/x86_64/master");
+  g_assert_cmpstr (action0_ref, ==, "app/org.example.OtherApp/arch/master");
   g_assert_cmpstr (action0->ref->remote, ==, "eos-apps");
   g_assert_cmpstr (action0->ref->collection_id, ==, "com.endlessm.Apps");
   g_assert_cmpstr (action0->source, ==, "test");
@@ -445,11 +448,16 @@ test_parse_autoinstall_file_unsorted (void)
   g_assert_cmpint (action1->ref_count, >=, 1);
   g_assert_cmpint (action1->type, ==, EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
   g_assert_cmpint (action1->ref->ref_count, >=, 1);
-  g_assert_cmpstr (action1_ref, ==, "app/org.example.MyApp/x86_64/master");
+  g_assert_cmpstr (action1_ref, ==, "app/org.example.MyApp/arch/master");
   g_assert_cmpstr (action1->ref->remote, ==, "eos-apps");
   g_assert_cmpstr (action1->ref->collection_id, ==, "com.endlessm.Apps");
   g_assert_cmpstr (action1->source, ==, "test");
   g_assert_cmpint (action1->serial, ==, 2017100100);
+
+  if (old_env_arch)
+    g_setenv ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", old_env_arch, TRUE);
+  else
+    g_unsetenv ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE");
 }
 
 /* Test that the filters on autoinstall files work correctly. */
