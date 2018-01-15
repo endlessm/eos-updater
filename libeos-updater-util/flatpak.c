@@ -247,6 +247,13 @@ parse_flatpak_ref_from_entry (JsonObject      *entry,
   return TRUE;
 }
 
+static const gchar *
+eos_updater_get_system_architecture_string (void)
+{
+  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE",
+                                    flatpak_get_default_arch ());
+}
+
 /* Parse an @entry of type %EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL to a
  * #EuuFlatpakLocationRef. See flatpak_remote_ref_from_action_entry(). */
 static EuuFlatpakLocationRef *
@@ -277,6 +284,7 @@ flatpak_remote_ref_from_install_action_entry (JsonObject  *entry,
   ref = g_object_new (FLATPAK_TYPE_REF,
                       "name", name,
                       "kind", kind,
+                      "arch", eos_updater_get_system_architecture_string (),
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, remote, collection_id);
@@ -298,6 +306,7 @@ flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
   ref = g_object_new (FLATPAK_TYPE_REF,
                       "name", name,
                       "kind", kind,
+                      "arch", eos_updater_get_system_architecture_string (),
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, "none", NULL);
@@ -319,6 +328,7 @@ flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
   ref = g_object_new (FLATPAK_TYPE_REF,
                       "name", name,
                       "kind", kind,
+                      "arch", eos_updater_get_system_architecture_string (),
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, "none", NULL);
@@ -483,13 +493,6 @@ parse_json_from_file (GFile         *file,
     }
 
   return g_steal_pointer (&root_node);
-}
-
-static const gchar *
-eos_updater_get_system_architecture_string (void)
-{
-  return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE",
-                                    flatpak_get_default_arch ());
 }
 
 /* Get the elements of the member named @key of @object, which must exist (it’s
