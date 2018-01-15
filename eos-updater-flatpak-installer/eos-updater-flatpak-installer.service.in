@@ -14,7 +14,7 @@ ConditionNeedsUpdate=/var
 Type=oneshot
 RemainAfterExit=true
 ExecStart=@libexecdir@/eos-updater-flatpak-installer
-Restart=on-failure
+Restart=no
 
 # Sandboxing
 CapabilityBoundingSet=
@@ -35,9 +35,11 @@ ProtectKernelTunables=yes
 ProtectSystem=no
 RestrictAddressFamilies=AF_UNIX
 RestrictRealtime=yes
+SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 # @network-io is required for logging to the journal to work
-SystemCallFilter=~@resources @obsolete @mount @module @keyring @chown @privileged
+# @privileged is required for certain ostree operations
+SystemCallFilter=~@chown @clock @cpu-emulation @debug @keyring @mount @module @obsolete @raw-io @resources
 
 [Install]
 WantedBy=multi-user.target

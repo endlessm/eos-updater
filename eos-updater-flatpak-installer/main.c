@@ -123,12 +123,7 @@ main (int    argc,
 {
   g_autoptr(GError) error = NULL;
   g_autoptr(GOptionContext) context = NULL;
-  g_autoptr(GFile) flatpaks_to_export_file = NULL;
-  g_autoptr(GHashTable) flatpak_ref_actions_for_this_boot = NULL;
-  g_autoptr(GHashTable) flatpak_ref_actions_progress = NULL;
   g_autoptr(FlatpakInstallation) installation = NULL;
-  g_autofree gchar *formatted_flatpak_ref_actions_for_this_boot = NULL;
-  g_autofree gchar *formatted_flatpak_ref_actions_progress_for_this_boot = NULL;
   const gchar *resolved_mode = NULL;
   const gchar *pending_flatpak_deployments_state_path = euu_pending_flatpak_deployments_state_path ();
   EosUpdaterInstallerMode parsed_mode;
