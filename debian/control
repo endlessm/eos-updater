@@ -21,7 +21,7 @@ Build-Depends:
  libavahi-glib-dev (>= 0.6.31),
  libflatpak-dev (>= 0.9.8),
  libgirepository1.0-dev (>= 1.30.0),
- libglib2.0-dev (>= 2.50.0),
+ libglib2.0-dev (>= 2.54.0),
  libgsystem-dev,
  libjson-glib-dev (>= 1.2.6-1endless2),
  libnm-dev (>= 1.2.0),

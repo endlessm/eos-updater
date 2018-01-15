@@ -196,12 +196,12 @@ eus_read_config_file (const gchar  *config_file_path,
       if (!g_str_has_prefix (groups[i], REPOSITORY_GROUP))
         continue;
 
-      if (!eos_string_to_unsigned (groups[i] + strlen (REPOSITORY_GROUP),
-                                   10,
-                                   0,
-                                   G_MAXUINT16,
-                                   &index64,
-                                   &local_error))
+      if (!g_ascii_string_to_unsigned (groups[i] + strlen (REPOSITORY_GROUP),
+                                       10,
+                                       0,
+                                       G_MAXUINT16,
+                                       &index64,
+                                       &local_error))
         {
           g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE,
                        "Invalid group name %s: %s", groups[i], local_error->message);

@@ -85,7 +85,7 @@ local_port_goption (const gchar *option_name,
   if (!check_option_is (option_name, "--local-port", "-p", error))
     return FALSE;
 
-  if (!eos_string_to_unsigned (value, 10, 1, G_MAXUINT16, &number, &local_error))
+  if (!g_ascii_string_to_unsigned (value, 10, 1, G_MAXUINT16, &number, &local_error))
     {
       g_set_error (error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED,
                    "Invalid port number %s: %s", value, local_error->message);

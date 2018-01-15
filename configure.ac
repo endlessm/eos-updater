@@ -77,7 +77,7 @@ AC_ARG_WITH([server-port],
 AC_SUBST([server_port], [$port])
 AC_DEFINE_UNQUOTED([EOS_AVAHI_PORT], [$port], [Socket activation port to be used by eos-update-server])
 
-GLIB_REQUIRED_VERSION=2.50.0
+GLIB_REQUIRED_VERSION=2.54.0
 OSTREE_REQUIRED_VERSION=2017.12
 AVAHI_REQUIRED_VERSION=0.6.31
 NM_REQUIRED_VERSION=1.2.0
