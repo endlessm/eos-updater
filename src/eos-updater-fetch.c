@@ -30,6 +30,28 @@
 
 #include <flatpak.h>
 
+/* Closure containing the data for the fetch worker thread. The
+ * worker thread must not access EosUpdater or EosUpdaterData directly,
+ * as they are not thread safe. */
+typedef struct
+{
+  gchar *update_id;  /* (owned) */
+  gchar *update_refspec;  /* (owned) */
+  EosUpdaterData *data;  /* (unowned) */
+  OstreeAsyncProgress *progress;  /* (owned) */
+} FetchData;
+
+static void
+fetch_data_free (FetchData *data)
+{
+  g_free (data->update_id);
+  g_free (data->update_refspec);
+  g_clear_object (&data->progress);
+  g_free (data);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (FetchData, fetch_data_free)
+
 static void
 content_fetch_finished (GObject *object,
                         GAsyncResult *res,
@@ -38,11 +60,17 @@ content_fetch_finished (GObject *object,
   EosUpdater *updater = EOS_UPDATER (object);
   GTask *task;
   GError *error = NULL;
+  FetchData *fetch_data;
+  OstreeAsyncProgress *progress;
 
   if (!g_task_is_valid (res, object))
     goto invalid_task;
 
   task = G_TASK (res);
+  fetch_data = g_task_get_task_data (task);
+  progress = fetch_data->progress;
+
+  ostree_async_progress_finish (progress);
   g_task_propagate_boolean (task, &error);
 
   if (error)
@@ -73,6 +101,7 @@ content_fetch_finished (GObject *object,
   g_assert_not_reached ();
 }
 
+/* This will be executed in the same thread as handle_fetch(). */
 static void
 update_progress (OstreeAsyncProgress *progress,
                  gpointer object)
@@ -211,43 +240,35 @@ repo_pull_from_remotes (OstreeRepo                            *repo,
 }
 
 static gboolean
-content_fetch_new (EosUpdater      *updater,
-                   EosUpdaterData  *data,
-                   GMainContext    *context,
-                   GCancellable    *cancellable,
-                   GError         **error)
+content_fetch_new (FetchData     *fetch_data,
+                   GMainContext  *context,
+                   GCancellable  *cancellable,
+                   GError       **error)
 {
-  g_autoptr(OstreeAsyncProgress) progress = NULL;
-  gboolean retval;
+  EosUpdaterData *data = fetch_data->data;
 
   g_assert (data->results != NULL);
 
-  progress = ostree_async_progress_new_and_connect (update_progress, updater);
-  retval = repo_pull_from_remotes (data->repo,
-                                   (const OstreeRepoFinderResult * const *) data->results,
-                                   NULL  /* options */, progress, context,
-                                   cancellable, error);
-  ostree_async_progress_finish (progress);
-
-  return retval;
+  return repo_pull_from_remotes (data->repo,
+                                 (const OstreeRepoFinderResult * const *) data->results,
+                                 NULL  /* options */, fetch_data->progress, context,
+                                 cancellable, error);
 }
 
 static gboolean
-content_fetch_old (EosUpdater      *updater,
-                   EosUpdaterData  *data,
-                   GMainContext    *context,
-                   GCancellable    *cancellable,
-                   GError         **error)
+content_fetch_old (FetchData     *fetch_data,
+                   GMainContext  *context,
+                   GCancellable  *cancellable,
+                   GError       **error)
 {
-  const gchar *refspec;
+  EosUpdaterData *data = fetch_data->data;
+  const gchar *refspec = fetch_data->update_refspec;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
-  const gchar *commit_id;
+  const gchar *commit_id = fetch_data->update_id;
   const gchar *url_override = NULL;
   OstreeRepo *repo = data->repo;
-  g_autoptr(OstreeAsyncProgress) progress = NULL;
 
-  refspec = eos_updater_get_update_refspec (updater);
   if (refspec == NULL || *refspec == '\0')
     {
       g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
@@ -258,7 +279,6 @@ content_fetch_old (EosUpdater      *updater,
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
 
-  commit_id = eos_updater_get_update_id (updater);
   if (commit_id == NULL || *commit_id == '\0')
     {
       g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
@@ -267,7 +287,6 @@ content_fetch_old (EosUpdater      *updater,
     }
 
   g_message ("Fetch: %s:%s resolved to: %s", remote, ref, commit_id);
-  progress = ostree_async_progress_new_and_connect (update_progress, updater);
 
   if (data->overridden_urls != NULL && data->overridden_urls[0] != NULL)
     {
@@ -281,13 +300,8 @@ content_fetch_old (EosUpdater      *updater,
    * system hasn;t seen the download/unpack sizes for that so it cannot
    * be considered to have been approved.
    */
-  if (!repo_pull (repo, remote, commit_id, url_override, progress, cancellable, error))
-    {
-      ostree_async_progress_finish (progress);
-      return FALSE;
-    }
-
-  ostree_async_progress_finish (progress);
+  if (!repo_pull (repo, remote, commit_id, url_override, fetch_data->progress, cancellable, error))
+    return FALSE;
 
   g_message ("Fetch: pull() completed");
 
@@ -653,14 +667,14 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
 }
 
 static gboolean
-content_fetch (EosUpdater      *updater,
-               EosUpdaterData  *data,
-               GMainContext    *context,
-               GCancellable    *cancellable,
-               GError         **error)
+content_fetch (FetchData     *fetch_data,
+               GMainContext  *context,
+               GCancellable  *cancellable,
+               GError       **error)
 {
   g_autoptr(GError) local_error = NULL;
-  const gchar *update_id = eos_updater_get_update_id (updater);
+  const gchar *update_id = fetch_data->update_id;
+  EosUpdaterData *data = fetch_data->data;
 
   /* Do we want to use the new libostree code for P2P, or fall back on the old
    * eos-updater code?
@@ -670,7 +684,7 @@ content_fetch (EosUpdater      *updater,
     {
       g_message ("Fetch: using results %p", data->results);
 
-      if (content_fetch_new (updater, data, context, cancellable, &local_error))
+      if (content_fetch_new (fetch_data, context, cancellable, &local_error))
         g_message ("Fetch: finished pulling using libostree P2P code");
       else
         g_warning ("Error fetching updates using libostree P2P code; falling back to old code: %s",
@@ -684,7 +698,7 @@ content_fetch (EosUpdater      *updater,
       if (data->results == NULL)
         g_message ("Fetch: using old code due to lack of repo finder results");
 
-      if (content_fetch_old (updater, data, context, cancellable, &local_error))
+      if (content_fetch_old (fetch_data, context, cancellable, &local_error))
         g_message ("Fetch: finished pulling using old code");
       else
         {
@@ -711,15 +725,13 @@ content_fetch_task (GTask        *task,
                     gpointer      task_data,
                     GCancellable *cancellable)
 {
-  EosUpdater *updater = EOS_UPDATER (object);
-  EosUpdaterData *data = task_data;
-  g_autoptr(GPtrArray) flatpaks_to_deploy = NULL;
+  FetchData *fetch_data = task_data;
   g_autoptr(GError) error = NULL;
   g_autoptr(GMainContext) task_context = g_main_context_new ();
 
   g_main_context_push_thread_default (task_context);
 
-  if (!content_fetch (updater, data, task_context, cancellable, &error))
+  if (!content_fetch (fetch_data, task_context, cancellable, &error))
     g_task_return_error (task, g_steal_pointer (&error));
   else
     g_task_return_boolean (task, TRUE);
@@ -734,6 +746,8 @@ handle_fetch (EosUpdater            *updater,
 {
   g_autoptr(GTask) task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
+  EosUpdaterData *data = user_data;
+  g_autoptr(FetchData) fetch_data = NULL;
 
   if (state != EOS_UPDATER_STATE_UPDATE_AVAILABLE)
     {
@@ -744,9 +758,18 @@ handle_fetch (EosUpdater            *updater,
       return TRUE;
     }
 
+  fetch_data = g_new0 (FetchData, 1);
+  fetch_data->update_id = g_strdup (eos_updater_get_update_id (updater));
+  fetch_data->update_refspec = g_strdup (eos_updater_get_update_refspec (updater));
+  fetch_data->progress = ostree_async_progress_new_and_connect (update_progress, updater);
+
+  /* FIXME: Passing the EosUpdaterData to the worker thread is not thread safe.
+   * See: https://phabricator.endlessm.com/T15923 */
+  fetch_data->data = data;
+
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_FETCHING);
-  task = g_task_new (updater, NULL, content_fetch_finished, user_data);
-  g_task_set_task_data (task, user_data, NULL);
+  task = g_task_new (updater, NULL, content_fetch_finished, NULL);
+  g_task_set_task_data (task, g_steal_pointer (&fetch_data), (GDestroyNotify) fetch_data_free);
   g_task_run_in_thread (task, content_fetch_task);
 
   eos_updater_complete_fetch (updater, call);

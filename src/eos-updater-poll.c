@@ -513,6 +513,9 @@ handle_poll (EosUpdater            *updater,
         goto bail;
     }
 
+  /* FIXME: Passing the EosUpdaterData *user_data to the worker thread here is
+   * not thread safe.
+   * See: https://phabricator.endlessm.com/T15923 */
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
   task = g_task_new (updater, NULL, metadata_fetch_finished, user_data);
   g_task_set_task_data (task, user_data, NULL);
