@@ -39,7 +39,7 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 # @network-io is required for logging to the journal to work
 # @privileged is required for certain ostree operations
-SystemCallFilter=~@resources @obsolete @mount @module @keyring @chown
+SystemCallFilter=~@chown @keyring @mount @module @obsolete @resources
 
 [Install]
 WantedBy=multi-user.target
