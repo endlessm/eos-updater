@@ -800,7 +800,7 @@ get_dbus_timeout (void)
   if (value == NULL || value[0] == '\0')
     return -1;
 
-  if (!eos_string_to_signed (value, 10, 0, G_MAXINT, &timeout, NULL))
+  if (!g_ascii_string_to_signed (value, 10, 0, G_MAXINT, &timeout, NULL))
     return -1;
 
   return (gint) timeout;

@@ -1039,7 +1039,7 @@ iterate_and_remove_ostree_service_files (GFileEnumerator  *enumerator,
         continue;
 
       matched_repository_index = g_match_info_fetch (match_info, 1);
-      if (!eos_string_to_unsigned (matched_repository_index, 10, 0, G_MAXUINT16, NULL, NULL))
+      if (!g_ascii_string_to_unsigned (matched_repository_index, 10, 0, G_MAXUINT16, NULL, NULL))
         continue;
       if (!delete_file_if_exists (file, cancellable, error))
         return FALSE;

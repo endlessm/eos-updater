@@ -54,14 +54,12 @@ test_programs = \
 	config \
 	flatpak \
 	ostree \
-	util \
 	$(NULL)
 
 avahi_service_file_SOURCES = avahi-service-file.c
 config_SOURCES = config.c
 nodist_config_SOURCES = $(config_resource_sources)
 ostree_SOURCES = ostree.c
-util_SOURCES = util.c
 flatpak_SOURCES = flatpak.c
 
 # Resources for the config test.

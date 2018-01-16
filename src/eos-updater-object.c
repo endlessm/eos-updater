@@ -68,6 +68,13 @@ eos_updater_set_error (EosUpdater *updater,
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
 }
 
+/* This must only be called from the main thread. All mutual exclusion of access
+ * to the #EosUpdaterData structure, and the #OstreeRepo (and other things) is
+ * based on the current updater state. To maintain safety, that must only be
+ * modified from the main thread, and only one worker thread must be alive at
+ * once, mutexed on this state.
+ *
+ * See https://phabricator.endlessm.com/T15923 */
 void
 eos_updater_clear_error (EosUpdater *updater,
                          EosUpdaterState state)
