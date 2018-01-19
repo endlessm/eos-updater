@@ -321,7 +321,6 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
     {
       EuuFlatpakRemoteRefAction *action = g_ptr_array_index (pending_flatpak_ref_actions, i);
       EuuFlatpakLocationRef *to_install = action->ref;
-      const gchar *collection_id = to_install->collection_id;
       const gchar *candidate_remote_name = NULL;
       g_autoptr(GError) local_error = NULL;
 
@@ -330,20 +329,14 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
 
       /* Invariant - must have both a remote name or a collection ID
        * by this point */
-      g_assert (collection_id != NULL && to_install->remote != NULL);
+      g_assert (to_install->collection_id != NULL && to_install->remote != NULL);
 
       /* If we didn't hit the remote name cache, figure it out now. */
       if (candidate_remote_name == NULL)
         {
-          g_autofree gchar *formatted_ref = flatpak_ref_format_ref (to_install->ref);
           g_autofree gchar *found_remote_name = NULL;
-          OstreeCollectionRef collection_ref =
-          {
-            (gchar *) to_install->collection_id,
-            formatted_ref
-          };
 
-          g_message ("Looking up flatpak remote name for collection ID %s", collection_id);
+          g_message ("Looking up flatpak remote name for collection ID %s", to_install->collection_id);
 
           /* #EuuFlatpakLocationRef supports specifying both a collection ID
            * and/or a remote name.
@@ -351,7 +344,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
            * Once flatpak_installation_install_full gains support for passing
            * collection ID's as opposed to remotes, then we can drop this code */
           found_remote_name = euu_lookup_flatpak_remote_for_collection_id (installation,
-                                                                           collection_ref.collection_id,
+                                                                           to_install->collection_id,
                                                                            &local_error);
           candidate_remote_name = found_remote_name;
 
@@ -359,7 +352,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
           if (candidate_remote_name == NULL)
             {
               g_message ("Failed to find a remote name for collection ID %s: %s",
-                         collection_id,
+                         to_install->collection_id,
                          local_error->message);
               g_propagate_error (error, g_steal_pointer (&local_error));
               return FALSE;
@@ -370,7 +363,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
                      collection_id);
 
           g_hash_table_insert (collection_ids_to_remote_names,
-                               g_strdup (collection_id),
+                               g_strdup (to_install->collection_id),
                                g_steal_pointer (&found_remote_name));
         }
 
@@ -385,7 +378,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
                        "Specified flatpak remote '%s' conflicts with the remote "
                        "detected for collection ID '%s' ('%s'), cannot continue.",
                        to_install->remote,
-                       collection_id,
+                       to_install->collection_id,
                        candidate_remote_name);
           return FALSE;
         }
