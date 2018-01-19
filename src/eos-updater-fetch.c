@@ -403,6 +403,7 @@ perform_install_preparation (FlatpakInstallation    *installation,
   FlatpakRefKind kind = flatpak_ref_get_kind (ref->ref);
   const gchar *remote = ref->remote;
   const gchar *name = flatpak_ref_get_name (ref->ref);
+  const gchar *arch = flatpak_ref_get_arch (ref->ref);
   const gchar *branch = flatpak_ref_get_branch (ref->ref);
   g_autoptr(GError) local_error = NULL;
 
@@ -416,7 +417,7 @@ perform_install_preparation (FlatpakInstallation    *installation,
                                      remote,
                                      kind,
                                      name,
-                                     NULL,
+                                     arch,
                                      branch,
                                      NULL,
                                      NULL,
@@ -450,7 +451,7 @@ perform_install_preparation (FlatpakInstallation    *installation,
                                         FLATPAK_UPDATE_FLAGS_NO_DEPLOY,
                                         kind,
                                         name,
-                                        NULL,
+                                        arch,
                                         branch,
                                         NULL,
                                         NULL,
@@ -489,6 +490,7 @@ perform_update_preparation (FlatpakInstallation    *installation,
 {
   FlatpakRefKind kind = flatpak_ref_get_kind (ref->ref);
   const gchar *name = flatpak_ref_get_name (ref->ref);
+  const gchar *arch = flatpak_ref_get_arch (ref->ref);
   const gchar *branch = flatpak_ref_get_branch (ref->ref);
   g_autoptr(GError) local_error = NULL;
 
@@ -496,7 +498,7 @@ perform_update_preparation (FlatpakInstallation    *installation,
                                     FLATPAK_UPDATE_FLAGS_NO_DEPLOY,
                                     kind,
                                     name,
-                                    NULL,
+                                    arch,
                                     branch,
                                     NULL,
                                     NULL,

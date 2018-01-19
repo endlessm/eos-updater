@@ -39,6 +39,7 @@ try_update_application (FlatpakInstallation       *installation,
 {
   FlatpakRefKind kind = flatpak_ref_get_kind (ref);
   const gchar *name = flatpak_ref_get_name (ref);
+  const gchar *arch = flatpak_ref_get_arch (ref);
   const gchar *branch = flatpak_ref_get_branch (ref);
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autoptr(GError) local_error = NULL;
@@ -52,7 +53,7 @@ try_update_application (FlatpakInstallation       *installation,
                                              FLATPAK_UPDATE_FLAGS_NO_PULL,
                                              kind,
                                              name,
-                                             NULL,
+                                             arch,
                                              branch,
                                              NULL,
                                              NULL,
@@ -86,6 +87,7 @@ try_install_application (FlatpakInstallation       *installation,
 {
   FlatpakRefKind kind = flatpak_ref_get_kind (ref);
   const gchar *name = flatpak_ref_get_name (ref);
+  const gchar *arch = flatpak_ref_get_arch (ref);
   const gchar *branch = flatpak_ref_get_branch (ref);
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autofree gchar *candidate_remote_name = NULL;
@@ -130,7 +132,7 @@ try_install_application (FlatpakInstallation       *installation,
                                                      remote_name,
                                                      kind,
                                                      name,
-                                                     NULL,
+                                                     arch,
                                                      branch,
                                                      NULL,
                                                      NULL,
@@ -155,7 +157,7 @@ try_install_application (FlatpakInstallation       *installation,
                                                    !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_UPDATE_FLAGS_NO_PULL : 0,
                                                    kind,
                                                    name,
-                                                   NULL,
+                                                   arch,
                                                    NULL,
                                                    NULL,
                                                    NULL,
@@ -186,6 +188,7 @@ try_uninstall_application (FlatpakInstallation  *installation,
 {
   FlatpakRefKind kind = flatpak_ref_get_kind (ref);
   const gchar *name = flatpak_ref_get_name (ref);
+  const gchar *arch = flatpak_ref_get_arch (ref);
   const gchar *branch = flatpak_ref_get_branch (ref);
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autoptr(GError) local_error = NULL;
@@ -195,7 +198,7 @@ try_uninstall_application (FlatpakInstallation  *installation,
   if (!flatpak_installation_uninstall (installation,
                                        kind,
                                        name,
-                                       NULL,
+                                       arch,
                                        branch,
                                        NULL,
                                        NULL,
@@ -400,7 +403,7 @@ check_if_flatpak_is_installed (FlatpakInstallation        *installation,
   installed_ref = flatpak_installation_get_installed_ref (installation,
                                                           flatpak_ref_get_kind (ref),
                                                           flatpak_ref_get_name (ref),
-                                                          NULL,
+                                                          flatpak_ref_get_arch (ref),
                                                           flatpak_ref_get_branch (ref),
                                                           NULL,
                                                           &local_error);
