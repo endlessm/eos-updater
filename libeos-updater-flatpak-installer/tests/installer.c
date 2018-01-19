@@ -59,6 +59,7 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
   g_assert_no_error (error);
 
   eos_test_setup_flatpak_repo_with_preinstalled_apps (flatpak_deployments_directory,
+                                                      "master",
                                                       "test-repo",
                                                       "com.test.CollectionId",
                                                       flatpak_names,
