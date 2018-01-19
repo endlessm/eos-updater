@@ -70,7 +70,7 @@ flatpak_ref_actions_and_progresses (GStrv        directories_to_search,
                                         flatpak_ref_actions_for_this_boot);
   g_message ("%s", formatted_flatpak_ref_actions_for_this_boot);
 
-  formatted_flatpak_ref_actions_progress_for_this_boot = euu_format_all_flatpak_ref_actions_progresses (flatpak_ref_actions_for_this_boot);
+  formatted_flatpak_ref_actions_progress_for_this_boot = euu_format_all_flatpak_ref_actions_progresses (flatpak_ref_actions_progress);
   g_message ("%s", formatted_flatpak_ref_actions_progress_for_this_boot);
 
   *out_actions = g_steal_pointer (&flatpak_ref_actions_for_this_boot);

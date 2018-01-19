@@ -1641,7 +1641,7 @@ euu_format_all_flatpak_ref_actions_progresses (GHashTable *flatpak_ref_action_pr
       const gchar *source = (const gchar *) key;
       gint32 progress = GPOINTER_TO_INT (value);
 
-      g_message ("  %s: %" G_GINT32_FORMAT, source, progress);
+      g_string_append_printf (string, "  %s: %" G_GINT32_FORMAT "\n", source, progress);
     }
 
   if (g_hash_table_size (flatpak_ref_action_progresses) == 0)
