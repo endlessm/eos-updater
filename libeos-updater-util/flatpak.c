@@ -264,8 +264,8 @@ parse_flatpak_ref_from_entry (JsonObject      *entry,
   return TRUE;
 }
 
-static const gchar *
-eos_updater_get_system_architecture_string (void)
+const gchar *
+euu_get_system_architecture_string (void)
 {
   return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE",
                                     flatpak_get_default_arch ());
@@ -303,7 +303,7 @@ flatpak_remote_ref_from_install_action_entry (JsonObject  *entry,
                       "name", name,
                       "branch", branch,
                       "kind", kind,
-                      "arch", eos_updater_get_system_architecture_string (),
+                      "arch", euu_get_system_architecture_string (),
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, remote, collection_id);
@@ -327,7 +327,7 @@ flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
                       "name", name,
                       "branch", branch,
                       "kind", kind,
-                      "arch", eos_updater_get_system_architecture_string (),
+                      "arch", euu_get_system_architecture_string (),
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, "none", NULL);
@@ -351,7 +351,7 @@ flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
                       "name", name,
                       "branch", branch,
                       "kind", kind,
-                      "arch", eos_updater_get_system_architecture_string (),
+                      "arch", euu_get_system_architecture_string (),
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, "none", NULL);
@@ -673,7 +673,7 @@ action_filter_applies (JsonObject   *object,
 {
   const gchar *current_architecture_strv[] =
     {
-      eos_updater_get_system_architecture_string (),
+      euu_get_system_architecture_string (),
       NULL
     };
   g_auto(GStrv) supported_languages = NULL;
