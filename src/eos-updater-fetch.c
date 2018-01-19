@@ -331,8 +331,10 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
        * by this point */
       g_assert (to_install->collection_id != NULL && to_install->remote != NULL);
 
-      /* If we didn't hit the remote name cache, figure it out now. */
-      if (candidate_remote_name == NULL)
+      /* If don’t hit the remote name cache, figure it out now. */
+      if (!g_hash_table_lookup_extended (collection_ids_to_remote_names,
+                                         to_install->collection_id,
+                                         NULL, (gpointer *) &candidate_remote_name))
         {
           g_autofree gchar *found_remote_name = NULL;
 
@@ -348,20 +350,22 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
                                                                            &local_error);
           candidate_remote_name = found_remote_name;
 
-          /* Should be able to find a remote name for all collection IDs */
-          if (candidate_remote_name == NULL)
+          /* The user’s repo config might not yet contain the collection IDs, so
+           * lookup might fail. */
+          if (found_remote_name == NULL)
             {
               g_message ("Failed to find a remote name for collection ID %s: %s",
                          to_install->collection_id,
                          local_error->message);
-              g_propagate_error (error, g_steal_pointer (&local_error));
-              return FALSE;
+              g_clear_error (&local_error);
+            }
+          else
+            {
+              g_message ("Found remote name %s for collection ID %s",
+                         found_remote_name, to_install->collection_id);
             }
 
-          g_message ("Found remote name %s for collection ID %s",
-                     candidate_remote_name,
-                     collection_id);
-
+          /* @found_remote_name might be %NULL on failure here. */
           g_hash_table_insert (collection_ids_to_remote_names,
                                g_strdup (to_install->collection_id),
                                g_steal_pointer (&found_remote_name));
