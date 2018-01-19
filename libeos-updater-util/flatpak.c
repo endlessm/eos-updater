@@ -238,16 +238,9 @@ parse_flatpak_ref_from_entry (JsonObject      *entry,
 
   branch = maybe_get_json_object_string_member (entry, "branch", error);
 
-  /* branch may be missing in which case the default is used */
+  /* branch is mandatory */
   if (branch == NULL)
-    {
-      if (g_error_matches (*error,
-                           EOS_UPDATER_ERROR,
-                           EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
-        g_clear_error (error);
-      else
-        return FALSE;
-    }
+    return FALSE;
 
   ref_kind_str = maybe_get_json_object_string_member (entry, "ref-kind", error);
 
