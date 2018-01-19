@@ -35,7 +35,7 @@
                     "$ref": "#/definitions/remote"
                 }
             },
-            "required": ["ref-kind", "name", "remote", "collection-id"]
+            "required": ["ref-kind", "name", "branch", "collection-id", "remote"]
         },
         {
             "properties": {
@@ -53,15 +53,15 @@
                 "ref-kind": {
                     "$ref": "#/definitions/ref-kind"
                 },
-                "branch": {
-                    "$ref": "#/definitions/branch"
-                },
                 "name": {
                     "description": "The app-id to be uninstalled",
                     "$ref": "#/definitions/name"
+                },
+                "branch": {
+                    "$ref": "#/definitions/branch"
                 }
             },
-            "required": ["ref-kind", "name"]
+            "required": ["ref-kind", "name", "branch"]
         },
         {
             "properties": {
@@ -79,15 +79,15 @@
                 "ref-kind": {
                     "$ref": "#/definitions/ref-kind"
                 },
-                "branch": {
-                    "$ref": "#/definitions/branch"
-                },
                 "name": {
                     "description": "The app-id to be updated",
                     "$ref": "#/definitions/name"
+                },
+                "branch": {
+                    "$ref": "#/definitions/branch"
                 }
             },
-            "required": ["ref-kind", "name"]
+            "required": ["ref-kind", "name", "branch"]
         }
     ],
     "required": ["action", "serial"],
