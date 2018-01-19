@@ -133,6 +133,7 @@ flatpak_build_init (GFile        *updater_dir,
                     const gchar  *bundle_path,
                     const gchar  *app_id,
                     const gchar  *runtime_name,
+                    const gchar  *branch,
                     GError      **error)
 {
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
@@ -145,6 +146,7 @@ flatpak_build_init (GFile        *updater_dir,
       /* Once as the SDK, once as the Runtime */
       { NULL, runtime_name },
       { NULL, runtime_name },
+      { NULL, branch },
       { NULL, NULL }
     };
   g_auto(GStrv) argv = build_cmd_args (args);
@@ -162,6 +164,7 @@ gboolean
 flatpak_build_export (GFile        *updater_dir,
                       const gchar  *bundle_path,
                       const gchar  *repo_path,
+                      const gchar  *branch,
                       GError      **error)
 {
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
@@ -171,6 +174,7 @@ flatpak_build_export (GFile        *updater_dir,
       { NULL, "build-export" },
       { NULL, repo_path },
       { NULL, bundle_path },
+      { NULL, branch },
       { NULL, NULL }
     };
   g_auto(GStrv) argv = build_cmd_args (args);
@@ -239,6 +243,7 @@ flatpak_populate_app (GFile        *updater_dir,
                       GFile        *app_directory_path,
                       const gchar  *app_name,
                       const gchar  *runtime_name,
+                      const gchar  *branch,
                       const gchar  *repo_directory,
                       GError      **error)
 {
@@ -254,6 +259,7 @@ flatpak_populate_app (GFile        *updater_dir,
                            app_directory_path_str,
                            app_name,
                            runtime_name,
+                           branch,
                            error))
     return FALSE;
 
@@ -272,6 +278,7 @@ flatpak_populate_app (GFile        *updater_dir,
   if (!flatpak_build_export (updater_dir,
                              app_directory_path_str,
                              repo_directory,
+                             branch,
                              error))
     return FALSE;
 
@@ -282,7 +289,9 @@ gboolean
 flatpak_populate_runtime (GFile        *updater_dir,
                           GFile        *runtime_directory_path,
                           const gchar  *repo_directory,
+                          const gchar  *name,
                           const gchar  *runtime_name,
+                          const gchar  *branch,
                           const gchar  *collection_id,
                           GError      **error)
 {
@@ -304,7 +313,8 @@ flatpak_populate_runtime (GFile        *updater_dir,
 
   g_autoptr(GFile) repo_directory_path = g_file_new_for_path (repo_directory);
 
-  g_key_file_set_string (metadata, "Runtime", "name", runtime_name);
+  g_key_file_set_string (metadata, "Runtime", "name", name);
+  g_key_file_set_string (metadata, "Runtime", "runtime", runtime_name);
 
   if (!g_file_make_directory_with_parents (runtime_directory_path, NULL, error))
     return FALSE;
@@ -331,6 +341,7 @@ flatpak_populate_runtime (GFile        *updater_dir,
   if (!flatpak_build_export (updater_dir,
                              runtime_directory_path_str,
                              repo_directory,
+                             branch,
                              error))
     return FALSE;
 
