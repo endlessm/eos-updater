@@ -2188,11 +2188,14 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
    * so the remote collection ID needs to be set after the flatpak is
    * installed. FIXME: The tests should be using GPG in order to be
    * representative of a real system. */
-  if (!set_flatpak_remote_collection_id (updater_dir,
-                                         repo_name,
-                                         collection_id,
-                                         error))
-    return FALSE;
+  if (collection_id != NULL)
+    {
+      if (!set_flatpak_remote_collection_id (updater_dir,
+                                             repo_name,
+                                             collection_id,
+                                             error))
+        return FALSE;
+    }
 
   return TRUE;
 }
