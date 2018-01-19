@@ -25,6 +25,9 @@
                     "description": "The app-id to be installed",
                     "$ref": "#/definitions/name"
                 },
+                "branch": {
+                    "$ref": "#/definitions/branch"
+                },
                 "collection-id": {
                     "$ref": "#/definitions/collection-id"
                 },
@@ -50,6 +53,9 @@
                 "ref-kind": {
                     "$ref": "#/definitions/ref-kind"
                 },
+                "branch": {
+                    "$ref": "#/definitions/branch"
+                },
                 "name": {
                     "description": "The app-id to be uninstalled",
                     "$ref": "#/definitions/name"
@@ -72,6 +78,9 @@
                 },
                 "ref-kind": {
                     "$ref": "#/definitions/ref-kind"
+                },
+                "branch": {
+                    "$ref": "#/definitions/branch"
                 },
                 "name": {
                     "description": "The app-id to be updated",
@@ -119,6 +128,10 @@
         },
         "name": {
             "description": "The app-id to be installed",
+            "type": "string"
+        },
+        "branch": {
+            "description": "The branch of the Flatpak to be acted upon",
             "type": "string"
         },
         "collection-id": {

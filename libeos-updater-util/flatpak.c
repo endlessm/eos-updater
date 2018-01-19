@@ -213,25 +213,41 @@ maybe_get_json_object_string_member (JsonObject   *object,
   return json_node_get_string (member);
 }
 
-/* Parse the `app` and `ref-kind` members of the given @entry, which are common
- * to all #FlatpakRef representations. */
+/* Parse the `name`, `branch` and `ref-kind` members of the given @entry,
+ * which are common to all #FlatpakRef representations. */
 static gboolean
 parse_flatpak_ref_from_entry (JsonObject      *entry,
                               const gchar    **out_name,
+                              const gchar    **out_branch,
                               FlatpakRefKind  *out_ref_kind,
                               GError         **error)
 {
   const gchar *name = NULL;
+  const gchar *branch = NULL;
   const gchar *ref_kind_str = NULL;
   FlatpakRefKind kind;
 
   g_return_val_if_fail (out_ref_kind != NULL, FALSE);
   g_return_val_if_fail (out_name != NULL, FALSE);
+  g_return_val_if_fail (out_branch != NULL, FALSE);
 
   name = maybe_get_json_object_string_member (entry, "name", error);
 
   if (name == NULL)
     return FALSE;
+
+  branch = maybe_get_json_object_string_member (entry, "branch", error);
+
+  /* branch may be missing in which case the default is used */
+  if (branch == NULL)
+    {
+      if (g_error_matches (*error,
+                           EOS_UPDATER_ERROR,
+                           EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC))
+        g_clear_error (error);
+      else
+        return FALSE;
+    }
 
   ref_kind_str = maybe_get_json_object_string_member (entry, "ref-kind", error);
 
@@ -242,6 +258,7 @@ parse_flatpak_ref_from_entry (JsonObject      *entry,
     return FALSE;
 
   *out_name = name;
+  *out_branch = branch;
   *out_ref_kind = kind;
 
   return TRUE;
@@ -261,12 +278,13 @@ flatpak_remote_ref_from_install_action_entry (JsonObject  *entry,
                                               GError     **error)
 {
   const gchar *name = NULL;
+  const gchar *branch = NULL;
   const gchar *collection_id = NULL;
   const gchar *remote = NULL;
   g_autoptr(FlatpakRef) ref = NULL;
   FlatpakRefKind kind;
 
-  if (!parse_flatpak_ref_from_entry (entry, &name, &kind, error))
+  if (!parse_flatpak_ref_from_entry (entry, &name, &branch, &kind, error))
     return NULL;
 
   collection_id = maybe_get_json_object_string_member (entry, "collection-id", error);
@@ -283,6 +301,7 @@ flatpak_remote_ref_from_install_action_entry (JsonObject  *entry,
    * and a collection-id */
   ref = g_object_new (FLATPAK_TYPE_REF,
                       "name", name,
+                      "branch", branch,
                       "kind", kind,
                       "arch", eos_updater_get_system_architecture_string (),
                       NULL);
@@ -297,14 +316,16 @@ flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
                                                 GError     **error)
 {
   const gchar *name = NULL;
+  const gchar *branch = NULL;
   FlatpakRefKind kind;
   g_autoptr(FlatpakRef) ref = NULL;
 
-  if (!parse_flatpak_ref_from_entry (entry, &name, &kind, error))
+  if (!parse_flatpak_ref_from_entry (entry, &name, &branch, &kind, error))
     return NULL;
 
   ref = g_object_new (FLATPAK_TYPE_REF,
                       "name", name,
+                      "branch", branch,
                       "kind", kind,
                       "arch", eos_updater_get_system_architecture_string (),
                       NULL);
@@ -319,14 +340,16 @@ flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
                                              GError     **error)
 {
   const gchar *name = NULL;
+  const gchar *branch = NULL;
   FlatpakRefKind kind;
   g_autoptr(FlatpakRef) ref = NULL;
 
-  if (!parse_flatpak_ref_from_entry (entry, &name, &kind, error))
+  if (!parse_flatpak_ref_from_entry (entry, &name, &branch, &kind, error))
     return NULL;
 
   ref = g_object_new (FLATPAK_TYPE_REF,
                       "name", name,
+                      "branch", branch,
                       "kind", kind,
                       "arch", eos_updater_get_system_architecture_string (),
                       NULL);
