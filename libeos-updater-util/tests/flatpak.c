@@ -271,6 +271,9 @@ test_parse_autoinstall_file (void)
       { "[{ 'action': 'update', 'serial': 2017100101, 'ref-kind': 'app', "
         "   'name': 'org.example.OutdatedApp', 'collection-id': 'com.endlessm.Apps', "
         "   'remote': 'eos-apps' }]", 1, 0, 0, 0 },
+      { "[{ 'action': 'update', 'serial': 2018011900, 'ref-kind': 'runtime', "
+        "   'name': 'org.freedesktop.Platform.Icontheme.Example', 'collection-id': 'com.endlessm.Sdk', "
+        "   'remote': 'eos-sdk', 'branch': '1.0' }]", 1, 0, 0, 0 },
 
       { "[{ 'action': 123, 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'remote': 'eos-apps' }]", 0, 0,
