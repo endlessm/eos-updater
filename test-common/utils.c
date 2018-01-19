@@ -43,6 +43,7 @@ const OstreeCollectionRef _default_collection_ref = { (gchar *) "com.endlessm.Co
 const OstreeCollectionRef *default_collection_ref = &_default_collection_ref;
 const gchar *const default_ostree_path = "OSTREE/PATH";
 const gchar *const default_remote_name = "REMOTE";
+const gchar *arch_override_name = "arch";
 const guint max_commit_number = 10;
 
 void
@@ -1474,7 +1475,7 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
       { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
-      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", NULL },
+      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", arch_override_name, NULL },
       { "EOS_UPDATER_TEST_UPDATER_OVERRIDE_LOCALES", "locale", NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
@@ -1975,7 +1976,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
       { "EOS_UPDATER_TEST_OSTREE_DATADIR", NULL, datadir },
-      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", NULL },
+      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", arch_override_name, NULL },
       { NULL, NULL, NULL }
     };
 
