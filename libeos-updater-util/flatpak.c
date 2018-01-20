@@ -1689,20 +1689,23 @@ euu_lookup_flatpak_remote_for_collection_id (FlatpakInstallation  *installation,
 
   remotes = ostree_repo_remote_list (repo, NULL);
 
-  for (iter = remotes; *iter != NULL; ++iter)
+  if (remotes)
     {
-      g_autofree gchar *remote_collection_id = NULL;
+      for (iter = remotes; *iter != NULL; ++iter)
+        {
+          g_autofree gchar *remote_collection_id = NULL;
 
-      if (!ostree_repo_get_remote_option (repo,
-                                          *iter,
-                                          "collection-id",
-                                          NULL,
-                                          &remote_collection_id,
-                                          error))
-        return NULL;
+          if (!ostree_repo_get_remote_option (repo,
+                                              *iter,
+                                              "collection-id",
+                                              NULL,
+                                              &remote_collection_id,
+                                              error))
+            return NULL;
 
-      if (g_strcmp0 (remote_collection_id, collection_id) == 0)
-        return g_strdup (*iter);
+          if (g_strcmp0 (remote_collection_id, collection_id) == 0)
+            return g_strdup (*iter);
+        }
     }
 
   g_set_error (error,
