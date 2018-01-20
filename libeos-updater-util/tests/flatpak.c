@@ -142,6 +142,29 @@ test_compress_uninstall_update_as_uninstall (void)
                    EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
 }
 
+/* Test that no compresson occurrs if 'uninstall' and 'update' are on
+ * different branches */
+static void
+test_no_compress_uninstall_update_different_branches (void)
+{
+  FlatpakToInstallEntry entries[] = {
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other",2 }
+  };
+  FlatpakToInstallFile files[] = {
+    { "autoinstall", entries, G_N_ELEMENTS (entries) }
+  };
+  FlatpakToInstallDirectory directory = { files, G_N_ELEMENTS (files) };
+  g_autoptr(GHashTable) uncompressed_ref_actions_table = flatpak_to_install_directory_to_hash_table (&directory);
+  g_autoptr(GPtrArray) flattened_actions_list = euu_flatten_flatpak_ref_actions_table (uncompressed_ref_actions_table);
+
+  g_assert_cmpuint (flattened_actions_list->len, ==, 2);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 1))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE);
+}
+
 /* Test that actions 'install', then 'uninstall' get compressed as 'uninstall' */
 static void
 test_compress_install_uninstall_as_uninstall (void)
@@ -159,6 +182,29 @@ test_compress_install_uninstall_as_uninstall (void)
 
   g_assert_cmpuint (flattened_actions_list->len, ==, 1);
   g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
+}
+
+/* Test that no compresson occurrs if 'install' and 'uninstall' are on
+ * different branches */
+static void
+test_no_compress_install_uninstall_different_branches (void)
+{
+  FlatpakToInstallEntry entries[] = {
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other",2 }
+  };
+  FlatpakToInstallFile files[] = {
+    { "autoinstall", entries, G_N_ELEMENTS (entries) }
+  };
+  FlatpakToInstallDirectory directory = { files, G_N_ELEMENTS (files) };
+  g_autoptr(GHashTable) uncompressed_ref_actions_table = flatpak_to_install_directory_to_hash_table (&directory);
+  g_autoptr(GPtrArray) flattened_actions_list = euu_flatten_flatpak_ref_actions_table (uncompressed_ref_actions_table);
+
+  g_assert_cmpuint (flattened_actions_list->len, ==, 2);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 1))->type, ==,
                    EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
 }
 
@@ -204,6 +250,29 @@ test_compress_update_update_as_update (void)
                    EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE);
 }
 
+/* Test that no compresson occurrs if 'update' and 'update' are on
+ * different branches */
+static void
+test_no_compress_update_update_different_branches (void)
+{
+  FlatpakToInstallEntry entries[] = {
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other",2 }
+  };
+  FlatpakToInstallFile files[] = {
+    { "autoinstall", entries, G_N_ELEMENTS (entries) }
+  };
+  FlatpakToInstallDirectory directory = { files, G_N_ELEMENTS (files) };
+  g_autoptr(GHashTable) uncompressed_ref_actions_table = flatpak_to_install_directory_to_hash_table (&directory);
+  g_autoptr(GPtrArray) flattened_actions_list = euu_flatten_flatpak_ref_actions_table (uncompressed_ref_actions_table);
+
+  g_assert_cmpuint (flattened_actions_list->len, ==, 2);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 1))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE);
+}
+
 /* Test that actions 'install', then 'install' get compressed as 'install' */
 static void
 test_compress_install_install_as_install (void)
@@ -221,6 +290,29 @@ test_compress_install_install_as_install (void)
 
   g_assert_cmpuint (flattened_actions_list->len, ==, 1);
   g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
+}
+
+/* Test that no compresson occurrs if 'install' and 'install' are on
+ * different branches */
+static void
+test_no_compress_install_install_different_branches (void)
+{
+  FlatpakToInstallEntry entries[] = {
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other",2 }
+  };
+  FlatpakToInstallFile files[] = {
+    { "autoinstall", entries, G_N_ELEMENTS (entries) }
+  };
+  FlatpakToInstallDirectory directory = { files, G_N_ELEMENTS (files) };
+  g_autoptr(GHashTable) uncompressed_ref_actions_table = flatpak_to_install_directory_to_hash_table (&directory);
+  g_autoptr(GPtrArray) flattened_actions_list = euu_flatten_flatpak_ref_actions_table (uncompressed_ref_actions_table);
+
+  g_assert_cmpuint (flattened_actions_list->len, ==, 2);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 1))->type, ==,
                    EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
 }
 
@@ -597,14 +689,22 @@ main (int   argc,
               test_compress_install_update_as_install);
   g_test_add_func ("/flatpak/compress/uninstall-update-as-uninstall",
               test_compress_uninstall_update_as_uninstall);
+  g_test_add_func ("/flatpak/compress/no-compress-uninstall-update-different-branches",
+              test_no_compress_uninstall_update_different_branches);
   g_test_add_func ("/flatpak/compress/install-uninstall-as-uninstall",
               test_compress_install_uninstall_as_uninstall);
+  g_test_add_func ("/flatpak/compress/no-compress-install-uninstall-different-branches",
+              test_no_compress_install_uninstall_different_branches);
   g_test_add_func ("/flatpak/compress/install-uninstall-install-as-install",
               test_compress_install_uninstall_install_as_install);
   g_test_add_func ("/flatpak/compress/update-update-as-update",
               test_compress_update_update_as_update);
+  g_test_add_func ("/flatpak/compress/no-compress-update-update-different-branches",
+              test_no_compress_update_update_different_branches);
   g_test_add_func ("/flatpak/compress/install-install-as-install",
               test_compress_install_install_as_install);
+  g_test_add_func ("/flatpak/compress/no-compress-install-install-different-branches",
+              test_no_compress_install_install_different_branches);
   g_test_add_func ("/flatpak/parse-autoinstall-file",
                    test_parse_autoinstall_file);
   g_test_add_func ("/flatpak/parse-autoinstall-file/unsorted",
