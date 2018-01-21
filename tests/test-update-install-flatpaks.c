@@ -644,6 +644,7 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -715,6 +716,7 @@ test_update_install_flatpaks_custom_branch_name (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "custom_branch",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -789,6 +791,7 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_repo_config (
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection", /* repo config */
+                               NULL, /* remote config on local repo  */
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -865,6 +868,7 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -963,6 +967,7 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -1060,6 +1065,7 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -1160,6 +1166,7 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -1268,6 +1275,7 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
                                                       "master",
                                                       "test-repo",
+                                                      "com.endlessm.TestInstallFlatpaksCollection",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
                                                       (const gchar **) wanted_flatpaks,
                                                       (const gchar **) wanted_flatpaks,
@@ -1391,6 +1399,7 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -1529,6 +1538,7 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -1637,6 +1647,7 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -1711,6 +1722,7 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -1787,6 +1799,7 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -1861,6 +1874,7 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -1949,6 +1963,7 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -2100,6 +2115,7 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -2260,6 +2276,7 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -2356,6 +2373,7 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -2434,6 +2452,7 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -2538,6 +2557,7 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -2657,6 +2677,7 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -2791,6 +2812,7 @@ test_update_uninstall_flatpaks_on_reboot (EosUpdaterFixture *fixture,
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -2913,6 +2935,7 @@ test_update_uninstall_flatpaks_on_reboot_custom_branch_name (EosUpdaterFixture *
   eos_test_setup_flatpak_repo (updater_directory,
                                "custom_branch",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -3038,6 +3061,7 @@ test_update_no_uninstall_flatpaks_on_reboot_different_branch_name (EosUpdaterFix
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -3146,6 +3170,7 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -3247,6 +3272,7 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
                                                       "master",
                                                       "test-repo",
+                                                      "com.endlessm.TestInstallFlatpaksCollection",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
                                                       (const gchar **) wanted_flatpaks,
                                                       (const gchar **) wanted_flatpaks,
@@ -3378,6 +3404,7 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
                                                       "master",
                                                       "test-repo",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
+                                                      "com.endlessm.TestInstallFlatpaksCollection",
                                                       (const gchar **) wanted_flatpaks,
                                                       (const gchar **) wanted_flatpaks,
                                                       &error);
@@ -3493,6 +3520,7 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -3616,6 +3644,7 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
                                "master",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
 
@@ -3715,6 +3744,7 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -3845,6 +3875,7 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);
@@ -3984,6 +4015,7 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
   eos_test_setup_flatpak_repo (updater_directory,
                                "master",
                                "test-repo",
+                               "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                (const gchar **) wanted_flatpaks,
                                &error);

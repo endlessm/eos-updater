@@ -2087,7 +2087,8 @@ gboolean
 eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
                                                     const gchar  *branch,
                                                     const gchar  *repo_name,
-                                                    const gchar  *collection_id,
+                                                    const gchar  *repo_collection_id,
+                                                    const gchar  *remote_config_collection_id,
                                                     const gchar **flatpak_names,
                                                     const gchar **preinstall_flatpak_names,
                                                     GError      **error)
@@ -2133,7 +2134,8 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
                                  "org.test.Runtime",
                                  runtime_formatted_ref_name,
                                  branch,
-                                 collection_id,
+                                 remote_config_collection_id,
+                                 repo_collection_id,
                                  error))
     return FALSE;
 
@@ -2188,11 +2190,11 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
    * so the remote collection ID needs to be set after the flatpak is
    * installed. FIXME: The tests should be using GPG in order to be
    * representative of a real system. */
-  if (collection_id != NULL)
+  if (remote_config_collection_id != NULL)
     {
       if (!set_flatpak_remote_collection_id (updater_dir,
                                              repo_name,
-                                             collection_id,
+                                             remote_config_collection_id,
                                              error))
         return FALSE;
     }
@@ -2204,7 +2206,8 @@ gboolean
 eos_test_setup_flatpak_repo (GFile        *updater_dir,
                              const gchar  *branch,
                              const gchar  *repo_name,
-                             const gchar  *collection_id,
+                             const gchar  *repo_collection_id,
+                             const gchar  *remote_config_collection_id,
                              const gchar **flatpak_names,
                              GError      **error)
 {
@@ -2213,7 +2216,8 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
   return eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_dir,
                                                              branch,
                                                              repo_name,
-                                                             collection_id,
+                                                             repo_collection_id,
+                                                             remote_config_collection_id,
                                                              flatpak_names,
                                                              empty_strv,
                                                              error);

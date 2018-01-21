@@ -79,6 +79,7 @@ gboolean flatpak_populate_runtime (GFile        *updater_dir,
                                    const gchar  *runtime_name,
                                    const gchar  *branch,
                                    const gchar  *collection_id,
+                                   const gchar  *repo_collection_id,
                                    GError      **error);
 
 G_END_DECLS
