@@ -53,8 +53,8 @@ flatpak_to_install_entry_to_remote_ref_action (const gchar           *source,
                                                FlatpakToInstallEntry *entry)
 {
   g_autoptr(FlatpakRef) ref = g_object_new (FLATPAK_TYPE_REF,
-                                            "name", entry->app_id,
                                             "kind", entry->kind,
+                                            "name", entry->app_id,
                                             NULL);
   g_autoptr(EuuFlatpakLocationRef) location_ref = euu_flatpak_location_ref_new (ref, "none", NULL);
 

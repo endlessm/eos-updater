@@ -300,10 +300,10 @@ flatpak_remote_ref_from_install_action_entry (JsonObject  *entry,
   /* Invariant from this point onwards is that we have both a remote
    * and a collection-id */
   ref = g_object_new (FLATPAK_TYPE_REF,
-                      "name", name,
-                      "branch", branch,
                       "kind", kind,
+                      "name", name,
                       "arch", euu_get_system_architecture_string (),
+                      "branch", branch,
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, remote, collection_id);
@@ -324,10 +324,10 @@ flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
     return NULL;
 
   ref = g_object_new (FLATPAK_TYPE_REF,
-                      "name", name,
-                      "branch", branch,
                       "kind", kind,
+                      "name", name,
                       "arch", euu_get_system_architecture_string (),
+                      "branch", branch,
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, "none", NULL);
@@ -348,10 +348,10 @@ flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
     return NULL;
 
   ref = g_object_new (FLATPAK_TYPE_REF,
-                      "name", name,
-                      "branch", branch,
                       "kind", kind,
+                      "name", name,
                       "arch", euu_get_system_architecture_string (),
+                      "branch", branch,
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, "none", NULL);
