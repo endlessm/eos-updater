@@ -125,7 +125,7 @@ gchar *euu_lookup_flatpak_remote_for_collection_id (FlatpakInstallation  *instal
 
 const gchar *euu_pending_flatpak_deployments_state_path (void);
 const gchar *euu_flatpak_autoinstall_override_paths (void);
-const gchar * euu_get_system_architecture_string (void);
+const gchar *euu_get_system_architecture_string (void);
 
 GHashTable *euu_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
                                                 GError **error);
