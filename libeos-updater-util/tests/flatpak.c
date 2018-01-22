@@ -143,7 +143,7 @@ test_compress_uninstall_update_as_uninstall (void)
                    EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
 }
 
-/* Test that no compresson occurrs if 'uninstall' and 'update' are on
+/* Test that no compresson occurs if 'uninstall' and 'update' are on
  * different branches */
 static void
 test_no_compress_uninstall_update_different_branches (void)
