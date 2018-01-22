@@ -31,31 +31,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const gchar *flatpak_ref_kind_to_str[] = {
-  "app", "runtime"
-};
-
-static const gchar *
-string_for_flatpak_kind (FlatpakRefKind kind)
-{
-  g_assert ((int) kind >= FLATPAK_REF_KIND_APP && (int) kind <= FLATPAK_REF_KIND_RUNTIME);
-
-  return flatpak_ref_kind_to_str[(gsize) kind];
-}
-
 static gboolean
 try_update_application (FlatpakInstallation       *installation,
-                        FlatpakRefKind             kind,
-                        const gchar               *name,
+                        FlatpakRef                *ref,
                         EosUpdaterInstallerFlags   flags,
                         GError                   **error)
 {
-  g_autofree gchar *remote_name = NULL;
-  const gchar *formatted_kind = string_for_flatpak_kind (kind);
+  FlatpakRefKind kind = flatpak_ref_get_kind (ref);
+  const gchar *name = flatpak_ref_get_name (ref);
+  const gchar *arch = flatpak_ref_get_arch (ref);
+  const gchar *branch = flatpak_ref_get_branch (ref);
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autoptr(GError) local_error = NULL;
   g_autoptr(FlatpakInstalledRef) updated_ref = NULL;
 
-  g_message ("Attempting to update %s/%s", remote_name, formatted_kind, name);
+  g_message ("Attempting to update %s", formatted_ref);
 
   /* Installation may have failed because we can just update instead,
    * try that. */
@@ -63,8 +53,8 @@ try_update_application (FlatpakInstallation       *installation,
                                              FLATPAK_UPDATE_FLAGS_NO_PULL,
                                              kind,
                                              name,
-                                             NULL,
-                                             NULL,
+                                             arch,
+                                             branch,
                                              NULL,
                                              NULL,
                                              NULL,
@@ -74,7 +64,7 @@ try_update_application (FlatpakInstallation       *installation,
     {
       if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
         {
-          g_message ("%s/%s is not installed, so not updating", formatted_kind, name);
+          g_message ("%s is not installed, so not updating", formatted_ref);
           g_clear_error (&local_error);
           return TRUE;
         }
@@ -83,7 +73,7 @@ try_update_application (FlatpakInstallation       *installation,
       return FALSE;
     }
 
-  g_message ("Successfully updated %s/%s", formatted_kind, name);
+  g_message ("Successfully updated %s", formatted_ref);
   return TRUE;
 }
 
@@ -91,14 +81,17 @@ static gboolean
 try_install_application (FlatpakInstallation       *installation,
                          const gchar               *collection_id,
                          const gchar               *in_remote_name,
-                         FlatpakRefKind             kind,
-                         const gchar               *name,
+                         FlatpakRef                *ref,
                          EosUpdaterInstallerFlags   flags,
                          GError                   **error)
 {
+  FlatpakRefKind kind = flatpak_ref_get_kind (ref);
+  const gchar *name = flatpak_ref_get_name (ref);
+  const gchar *arch = flatpak_ref_get_arch (ref);
+  const gchar *branch = flatpak_ref_get_branch (ref);
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autofree gchar *candidate_remote_name = NULL;
   const gchar *remote_name = in_remote_name;
-  const gchar *formatted_kind = string_for_flatpak_kind (kind);
   g_autoptr(GError) local_error = NULL;
   g_autoptr(FlatpakInstalledRef) installed_ref = NULL;
 
@@ -130,7 +123,7 @@ try_install_application (FlatpakInstallation       *installation,
       g_message ("Remote name for %s is %s", collection_id, remote_name);
     }
 
-  g_message ("Attempting to install %s:%s/%s", remote_name, formatted_kind, name);
+  g_message ("Attempting to install %s:%s", remote_name, formatted_ref);
 
   /* Installation may have failed because we can just update instead,
    * try that. */
@@ -139,8 +132,8 @@ try_install_application (FlatpakInstallation       *installation,
                                                      remote_name,
                                                      kind,
                                                      name,
-                                                     NULL,
-                                                     NULL,
+                                                     arch,
+                                                     branch,
                                                      NULL,
                                                      NULL,
                                                      NULL,
@@ -151,19 +144,20 @@ try_install_application (FlatpakInstallation       *installation,
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
         {
-          g_message ("Failed to install %s:%s/%s: %s", remote_name, formatted_kind, name, local_error->message);
+          g_message ("Failed to install %s:%s: %s", remote_name, formatted_ref,
+                     local_error->message);
           g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
         }
 
-      g_message ("%s:%s/%s already installed, updating", remote_name, formatted_kind, name);
+      g_message ("%s:%s already installed, updating", remote_name, formatted_ref);
       g_clear_error (&local_error);
 
       installed_ref = flatpak_installation_update (installation,
                                                    !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_UPDATE_FLAGS_NO_PULL : 0,
                                                    kind,
                                                    name,
-                                                   NULL,
+                                                   arch,
                                                    NULL,
                                                    NULL,
                                                    NULL,
@@ -174,7 +168,7 @@ try_install_application (FlatpakInstallation       *installation,
         {
           if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
             {
-              g_message ("Failed to update %s:%s/%s", remote_name, formatted_kind, name);
+              g_message ("Failed to update %s:%s", remote_name, formatted_ref);
               g_propagate_error (error, g_steal_pointer (&local_error));
               return FALSE;
             }
@@ -183,26 +177,29 @@ try_install_application (FlatpakInstallation       *installation,
         }
     }
 
-  g_message ("Successfully installed or updated %s:%s/%s", remote_name, formatted_kind, name);
+  g_message ("Successfully installed or updated %s:%s", remote_name, formatted_ref);
   return TRUE;
 }
 
 static gboolean
 try_uninstall_application (FlatpakInstallation  *installation,
-                           FlatpakRefKind        kind,
-                           const gchar          *name,
+                           FlatpakRef           *ref,
                            GError              **error)
 {
+  FlatpakRefKind kind = flatpak_ref_get_kind (ref);
+  const gchar *name = flatpak_ref_get_name (ref);
+  const gchar *arch = flatpak_ref_get_arch (ref);
+  const gchar *branch = flatpak_ref_get_branch (ref);
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autoptr(GError) local_error = NULL;
-  const gchar *formatted_ref_kind = string_for_flatpak_kind (kind);
 
-  g_message ("Attempting to uninstall %s/%s", formatted_ref_kind, name);
+  g_message ("Attempting to uninstall %s", formatted_ref);
 
   if (!flatpak_installation_uninstall (installation,
                                        kind,
                                        name,
-                                       NULL,
-                                       NULL,
+                                       arch,
+                                       branch,
                                        NULL,
                                        NULL,
                                        NULL,
@@ -210,17 +207,17 @@ try_uninstall_application (FlatpakInstallation  *installation,
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
         {
-          g_message ("Could not uninstall %s/%s", formatted_ref_kind, name);
+          g_message ("Could not uninstall %s", formatted_ref);
           g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
         }
 
-      g_message ("%s/%s already uninstalled", formatted_ref_kind, name);
+      g_message ("%s already uninstalled", formatted_ref);
       g_clear_error (&local_error);
       return TRUE;
     }
 
-  g_message ("Successfully uninstalled %s/%s", formatted_ref_kind, name);
+  g_message ("Successfully uninstalled %s", formatted_ref);
   return TRUE;
 }
 
@@ -232,8 +229,6 @@ perform_action (FlatpakInstallation        *installation,
 {
   const gchar *collection_id = action->ref->collection_id;
   const gchar *remote_name = action->ref->remote;
-  FlatpakRefKind kind = flatpak_ref_get_kind (action->ref->ref);
-  const gchar *name = flatpak_ref_get_name (action->ref->ref);
 
   switch (action->type)
     {
@@ -241,18 +236,18 @@ perform_action (FlatpakInstallation        *installation,
         return try_install_application (installation,
                                         collection_id,
                                         remote_name,
-                                        kind,
-                                        name,
+                                        action->ref->ref,
                                         flags,
                                         error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
         return try_update_application (installation,
-                                       kind,
-                                       name,
+                                       action->ref->ref,
                                        flags,
                                        error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
-        return try_uninstall_application (installation, kind, name, error);
+        return try_uninstall_application (installation,
+                                          action->ref->ref,
+                                          error);
       default:
         g_assert_not_reached ();
     }
@@ -408,8 +403,8 @@ check_if_flatpak_is_installed (FlatpakInstallation        *installation,
   installed_ref = flatpak_installation_get_installed_ref (installation,
                                                           flatpak_ref_get_kind (ref),
                                                           flatpak_ref_get_name (ref),
-                                                          NULL,
-                                                          NULL,
+                                                          flatpak_ref_get_arch (ref),
+                                                          flatpak_ref_get_branch (ref),
                                                           NULL,
                                                           &local_error);
 

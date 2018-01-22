@@ -43,6 +43,7 @@ const OstreeCollectionRef _default_collection_ref = { (gchar *) "com.endlessm.Co
 const OstreeCollectionRef *default_collection_ref = &_default_collection_ref;
 const gchar *const default_ostree_path = "OSTREE/PATH";
 const gchar *const default_remote_name = "REMOTE";
+const gchar *arch_override_name = "arch";
 const guint max_commit_number = 10;
 
 void
@@ -1474,7 +1475,7 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
       { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
-      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", NULL },
+      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", arch_override_name, NULL },
       { "EOS_UPDATER_TEST_UPDATER_OVERRIDE_LOCALES", "locale", NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
@@ -1975,7 +1976,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
       { "EOS_UPDATER_TEST_OSTREE_DATADIR", NULL, datadir },
-      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", NULL },
+      { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", arch_override_name, NULL },
       { NULL, NULL, NULL }
     };
 
@@ -2075,8 +2076,16 @@ eos_test_get_flatpak_build_dir_for_updater_dir (GFile *updater_dir)
   return g_file_get_child (updater_dir, "flatpak");
 }
 
+static gchar *
+format_flatpak_ref_name_with_branch_override_arch (const gchar *name,
+                                                   const gchar *branch)
+{
+  return g_strdup_printf ("%s/%s/%s", name, arch_override_name, branch);
+}
+
 gboolean
 eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
+                                                    const gchar  *branch,
                                                     const gchar  *repo_name,
                                                     const gchar  *collection_id,
                                                     const gchar **flatpak_names,
@@ -2107,6 +2116,9 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
   g_autofree gchar *runtime_directory = g_build_filename (flatpak_build_directory_path_str,
                                                           "runtime",
                                                           NULL);
+  g_autofree gchar *runtime_formatted_ref_name =
+    format_flatpak_ref_name_with_branch_override_arch ("org.test.Runtime", branch);
+
   const gchar **flatpak_name_iter = NULL;
 
   if (!g_file_make_directory_with_parents (flatpak_build_directory_path, NULL, error))
@@ -2119,6 +2131,8 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
                                  runtime_directory_path,
                                  repo_directory_path,
                                  "org.test.Runtime",
+                                 runtime_formatted_ref_name,
+                                 branch,
                                  collection_id,
                                  error))
     return FALSE;
@@ -2131,7 +2145,7 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
 
   if (!flatpak_install (updater_dir,
                         "test-repo",
-                        "org.test.Runtime",
+                        runtime_formatted_ref_name,
                         error))
     return FALSE;
 
@@ -2148,7 +2162,8 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
       if (!flatpak_populate_app (updater_dir,
                                  app_path,
                                  *flatpak_name_iter,
-                                 "org.test.Runtime",
+                                 runtime_formatted_ref_name,
+                                 branch,
                                  repo_directory_path,
                                  error))
         return FALSE;
@@ -2158,9 +2173,13 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
    * all the apps into our repo */
   for (flatpak_name_iter = preinstall_flatpak_names; *flatpak_name_iter != NULL; ++flatpak_name_iter)
     {
+      g_autofree gchar *app_formatted_ref_name =
+        format_flatpak_ref_name_with_branch_override_arch (*flatpak_name_iter,
+                                                           branch);
+
       if (!flatpak_install (updater_dir,
                             repo_name,
-                            *flatpak_name_iter,
+                            app_formatted_ref_name,
                             error))
         return FALSE;
     }
@@ -2180,6 +2199,7 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
 
 gboolean
 eos_test_setup_flatpak_repo (GFile        *updater_dir,
+                             const gchar  *branch,
                              const gchar  *repo_name,
                              const gchar  *collection_id,
                              const gchar **flatpak_names,
@@ -2188,6 +2208,7 @@ eos_test_setup_flatpak_repo (GFile        *updater_dir,
   const gchar *empty_strv[] = { NULL };
 
   return eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_dir,
+                                                             branch,
                                                              repo_name,
                                                              collection_id,
                                                              flatpak_names,

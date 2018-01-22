@@ -25,6 +25,9 @@
                     "description": "The app-id to be installed",
                     "$ref": "#/definitions/name"
                 },
+                "branch": {
+                    "$ref": "#/definitions/branch"
+                },
                 "collection-id": {
                     "$ref": "#/definitions/collection-id"
                 },
@@ -32,7 +35,7 @@
                     "$ref": "#/definitions/remote"
                 }
             },
-            "required": ["ref-kind", "name", "remote", "collection-id"]
+            "required": ["ref-kind", "name", "branch", "collection-id", "remote"]
         },
         {
             "properties": {
@@ -53,9 +56,12 @@
                 "name": {
                     "description": "The app-id to be uninstalled",
                     "$ref": "#/definitions/name"
+                },
+                "branch": {
+                    "$ref": "#/definitions/branch"
                 }
             },
-            "required": ["ref-kind", "name"]
+            "required": ["ref-kind", "name", "branch"]
         },
         {
             "properties": {
@@ -76,9 +82,12 @@
                 "name": {
                     "description": "The app-id to be updated",
                     "$ref": "#/definitions/name"
+                },
+                "branch": {
+                    "$ref": "#/definitions/branch"
                 }
             },
-            "required": ["ref-kind", "name"]
+            "required": ["ref-kind", "name", "branch"]
         }
     ],
     "required": ["action", "serial"],
@@ -119,6 +128,10 @@
         },
         "name": {
             "description": "The app-id to be installed",
+            "type": "string"
+        },
+        "branch": {
+            "description": "The branch of the Flatpak to be acted upon",
             "type": "string"
         },
         "collection-id": {

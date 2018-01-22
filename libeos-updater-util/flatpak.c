@@ -213,24 +213,33 @@ maybe_get_json_object_string_member (JsonObject   *object,
   return json_node_get_string (member);
 }
 
-/* Parse the `app` and `ref-kind` members of the given @entry, which are common
- * to all #FlatpakRef representations. */
+/* Parse the `name`, `branch` and `ref-kind` members of the given @entry,
+ * which are common to all #FlatpakRef representations. */
 static gboolean
 parse_flatpak_ref_from_entry (JsonObject      *entry,
                               const gchar    **out_name,
+                              const gchar    **out_branch,
                               FlatpakRefKind  *out_ref_kind,
                               GError         **error)
 {
   const gchar *name = NULL;
+  const gchar *branch = NULL;
   const gchar *ref_kind_str = NULL;
   FlatpakRefKind kind;
 
   g_return_val_if_fail (out_ref_kind != NULL, FALSE);
   g_return_val_if_fail (out_name != NULL, FALSE);
+  g_return_val_if_fail (out_branch != NULL, FALSE);
 
   name = maybe_get_json_object_string_member (entry, "name", error);
 
   if (name == NULL)
+    return FALSE;
+
+  branch = maybe_get_json_object_string_member (entry, "branch", error);
+
+  /* branch is mandatory */
+  if (branch == NULL)
     return FALSE;
 
   ref_kind_str = maybe_get_json_object_string_member (entry, "ref-kind", error);
@@ -242,13 +251,14 @@ parse_flatpak_ref_from_entry (JsonObject      *entry,
     return FALSE;
 
   *out_name = name;
+  *out_branch = branch;
   *out_ref_kind = kind;
 
   return TRUE;
 }
 
-static const gchar *
-eos_updater_get_system_architecture_string (void)
+const gchar *
+euu_get_system_architecture_string (void)
 {
   return eos_updater_get_envvar_or ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE",
                                     flatpak_get_default_arch ());
@@ -261,12 +271,13 @@ flatpak_remote_ref_from_install_action_entry (JsonObject  *entry,
                                               GError     **error)
 {
   const gchar *name = NULL;
+  const gchar *branch = NULL;
   const gchar *collection_id = NULL;
   const gchar *remote = NULL;
   g_autoptr(FlatpakRef) ref = NULL;
   FlatpakRefKind kind;
 
-  if (!parse_flatpak_ref_from_entry (entry, &name, &kind, error))
+  if (!parse_flatpak_ref_from_entry (entry, &name, &branch, &kind, error))
     return NULL;
 
   collection_id = maybe_get_json_object_string_member (entry, "collection-id", error);
@@ -282,9 +293,10 @@ flatpak_remote_ref_from_install_action_entry (JsonObject  *entry,
   /* Invariant from this point onwards is that we have both a remote
    * and a collection-id */
   ref = g_object_new (FLATPAK_TYPE_REF,
-                      "name", name,
                       "kind", kind,
-                      "arch", eos_updater_get_system_architecture_string (),
+                      "name", name,
+                      "arch", euu_get_system_architecture_string (),
+                      "branch", branch,
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, remote, collection_id);
@@ -297,16 +309,18 @@ flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
                                                 GError     **error)
 {
   const gchar *name = NULL;
+  const gchar *branch = NULL;
   FlatpakRefKind kind;
   g_autoptr(FlatpakRef) ref = NULL;
 
-  if (!parse_flatpak_ref_from_entry (entry, &name, &kind, error))
+  if (!parse_flatpak_ref_from_entry (entry, &name, &branch, &kind, error))
     return NULL;
 
   ref = g_object_new (FLATPAK_TYPE_REF,
-                      "name", name,
                       "kind", kind,
-                      "arch", eos_updater_get_system_architecture_string (),
+                      "name", name,
+                      "arch", euu_get_system_architecture_string (),
+                      "branch", branch,
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, "none", NULL);
@@ -319,16 +333,18 @@ flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
                                              GError     **error)
 {
   const gchar *name = NULL;
+  const gchar *branch = NULL;
   FlatpakRefKind kind;
   g_autoptr(FlatpakRef) ref = NULL;
 
-  if (!parse_flatpak_ref_from_entry (entry, &name, &kind, error))
+  if (!parse_flatpak_ref_from_entry (entry, &name, &branch, &kind, error))
     return NULL;
 
   ref = g_object_new (FLATPAK_TYPE_REF,
-                      "name", name,
                       "kind", kind,
-                      "arch", eos_updater_get_system_architecture_string (),
+                      "name", name,
+                      "arch", euu_get_system_architecture_string (),
+                      "branch", branch,
                       NULL);
 
   return euu_flatpak_location_ref_new (ref, "none", NULL);
@@ -650,7 +666,7 @@ action_filter_applies (JsonObject   *object,
 {
   const gchar *current_architecture_strv[] =
     {
-      eos_updater_get_system_architecture_string (),
+      euu_get_system_architecture_string (),
       NULL
     };
   g_auto(GStrv) supported_languages = NULL;
@@ -1641,7 +1657,7 @@ euu_format_all_flatpak_ref_actions_progresses (GHashTable *flatpak_ref_action_pr
       const gchar *source = (const gchar *) key;
       gint32 progress = GPOINTER_TO_INT (value);
 
-      g_message ("  %s: %" G_GINT32_FORMAT, source, progress);
+      g_string_append_printf (string, "  %s: %" G_GINT32_FORMAT "\n", source, progress);
     }
 
   if (g_hash_table_size (flatpak_ref_action_progresses) == 0)
@@ -1673,20 +1689,23 @@ euu_lookup_flatpak_remote_for_collection_id (FlatpakInstallation  *installation,
 
   remotes = ostree_repo_remote_list (repo, NULL);
 
-  for (iter = remotes; *iter != NULL; ++iter)
+  if (remotes)
     {
-      g_autofree gchar *remote_collection_id = NULL;
+      for (iter = remotes; *iter != NULL; ++iter)
+        {
+          g_autofree gchar *remote_collection_id = NULL;
 
-      if (!ostree_repo_get_remote_option (repo,
-                                          *iter,
-                                          "collection-id",
-                                          NULL,
-                                          &remote_collection_id,
-                                          error))
-        return NULL;
+          if (!ostree_repo_get_remote_option (repo,
+                                              *iter,
+                                              "collection-id",
+                                              NULL,
+                                              &remote_collection_id,
+                                              error))
+            return NULL;
 
-      if (g_strcmp0 (remote_collection_id, collection_id) == 0)
-        return g_strdup (*iter);
+          if (g_strcmp0 (remote_collection_id, collection_id) == 0)
+            return g_strdup (*iter);
+        }
     }
 
   g_set_error (error,

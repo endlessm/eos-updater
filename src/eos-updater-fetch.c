@@ -403,6 +403,8 @@ perform_install_preparation (FlatpakInstallation    *installation,
   FlatpakRefKind kind = flatpak_ref_get_kind (ref->ref);
   const gchar *remote = ref->remote;
   const gchar *name = flatpak_ref_get_name (ref->ref);
+  const gchar *arch = flatpak_ref_get_arch (ref->ref);
+  const gchar *branch = flatpak_ref_get_branch (ref->ref);
   g_autoptr(GError) local_error = NULL;
 
   /* We have to pass in a local_error instance here and check to see
@@ -415,8 +417,8 @@ perform_install_preparation (FlatpakInstallation    *installation,
                                      remote,
                                      kind,
                                      name,
-                                     NULL,
-                                     NULL,
+                                     arch,
+                                     branch,
                                      NULL,
                                      NULL,
                                      NULL,
@@ -449,8 +451,8 @@ perform_install_preparation (FlatpakInstallation    *installation,
                                         FLATPAK_UPDATE_FLAGS_NO_DEPLOY,
                                         kind,
                                         name,
-                                        NULL,
-                                        NULL,
+                                        arch,
+                                        branch,
                                         NULL,
                                         NULL,
                                         NULL,
@@ -488,14 +490,16 @@ perform_update_preparation (FlatpakInstallation    *installation,
 {
   FlatpakRefKind kind = flatpak_ref_get_kind (ref->ref);
   const gchar *name = flatpak_ref_get_name (ref->ref);
+  const gchar *arch = flatpak_ref_get_arch (ref->ref);
+  const gchar *branch = flatpak_ref_get_branch (ref->ref);
   g_autoptr(GError) local_error = NULL;
 
   if (!flatpak_installation_update (installation,
                                     FLATPAK_UPDATE_FLAGS_NO_DEPLOY,
                                     kind,
                                     name,
-                                    NULL,
-                                    NULL,
+                                    arch,
+                                    branch,
                                     NULL,
                                     NULL,
                                     NULL,

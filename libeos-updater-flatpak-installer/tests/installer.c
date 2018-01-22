@@ -59,6 +59,7 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
   g_assert_no_error (error);
 
   eos_test_setup_flatpak_repo_with_preinstalled_apps (flatpak_deployments_directory,
+                                                      "master",
                                                       "test-repo",
                                                       "com.test.CollectionId",
                                                       flatpak_names,
@@ -103,8 +104,9 @@ sample_flatpak_ref_actions_of_type (const gchar                   *source,
   for (i = 0; flatpaks_to_install[i] != NULL; ++i)
     {
       g_autoptr(FlatpakRef) ref = g_object_new (FLATPAK_TYPE_REF,
-                                                "name", flatpaks_to_install[i],
                                                 "kind", FLATPAK_REF_KIND_APP,
+                                                "name", flatpaks_to_install[i],
+                                                "arch", euu_get_system_architecture_string (),
                                                 NULL);
       g_autoptr(EuuFlatpakLocationRef) location_ref = euu_flatpak_location_ref_new (ref,
                                                                                     "test-repo",
@@ -500,6 +502,10 @@ main (int   argc,
   setlocale (LC_ALL, "");
 
   g_test_init (&argc, &argv, NULL);
+
+  /* Since we setup a flatpak repo with the architecture being overridden
+   * as "arch", we need to override it here too */
+  g_setenv ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", FALSE);
 
   g_test_add ("/flatpak/deploy-flatpak-files-as-expected",
               FlatpakDeploymentsFixture,

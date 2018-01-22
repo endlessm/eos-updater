@@ -46,11 +46,13 @@ gboolean flatpak_build_init (GFile        *updater_dir,
                              const gchar  *bundle_path,
                              const gchar  *app_id,
                              const gchar  *runtime_name,
+                             const gchar  *branch,
                              GError      **error);
 
 gboolean flatpak_build_export (GFile        *updater_dir,
                                const gchar  *bundle_path,
                                const gchar  *repo_path,
+                               const gchar  *branch,
                                GError      **error);
 
 gboolean flatpak_build_finish (GFile        *updater_dir,
@@ -66,13 +68,16 @@ gboolean flatpak_populate_app (GFile        *updater_dir,
                                GFile        *app_directory_path,
                                const gchar  *app_name,
                                const gchar  *runtime_name,
+                               const gchar  *branch,
                                const gchar  *repo_directory,
                                GError      **error);
 
 gboolean flatpak_populate_runtime (GFile        *updater_dir,
                                    GFile        *runtime_directory_path,
                                    const gchar  *repo_directory,
+                                   const gchar  *name,
                                    const gchar  *runtime_name,
+                                   const gchar  *branch,
                                    const gchar  *collection_id,
                                    GError      **error);
 
