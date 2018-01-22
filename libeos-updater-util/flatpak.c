@@ -257,6 +257,18 @@ parse_flatpak_ref_from_entry (JsonObject      *entry,
   return TRUE;
 }
 
+/**
+ * euu_get_system_architecture_string:
+ *
+ * Get the value of the EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE or
+ * the default system architecture string (for example, "x86", "x86_64",
+ * "armhf"). Generally speaking, callers needing to explicitly specify
+ * an architecture should prefer to use this function as opposed to
+ * flatpak_get_default_arch() because this value can be overridden to
+ * be a constant throughout the execution of all integration tests.
+ *
+ * Returns: A string specifying the architecture in use.
+ */
 const gchar *
 euu_get_system_architecture_string (void)
 {
