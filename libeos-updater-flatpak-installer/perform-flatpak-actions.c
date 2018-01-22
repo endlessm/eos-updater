@@ -69,6 +69,16 @@ try_update_application (FlatpakInstallation       *installation,
           return TRUE;
         }
 
+     /* We also have to check for FLATPAK_ERROR_ALREADY_INSTALLED since this
+      * is thrown if there are no updates to complete. Arguably a design flaw
+      * in Flatpak itself. */
+     if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
+        {
+          g_message ("%s is already up to date, so not updating", formatted_ref);
+          g_clear_error (&local_error);
+          return TRUE;
+        }
+
       g_propagate_error (error, g_steal_pointer (&local_error));
       return FALSE;
     }
