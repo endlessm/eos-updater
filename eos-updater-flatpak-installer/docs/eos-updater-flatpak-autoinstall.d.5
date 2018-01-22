@@ -51,11 +51,12 @@ increasing counter within the domain of that filename.
 .IP "\fIFlatpak Ref Action\fP"
 .IX Item "Flatpak Ref Action"
 A JSON object containing, at minimum, properties \fBaction\fP,
-\fBserial\fP and optionally \fBfilters\fP. Valid values for
+\fBserial\fP, \branch\fP and optionally \fBfilters\fP. Valid values for
 \fBaction\fP are \fBinstall\fP, \fBupdate\fP and \fBuninstall\fP,
 each having their own required properties as explained below. The only valid
 type for \fBserial\fP, is an integer, which must be monotonically
-increasing as new entries are appended to the file.
+increasing as new entries are appended to the file. \fBbranch\fP must refer
+to a valid branch for the given flatpak.
 .\"
 .IP "\fIThe \fBfilters\fP entry\fP"
 .IX Item "The filters entry"
@@ -122,6 +123,7 @@ when the action is applied.
 [
     {
         "action": "install",
+        "branch": "master",
         "serial": 2017100100,
         "ref\-kind": "app",
         "name": "org.example.MyApp",
@@ -129,6 +131,7 @@ when the action is applied.
     },
     {
         "action": "uninstall",
+        "branch": "eos3",
         "serial": 2017100101,
         "ref\-kind": "app",
         "name": "org.example.OutdatedApp",
@@ -136,6 +139,7 @@ when the action is applied.
     },
     {
         "action": "install",
+        "branch": "eos3",
         "serial": 2017100500,
         "ref\-kind": "runtime",
         "name": "org.example.PreinstalledRuntime",
@@ -143,6 +147,7 @@ when the action is applied.
     },
     {
         "action": "install",
+        "branch": "eos3",
         "serial": 2017110100,
         "ref\-kind": "runtime",
         "name": "org.example.NVidiaRuntime",
@@ -150,6 +155,7 @@ when the action is applied.
     },
     {
         "action": "install",
+        "branch": "eos3",
         "serial": 2017110200,
         "ref\-kind": "app",
         "name": "org.example.IndonesiaNonArmGame",
