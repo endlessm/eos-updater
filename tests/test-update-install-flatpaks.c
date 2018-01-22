@@ -3483,7 +3483,7 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
                                   &error);
   g_assert_no_error (error);
 
-  /* Assert that our flatpak was installed */
+  /* Assert that our flatpak was not installed */
   deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
   g_assert_no_error (error);
 
