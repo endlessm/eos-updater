@@ -29,6 +29,29 @@
 
 #include <ostree.h>
 
+/* Closure containing the data for the apply worker thread. The
+ * worker thread must not access EosUpdater or EosUpdaterData directly,
+ * as they are not thread safe. */
+typedef struct
+{
+  gchar *update_id;  /* (owned) */
+  gchar *update_refspec;  /* (owned) */
+  gchar *orig_refspec;  /* (owned) */
+  OstreeRepo *repo;  /* (owned) */
+} ApplyData;
+
+static void
+apply_data_free (ApplyData *data)
+{
+  g_free (data->update_id);
+  g_free (data->update_refspec);
+  g_free (data->orig_refspec);
+  g_clear_object (&data->repo);
+  g_free (data);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (ApplyData, apply_data_free)
+
 static void
 apply_finished (GObject *object,
                 GAsyncResult *res,
@@ -75,16 +98,15 @@ get_test_osname (void)
 }
 
 static gboolean
-apply_internal (EosUpdater *updater,
-                EosUpdaterData *data,
-                GCancellable *cancel,
-                gboolean *out_bootversion_changed,
-                GError **error)
+apply_internal (ApplyData     *apply_data,
+                GCancellable  *cancel,
+                gboolean      *out_bootversion_changed,
+                GError       **error)
 {
-  OstreeRepo *repo = data->repo;
-  const gchar *update_id = eos_updater_get_update_id (updater);
-  const gchar *update_refspec = eos_updater_get_update_refspec (updater);
-  const gchar *orig_refspec = eos_updater_get_original_refspec (updater);
+  OstreeRepo *repo = apply_data->repo;
+  const gchar *update_id = apply_data->update_id;
+  const gchar *update_refspec = apply_data->update_refspec;
+  const gchar *orig_refspec = apply_data->orig_refspec;
   gint bootversion = 0;
   gint newbootver = 0;
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
@@ -177,15 +199,13 @@ apply (GTask *task,
        GCancellable *cancel)
 {
   g_autoptr(GError) local_error = NULL;
-  EosUpdater *updater = EOS_UPDATER (object);
-  EosUpdaterData *data = task_data;
+  ApplyData *apply_data = task_data;
   gboolean bootversion_changed;
   g_autoptr(GMainContext) task_context = g_main_context_new ();
 
   g_main_context_push_thread_default (task_context);
 
-  if (!apply_internal (updater,
-                       data,
+  if (!apply_internal (apply_data,
                        cancel,
                        &bootversion_changed,
                        &local_error))
@@ -202,6 +222,8 @@ handle_apply (EosUpdater            *updater,
               gpointer               user_data)
 {
   g_autoptr(GTask) task = NULL;
+  g_autoptr(ApplyData) apply_data = NULL;
+  EosUpdaterData *data = user_data;
   EosUpdaterState state = eos_updater_get_state (updater);
 
   if (state != EOS_UPDATER_STATE_UPDATE_READY)
@@ -213,9 +235,15 @@ handle_apply (EosUpdater            *updater,
       return TRUE;
     }
 
+  apply_data = g_new0 (ApplyData, 1);
+  apply_data->update_id = g_strdup (eos_updater_get_update_id (updater));
+  apply_data->update_refspec = g_strdup (eos_updater_get_update_refspec (updater));
+  apply_data->orig_refspec = g_strdup (eos_updater_get_original_refspec (updater));
+  apply_data->repo = g_object_ref (data->repo);
+
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_APPLYING_UPDATE);
-  task = g_task_new (updater, NULL, apply_finished, user_data);
-  g_task_set_task_data (task, user_data, NULL);
+  task = g_task_new (updater, NULL, apply_finished, NULL);
+  g_task_set_task_data (task, g_steal_pointer (&apply_data), (GDestroyNotify) apply_data_free);
   g_task_run_in_thread (task, apply);
 
   eos_updater_complete_apply (updater, call);
