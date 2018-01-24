@@ -470,8 +470,23 @@ perform_install_preparation (FlatpakInstallation    *installation,
                                         NULL,
                                         NULL,
                                         NULL,
-                                        error))
-        return FALSE;
+                                        &local_error))
+        {
+          /* We'll get FLATPAK_ERROR_ALREADY_INSTALLED again if there
+           * were no updates to pull. This is probably a design bug
+           * in Flatpak but we have to live with it. */
+          if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
+            {
+              g_message ("%s:%s has no updates either, nothing to do",
+                         remote,
+                         formatted_ref);
+              g_clear_error (&local_error);
+              return TRUE;
+            }
+
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
 
       return TRUE;
     }
@@ -519,7 +534,8 @@ perform_update_preparation (FlatpakInstallation    *installation,
                                     NULL,
                                     &local_error))
     {
-      if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
+      if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED) &&
+          !g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
         {
           g_propagate_error (error, g_steal_pointer (&local_error));
           return FALSE;
