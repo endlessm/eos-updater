@@ -293,6 +293,7 @@ flatpak_populate_runtime (GFile        *updater_dir,
                           const gchar  *runtime_name,
                           const gchar  *branch,
                           const gchar  *collection_id,
+                          const gchar  *repo_collection_id,
                           GError      **error)
 {
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
@@ -330,7 +331,7 @@ flatpak_populate_runtime (GFile        *updater_dir,
 
   if (!ostree_init (repo_directory_path,
                     REPO_ARCHIVE_Z2,
-                    collection_id,
+                    repo_collection_id,
                     &cmd,
                     error))
     return FALSE;

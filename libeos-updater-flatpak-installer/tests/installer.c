@@ -62,6 +62,7 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
                                                       "master",
                                                       "test-repo",
                                                       "com.test.CollectionId",
+                                                      "com.test.CollectionId",
                                                       flatpak_names,
                                                       preinstall_flatpak_names,
                                                       &error);
