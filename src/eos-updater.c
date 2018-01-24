@@ -296,6 +296,15 @@ purge_old_config (void)
                          "3693ff9b337a89ceec8b0630bd887d01");
 }
 
+/* Exit statuses. */
+typedef enum
+{
+  /* Success. */
+  EXIT_OK = 0,
+  /* Failed to set up a quit file. */
+  EXIT_NO_QUIT_FILE = 1,
+} ExitStatus;
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -331,9 +340,9 @@ main (gint argc, gchar *argv[])
   if (!maybe_setup_quit_file (&local_data, &error))
     {
       g_message ("Failed to set up the quit file: %s", error->message);
-      return 1;
+      return EXIT_NO_QUIT_FILE;
     }
   g_main_loop_run (loop);
 
-  return 0;
+  return EXIT_OK;
 }
