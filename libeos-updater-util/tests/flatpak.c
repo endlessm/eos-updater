@@ -482,6 +482,28 @@ test_parse_autoinstall_file (void)
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
         "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+
+      /* nonsensical serial numbers, outside of 32 bit range */
+      { "[{ 'action': 'install', 'serial': -2147483649, 'ref-kind': 'app', "
+        "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
+        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+      { "[{ 'action': 'install', 'serial': 2147483648, 'ref-kind': 'app', "
+        "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
+        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+      { "[{ 'action': 'install', 'serial': 'not a number', 'ref-kind': 'app', "
+        "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
+        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+      { "[{ 'action': 'install', 'serial': 1.2, 'ref-kind': 'app', "
+        "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
+        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
+      { "[{ 'action': 'install', 'ref-kind': 'app', "
+        "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
+        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
     };
   gsize i;
 
