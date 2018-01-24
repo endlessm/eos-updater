@@ -44,7 +44,7 @@ object_array_new (void)
 typedef guint EosBusNameID;
 G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
 
-OstreeRepo *eos_updater_local_repo (void);
+OstreeRepo *eos_updater_local_repo (GError **error);
 
 gboolean eos_updater_save_or_delete  (GBytes *contents,
                                       GFile *dir,
