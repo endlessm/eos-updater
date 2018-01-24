@@ -1,7 +1,7 @@
 [Unit]
 Description=Endless OS Post-Boot Flatpak Installer
-Wants=ostree-remount.service
-After=ostree-remount.service
+Wants=ostree-remount.service eos-extra-settled.target
+After=ostree-remount.service eos-extra-settled.target
 ConditionKernelCommandLine=!eos-updater-disable
 DefaultDependencies=no
 Conflicts=shutdown.target
