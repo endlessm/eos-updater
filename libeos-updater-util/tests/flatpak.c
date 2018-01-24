@@ -456,6 +456,12 @@ test_parse_autoinstall_file (void)
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', 'branch': 'master' }]",
         1, 0, 0, 0 },
+      { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
+        "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
+        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'filters': { 'nonexistent': ['invalid'] }}]",
+        0, 1, 0, 0 },
+
       /* no branch */
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
@@ -464,8 +470,7 @@ test_parse_autoinstall_file (void)
       /* invalid type for branch */
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', branch: 1, "
-        "   'filters': { 'nonexistent': ['invalid'] }}]",
+        "   'remote': 'example-apps', 'branch': 1 }}]",
         0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
 
       { "[{ 'action': 'invalid' }]", 0, 1, 0, 0 },
