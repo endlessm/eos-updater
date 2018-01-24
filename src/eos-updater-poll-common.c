@@ -283,6 +283,7 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
   g_autofree gchar *ref = NULL;
   g_autofree gchar *collection_id = NULL;
   g_autoptr(OstreeRepo) repo = NULL;
+  g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
@@ -292,7 +293,12 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
 
-  repo = eos_updater_local_repo ();
+  repo = eos_updater_local_repo (&local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
   if (!ostree_repo_get_remote_option (repo, remote, "collection-id", NULL, &collection_id, error))
     return FALSE;
 

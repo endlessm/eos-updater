@@ -303,6 +303,8 @@ typedef enum
   EXIT_OK = 0,
   /* Failed to set up a quit file. */
   EXIT_NO_QUIT_FILE = 1,
+  /* Could not open OSTree repository. */
+  EXIT_INVALID_REPOSITORY = 2,
 } ExitStatus;
 
 gint
@@ -321,7 +323,17 @@ main (gint argc, gchar *argv[])
 
   purge_old_config ();
 
-  repo = eos_updater_local_repo ();
+  repo = eos_updater_local_repo (&error);
+  if (error != NULL)
+    {
+      GFile *file = ostree_repo_get_path (repo);
+      g_autofree gchar *path = g_file_get_path (file);
+
+      g_warning ("OSTree repository at ‘%s’ is not OK: %s",
+                 path ? path : "", error->message);
+      return EXIT_INVALID_REPOSITORY;
+    }
+
   eos_updater_data_init (&data, repo);
   loop = g_main_loop_new (NULL, FALSE);
   local_data_init (&local_data, &data, loop);

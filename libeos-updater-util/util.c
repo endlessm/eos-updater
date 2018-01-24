@@ -29,21 +29,13 @@
 #include <errno.h>
 #include <string.h>
 
+/* Note: Returns the repository even on error, so that the repo path can be
+ * extracted for error messages. */
 OstreeRepo *
-eos_updater_local_repo (void)
+eos_updater_local_repo (GError **error)
 {
-  g_autoptr(GError) error = NULL;
   g_autoptr(OstreeRepo) repo = ostree_repo_new_default ();
-
-  if (!ostree_repo_open (repo, NULL, &error))
-    {
-      GFile *file = ostree_repo_get_path (repo);
-      g_autofree gchar *path = g_file_get_path (file);
-
-      g_error ("Repo at '%s' is not Ok (%s)",
-               path ? path : "", error->message);
-    }
-
+  ostree_repo_open (repo, NULL, error);
   return g_steal_pointer (&repo);
 }
 
