@@ -243,8 +243,8 @@ def main():
     parser.add_argument('--quiet', action='store_const', const=True,
                         help='do not print anything; check exit status '
                              'for success')
-    parser.add_argument('flatpak_refs', metavar='FLATPAK-REF', nargs='*',
-                        help='refs of flatpaks to put on the USB drive')
+    parser.add_argument('flatpak_refs', metavar='COLLECTION-ID REF', nargs='*',
+                        help='collection IDs and refs of flatpaks to put on the USB drive')
 
     args = parser.parse_args()
 
