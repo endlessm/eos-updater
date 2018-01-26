@@ -9,7 +9,7 @@ eos\-updater\-prepare\-volume — Endless OS Updater USB Drive Preparation Tool
 .SH SYNOPSIS
 .IX Header "SYNOPSIS"
 .\"
-\fBeos\-updater\-prepare\-volume [\-q] \fPvolume-directory\fB [\fPflatpak-ref\fB …]
+\fBeos\-updater\-prepare\-volume [\-q] \fPvolume-directory\fB [\fPcollection\-id ref\fB …]
 .\"
 .SH DESCRIPTION
 .IX Header "DESCRIPTION"
@@ -18,6 +18,11 @@ eos\-updater\-prepare\-volume — Endless OS Updater USB Drive Preparation Tool
 copy of the computer’s Endless OS updates and flatpak apps, so those apps and
 updates can be applied to another computer running Endless OS, bringing it up
 to date.
+.PP
+It will always include a copy of the Endless OS. Any flatpak applications listed
+on the command line will be included. Each app must be specified as a
+collection ID and ref, followed by the collection ID and ref of the next app,
+etc.
 .PP
 The updates will be put in an OSTree repository in the \fB.ostree/repo\fP
 directory on the USB drive. The path of the mounted drive must be passed as the
