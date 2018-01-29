@@ -278,6 +278,7 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
                     OstreeCollectionRef **booted_collection_ref,
                     GError              **error)
 {
+  GKeyFile *origin;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
@@ -285,9 +286,23 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
   g_autoptr(OstreeRepo) repo = NULL;
   g_autoptr(GError) local_error = NULL;
 
+  g_return_val_if_fail (OSTREE_IS_DEPLOYMENT (booted_deployment), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_origin_refspec (booted_deployment, &refspec, error))
+  origin = ostree_deployment_get_origin (booted_deployment);
+  if (origin == NULL)
+    {
+      const gchar *osname = ostree_deployment_get_osname (booted_deployment);
+      const gchar *booted = ostree_deployment_get_csum (booted_deployment);
+
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                   "No origin found for %s (%s), cannot upgrade",
+                   osname, booted);
+      return FALSE;
+    }
+
+  refspec = g_key_file_get_string (origin, "origin", "refspec", error);
+  if (refspec == NULL)
     return FALSE;
 
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
@@ -578,38 +593,6 @@ parse_latest_commit (OstreeRepo           *repo,
   else if (out_new_collection_ref != NULL)
     *out_new_collection_ref = NULL;
 
-  return TRUE;
-}
-
-gboolean
-get_origin_refspec (OstreeDeployment *booted_deployment,
-                    gchar **out_refspec,
-                    GError **error)
-{
-  GKeyFile *origin;
-  g_autofree gchar *refspec = NULL;
-
-  g_return_val_if_fail (OSTREE_IS_DEPLOYMENT (booted_deployment), FALSE);
-  g_return_val_if_fail (out_refspec != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  origin = ostree_deployment_get_origin (booted_deployment);
-  if (origin == NULL)
-    {
-      const gchar *osname = ostree_deployment_get_osname (booted_deployment);
-      const gchar *booted = ostree_deployment_get_csum (booted_deployment);
-
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                   "No origin found for %s (%s), cannot upgrade",
-                   osname, booted);
-      return FALSE;
-    }
-
-  refspec = g_key_file_get_string (origin, "origin", "refspec", error);
-  if (refspec == NULL)
-    return FALSE;
-
-  *out_refspec = g_steal_pointer (&refspec);
   return TRUE;
 }
 
