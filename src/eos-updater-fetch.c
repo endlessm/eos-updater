@@ -279,6 +279,14 @@ content_fetch_old (FetchData     *fetch_data,
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
 
+  if (remote == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                   "fetch called with invalid refspec ‘%s’: did not contain a remote name",
+                   refspec);
+      return FALSE;
+    }
+
   if (commit_id == NULL || *commit_id == '\0')
     {
       g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
