@@ -144,10 +144,6 @@ gboolean parse_latest_commit (OstreeRepo           *repo,
                               GCancellable         *cancellable,
                               GError              **error);
 
-gboolean get_origin_refspec (OstreeDeployment *booted_deployment,
-                             gchar **out_refspec,
-                             GError **error);
-
 GHashTable *get_hw_descriptors (void);
 
 void metrics_report_successful_poll (EosUpdateInfo *update);

@@ -278,6 +278,7 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
                     OstreeCollectionRef **booted_collection_ref,
                     GError              **error)
 {
+  GKeyFile *origin;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
@@ -285,13 +286,34 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
   g_autoptr(OstreeRepo) repo = NULL;
   g_autoptr(GError) local_error = NULL;
 
+  g_return_val_if_fail (OSTREE_IS_DEPLOYMENT (booted_deployment), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_origin_refspec (booted_deployment, &refspec, error))
+  origin = ostree_deployment_get_origin (booted_deployment);
+  if (origin == NULL)
+    {
+      const gchar *osname = ostree_deployment_get_osname (booted_deployment);
+      const gchar *booted = ostree_deployment_get_csum (booted_deployment);
+
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                   "No origin found for %s (%s), cannot upgrade",
+                   osname, booted);
+      return FALSE;
+    }
+
+  refspec = g_key_file_get_string (origin, "origin", "refspec", error);
+  if (refspec == NULL)
     return FALSE;
 
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
+  if (remote == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Invalid refspec ‘%s’ in origin: did not contain a remote name",
+                   refspec);
+      return FALSE;
+    }
 
   repo = eos_updater_local_repo (&local_error);
   if (local_error != NULL)
@@ -369,6 +391,7 @@ get_refspec_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
   return TRUE;
 }
 
+/* @refspec_to_upgrade_on is guaranteed to include a remote and a ref name. */
 gboolean
 get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
                            gchar               **remote_to_upgrade_on,
@@ -416,6 +439,13 @@ get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
   /* Found a refspec on this commit's metadata */
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
+  if (remote == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Invalid refspec ‘%s’ in commit: did not contain a remote name",
+                   refspec);
+      return FALSE;
+    }
 
   if (!ostree_repo_get_remote_option (repo, remote, "collection-id", NULL, &collection_id, error))
     return FALSE;
@@ -450,6 +480,8 @@ get_repo_pull_options (const gchar *url_override,
   return g_variant_ref_sink (g_variant_builder_end (&builder));
 };
 
+/* @refspec *must* contain a remote and ref name (not just a ref name).
+ * @out_new_refspec is guaranteed to include a remote and a ref name. */
 gboolean
 fetch_latest_commit (OstreeRepo *repo,
                      GCancellable *cancellable,
@@ -487,6 +519,7 @@ fetch_latest_commit (OstreeRepo *repo,
 
       if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
         return FALSE;
+      g_assert (remote_name != NULL);  /* caller must guarantee this */
 
       options = get_repo_pull_options (url_override, ref);
       if (!ostree_repo_pull_with_options (repo,
@@ -515,6 +548,8 @@ fetch_latest_commit (OstreeRepo *repo,
   return TRUE;
 }
 
+/* @refspec *must* contain a remote and ref name (not just a ref name).
+ * @out_new_refspec is guaranteed to include a remote and a ref name. */
 gboolean
 parse_latest_commit (OstreeRepo           *repo,
                      const gchar          *refspec,
@@ -543,6 +578,8 @@ parse_latest_commit (OstreeRepo           *repo,
 
   if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
     return FALSE;
+  g_assert (remote_name != NULL);  /* caller must guarantee this */
+
   if (!ostree_repo_resolve_rev (repo, refspec, FALSE, &checksum, error))
     return FALSE;
   if (!ostree_repo_get_remote_option (repo, remote_name, "collection-id", NULL, &collection_id, error))
@@ -578,38 +615,6 @@ parse_latest_commit (OstreeRepo           *repo,
   else if (out_new_collection_ref != NULL)
     *out_new_collection_ref = NULL;
 
-  return TRUE;
-}
-
-gboolean
-get_origin_refspec (OstreeDeployment *booted_deployment,
-                    gchar **out_refspec,
-                    GError **error)
-{
-  GKeyFile *origin;
-  g_autofree gchar *refspec = NULL;
-
-  g_return_val_if_fail (OSTREE_IS_DEPLOYMENT (booted_deployment), FALSE);
-  g_return_val_if_fail (out_refspec != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  origin = ostree_deployment_get_origin (booted_deployment);
-  if (origin == NULL)
-    {
-      const gchar *osname = ostree_deployment_get_osname (booted_deployment);
-      const gchar *booted = ostree_deployment_get_csum (booted_deployment);
-
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                   "No origin found for %s (%s), cannot upgrade",
-                   osname, booted);
-      return FALSE;
-    }
-
-  refspec = g_key_file_get_string (origin, "origin", "refspec", error);
-  if (refspec == NULL)
-    return FALSE;
-
-  *out_refspec = g_steal_pointer (&refspec);
   return TRUE;
 }
 
