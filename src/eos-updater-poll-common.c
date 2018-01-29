@@ -307,6 +307,13 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
 
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
+  if (remote == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Invalid refspec ‘%s’ in origin: did not contain a remote name",
+                   refspec);
+      return FALSE;
+    }
 
   repo = eos_updater_local_repo (&local_error);
   if (local_error != NULL)
@@ -384,6 +391,7 @@ get_refspec_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
   return TRUE;
 }
 
+/* @refspec_to_upgrade_on is guaranteed to include a remote and a ref name. */
 gboolean
 get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
                            gchar               **remote_to_upgrade_on,
@@ -431,6 +439,13 @@ get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
   /* Found a refspec on this commit's metadata */
   if (!ostree_parse_refspec (refspec, &remote, &ref, error))
     return FALSE;
+  if (remote == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Invalid refspec ‘%s’ in commit: did not contain a remote name",
+                   refspec);
+      return FALSE;
+    }
 
   if (!ostree_repo_get_remote_option (repo, remote, "collection-id", NULL, &collection_id, error))
     return FALSE;
@@ -465,6 +480,8 @@ get_repo_pull_options (const gchar *url_override,
   return g_variant_ref_sink (g_variant_builder_end (&builder));
 };
 
+/* @refspec *must* contain a remote and ref name (not just a ref name).
+ * @out_new_refspec is guaranteed to include a remote and a ref name. */
 gboolean
 fetch_latest_commit (OstreeRepo *repo,
                      GCancellable *cancellable,
@@ -502,6 +519,7 @@ fetch_latest_commit (OstreeRepo *repo,
 
       if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
         return FALSE;
+      g_assert (remote_name != NULL);  /* caller must guarantee this */
 
       options = get_repo_pull_options (url_override, ref);
       if (!ostree_repo_pull_with_options (repo,
@@ -530,6 +548,8 @@ fetch_latest_commit (OstreeRepo *repo,
   return TRUE;
 }
 
+/* @refspec *must* contain a remote and ref name (not just a ref name).
+ * @out_new_refspec is guaranteed to include a remote and a ref name. */
 gboolean
 parse_latest_commit (OstreeRepo           *repo,
                      const gchar          *refspec,
@@ -558,6 +578,8 @@ parse_latest_commit (OstreeRepo           *repo,
 
   if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
     return FALSE;
+  g_assert (remote_name != NULL);  /* caller must guarantee this */
+
   if (!ostree_repo_resolve_rev (repo, refspec, FALSE, &checksum, error))
     return FALSE;
   if (!ostree_repo_get_remote_option (repo, remote_name, "collection-id", NULL, &collection_id, error))
