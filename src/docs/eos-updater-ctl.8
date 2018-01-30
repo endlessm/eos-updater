@@ -49,8 +49,17 @@ Deploy updates which were downloaded in the previous \fBfetch\fP stage, and
 ready the computer to boot into an updated OSTree deployment when next rebooted.
 This command does not reboot the computer.
 .\"
-.IP "\fBfetch\fP"
+.IP "\fBfetch\fP [\fB\-\-force\fP] [\fB\-\-timeout=\fPSECONDS]"
 Download updates which were found in the previous \fBpoll\fP stage.
+.IP
+If \fB\-\-force\fP is specified, the download will proceed even if on a metered
+network connection (when it might otherwise be paused according to the download
+schedule; see \fBmogwai\-scheduled\fP(8)).
+.IP
+If \fB\-\-timeout\fP is specified, the client will wait at most the given
+number of seconds to get permission to download from the scheduler. If
+permission is not given before the timeout expires, an error will be returned.
+A timeout of zero (the default) means to wait indefinitely.
 .\"
 .IP "\fBmonitor\fP"
 Monitor the status of \fBeos\-updater\fP(8), printing its state changes and
@@ -120,7 +129,8 @@ An invalid option was passed to \fBeos\-updater\-ctl\fP on startup.
 .IX Header "SEE ALSO"
 .\"
 \fBeos\-autoupdater\fP(8),
-\fBeos\-updater\fP(8)
+\fBeos\-updater\fP(8),
+\fBmogwai\-scheduled\fP(8)
 .\"
 .SH BUGS
 .IX Header "BUGS"

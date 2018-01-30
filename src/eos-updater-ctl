@@ -41,7 +41,7 @@ UPDATER_STATES = [
 #  performing that action)
 METHODS = {
     'poll': ('Poll', 'Polling'),
-    'fetch': ('Fetch', 'Fetching'),
+    'fetch': ('FetchFull', 'Fetching'),
     'apply': ('Apply', 'ApplyingUpdate'),
 }
 
@@ -112,7 +112,7 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def command_dbus(command, block, quiet=False):
+def command_dbus(command, block, quiet=False, parameters=None):
     """Run the given command and wait for it to complete."""
     bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     (function_name, in_progress_state) = METHODS[command]
@@ -142,7 +142,7 @@ def command_dbus(command, block, quiet=False):
     # Call the method, wait for the updater to enter the expected in-progress
     # state; then wait for it to leave that state again (either to Error, or
     # the next state corresponding to the method).
-    proxy.call_sync('com.endlessm.Updater.' + function_name, None, 0, -1, None)
+    proxy.call_sync('com.endlessm.Updater.' + function_name, parameters, 0, -1, None)
 
     cancelled = False
     seen_in_progress_state = False
@@ -169,8 +169,12 @@ def command_poll(block, quiet=False):
     return command_dbus('poll', block, quiet)
 
 
-def command_fetch(block, quiet=False):
-    return command_dbus('fetch', block, quiet)
+def command_fetch(block, quiet=False, force=False, timeout=0):
+    parameters = GLib.Variant('(a{sv})', ({
+        'force': GLib.Variant('b', force),
+        'scheduling-timeout-seconds': GLib.Variant('u', timeout),
+    },))
+    return command_dbus('fetch', block, quiet, parameters)
 
 
 def command_apply(block, quiet=False):
@@ -293,6 +297,17 @@ def command_server(server_command, quiet=False):
     return 0
 
 
+def nonnegative_int(value):
+    try:
+        int_value = int(value)
+    except ValueError:
+        int_value = -1
+    if int_value < 0:
+        raise argparse.ArgumentTypeError(
+            'invalid non-negative integer ‘%s’' % value)
+    return int_value
+
+
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Control eos-updater stages.')
@@ -322,6 +337,13 @@ def main():
     parser_fetch = subparsers.add_parser('fetch', parents=[common_parser],
                                          help='download available updates')
     parser_fetch.set_defaults(function=command_fetch)
+    parser_fetch.add_argument('--force', action='store_true',
+                              help='force fetching even if on a metered '
+                                   'network connection')
+    parser_fetch.add_argument('--timeout', type=nonnegative_int, default=0,
+                              help='timeout to wait for permission from the '
+                                   'scheduler for, or zero (default) to wait '
+                                   'indefinitely')
 
     parser_apply = subparsers.add_parser('apply', parents=[common_parser],
                                          help='deploy downloaded updates')

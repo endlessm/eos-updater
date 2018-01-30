@@ -31,5 +31,9 @@ G_BEGIN_DECLS
 gboolean handle_fetch (EosUpdater            *updater,
                        GDBusMethodInvocation *call,
                        gpointer               user_data);
+gboolean handle_fetch_full (EosUpdater            *updater,
+                            GDBusMethodInvocation *call,
+                            GVariant              *options,
+                            gpointer               user_data);
 
 G_END_DECLS
