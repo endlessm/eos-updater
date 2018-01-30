@@ -39,6 +39,7 @@ static const GDBusErrorEntry eos_updater_error_entries[] = {
   { EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC, "com.endlessm.Updater.Error.MalformedAutoinstallSpec" },
   { EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC, "com.endlessm.Updater.Error.UnknownEntryInAutoinstallSpec" },
   { EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT, "com.endlessm.Updater.Error.FlatpakRemoteConflict" },
+  { EOS_UPDATER_ERROR_METERED_CONNECTION, "com.endlessm.Updater.Error.MeteredConnection" },
 };
 
 /* Ensure that every error code has an associated D-Bus error name */

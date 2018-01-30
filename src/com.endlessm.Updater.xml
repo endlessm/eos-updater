@@ -8,6 +8,9 @@
       <arg name="path" type="s" direction="in"/>
     </method>
     <method name="Fetch"></method>
+    <method name="FetchFull">
+      <arg name="options" type="a{sv}" direction="in"/>
+    </method>
     <method name="Apply"></method>
 
     <property name="State"            type="u" access="read"/>

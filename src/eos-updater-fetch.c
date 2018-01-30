@@ -28,15 +28,25 @@
 #include <libeos-updater-util/flatpak.h>
 #include <libeos-updater-util/types.h>
 #include <libeos-updater-util/util.h>
+#include <libmogwai-schedule-client/schedule-entry.h>
+#include <libmogwai-schedule-client/scheduler.h>
 
 /* Closure containing the data for the fetch worker thread. The
  * worker thread must not access EosUpdater or EosUpdaterData directly,
  * as they are not thread safe. */
 typedef struct
 {
+  /* Update information. */
   gchar *update_id;  /* (owned) */
   gchar *update_refspec;  /* (owned) */
   EosUpdaterData *data;  /* (unowned) */
+
+  /* Scheduling. */
+  gboolean force;  /* ignore metered data scheduling */
+  guint scheduling_timeout_seconds;  /* 0 for no timeout */
+  MwscScheduleEntry *schedule_entry;  /* (nullable) (owned) */
+
+  /* Progress. */
   OstreeAsyncProgress *progress;  /* (owned) */
 } FetchData;
 
@@ -46,6 +56,7 @@ fetch_data_free (FetchData *data)
   g_free (data->update_id);
   g_free (data->update_refspec);
   g_clear_object (&data->progress);
+  g_clear_object (&data->schedule_entry);
   g_free (data);
 }
 
@@ -690,6 +701,181 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
   return TRUE;
 }
 
+static void
+download_now_cb (GObject    *obj,
+                 GParamSpec *pspec,
+                 gpointer    user_data)
+{
+  MwscScheduleEntry *schedule_entry = MWSC_SCHEDULE_ENTRY (obj);
+  gboolean *download_now_out = user_data;
+  *download_now_out = mwsc_schedule_entry_get_download_now (schedule_entry);
+}
+
+static gboolean
+timeout_cb (gpointer user_data)
+{
+  gboolean *timed_out_out = user_data;
+  *timed_out_out = TRUE;
+  return G_SOURCE_CONTINUE;
+}
+
+/* Create a schedule entry for this download in the download scheduler. */
+static gboolean
+schedule_download (FetchData     *fetch_data,
+                   GMainContext  *context,
+                   GCancellable  *cancellable,
+                   GError       **error)
+{
+  g_autoptr(MwscScheduler) scheduler = NULL;
+  g_autoptr(GAsyncResult) new_result = NULL;
+  g_autoptr(GAsyncResult) schedule_result = NULL;
+  g_auto(GVariantDict) parameters_dict = G_VARIANT_DICT_INIT (NULL);
+  g_autoptr(GVariant) parameters = NULL;
+
+  /* Connect to the download scheduler. If we can’t connect, fail
+   * safe, and don’t download on a potentially metered connection. */
+  mwsc_scheduler_new_async (cancellable, async_result_cb, &new_result);
+
+  while (new_result == NULL)
+    g_main_context_iteration (context, TRUE);
+
+  scheduler = mwsc_scheduler_new_finish (new_result, error);
+
+  if (scheduler == NULL)
+    return FALSE;
+
+  /* Schedule the download. */
+  g_variant_dict_insert (&parameters_dict, "resumable", "b", FALSE);
+  parameters = g_variant_ref_sink (g_variant_dict_end (&parameters_dict));
+
+  mwsc_scheduler_schedule_async (scheduler, parameters, cancellable,
+                                 async_result_cb, &schedule_result);
+
+  while (schedule_result == NULL)
+    g_main_context_iteration (context, TRUE);
+
+  fetch_data->schedule_entry = mwsc_scheduler_schedule_finish (scheduler,
+                                                               schedule_result, error);
+
+  if (fetch_data->schedule_entry == NULL)
+    return FALSE;
+
+  return TRUE;
+}
+
+/* Remove the schedule entry for this download from the download scheduler,
+ * if one exists. Otherwise, return %TRUE immediately. */
+static gboolean
+unschedule_download (FetchData     *fetch_data,
+                     GMainContext  *context,
+                     GCancellable  *cancellable,
+                     GError       **error)
+{
+  g_autoptr(GAsyncResult) remove_result = NULL;
+  g_autoptr(MwscScheduleEntry) entry = NULL;
+
+  entry = g_steal_pointer (&fetch_data->schedule_entry);
+
+  if (entry == NULL)
+    return TRUE;
+
+  mwsc_schedule_entry_remove_async (entry, NULL, async_result_cb, &remove_result);
+
+  while (remove_result == NULL)
+    g_main_context_iteration (context, TRUE);
+
+  return mwsc_schedule_entry_remove_finish (entry, remove_result, error);
+}
+
+/* This must be run in the same worker thread as content_fetch(), with a
+ * #GMainContext used only in that thread. */
+static gboolean
+check_scheduler (FetchData     *fetch_data,
+                 GMainContext  *context,
+                 GCancellable  *cancellable,
+                 GError       **error)
+{
+  gboolean download_now;
+  g_autoptr(GError) local_error = NULL;
+  gboolean timed_out;
+  g_autoptr(GSource) timeout_source = NULL;
+  gulong notify_id;
+
+  /* If we are forcing updates, don’t check the scheduler at all. */
+  if (fetch_data->force)
+    {
+      g_message ("Fetch: not checking with download scheduler due to force option being set");
+      return TRUE;
+    }
+
+  /* Otherwise, connect to the download scheduler. If we can’t connect, fail
+   * safe, and don’t download on a potentially metered connection. */
+  if (!schedule_download (fetch_data, context, cancellable, error))
+    return FALSE;
+
+  /* Wait for the scheduler to say to start downloading. If the caller has
+   * specified a timeout, only block for that long and then return
+   * %EOS_UPDATER_ERROR_METERED_CONNECTION if the download hasn’t been permitted
+   * by then. If the #GCancellable is triggered at any point, immediately return
+   * %G_IO_ERROR_CANCELLED. */
+  download_now = mwsc_schedule_entry_get_download_now (fetch_data->schedule_entry);
+  notify_id = g_signal_connect (fetch_data->schedule_entry, "notify::download-now",
+                                (GCallback) download_now_cb, &download_now);
+
+  timed_out = FALSE;
+
+  if (fetch_data->scheduling_timeout_seconds > 0)
+    {
+      timeout_source = g_timeout_source_new_seconds (fetch_data->scheduling_timeout_seconds);
+      g_source_set_callback (timeout_source, timeout_cb, &timed_out, NULL);
+      g_source_attach (timeout_source, context);
+    }
+
+  if (fetch_data->scheduling_timeout_seconds == 0)
+    g_message ("Fetch: waiting indefinitely for response from download scheduler");
+  else
+    g_message ("Fetch: waiting for %u seconds for response from download scheduler",
+               fetch_data->scheduling_timeout_seconds);
+
+  while (!download_now && !g_cancellable_is_cancelled (cancellable) && !timed_out)
+    g_main_context_iteration (context, TRUE);
+
+  if (timeout_source != NULL)
+    g_source_destroy (timeout_source);
+  g_signal_handler_disconnect (fetch_data->schedule_entry, notify_id);
+
+  /* Get downloading!
+   * FIXME: In future, we will want to monitor notify::download-now and cancel
+   * the ongoing download if the scheduler tells us to. For now, just download
+   * through from start to finish. */
+  if (download_now)
+    {
+      g_message ("Fetch: got positive response from download scheduler");
+      return TRUE;
+    }
+
+  /* Handle the possible error paths. */
+  if (timed_out)
+    g_set_error (error,
+                 EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_METERED_CONNECTION,
+                 "Error fetching update: %s",
+                 "Timed out waiting for download to be scheduled");
+  else
+    g_cancellable_set_error_if_cancelled (cancellable, error);
+
+  g_message ("Fetch: removing download scheduler entry");
+
+  if (!unschedule_download (fetch_data, context, cancellable, &local_error))
+    {
+      g_warning ("Failed to remove schedule entry: %s", local_error->message);
+      g_clear_error (&local_error);
+    }
+
+  g_assert (error == NULL || *error != NULL);
+
+  return FALSE;
+}
+
 static gboolean
 content_fetch (FetchData     *fetch_data,
                GMainContext  *context,
@@ -699,6 +885,14 @@ content_fetch (FetchData     *fetch_data,
   g_autoptr(GError) local_error = NULL;
   const gchar *update_id = fetch_data->update_id;
   EosUpdaterData *data = fetch_data->data;
+
+  /* Query the scheduler here. Just fail if downloads aren’t allowed; the
+   * updater will return a D-Bus error which the caller can interpret. */
+  if (!check_scheduler (fetch_data, context, cancellable, error))
+    {
+      g_message ("Fetch: not fetching due to download scheduler decision");
+      return FALSE;
+    }
 
   /* Do we want to use the new libostree code for P2P, or fall back on the old
    * eos-updater code?
@@ -727,8 +921,7 @@ content_fetch (FetchData     *fetch_data,
       else
         {
           g_message ("Fetch: error pulling using old code: %s", local_error->message);
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
+          goto error;
         }
     }
 
@@ -736,11 +929,21 @@ content_fetch (FetchData     *fetch_data,
   if (!prepare_flatpaks_to_deploy (data->repo, update_id, cancellable, &local_error))
     {
       g_message ("Fetch: failed to pull necessary new flatpaks for update: %s", local_error->message);
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return FALSE;
+      goto error;
     }
 
   return TRUE;
+
+error:
+  g_propagate_error (error, g_steal_pointer (&local_error));
+
+  if (!unschedule_download (fetch_data, context, cancellable, &local_error))
+    {
+      g_warning ("Fetch: failed to remove download schedule entry: %s", local_error->message);
+      g_clear_error (&local_error);
+    }
+
+  return FALSE;
 }
 
 static void
@@ -768,10 +971,21 @@ handle_fetch (EosUpdater            *updater,
               GDBusMethodInvocation *call,
               gpointer               user_data)
 {
+  return handle_fetch_full (updater, call, NULL, user_data);
+}
+
+gboolean
+handle_fetch_full (EosUpdater            *updater,
+                   GDBusMethodInvocation *call,
+                   GVariant              *options,
+                   gpointer               user_data)
+{
   g_autoptr(GTask) task = NULL;
   EosUpdaterState state = eos_updater_get_state (updater);
   EosUpdaterData *data = user_data;
   g_autoptr(FetchData) fetch_data = NULL;
+  gboolean force = FALSE;
+  guint scheduling_timeout_seconds = 0;  /* default to an infinite timeout */
 
   if (state != EOS_UPDATER_STATE_UPDATE_AVAILABLE)
     {
@@ -782,7 +996,17 @@ handle_fetch (EosUpdater            *updater,
       return TRUE;
     }
 
+  /* Handle the options, if passed. */
+  if (options != NULL)
+    {
+      g_variant_lookup (options, "force", "b", &force);
+      g_variant_lookup (options, "scheduling-timeout-seconds", "u",
+                        &scheduling_timeout_seconds);
+    }
+
   fetch_data = g_new0 (FetchData, 1);
+  fetch_data->force = force;
+  fetch_data->scheduling_timeout_seconds = scheduling_timeout_seconds;
   fetch_data->update_id = g_strdup (eos_updater_get_update_id (updater));
   fetch_data->update_refspec = g_strdup (eos_updater_get_update_refspec (updater));
   fetch_data->progress = ostree_async_progress_new_and_connect (update_progress, updater);
