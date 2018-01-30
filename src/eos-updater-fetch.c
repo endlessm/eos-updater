@@ -24,11 +24,10 @@
 #include "eos-updater-fetch.h"
 #include "eos-updater-object.h"
 
-#include <libeos-updater-util/flatpak.h>
-#include <libeos-updater-util/util.h>
-#include <libeos-updater-util/types.h>
-
 #include <flatpak.h>
+#include <libeos-updater-util/flatpak.h>
+#include <libeos-updater-util/types.h>
+#include <libeos-updater-util/util.h>
 
 /* Closure containing the data for the fetch worker thread. The
  * worker thread must not access EosUpdater or EosUpdaterData directly,
