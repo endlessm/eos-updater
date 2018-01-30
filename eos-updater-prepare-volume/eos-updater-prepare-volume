@@ -107,6 +107,8 @@ class VolumePreparer:
             return None
 
         _, remote_name, ref_name = OSTree.parse_refspec(refspec)
+        if not remote_name:
+            return None
         _, collection_id = self._get_collection_id_for_remote(remote_name)
         if not collection_id:
             return None
