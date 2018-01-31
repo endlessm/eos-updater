@@ -427,7 +427,7 @@ check_if_flatpak_is_installed (FlatpakInstallation        *installation,
   g_clear_error (&local_error);
 
   *out_is_installed = (installed_ref != NULL);
-  g_message ("Flatpak described by ref %s is installed",
+  g_message ("Flatpak described by ref %s is %s",
              formatted_ref,
              *out_is_installed ? "installed": "not installed");
 
@@ -482,7 +482,7 @@ eufi_check_ref_actions_applied (FlatpakInstallation  *installation,
               {
                 g_autofree gchar *formatted_ref = flatpak_ref_format_ref (pending_action->ref->ref);
                 g_autofree gchar *msg = g_strdup_printf ("Flatpak %s should have been uninstalled by "
-                                                         "%s but was installed",
+                                                         "%s but was installed\n",
                                                          formatted_ref,
                                                          name);
                 g_string_append (deltas, msg);
