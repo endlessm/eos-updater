@@ -778,6 +778,16 @@ is_connected_through_mobile (void)
 #if NM_CHECK_VERSION(1, 7, 2)
     case NM_DEVICE_TYPE_DUMMY:
 #endif
+#if NM_CHECK_VERSION(1, 9, 2)
+    /* Assume this is PPP at the router level, not PPP for a phone modem,
+     * which should be %NM_DEVICE_TYPE_MODEM: */
+    case NM_DEVICE_TYPE_PPP:
+#endif
+#if NM_CHECK_VERSION(1, 10, 0)
+    case NM_DEVICE_TYPE_OVS_INTERFACE:
+    case NM_DEVICE_TYPE_OVS_PORT:
+    case NM_DEVICE_TYPE_OVS_BRIDGE:
+#endif
     default:
       break;
     }
