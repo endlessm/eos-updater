@@ -124,7 +124,6 @@ test_update_from_volume (EosUpdaterFixture *fixture,
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 

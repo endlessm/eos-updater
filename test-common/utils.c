@@ -2508,8 +2508,7 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_AUTOUPDATER,
 
 static GKeyFile *
 get_autoupdater_config (UpdateStep step,
-                        guint update_interval_in_days,
-                        gboolean update_on_mobile)
+                        guint update_interval_in_days)
 {
   g_autoptr(GKeyFile) config = g_key_file_new ();
 
@@ -2518,7 +2517,6 @@ get_autoupdater_config (UpdateStep step,
   g_key_file_set_integer (config, "Automatic Updates", "LastAutomaticStep", step);
   g_key_file_set_integer (config, "Automatic Updates", "IntervalDays", (gint) update_interval_in_days);
   g_key_file_set_integer (config, "Automatic Updates", "RandomizedDelayDays", 0);
-  g_key_file_set_boolean (config, "Automatic Updates", "UpdateOnMobile", update_on_mobile);
 
   return g_steal_pointer (&config);
 }
@@ -2650,7 +2648,6 @@ EosTestAutoupdater *
 eos_test_autoupdater_new (GFile *autoupdater_root,
                           UpdateStep final_auto_step,
                           guint interval_in_days,
-                          gboolean update_on_mobile,
                           GError **error)
 {
   g_autoptr(GKeyFile) autoupdater_config = NULL;
@@ -2658,8 +2655,7 @@ eos_test_autoupdater_new (GFile *autoupdater_root,
   g_autoptr(CmdResult) cmd = NULL;
 
   autoupdater_config = get_autoupdater_config (final_auto_step,
-                                               interval_in_days,
-                                               update_on_mobile);
+                                               interval_in_days);
   if (!prepare_autoupdater_dir (autoupdater_root,
                                 autoupdater_config,
                                 error))

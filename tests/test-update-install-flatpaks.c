@@ -966,7 +966,6 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
@@ -1064,7 +1063,6 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
@@ -1165,7 +1163,6 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
@@ -1264,7 +1261,6 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
@@ -1365,7 +1361,6 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
@@ -2196,7 +2191,6 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
@@ -2349,7 +2343,6 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
@@ -2479,7 +2472,6 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
