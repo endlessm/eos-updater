@@ -51,6 +51,9 @@ is_installed_system (GError **error_out)
   return TRUE;
 }
 
+/* Note: We cannot rely on the value of @user_data, since this callback is used
+ * for various signals with differing numbers of parameters. We can only rely
+ * on @updater and @call. */
 gboolean
 handle_on_live_boot (EosUpdater            *updater,
                      GDBusMethodInvocation *call,

@@ -535,14 +535,11 @@ typedef struct
 } VolumeMetadataFetchData;
 
 static VolumeMetadataFetchData *
-volume_metadata_fetch_data_new (EosUpdaterData        *data,
-                                GDBusMethodInvocation *call)
+volume_metadata_fetch_data_new (EosUpdaterData *data,
+                                const gchar    *path)
 {
-  GVariant *parameters = g_dbus_method_invocation_get_parameters (call);
-  const gchar *path;
   VolumeMetadataFetchData *volume_fetch_data;
 
-  g_variant_get (parameters, "(s)", &path);
   volume_fetch_data = g_new (VolumeMetadataFetchData, 1);
   volume_fetch_data->data = data;
   volume_fetch_data->volume_path = g_strdup (path);
@@ -611,6 +608,7 @@ volume_metadata_fetch (GTask        *task,
 gboolean
 handle_poll_volume (EosUpdater            *updater,
                     GDBusMethodInvocation *call,
+                    const gchar           *path,
                     gpointer               user_data)
 {
   g_autoptr(GTask) task = NULL;
@@ -639,7 +637,7 @@ handle_poll_volume (EosUpdater            *updater,
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
   task = g_task_new (updater, NULL, metadata_fetch_finished, user_data);
   g_task_set_task_data (task,
-                        volume_metadata_fetch_data_new (user_data, call),
+                        volume_metadata_fetch_data_new (user_data, path),
                         volume_metadata_fetch_data_free);
   g_task_run_in_thread (task, volume_metadata_fetch);
 
