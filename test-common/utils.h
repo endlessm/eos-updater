@@ -254,7 +254,6 @@ struct _EosTestAutoupdater
 EosTestAutoupdater *eos_test_autoupdater_new (GFile *autoupdater_root,
                                               UpdateStep final_auto_step,
                                               guint interval_in_days,
-                                              gboolean update_on_mobile,
                                               GError **error);
 
 gboolean eos_test_has_ostree_boot_id (void);

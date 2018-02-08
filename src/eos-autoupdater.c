@@ -1,6 +1,6 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
- * Copyright © 2013, 2014, 2015, 2016, 2017 Endless Mobile, Inc.
+ * Copyright © 2013, 2014, 2015, 2016, 2017, 2018 Endless Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -38,7 +38,6 @@
 #define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
 #define EOS_UPDATER_SUCCESS_MSGID               "ce0a80bb9f734dc09f8b56a7fb981ae4"
 #define EOS_UPDATER_NOT_ONLINE_MSGID            "2797d0eaca084a9192e21838ab12cbd0"
-#define EOS_UPDATER_MOBILE_CONNECTED_MSGID      "7c80d571cbc248d2a5cfd985c7cbd44c"
 #define EOS_UPDATER_NOT_TIME_MSGID              "7c853d8fbc0b4a9b9f331b5b9aee4435"
 
 #define EOS_UPDATER_MSGID_LENGTH                32
@@ -72,7 +71,6 @@ static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
 static const char *RANDOMIZED_DELAY_KEY = "RandomizedDelayDays";
-static const char *ON_MOBILE_KEY = "UpdateOnMobile";
 
 /* Ensures that the updater never tries to poll twice in one run */
 static gboolean polled_already = FALSE;
@@ -446,8 +444,7 @@ get_config_file_path (void)
 static gboolean
 read_config_file (const gchar *config_path,
                   guint *update_interval_days,
-                  guint *randomized_delay_days,
-                  gboolean *update_on_mobile)
+                  guint *randomized_delay_days)
 {
   g_autoptr(EuuConfigFile) config = NULL;
   g_autoptr(GError) error = NULL;
@@ -463,7 +460,6 @@ read_config_file (const gchar *config_path,
     };
 
   g_return_val_if_fail (update_interval_days != NULL, FALSE);
-  g_return_val_if_fail (update_on_mobile != NULL, FALSE);
 
   /* Load the config files. */
   config = euu_config_file_new (paths, eos_updater_resources_get_resource (),
@@ -533,17 +529,6 @@ _Pragma ("GCC diagnostic pop")
     }
 
   *randomized_delay_days = _randomized_delay_days;
-
-  *update_on_mobile = euu_config_file_get_boolean (config, AUTOMATIC_GROUP,
-                                                   ON_MOBILE_KEY, &error);
-
-  if (error)
-    {
-      warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-               "Unable to read key '%s' in config file",
-               ON_MOBILE_KEY);
-      return FALSE;
-    }
 
   return TRUE;
 }
@@ -713,91 +698,6 @@ is_online (void)
   return online;
 }
 
-static gboolean
-is_connected_through_mobile (void)
-{
-  NMActiveConnection *connection;
-  NMClient *client;
-  NMDevice *device;
-  const GPtrArray *devices;
-  gboolean is_mobile = FALSE;
-  guint i;
-  g_autoptr(GError) error = NULL;
-
-  /* Don’t connect to NetworkManager when we are supposed to use the session
-   * bus, as NM is on the system bus, and we don’t want to mock it up. */
-  if (should_listen_on_session_bus ())
-    {
-      g_message ("Not using NetworkManager: assuming network is not mobile.");
-      return FALSE;
-    }
-
-  client = nm_client_new (NULL, &error);
-  if (!client)
-    {
-      g_message ("Failed to get the NetworkManager client: %s", error->message);
-      return FALSE;
-    }
-
-  connection = nm_client_get_primary_connection (client);
-  if (!connection) {
-    g_object_unref (client);
-    return FALSE;
-  }
-
-  devices = nm_active_connection_get_devices (connection);
-  for (i = 0; !is_mobile && i < devices->len; i++) {
-    device = (NMDevice *) g_ptr_array_index (devices, i);
-    switch (nm_device_get_device_type (device)) {
-    case NM_DEVICE_TYPE_MODEM:
-    case NM_DEVICE_TYPE_BT:
-    case NM_DEVICE_TYPE_WIMAX:
-      is_mobile = TRUE;
-      break;
-    case NM_DEVICE_TYPE_UNKNOWN:
-    case NM_DEVICE_TYPE_ETHERNET:
-    case NM_DEVICE_TYPE_WIFI:
-    case NM_DEVICE_TYPE_UNUSED1:
-    case NM_DEVICE_TYPE_UNUSED2:
-    case NM_DEVICE_TYPE_OLPC_MESH:
-    case NM_DEVICE_TYPE_INFINIBAND:
-    case NM_DEVICE_TYPE_BOND:
-    case NM_DEVICE_TYPE_VLAN:
-    case NM_DEVICE_TYPE_ADSL:
-    case NM_DEVICE_TYPE_BRIDGE:
-    case NM_DEVICE_TYPE_GENERIC:
-    case NM_DEVICE_TYPE_TEAM:
-    case NM_DEVICE_TYPE_TUN:
-    case NM_DEVICE_TYPE_IP_TUNNEL:
-    case NM_DEVICE_TYPE_MACVLAN:
-    case NM_DEVICE_TYPE_VXLAN:
-    case NM_DEVICE_TYPE_VETH:
-#if NM_CHECK_VERSION(1, 6, 0)
-    case NM_DEVICE_TYPE_MACSEC:
-#endif
-#if NM_CHECK_VERSION(1, 7, 2)
-    case NM_DEVICE_TYPE_DUMMY:
-#endif
-#if NM_CHECK_VERSION(1, 9, 2)
-    /* Assume this is PPP at the router level, not PPP for a phone modem,
-     * which should be %NM_DEVICE_TYPE_MODEM: */
-    case NM_DEVICE_TYPE_PPP:
-#endif
-#if NM_CHECK_VERSION(1, 10, 0)
-    case NM_DEVICE_TYPE_OVS_INTERFACE:
-    case NM_DEVICE_TYPE_OVS_PORT:
-    case NM_DEVICE_TYPE_OVS_BRIDGE:
-#endif
-    default:
-      break;
-    }
-  }
-
-  g_object_unref (client);
-
-  return is_mobile;
-}
-
 static gint
 get_dbus_timeout (void)
 {
@@ -831,7 +731,6 @@ main (int argc, char **argv)
   g_autoptr(EosUpdater) proxy = NULL;
   g_autoptr(GError) error = NULL;
   guint update_interval_days, randomized_delay_days;
-  gboolean update_on_mobile;
   gboolean force_update = FALSE;
   g_autoptr(GOptionContext) context = NULL;
 
@@ -861,8 +760,7 @@ main (int argc, char **argv)
     }
 
   if (!read_config_file (get_config_file_path (),
-                         &update_interval_days, &randomized_delay_days,
-                         &update_on_mobile))
+                         &update_interval_days, &randomized_delay_days))
     return EXIT_BAD_CONFIGURATION;
 
   if (volume_path == NULL && !is_online ())
@@ -874,14 +772,6 @@ main (int argc, char **argv)
     force_update = TRUE;
 
   if (!force_update) {
-    if (volume_path == NULL &&
-        !update_on_mobile &&
-        is_connected_through_mobile ()) {
-      info (EOS_UPDATER_MOBILE_CONNECTED_MSGID,
-            "Connected to mobile network. Not updating");
-      return EXIT_OK;
-    }
-
     if (!is_time_to_update (update_interval_days, randomized_delay_days)) {
       info (EOS_UPDATER_NOT_TIME_MSGID,
             "Less than %s since last update. Exiting",

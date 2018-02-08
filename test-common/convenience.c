@@ -184,7 +184,6 @@ etc_update_client (EtcData *data)
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           1,
-                                          TRUE,
                                           &error);
   g_assert_no_error (error);
 
