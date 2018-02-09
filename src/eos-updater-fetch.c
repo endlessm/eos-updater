@@ -733,7 +733,9 @@ schedule_download (FetchData     *fetch_data,
   g_autoptr(GVariant) parameters = NULL;
 
   /* Connect to the download scheduler. If we can’t connect, fail
-   * safe, and don’t download on a potentially metered connection. */
+   * safe, and don’t download on a potentially metered connection.
+   * Don’t check the user-specified @scheduling_timeout_seconds here; instead
+   * rely on the D-Bus call timeout to exit the loop if it takes too long. */
   mwsc_scheduler_new_async (cancellable, async_result_cb, &new_result);
 
   while (new_result == NULL)
@@ -744,7 +746,7 @@ schedule_download (FetchData     *fetch_data,
   if (scheduler == NULL)
     return FALSE;
 
-  /* Schedule the download. */
+  /* Schedule the download. Similar reasoning applies to the timeout as above. */
   g_variant_dict_insert (&parameters_dict, "resumable", "b", FALSE);
   parameters = g_variant_ref_sink (g_variant_dict_end (&parameters_dict));
 
@@ -779,6 +781,8 @@ unschedule_download (FetchData     *fetch_data,
   if (entry == NULL)
     return TRUE;
 
+  /* Remove the schedule entry. Similar reasoning as in schedule_download()
+   * applies to the timeout. */
   mwsc_schedule_entry_remove_async (entry, NULL, async_result_cb, &remove_result);
 
   while (remove_result == NULL)
