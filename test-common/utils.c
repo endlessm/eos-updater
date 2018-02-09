@@ -2645,10 +2645,11 @@ spawn_autoupdater_simple (GFile *autoupdater_dir,
 }
 
 EosTestAutoupdater *
-eos_test_autoupdater_new (GFile *autoupdater_root,
-                          UpdateStep final_auto_step,
-                          guint interval_in_days,
-                          GError **error)
+eos_test_autoupdater_new (GFile       *autoupdater_root,
+                          UpdateStep   final_auto_step,
+                          guint        interval_in_days,
+                          gboolean     force_update,
+                          GError     **error)
 {
   g_autoptr(GKeyFile) autoupdater_config = NULL;
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
