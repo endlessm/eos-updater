@@ -711,6 +711,15 @@ download_now_cb (GObject    *obj,
   *download_now_out = mwsc_schedule_entry_get_download_now (schedule_entry);
 }
 
+static void
+invalidated_cb (MwscScheduleEntry *entry,
+                const GError      *error,
+                gpointer           user_data)
+{
+  GError **error_out = user_data;
+  *error_out = g_error_copy (error);
+}
+
 static gboolean
 timeout_cb (gpointer user_data)
 {
@@ -775,6 +784,7 @@ unschedule_download (FetchData     *fetch_data,
 {
   g_autoptr(GAsyncResult) remove_result = NULL;
   g_autoptr(MwscScheduleEntry) entry = NULL;
+  g_autoptr(GError) local_error = NULL;
 
   entry = g_steal_pointer (&fetch_data->schedule_entry);
 
@@ -788,7 +798,21 @@ unschedule_download (FetchData     *fetch_data,
   while (remove_result == NULL)
     g_main_context_iteration (context, TRUE);
 
-  return mwsc_schedule_entry_remove_finish (entry, remove_result, error);
+  /* Don’t bother propagating errors from invalidated entries, since the entry
+   * has already been removed. */
+  if (!mwsc_schedule_entry_remove_finish (entry, remove_result, &local_error))
+    {
+      if (g_error_matches (local_error, MWSC_SCHEDULE_ENTRY_ERROR, MWSC_SCHEDULE_ENTRY_ERROR_INVALIDATED))
+        g_clear_error (&local_error);
+    }
+
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 /* This must be run in the same worker thread as content_fetch(), with a
@@ -800,10 +824,11 @@ check_scheduler (FetchData     *fetch_data,
                  GError       **error)
 {
   gboolean download_now;
+  g_autoptr(GError) invalidated_error = NULL;
   g_autoptr(GError) local_error = NULL;
   gboolean timed_out;
   g_autoptr(GSource) timeout_source = NULL;
-  gulong notify_id;
+  gulong notify_id, invalidated_id;
 
   /* If we are forcing updates, don’t check the scheduler at all. */
   if (fetch_data->force)
@@ -826,6 +851,10 @@ check_scheduler (FetchData     *fetch_data,
   notify_id = g_signal_connect (fetch_data->schedule_entry, "notify::download-now",
                                 (GCallback) download_now_cb, &download_now);
 
+  invalidated_error = NULL;
+  invalidated_id = g_signal_connect (fetch_data->schedule_entry, "invalidated",
+                                     (GCallback) invalidated_cb, &invalidated_error);
+
   timed_out = FALSE;
 
   if (fetch_data->scheduling_timeout_seconds > 0)
@@ -841,11 +870,13 @@ check_scheduler (FetchData     *fetch_data,
     g_message ("Fetch: waiting for %u seconds for response from download scheduler",
                fetch_data->scheduling_timeout_seconds);
 
-  while (!download_now && !g_cancellable_is_cancelled (cancellable) && !timed_out)
+  while (!download_now && !g_cancellable_is_cancelled (cancellable) &&
+         !timed_out && invalidated_error == NULL)
     g_main_context_iteration (context, TRUE);
 
   if (timeout_source != NULL)
     g_source_destroy (timeout_source);
+  g_signal_handler_disconnect (fetch_data->schedule_entry, invalidated_id);
   g_signal_handler_disconnect (fetch_data->schedule_entry, notify_id);
 
   /* Get downloading!
@@ -864,6 +895,14 @@ check_scheduler (FetchData     *fetch_data,
                  EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_METERED_CONNECTION,
                  "Error fetching update: %s",
                  "Timed out waiting for download to be scheduled");
+  else if (invalidated_error != NULL)
+    {
+      g_autofree gchar *message = g_strdup_printf ("Download scheduler disappeared unexpectedly: %s",
+                                                   invalidated_error->message);
+      g_set_error (error,
+                   EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_METERED_CONNECTION,
+                   "Error fetching update: %s", message);
+    }
   else
     g_cancellable_set_error_if_cancelled (cancellable, error);
 
