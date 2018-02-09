@@ -183,7 +183,8 @@ etc_update_client (EtcData *data)
   autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
-                                          1,
+                                          1,  /* interval (days) */
+                                          TRUE,  /* force update */
                                           &error);
   g_assert_no_error (error);
 

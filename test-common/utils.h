@@ -251,10 +251,11 @@ struct _EosTestAutoupdater
   CmdResult *cmd;
 };
 
-EosTestAutoupdater *eos_test_autoupdater_new (GFile *autoupdater_root,
-                                              UpdateStep final_auto_step,
-                                              guint interval_in_days,
-                                              GError **error);
+EosTestAutoupdater *eos_test_autoupdater_new (GFile       *autoupdater_root,
+                                              UpdateStep   final_auto_step,
+                                              guint        interval_in_days,
+                                              gboolean     force_update,
+                                              GError     **error);
 
 gboolean eos_test_has_ostree_boot_id (void);
 
