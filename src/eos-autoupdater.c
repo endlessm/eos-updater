@@ -84,6 +84,9 @@ static gboolean should_exit_failure = FALSE;
 /* Avoid erroneous additional state transitions */
 static guint previous_state = EOS_UPDATER_STATE_NONE;
 
+/* Force an update, even if the timer hasn’t expired, or if we’re on a metered connection. */
+static gboolean force_update = FALSE;
+
 static GMainLoop *main_loop = NULL;
 static gchar *volume_path = NULL;
 
@@ -338,8 +341,14 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
       break;
 
     case UPDATE_STEP_FETCH:
-      eos_updater_call_fetch (proxy, NULL, update_step_callback, step_data);
-      break;
+      {
+        g_auto(GVariantDict) options_dict = G_VARIANT_DICT_INIT (NULL);
+        g_variant_dict_insert (&options_dict, "force", "b", force_update);
+
+        eos_updater_call_fetch_full (proxy, g_variant_dict_end (&options_dict),
+                                     NULL, update_step_callback, step_data);
+        break;
+      }
 
     case UPDATE_STEP_APPLY:
       eos_updater_call_apply (proxy, NULL, update_step_callback, step_data);
@@ -734,7 +743,6 @@ main (int argc, char **argv)
   g_autoptr(EosUpdater) proxy = NULL;
   g_autoptr(GError) error = NULL;
   guint update_interval_days, randomized_delay_days;
-  gboolean force_update = FALSE;
   g_autoptr(GOptionContext) context = NULL;
 
   GOptionEntry entries[] = {
