@@ -287,7 +287,10 @@ update_step_callback (GObject *source_object, GAsyncResult *res,
 
   switch (step) {
     case UPDATE_STEP_POLL:
-      eos_updater_call_poll_finish (proxy, res, &error);
+      if (volume_path != NULL)
+        eos_updater_call_poll_volume_finish (proxy, res, &error);
+      else
+        eos_updater_call_poll_finish (proxy, res, &error);
       break;
 
     case UPDATE_STEP_FETCH:
