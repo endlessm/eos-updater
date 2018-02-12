@@ -198,40 +198,6 @@ eos_update_info_get_commit_timestamp (EosUpdateInfo *info)
   return g_date_time_new_from_unix_utc ((gint64) ostree_commit_get_timestamp (info->commit));
 }
 
-static void
-eos_metadata_fetch_data_dispose_impl (EosMetadataFetchData *fetch_data)
-{
-  g_main_context_pop_thread_default (fetch_data->context);
-  g_clear_pointer (&fetch_data->context, g_main_context_unref);
-  g_clear_object (&fetch_data->task);
-}
-
-EOS_DEFINE_REFCOUNTED (EOS_METADATA_FETCH_DATA,
-                       EosMetadataFetchData,
-                       eos_metadata_fetch_data,
-                       eos_metadata_fetch_data_dispose_impl,
-                       NULL)
-
-EosMetadataFetchData *
-eos_metadata_fetch_data_new (GTask *task,
-                             EosUpdaterData *data,
-                             GMainContext *context)
-{
-  EosMetadataFetchData *fetch_data;
-
-  g_return_val_if_fail (G_IS_TASK (task), NULL);
-  g_return_val_if_fail (data != NULL, NULL);
-  g_return_val_if_fail (context != NULL, NULL);
-
-  fetch_data = g_object_new (EOS_TYPE_METADATA_FETCH_DATA, NULL);
-  fetch_data->task = g_object_ref (task);
-  fetch_data->data = data;
-  fetch_data->context = g_main_context_ref (context);
-
-  g_main_context_push_thread_default (context);
-  return fetch_data;
-}
-
 static gchar *
 cleanstr (gchar *s)
 {
@@ -874,9 +840,11 @@ get_latest_update (GArray *sources,
 }
 
 EosUpdateInfo *
-run_fetchers (EosMetadataFetchData *fetch_data,
-              GPtrArray *fetchers,
-              GArray *sources)
+run_fetchers (EosUpdaterData *data,
+              GMainContext   *context,
+              GCancellable   *cancellable,
+              GPtrArray      *fetchers,
+              GArray         *sources)
 {
   guint idx;
   g_autoptr(GHashTable) source_to_update = g_hash_table_new_full (NULL,
@@ -884,7 +852,9 @@ run_fetchers (EosMetadataFetchData *fetch_data,
                                                                   NULL,
                                                                   (GDestroyNotify) g_object_unref);
 
-  g_return_val_if_fail (EOS_IS_METADATA_FETCH_DATA (fetch_data), NULL);
+  g_return_val_if_fail (data != NULL, NULL);
+  g_return_val_if_fail (context != NULL, NULL);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), NULL);
   g_return_val_if_fail (fetchers != NULL, NULL);
   g_return_val_if_fail (sources != NULL, NULL);
   g_return_val_if_fail (fetchers->len == sources->len, NULL);
@@ -899,7 +869,7 @@ run_fetchers (EosMetadataFetchData *fetch_data,
       const gchar *name = download_source_to_string (source);
       g_autoptr(GError) local_error = NULL;
 
-      if (!fetcher (fetch_data, &info, &local_error))
+      if (!fetcher (data, context, &info, cancellable, &local_error))
         {
           g_message ("Failed to poll metadata from source %s: %s",
                      name, local_error->message);
