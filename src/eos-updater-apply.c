@@ -99,8 +99,8 @@ get_test_osname (void)
 
 static gboolean
 apply_internal (ApplyData     *apply_data,
-                GCancellable  *cancellable,
                 gboolean      *out_bootversion_changed,
+                GCancellable  *cancellable,
                 GError       **error)
 {
   OstreeRepo *repo = apply_data->repo;
@@ -206,8 +206,8 @@ apply (GTask *task,
   g_main_context_push_thread_default (task_context);
 
   if (!apply_internal (apply_data,
-                       cancellable,
                        &bootversion_changed,
+                       cancellable,
                        &local_error))
     g_task_return_error (task, g_steal_pointer (&local_error));
   else
