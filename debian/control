@@ -24,7 +24,7 @@ Build-Depends:
  libglib2.0-dev (>= 2.54.0),
  libgsystem-dev,
  libjson-glib-dev (>= 1.2.6-1endless2),
- libmogwai-schedule-client-0,
+ libmogwai-schedule-client-0-dev,
  libnm-dev (>= 1.2.0),
  libostree-dev (>= 2017.12),
  libsoup2.4-dev,
