@@ -379,11 +379,13 @@ metadata_fetch_new (OstreeRepo    *repo,
 /* Fetch metadata such as commit checksums from OSTree repositories that may be
  * found on the Internet, the local network, or a removable drive. */
 static gboolean
-metadata_fetch_from_main (EosMetadataFetchData  *fetch_data,
-                          EosUpdateInfo        **out_info,
-                          GError               **error)
+metadata_fetch_from_main (EosUpdaterData  *data,
+                          GMainContext    *context,
+                          EosUpdateInfo  **out_info,
+                          GCancellable    *cancellable,
+                          GError         **error)
 {
-  OstreeRepo *repo = fetch_data->data->repo;
+  OstreeRepo *repo = data->repo;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *new_refspec = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
@@ -397,7 +399,7 @@ metadata_fetch_from_main (EosMetadataFetchData  *fetch_data,
     return FALSE;
 
   if (!fetch_latest_commit (repo,
-                            g_task_get_cancellable (fetch_data->task),
+                            cancellable,
                             refspec,
                             NULL,
                             &checksum,
@@ -430,7 +432,6 @@ metadata_fetch (GTask *task,
   EosUpdaterData *data = task_data;
   g_autoptr(GError) error = NULL;
   g_autoptr(GMainContext) task_context = g_main_context_new ();
-  g_autoptr(EosMetadataFetchData) fetch_data = NULL;
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
   g_autoptr(OstreeDeployment) deployment = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
@@ -440,7 +441,7 @@ metadata_fetch (GTask *task,
    * Make it clear in the logging which code path is being used. */
   gboolean disable_old_code = (g_getenv ("EOS_UPDATER_DISABLE_FALLBACK_FETCHERS") != NULL);
 
-  fetch_data = eos_metadata_fetch_data_new (task, data, task_context);
+  g_main_context_push_thread_default (task_context);
 
   /* Check we’re not on a dev-converted system. */
   deployment = eos_updater_get_booted_deployment (&error);
@@ -450,6 +451,7 @@ metadata_fetch (GTask *task,
       g_task_return_new_error (task, EOS_UPDATER_ERROR,
                                EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
                                "Not an OSTree-based system: cannot update it.");
+      g_main_context_pop_thread_default (task_context);
       return;
     }
 
@@ -459,6 +461,7 @@ metadata_fetch (GTask *task,
   if (!read_config (get_config_file_path (), &config, &error))
     {
       g_task_return_error (task, g_steal_pointer (&error));
+      g_main_context_pop_thread_default (task_context);
       return;
     }
 
@@ -509,7 +512,9 @@ metadata_fetch (GTask *task,
           g_assert (config.download_order->len > 0);
           g_ptr_array_add (fetchers, metadata_fetch_from_main);
 
-          info = run_fetchers (fetch_data,
+          info = run_fetchers (data,
+                               task_context,
+                               cancellable,
                                fetchers,
                                config.download_order);
         }
@@ -527,6 +532,8 @@ metadata_fetch (GTask *task,
     g_task_return_pointer (task,
                            (info != NULL) ? g_object_ref (info) : NULL,
                            g_object_unref);
+
+  g_main_context_pop_thread_default (task_context);
 }
 
 gboolean
