@@ -25,7 +25,6 @@
 #include "eos-updater-data.h"
 #include "eos-updater-object.h"
 #include "eos-updater-poll-common.h"
-#include "eos-updater-poll-main.h"
 #include "eos-updater-poll.h"
 #include "resources.h"
 
@@ -375,6 +374,51 @@ metadata_fetch_new (OstreeRepo    *repo,
   metrics_report_successful_poll (info);
 
   return g_steal_pointer (&info);
+}
+
+/* Fetch metadata such as commit checksums from OSTree repositories that may be
+ * found on the Internet, the local network, or a removable drive. */
+static gboolean
+metadata_fetch_from_main (EosMetadataFetchData  *fetch_data,
+                          EosUpdateInfo        **out_info,
+                          GError               **error)
+{
+  OstreeRepo *repo = fetch_data->data->repo;
+  g_autofree gchar *refspec = NULL;
+  g_autofree gchar *new_refspec = NULL;
+  g_autoptr(EosUpdateInfo) info = NULL;
+  g_autofree gchar *checksum = NULL;
+  g_autoptr(GVariant) commit = NULL;
+
+  g_return_val_if_fail (out_info != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  if (!get_refspec_to_upgrade_on (&refspec, NULL, NULL, NULL, error))
+    return FALSE;
+
+  if (!fetch_latest_commit (repo,
+                            g_task_get_cancellable (fetch_data->task),
+                            refspec,
+                            NULL,
+                            &checksum,
+                            &new_refspec,
+                            error))
+    return FALSE;
+
+  if (!is_checksum_an_update (repo, checksum, &commit, error))
+    return FALSE;
+
+  if (commit != NULL)
+    info = eos_update_info_new (checksum,
+                                commit,
+                                new_refspec,
+                                refspec,
+                                NULL,
+                                NULL);
+
+  *out_info = g_steal_pointer (&info);
+
+  return TRUE;
 }
 
 static void
