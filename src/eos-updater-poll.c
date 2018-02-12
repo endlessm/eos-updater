@@ -610,15 +610,14 @@ poll_volume_data_new (OstreeRepo  *repo,
   return g_steal_pointer (&data);
 }
 
-static void
-poll_volume (GTask        *task,
-             gpointer      object,
-             gpointer      task_data,
-             GCancellable *cancellable)
+static gboolean
+poll_volume_internal (PollVolumeData  *poll_volume_data,
+                      EosUpdateInfo  **out_info,
+                      GCancellable    *cancellable,
+                      GError         **error)
 {
-  PollVolumeData *poll_volume_data = task_data;
-  g_autoptr(GError) error = NULL;
-  g_autoptr(GMainContext) task_context = g_main_context_new ();
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GMainContext) task_context = g_main_context_ref_thread_default ();
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
   g_autoptr(OstreeDeployment) deployment = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
@@ -626,17 +625,17 @@ poll_volume (GTask        *task,
   g_autofree gchar *repo_path = NULL;
 
   /* Check we’re not on a dev-converted system. */
-  deployment = eos_updater_get_booted_deployment (&error);
-  if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
-      g_error_matches (error, G_IO_ERROR, G_IO_ERROR_FAILED))
+  deployment = eos_updater_get_booted_deployment (&local_error);
+  if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
+      g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_FAILED))
     {
-      g_task_return_new_error (task, EOS_UPDATER_ERROR,
-                               EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
-                               "Not an OSTree-based system: cannot update it.");
-      return;
+      g_set_error (error, EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
+                   "Not an OSTree-based system: cannot update it.");
+      return FALSE;
     }
 
-  g_clear_error (&error);
+  g_clear_error (&local_error);
 
   config.download_order = g_array_new (FALSE, /* not null terminated */
                                        FALSE, /* no clearing */
@@ -648,14 +647,42 @@ poll_volume (GTask        *task,
   config.override_uris = g_new0 (gchar *, 2);
   config.override_uris[0] = g_strconcat ("file://", repo_path, NULL);
 
-  info = metadata_fetch_new (poll_volume_data->repo, &config, task_context, cancellable, &error);
+  info = metadata_fetch_new (poll_volume_data->repo, &config, task_context, cancellable, &local_error);
 
-  if (error != NULL)
-    g_task_return_error (task, g_steal_pointer (&error));
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  if (out_info != NULL)
+    *out_info = g_steal_pointer (&info);
+
+  return TRUE;
+}
+
+static void
+poll_volume (GTask        *task,
+             gpointer      object,
+             gpointer      task_data,
+             GCancellable *cancellable)
+{
+  g_autoptr(GError) local_error = NULL;
+  PollVolumeData *poll_volume_data = task_data;
+  g_autoptr(EosUpdateInfo) info = NULL;
+  g_autoptr(GMainContext) task_context = g_main_context_new ();
+
+  g_main_context_push_thread_default (task_context);
+
+  if (!poll_volume_internal (poll_volume_data,
+                             &info,
+                             cancellable,
+                             &local_error))
+    g_task_return_error (task, g_steal_pointer (&local_error));
   else
-    g_task_return_pointer (task,
-                           (info != NULL) ? g_object_ref (info) : NULL,
-                           g_object_unref);
+    g_task_return_pointer (task, g_steal_pointer (&info), g_object_unref);
+
+  g_main_context_pop_thread_default (task_context);
 }
 
 gboolean
