@@ -545,6 +545,7 @@ handle_poll (EosUpdater            *updater,
              gpointer               user_data)
 {
   g_autoptr(GTask) task = NULL;
+  EosUpdaterData *data = user_data;
   EosUpdaterState state = eos_updater_get_state (updater);
 
   switch (state)
@@ -567,12 +568,12 @@ handle_poll (EosUpdater            *updater,
         return TRUE;
     }
 
-  /* FIXME: Passing the EosUpdaterData *user_data to the worker thread here is
+  /* FIXME: Passing the EosUpdaterData *data to the worker thread here is
    * not thread safe.
    * See: https://phabricator.endlessm.com/T15923 */
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
-  task = g_task_new (updater, NULL, metadata_fetch_finished, user_data);
-  g_task_set_task_data (task, user_data, NULL);
+  task = g_task_new (updater, NULL, metadata_fetch_finished, data);
+  g_task_set_task_data (task, data, NULL);
   g_task_run_in_thread (task, metadata_fetch);
 
   eos_updater_complete_poll (updater, call);
@@ -585,38 +586,38 @@ typedef struct
   EosUpdaterData *data;
 
   gchar *volume_path;
-} VolumeMetadataFetchData;
+} PollVolumeData;
 
-static VolumeMetadataFetchData *
-volume_metadata_fetch_data_new (EosUpdaterData *data,
-                                const gchar    *path)
+static void
+poll_volume_data_free (PollVolumeData *data)
 {
-  VolumeMetadataFetchData *volume_fetch_data;
+  g_free (data->volume_path);
+  g_free (data);
+}
 
-  volume_fetch_data = g_new (VolumeMetadataFetchData, 1);
-  volume_fetch_data->data = data;
-  volume_fetch_data->volume_path = g_strdup (path);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (PollVolumeData, poll_volume_data_free)
 
-  return volume_fetch_data;
+static PollVolumeData *
+poll_volume_data_new (EosUpdaterData *updater_data,
+                      const gchar    *path)
+{
+  g_autoptr(PollVolumeData) data = NULL;
+
+  data = g_new (PollVolumeData, 1);
+  data->data = updater_data;
+  data->volume_path = g_strdup (path);
+
+  return g_steal_pointer (&data);
 }
 
 static void
-volume_metadata_fetch_data_free (gpointer volume_fetch_data_ptr)
+poll_volume (GTask        *task,
+             gpointer      object,
+             gpointer      task_data,
+             GCancellable *cancellable)
 {
-  VolumeMetadataFetchData *volume_fetch_data = volume_fetch_data_ptr;
-
-  g_free (volume_fetch_data->volume_path);
-  g_free (volume_fetch_data);
-}
-
-static void
-volume_metadata_fetch (GTask        *task,
-                       gpointer      object,
-                       gpointer      task_data,
-                       GCancellable *cancellable)
-{
-  VolumeMetadataFetchData *volume_fetch_data = task_data;
-  EosUpdaterData *data = volume_fetch_data->data;
+  PollVolumeData *poll_volume_data = task_data;
+  EosUpdaterData *data = poll_volume_data->data;
   g_autoptr(GError) error = NULL;
   g_autoptr(GMainContext) task_context = g_main_context_new ();
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
@@ -644,7 +645,7 @@ volume_metadata_fetch (GTask        *task,
   idx = EOS_UPDATER_DOWNLOAD_MAIN;
   g_array_append_val (config.download_order, idx);
 
-  repo_path = g_build_filename (volume_fetch_data->volume_path, ".ostree", "repo", NULL);
+  repo_path = g_build_filename (poll_volume_data->volume_path, ".ostree", "repo", NULL);
   config.override_uris = g_new0 (gchar *, 2);
   config.override_uris[0] = g_strconcat ("file://", repo_path, NULL);
 
@@ -665,6 +666,8 @@ handle_poll_volume (EosUpdater            *updater,
                     gpointer               user_data)
 {
   g_autoptr(GTask) task = NULL;
+  g_autoptr(PollVolumeData) poll_volume_data = NULL;
+  EosUpdaterData *data = user_data;
   EosUpdaterState state = eos_updater_get_state (updater);
 
   switch (state)
@@ -687,13 +690,15 @@ handle_poll_volume (EosUpdater            *updater,
         return TRUE;
     }
 
+  poll_volume_data = poll_volume_data_new (data, path);
+
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
-  task = g_task_new (updater, NULL, metadata_fetch_finished, user_data);
-  g_task_set_task_data (task,
-                        volume_metadata_fetch_data_new (user_data, path),
-                        volume_metadata_fetch_data_free);
-  g_task_run_in_thread (task, volume_metadata_fetch);
+  task = g_task_new (updater, NULL, metadata_fetch_finished, data);
+  g_task_set_task_data (task, g_steal_pointer (&poll_volume_data),
+                        (GDestroyNotify) poll_volume_data_free);
+  g_task_run_in_thread (task, poll_volume);
 
   eos_updater_complete_poll_volume (updater, call);
+
   return TRUE;
 }
