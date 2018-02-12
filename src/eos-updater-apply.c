@@ -99,7 +99,7 @@ get_test_osname (void)
 
 static gboolean
 apply_internal (ApplyData     *apply_data,
-                GCancellable  *cancel,
+                GCancellable  *cancellable,
                 gboolean      *out_bootversion_changed,
                 GError       **error)
 {
@@ -123,7 +123,7 @@ apply_internal (ApplyData     *apply_data,
    */
   if (!ostree_sysroot_lock (sysroot, error))
     return FALSE;
-  if (!ostree_sysroot_load (sysroot, cancel, error))
+  if (!ostree_sysroot_load (sysroot, cancellable, error))
     return FALSE;
 
   bootversion = ostree_sysroot_get_bootversion (sysroot);
@@ -140,7 +140,7 @@ apply_internal (ApplyData     *apply_data,
                                    booted_deployment,
                                    NULL,
                                    &new_deployment,
-                                   cancel,
+                                   cancellable,
                                    error))
     return FALSE;
 
@@ -158,12 +158,12 @@ apply_internal (ApplyData     *apply_data,
 
       if (rev)
         {
-          if (!ostree_repo_prepare_transaction (repo, NULL, cancel, error))
+          if (!ostree_repo_prepare_transaction (repo, NULL, cancellable, error))
             return FALSE;
 
           ostree_repo_transaction_set_refspec (repo, orig_refspec, NULL);
 
-          if (!ostree_repo_commit_transaction (repo, NULL, cancel, error))
+          if (!ostree_repo_commit_transaction (repo, NULL, cancellable, error))
             return FALSE;
         }
     }
@@ -173,7 +173,7 @@ apply_internal (ApplyData     *apply_data,
                                                new_deployment,
                                                booted_deployment,
                                                OSTREE_SYSROOT_SIMPLE_WRITE_DEPLOYMENT_FLAGS_NO_CLEAN,
-                                               cancel,
+                                               cancellable,
                                                error))
     return FALSE;
 
@@ -183,7 +183,7 @@ apply_internal (ApplyData     *apply_data,
    * already successfully deployed the new OS. This clearly is a
    * workaround for a more serious issue, likely related to concurrent
    * prunes (https://phabricator.endlessm.com/T16736). */
-  if (!ostree_sysroot_cleanup (sysroot, cancel, &local_error))
+  if (!ostree_sysroot_cleanup (sysroot, cancellable, &local_error))
     g_warning ("Failed to clean up the sysroot after successful deployment: %s",
                local_error->message);
   g_clear_error (&local_error);
@@ -196,7 +196,7 @@ static void
 apply (GTask *task,
        gpointer object,
        gpointer task_data,
-       GCancellable *cancel)
+       GCancellable *cancellable)
 {
   g_autoptr(GError) local_error = NULL;
   ApplyData *apply_data = task_data;
@@ -206,7 +206,7 @@ apply (GTask *task,
   g_main_context_push_thread_default (task_context);
 
   if (!apply_internal (apply_data,
-                       cancel,
+                       cancellable,
                        &bootversion_changed,
                        &local_error))
     g_task_return_error (task, g_steal_pointer (&local_error));
