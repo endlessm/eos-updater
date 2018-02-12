@@ -564,7 +564,7 @@ handle_poll (EosUpdater            *updater,
           EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_WRONG_STATE,
           "Can't call Poll() while in state %s",
           eos_updater_state_to_string (state));
-        goto bail;
+        return TRUE;
     }
 
   /* FIXME: Passing the EosUpdaterData *user_data to the worker thread here is
@@ -577,7 +577,6 @@ handle_poll (EosUpdater            *updater,
 
   eos_updater_complete_poll (updater, call);
 
-bail:
   return TRUE;
 }
 
