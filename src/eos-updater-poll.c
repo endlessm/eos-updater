@@ -205,7 +205,10 @@ get_finders (SourcesConfig          *config,
       g_clear_object (&finder_avahi);
 
       for (i = 0; config->override_uris[i] != NULL; i++)
-        ostree_repo_finder_override_add_uri (finder_override, config->override_uris[i]);
+        {
+          g_message ("Poll: Adding override URI ‘%s’", config->override_uris[i]);
+          ostree_repo_finder_override_add_uri (finder_override, config->override_uris[i]);
+        }
     }
 
   g_ptr_array_add (finders, NULL);  /* NULL terminator */
