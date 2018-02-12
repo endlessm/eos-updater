@@ -89,11 +89,11 @@ eos_update_info_new (const gchar *csum,
 GDateTime *
 eos_update_info_get_commit_timestamp (EosUpdateInfo *info);
 
-typedef gboolean (*MetadataFetcher) (EosUpdaterData  *data,
-                                     GMainContext    *context,
-                                     EosUpdateInfo  **out_info,
-                                     GCancellable    *cancellable,
-                                     GError         **error);
+typedef gboolean (*MetadataFetcher) (OstreeRepo     *repo,
+                                     GMainContext   *context,
+                                     EosUpdateInfo **out_info,
+                                     GCancellable   *cancellable,
+                                     GError        **error);
 
 gboolean get_booted_refspec (OstreeDeployment     *booted_deployment,
                              gchar               **booted_refspec,
@@ -146,11 +146,11 @@ gboolean string_to_download_source (const gchar *str,
                                     EosUpdaterDownloadSource *source,
                                     GError **error);
 
-EosUpdateInfo *run_fetchers (EosUpdaterData *data,
-                             GMainContext   *context,
-                             GCancellable   *cancellable,
-                             GPtrArray      *fetchers,
-                             GArray         *sources);
+EosUpdateInfo *run_fetchers (OstreeRepo   *repo,
+                             GMainContext *context,
+                             GCancellable *cancellable,
+                             GPtrArray    *fetchers,
+                             GArray       *sources);
 
 void metadata_fetch_finished (GObject *object,
                               GAsyncResult *res,

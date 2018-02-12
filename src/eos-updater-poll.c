@@ -382,13 +382,12 @@ metadata_fetch_new (OstreeRepo    *repo,
 /* Fetch metadata such as commit checksums from OSTree repositories that may be
  * found on the Internet, the local network, or a removable drive. */
 static gboolean
-metadata_fetch_from_main (EosUpdaterData  *data,
-                          GMainContext    *context,
-                          EosUpdateInfo  **out_info,
-                          GCancellable    *cancellable,
-                          GError         **error)
+metadata_fetch_from_main (OstreeRepo     *repo,
+                          GMainContext   *context,
+                          EosUpdateInfo **out_info,
+                          GCancellable   *cancellable,
+                          GError        **error)
 {
-  OstreeRepo *repo = data->repo;
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *new_refspec = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
@@ -515,7 +514,7 @@ metadata_fetch (GTask *task,
           g_assert (config.download_order->len > 0);
           g_ptr_array_add (fetchers, metadata_fetch_from_main);
 
-          info = run_fetchers (data,
+          info = run_fetchers (data->repo,
                                task_context,
                                cancellable,
                                fetchers,

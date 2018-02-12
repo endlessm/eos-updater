@@ -845,11 +845,11 @@ get_latest_update (GArray *sources,
 }
 
 EosUpdateInfo *
-run_fetchers (EosUpdaterData *data,
-              GMainContext   *context,
-              GCancellable   *cancellable,
-              GPtrArray      *fetchers,
-              GArray         *sources)
+run_fetchers (OstreeRepo   *repo,
+              GMainContext *context,
+              GCancellable *cancellable,
+              GPtrArray    *fetchers,
+              GArray       *sources)
 {
   guint idx;
   g_autoptr(GHashTable) source_to_update = g_hash_table_new_full (NULL,
@@ -857,7 +857,7 @@ run_fetchers (EosUpdaterData *data,
                                                                   NULL,
                                                                   (GDestroyNotify) g_object_unref);
 
-  g_return_val_if_fail (data != NULL, NULL);
+  g_return_val_if_fail (OSTREE_IS_REPO (repo), NULL);
   g_return_val_if_fail (context != NULL, NULL);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), NULL);
   g_return_val_if_fail (fetchers != NULL, NULL);
@@ -874,7 +874,7 @@ run_fetchers (EosUpdaterData *data,
       const gchar *name = download_source_to_string (source);
       g_autoptr(GError) local_error = NULL;
 
-      if (!fetcher (data, context, &info, cancellable, &local_error))
+      if (!fetcher (repo, context, &info, cancellable, &local_error))
         {
           g_message ("Failed to poll metadata from source %s: %s",
                      name, local_error->message);
