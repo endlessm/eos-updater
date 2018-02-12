@@ -425,15 +425,14 @@ metadata_fetch_from_main (OstreeRepo     *repo,
   return TRUE;
 }
 
-static void
-metadata_fetch (GTask *task,
-                gpointer object,
-                gpointer task_data,
-                GCancellable *cancellable)
+static gboolean
+metadata_fetch_internal (OstreeRepo     *repo,
+                         EosUpdateInfo **out_info,
+                         GCancellable   *cancellable,
+                         GError        **error)
 {
-  EosUpdaterData *data = task_data;
-  g_autoptr(GError) error = NULL;
-  g_autoptr(GMainContext) task_context = g_main_context_new ();
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GMainContext) task_context = g_main_context_ref_thread_default ();
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
   g_autoptr(OstreeDeployment) deployment = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
@@ -443,29 +442,22 @@ metadata_fetch (GTask *task,
    * Make it clear in the logging which code path is being used. */
   gboolean disable_old_code = (g_getenv ("EOS_UPDATER_DISABLE_FALLBACK_FETCHERS") != NULL);
 
-  g_main_context_push_thread_default (task_context);
-
   /* Check we’re not on a dev-converted system. */
-  deployment = eos_updater_get_booted_deployment (&error);
-  if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
-      g_error_matches (error, G_IO_ERROR, G_IO_ERROR_FAILED))
+  deployment = eos_updater_get_booted_deployment (&local_error);
+  if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
+      g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_FAILED))
     {
-      g_task_return_new_error (task, EOS_UPDATER_ERROR,
-                               EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
-                               "Not an OSTree-based system: cannot update it.");
-      g_main_context_pop_thread_default (task_context);
-      return;
+      g_set_error (error, EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM,
+                   "Not an OSTree-based system: cannot update it.");
+      return FALSE;
     }
 
-  g_clear_error (&error);
+  g_clear_error (&local_error);
 
   /* Work out which sources to poll. */
-  if (!read_config (get_config_file_path (), &config, &error))
-    {
-      g_task_return_error (task, g_steal_pointer (&error));
-      g_main_context_pop_thread_default (task_context);
-      return;
-    }
+  if (!read_config (get_config_file_path (), &config, error))
+    return FALSE;
 
   /* Do we want to use the new libostree code for P2P, or fall back on the old
    * eos-updater code?
@@ -473,15 +465,15 @@ metadata_fetch (GTask *task,
    * https://phabricator.endlessm.com/T19606 */
   if (use_new_code)
     {
-      info = metadata_fetch_new (data->repo, &config, task_context, cancellable, &error);
+      info = metadata_fetch_new (repo, &config, task_context, cancellable, &local_error);
 
-      if (error != NULL)
+      if (local_error != NULL)
         {
           use_new_code = FALSE;
 
           g_warning ("Error polling for updates using libostree P2P code; falling back to old code: %s",
-                     error->message);
-          g_clear_error (&error);
+                     local_error->message);
+          g_clear_error (&local_error);
         }
 
       if (info != NULL)
@@ -514,7 +506,7 @@ metadata_fetch (GTask *task,
           g_assert (config.download_order->len > 0);
           g_ptr_array_add (fetchers, metadata_fetch_from_main);
 
-          info = run_fetchers (data->repo,
+          info = run_fetchers (repo,
                                task_context,
                                cancellable,
                                fetchers,
@@ -528,12 +520,38 @@ metadata_fetch (GTask *task,
         }
     }
 
-  if (error != NULL)
-    g_task_return_error (task, g_steal_pointer (&error));
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  if (out_info != NULL)
+    *out_info = g_steal_pointer (&info);
+
+  return TRUE;
+}
+
+static void
+metadata_fetch (GTask *task,
+                gpointer object,
+                gpointer task_data,
+                GCancellable *cancellable)
+{
+  g_autoptr(GError) local_error = NULL;
+  OstreeRepo *repo = task_data;
+  g_autoptr(EosUpdateInfo) info = NULL;
+  g_autoptr(GMainContext) task_context = g_main_context_new ();
+
+  g_main_context_push_thread_default (task_context);
+
+  if (!metadata_fetch_internal (repo,
+                                &info,
+                                cancellable,
+                                &local_error))
+    g_task_return_error (task, g_steal_pointer (&local_error));
   else
-    g_task_return_pointer (task,
-                           (info != NULL) ? g_object_ref (info) : NULL,
-                           g_object_unref);
+    g_task_return_pointer (task, g_steal_pointer (&info), g_object_unref);
 
   g_main_context_pop_thread_default (task_context);
 }
@@ -567,12 +585,11 @@ handle_poll (EosUpdater            *updater,
         return TRUE;
     }
 
-  /* FIXME: Passing the EosUpdaterData *data to the worker thread here is
-   * not thread safe.
+  /* FIXME: Passing the #OstreeRepo to the worker thread here is not thread safe.
    * See: https://phabricator.endlessm.com/T15923 */
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
   task = g_task_new (updater, NULL, metadata_fetch_finished, data);
-  g_task_set_task_data (task, data, NULL);
+  g_task_set_task_data (task, g_object_ref (data->repo), g_object_unref);
   g_task_run_in_thread (task, metadata_fetch);
 
   eos_updater_complete_poll (updater, call);
