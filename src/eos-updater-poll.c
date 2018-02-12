@@ -583,28 +583,28 @@ handle_poll (EosUpdater            *updater,
 
 typedef struct
 {
-  EosUpdaterData *data;
-
-  gchar *volume_path;
+  OstreeRepo *repo;  /* (owned) */
+  gchar *volume_path;  /* (owned) */
 } PollVolumeData;
 
 static void
 poll_volume_data_free (PollVolumeData *data)
 {
   g_free (data->volume_path);
+  g_clear_object (&data->repo);
   g_free (data);
 }
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (PollVolumeData, poll_volume_data_free)
 
 static PollVolumeData *
-poll_volume_data_new (EosUpdaterData *updater_data,
-                      const gchar    *path)
+poll_volume_data_new (OstreeRepo  *repo,
+                      const gchar *path)
 {
   g_autoptr(PollVolumeData) data = NULL;
 
   data = g_new (PollVolumeData, 1);
-  data->data = updater_data;
+  data->repo = g_object_ref (repo);
   data->volume_path = g_strdup (path);
 
   return g_steal_pointer (&data);
@@ -617,7 +617,6 @@ poll_volume (GTask        *task,
              GCancellable *cancellable)
 {
   PollVolumeData *poll_volume_data = task_data;
-  EosUpdaterData *data = poll_volume_data->data;
   g_autoptr(GError) error = NULL;
   g_autoptr(GMainContext) task_context = g_main_context_new ();
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
@@ -649,7 +648,7 @@ poll_volume (GTask        *task,
   config.override_uris = g_new0 (gchar *, 2);
   config.override_uris[0] = g_strconcat ("file://", repo_path, NULL);
 
-  info = metadata_fetch_new (data->repo, &config, task_context, cancellable, &error);
+  info = metadata_fetch_new (poll_volume_data->repo, &config, task_context, cancellable, &error);
 
   if (error != NULL)
     g_task_return_error (task, g_steal_pointer (&error));
@@ -690,7 +689,8 @@ handle_poll_volume (EosUpdater            *updater,
         return TRUE;
     }
 
-  poll_volume_data = poll_volume_data_new (data, path);
+  /* FIXME: The #OstreeRepo instance here is not thread safe. */
+  poll_volume_data = poll_volume_data_new (data->repo, path);
 
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
   task = g_task_new (updater, NULL, metadata_fetch_finished, data);
