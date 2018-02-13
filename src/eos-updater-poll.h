@@ -33,6 +33,7 @@ gboolean handle_poll (EosUpdater            *updater,
                       gpointer               user_data);
 gboolean handle_poll_volume (EosUpdater            *updater,
                              GDBusMethodInvocation *call,
+                             const gchar           *path,
                              gpointer               user_data);
 
 G_END_DECLS

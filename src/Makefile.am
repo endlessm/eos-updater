@@ -104,8 +104,6 @@ eos_updater_SOURCES = \
 	eos-updater-poll.h \
 	eos-updater-poll-common.h \
 	eos-updater-poll-common.c \
-	eos-updater-poll-main.h \
-	eos-updater-poll-main.c \
 	eos-updater.c \
 	$(NULL)
 nodist_eos_updater_SOURCES = \
