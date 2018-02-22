@@ -1,7 +1,10 @@
 [Unit]
 Description=Endless OS Post-Boot Flatpak Installer
-Requires=local-fs.target eos-extra-settled.target
-After=local-fs.target eos-extra-settled.target
+# /home is a symlink to /var/home; /var/home is a symlink to /sysroot/home. The
+# second symlink is created by systemd-tmpfiles. Since we use ProtectHome=yes,
+# we must explicitly order this unit after tmpfiles are created.
+Requires=local-fs.target eos-extra-settled.target systemd-tmpfiles-setup.service
+After=local-fs.target eos-extra-settled.target systemd-tmpfiles-setup.service
 ConditionKernelCommandLine=!eos-updater-disable
 DefaultDependencies=no
 Conflicts=shutdown.target
