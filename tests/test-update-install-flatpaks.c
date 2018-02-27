@@ -602,7 +602,7 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -641,7 +641,7 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -667,7 +667,7 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
 
 /* Insert a list of flatpaks to automatically install on the commit
  * and ensure that they are pulled into the local repo once the
- * system update has completed, using a branch name other than "master" */
+ * system update has completed, using a branch name other than "stable" */
 static void
 test_update_install_flatpaks_custom_branch_name (EosUpdaterFixture *fixture,
                                                  gconstpointer      user_data)
@@ -749,7 +749,7 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_repo_config (
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -788,7 +788,7 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_repo_config (
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection", /* repo config */
                                NULL, /* remote config on local repo  */
@@ -823,7 +823,7 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_remote_or_rep
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -862,7 +862,7 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_remote_or_rep
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                NULL, /* repo collection-id */
                                NULL, /* remote config */
@@ -897,7 +897,7 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
   EtcData *data = &real_data;
   DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", NULL, "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", NULL, "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -940,7 +940,7 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -1038,7 +1038,7 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -1095,7 +1095,7 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
   EtcData *data = &real_data;
   DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -1138,7 +1138,7 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                NULL, /* repo collection-id */
                                "com.endlessm.TestInstallFlatpaksCollection", /* remote config */
@@ -1195,7 +1195,7 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
   EtcData *data = &real_data;
   DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", NULL, NULL, "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", NULL, NULL, "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -1238,7 +1238,7 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -1296,7 +1296,7 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
   EtcData *data = &real_data;
   DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "other-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "other-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -1339,7 +1339,7 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -1398,7 +1398,7 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -1448,7 +1448,7 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
 
   /* Set up the flatpak repo and also preinstall the apps */
   eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "master",
+                                                      "stable",
                                                       "test-repo",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
@@ -1480,7 +1480,7 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
   g_file_set_contents (app_executable_path, "#!/bin/bash\nexit 1\n", -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "master", &error);
+  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1). */
@@ -1507,12 +1507,12 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   FlatpakToInstall flatpaks_to_install_on_second_commit[] = {
     /* List starts with @flatpaks_to_install due to being append-only. */
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -1572,7 +1572,7 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -1625,7 +1625,7 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
   g_file_set_contents (app_executable_path, "#!/bin/bash\nexit 1\n", -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "master", &error);
+  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (2). */
@@ -1654,7 +1654,7 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -1710,7 +1710,7 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -1750,7 +1750,7 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
   g_file_set_contents (app_executable_path, "#!/bin/bash\nexit 1\n", -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "master", &error);
+  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (2). */
@@ -1777,7 +1777,7 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
     /* Indicate that we should skip the testing architecture */
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_SKIP_TESTING_ARCHITECTURE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_SKIP_TESTING_ARCHITECTURE }
   };
   g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
@@ -1819,7 +1819,7 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -1854,7 +1854,7 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
     /* Indicate that we should skip the testing architecture */
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_ONLY_NOT_TESTING_ARCHITECTURE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_ONLY_NOT_TESTING_ARCHITECTURE }
   };
   g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
@@ -1895,7 +1895,7 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -1930,7 +1930,7 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
     /* Indicate that we should skip the testing architecture */
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_SKIP_TESTING_LOCALE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_SKIP_TESTING_LOCALE }
   };
   g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
@@ -1971,7 +1971,7 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -2006,7 +2006,7 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
     /* Indicate that we should skip the testing architecture */
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_ONLY_NOT_TESTING_LOCALE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_ONLY_NOT_TESTING_LOCALE }
   };
   g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
@@ -2047,7 +2047,7 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -2084,7 +2084,7 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -2136,7 +2136,7 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -2232,7 +2232,7 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -2288,7 +2288,7 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -2393,7 +2393,7 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
@@ -2448,7 +2448,7 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
                                           NULL);
   flatpak_remote_dir = g_file_new_for_path (flatpak_remote_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -2506,7 +2506,7 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -2545,7 +2545,7 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -2580,7 +2580,7 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -2625,7 +2625,7 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -2670,7 +2670,7 @@ test_update_no_op_flatpak_already_installed (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -2720,7 +2720,7 @@ test_update_no_op_flatpak_already_installed (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "master",
+                                                      "stable",
                                                       "test-repo",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
@@ -2792,8 +2792,8 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test2", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test2", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -2843,7 +2843,7 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -2910,8 +2910,8 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test2", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test2", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -2963,7 +2963,7 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -3038,12 +3038,12 @@ test_update_uninstall_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[][2] = {
     {
-      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     },
     {
       /* First element is identical to @flatpaks_to_install, since it’s an append-only list. */
-      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-      { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+      { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
@@ -3097,7 +3097,7 @@ test_update_uninstall_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -3287,11 +3287,11 @@ test_update_no_uninstall_flatpaks_on_reboot_different_branch_name (EosUpdaterFix
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[][2] = {
     {
-      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     },
     {
       /* First element is identical to @flatpaks_to_install, since it’s an append-only list. */
-      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
       { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "custom_branch", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     }
   };
@@ -3346,7 +3346,7 @@ test_update_no_uninstall_flatpaks_on_reboot_different_branch_name (EosUpdaterFix
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -3410,7 +3410,7 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -3455,7 +3455,7 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -3501,7 +3501,7 @@ test_update_flatpaks_no_op_if_up_to_date (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -3551,7 +3551,7 @@ test_update_flatpaks_no_op_if_up_to_date (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "master",
+                                                      "stable",
                                                       "test-repo",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
@@ -3614,7 +3614,7 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "update", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -3671,7 +3671,7 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "master",
+                                                      "stable",
                                                       "test-repo",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
@@ -3692,7 +3692,7 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
   g_file_set_contents (app_executable_path, expected_app_executable_contents, -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "master", &error);
+  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
@@ -3745,7 +3745,7 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -3802,7 +3802,7 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "master",
+                                                      "stable",
                                                       "test-repo",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
                                                       "com.endlessm.TestInstallFlatpaksCollection",
@@ -3823,7 +3823,7 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
   g_file_set_contents (app_executable_path, expected_app_executable_contents, -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "master", &error);
+  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
@@ -3873,7 +3873,7 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -3919,7 +3919,7 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
   g_assert_no_error (error);
 
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -3967,17 +3967,17 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install_override_high_priority[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test2", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test2", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   /* Note that the low priority list will attempt to remove the file, but this
    * will always get "beaten" by the higher priority file */
   FlatpakToInstall flatpaks_to_install_in_ostree_low_priority[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-    { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   FlatpakToInstall flatpaks_to_install_in_ostree_high_priority[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -4042,7 +4042,7 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
                                    &data->additional_files_for_commit);
 
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -4089,7 +4089,7 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -4143,7 +4143,7 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -4173,7 +4173,7 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
 
   /* Now, uninstall the flatpak */
   flatpak_uninstall (updater_directory,
-                     "org.test.Test/arch/master",
+                     "org.test.Test/arch/stable",
                      &error);
   g_assert_no_error (error);
 
@@ -4215,12 +4215,12 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   FlatpakToInstall next_flatpaks_to_install[] = {
     /* First element is identical to @flatpaks_to_install, since it’s an append-only list. */
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
@@ -4274,7 +4274,7 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",
@@ -4304,7 +4304,7 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
 
   /* Now, uninstall the flatpak */
   flatpak_uninstall (updater_directory,
-                     "org.test.Test/arch/master",
+                     "org.test.Test/arch/stable",
                      &error);
   g_assert_no_error (error);
 
@@ -4345,17 +4345,17 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[][3] = {
     {
-      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     },
     {
       /* List grows over time as it’s append-only. */
-      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-      { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+      { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     },
     {
-      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-      { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
-      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "master", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+      { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE },
+      { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
     },
   };
   g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install[0],
@@ -4414,7 +4414,7 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
   eos_test_setup_flatpak_repo (updater_directory,
-                               "master",
+                               "stable",
                                "test-repo",
                                "com.endlessm.TestInstallFlatpaksCollection",
                                "com.endlessm.TestInstallFlatpaksCollection",

@@ -108,8 +108,8 @@ static void
 test_compress_install_update_as_install (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "master",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -128,8 +128,8 @@ static void
 test_compress_uninstall_update_as_uninstall (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "master",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -149,8 +149,8 @@ static void
 test_no_compress_uninstall_update_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -171,8 +171,8 @@ static void
 test_compress_install_uninstall_as_uninstall (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -192,8 +192,8 @@ static void
 test_no_compress_install_uninstall_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -215,9 +215,9 @@ static void
 test_compress_install_uninstall_install_as_install (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",2 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",3 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 3 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -236,8 +236,8 @@ static void
 test_compress_update_update_as_update (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "master",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -257,8 +257,8 @@ static void
 test_no_compress_update_update_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -279,8 +279,8 @@ static void
 test_compress_install_install_as_install (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -300,8 +300,8 @@ static void
 test_no_compress_install_install_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "master",1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other",2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -340,47 +340,47 @@ test_parse_autoinstall_file (void)
       { "[]", 0, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 1, 0, 0, 0 },
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'uninstall', 'serial': 2017100101, 'ref-kind': 'app', "
         "   'name': 'org.example.OutdatedApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 1, 0, 0, 0 },
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017100500, 'ref-kind': 'runtime', "
         "   'name': 'org.example.PreinstalledRuntime', 'collection-id': 'com.endlessm.Runtimes', "
-        "   'remote': 'eos-runtimes', 'branch': 'master' }]", 1, 0, 0, 0 },
+        "   'remote': 'eos-runtimes', 'branch': 'stable' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110100, 'ref-kind': 'runtime', "
         "   'name': 'org.example.NVidiaRuntime', 'collection-id': 'com.endlessm.Runtimes', "
-        "   'remote': 'eos-runtimes', 'branch': 'master' }]", 1, 0, 0, 0 },
+        "   'remote': 'eos-runtimes', 'branch': 'stable' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': { 'locale': ['nonexistent'], '~architecture': ['armhf'] }}]",
         0, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': {}}]", 1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': { '~locale': [], 'architecture': [] }}]", 0, 0, 0, 0 },
       { "[{ 'action': 'update', 'serial': 2017100101, 'ref-kind': 'app', "
         "   'name': 'org.example.OutdatedApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 1, 0, 0, 0 },
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 1, 0, 0, 0 },
       { "[{ 'action': 'update', 'serial': 2018011900, 'ref-kind': 'runtime', "
         "   'name': 'org.freedesktop.Platform.Icontheme.Example', 'collection-id': 'com.endlessm.Sdk', "
         "   'remote': 'eos-sdk', 'branch': '1.0' }]", 1, 0, 0, 0 },
 
       { "[{ 'action': 123, 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'remote': 'eos-apps', "
-        "   'branch': 'master' }]", 0, 0,
+        "   'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'invalid', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 123, "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{}]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
@@ -392,23 +392,23 @@ test_parse_autoinstall_file (void)
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 123, 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 123, "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 123, 'branch': 'master' }]", 0, 0,
+        "   'remote': 123, 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2147483648, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': -2147483649, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
 
       { "[{ 'action': 'uninstall' }]", 0, 0,
@@ -423,42 +423,42 @@ test_parse_autoinstall_file (void)
 
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': 'not an object' }]",
         0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': { 'locale': 'not an array' }}]",
         0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': { 'locale': [123] }}]",
         0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': { 'locale': ['not allowed both'], '~locale': ['filters'] }}]",
         0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': { 'architecture': ['not allowed both'], '~architecture': ['filters'] }}]",
         0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
         "   'remote': 'example-apps', "
-        "   'branch': 'master', "
+        "   'branch': 'stable', "
         "   'filters': { 'architecture': ['not allowed both'], '~architecture': ['filters'] }}]",
         0, 0, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master' }]",
+        "   'remote': 'example-apps', 'branch': 'stable' }]",
         1, 0, 0, 0 },
       { "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
         "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
-        "   'remote': 'example-apps', 'branch': 'master', "
+        "   'remote': 'example-apps', 'branch': 'stable', "
         "   'filters': { 'nonexistent': ['invalid'] }}]",
         0, 1, 0, 0 },
 
@@ -477,32 +477,32 @@ test_parse_autoinstall_file (void)
 
       { "[{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }, "
+        "   'remote': 'eos-apps', 'branch': 'stable' }, "
         " { 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
 
       /* nonsensical serial numbers, outside of 32 bit range */
       { "[{ 'action': 'install', 'serial': -2147483649, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 2147483648, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 'not a number', 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'serial': 1.2, 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
       { "[{ 'action': 'install', 'ref-kind': 'app', "
         "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-        "   'remote': 'eos-apps', 'branch': 'master' }]", 0, 0,
+        "   'remote': 'eos-apps', 'branch': 'stable' }]", 0, 0,
         EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_MALFORMED_AUTOINSTALL_SPEC },
     };
   gsize i;
@@ -552,10 +552,10 @@ test_parse_autoinstall_file_unsorted (void)
     "["
       "{ 'action': 'install', 'serial': 2017100100, 'ref-kind': 'app', "
       "   'name': 'org.example.MyApp', 'collection-id': 'com.endlessm.Apps', "
-      "   'remote': 'eos-apps', 'branch': 'master' },"
+      "   'remote': 'eos-apps', 'branch': 'stable' },"
       "{ 'action': 'install', 'serial': 2017090100, 'ref-kind': 'app', "
       "   'name': 'org.example.OtherApp', 'collection-id': 'com.endlessm.Apps', "
-      "   'remote': 'eos-apps', 'branch': 'master' }"
+      "   'remote': 'eos-apps', 'branch': 'stable' }"
     "]";
 
   g_autoptr(GPtrArray) actions = NULL;
@@ -581,7 +581,7 @@ test_parse_autoinstall_file_unsorted (void)
   g_assert_cmpint (action0->ref_count, >=, 1);
   g_assert_cmpint (action0->type, ==, EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
   g_assert_cmpint (action0->ref->ref_count, >=, 1);
-  g_assert_cmpstr (action0_ref, ==, "app/org.example.OtherApp/arch/master");
+  g_assert_cmpstr (action0_ref, ==, "app/org.example.OtherApp/arch/stable");
   g_assert_cmpstr (action0->ref->remote, ==, "eos-apps");
   g_assert_cmpstr (action0->ref->collection_id, ==, "com.endlessm.Apps");
   g_assert_cmpstr (action0->source, ==, "test");
@@ -590,7 +590,7 @@ test_parse_autoinstall_file_unsorted (void)
   g_assert_cmpint (action1->ref_count, >=, 1);
   g_assert_cmpint (action1->type, ==, EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
   g_assert_cmpint (action1->ref->ref_count, >=, 1);
-  g_assert_cmpstr (action1_ref, ==, "app/org.example.MyApp/arch/master");
+  g_assert_cmpstr (action1_ref, ==, "app/org.example.MyApp/arch/stable");
   g_assert_cmpstr (action1->ref->remote, ==, "eos-apps");
   g_assert_cmpstr (action1->ref->collection_id, ==, "com.endlessm.Apps");
   g_assert_cmpstr (action1->source, ==, "test");
@@ -610,7 +610,7 @@ test_autoinstall_file_filters (void)
       "[{ 'action': 'install', 'serial': 2017110200, 'ref-kind': 'app', "
       "   'name': 'org.example.IndonesiaNonArmGame', 'collection-id': 'org.example.Apps', "
       "   'remote': 'example-apps', "
-      "   'branch': 'master', "
+      "   'branch': 'stable', "
       "   'filters': { %s }"
       "}]";
 
