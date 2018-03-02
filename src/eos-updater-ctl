@@ -69,12 +69,17 @@ def signal_emitted(proxy, signal, parameters):
 
 def dump_daemon_properties(proxy):
     print("======= Properties =======")
+    property_names = proxy.get_cached_property_names()
+    width = max(len(x) for x in property_names)
+
     s = proxy.get_cached_property("State").get_uint32()
-    print("State: " + UPDATER_STATES[s])
+    print("{:>{}}: {}".format("State", width, UPDATER_STATES[s]))
 
     for x in proxy.get_cached_property_names():
         if x != "State":
-            print(" " + x + ": " + str(proxy.get_cached_property(x)))
+            value = proxy.get_cached_property(x)
+            print("{:>{}}: {}".format(x, width, value)
+
     print("")
 
 
