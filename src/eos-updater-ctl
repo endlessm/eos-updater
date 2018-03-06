@@ -60,7 +60,7 @@ EOS_UPDATER_CONFS = [
 current_proxy = None
 
 
-def signal_emitted(proxy, signal, parameters):
+def signal_emitted(proxy, sender, signal, parameters):
     if signal != "StateChanged":
         return
     state = UPDATER_STATES[parameters[0]]
@@ -78,6 +78,10 @@ def dump_daemon_properties(proxy):
     print("")
 
 
+def g_properties_changed_cb(proxy, changed, invalidated):
+    dump_daemon_properties(proxy)
+
+
 def name_appeared_cb(connection, name, name_owner):
     global current_proxy
 
@@ -92,12 +96,8 @@ def name_appeared_cb(connection, name, name_owner):
                                    'com.endlessm.Updater',
                                    None)  # cancellable
 
-    proxy.connect('g-properties-changed',
-                  lambda proxy, changed, invalidated, user_data: \
-                      dump_daemon_properties(proxy), None)
-    proxy.connect('g-signal',
-                  lambda proxy, sender, signal, parameters, user_data: \
-                      signal_emitted(proxy, signal, parameters), None)
+    proxy.connect('g-properties-changed', g_properties_changed_cb)
+    proxy.connect('g-signal', signal_emitted, None)
 
     dump_daemon_properties(proxy)
     current_proxy = proxy
