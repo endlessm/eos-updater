@@ -142,7 +142,8 @@ def command_dbus(command, block, quiet=False, parameters=None):
     # Call the method, wait for the updater to enter the expected in-progress
     # state; then wait for it to leave that state again (either to Error, or
     # the next state corresponding to the method).
-    proxy.call_sync('com.endlessm.Updater.' + function_name, parameters, 0, -1, None)
+    qualified_method_name = 'com.endlessm.Updater.' + function_name
+    proxy.call_sync(qualified_method_name, parameters, 0, -1, None)
 
     cancelled = False
     seen_in_progress_state = False
