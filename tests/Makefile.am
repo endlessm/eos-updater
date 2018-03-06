@@ -38,6 +38,7 @@ uninstalled_test_programs = \
 	test-update-broken-delta \
 	test-update-install-flatpaks \
 	test-update-refspec-checkpoint \
+	test-update-direct \
 	$(NULL)
 
 AM_TESTS_ENVIRONMENT = \
@@ -114,6 +115,12 @@ test_update_refspec_checkpoint_CFLAGS = $(test_cflags)
 test_update_refspec_checkpoint_LDFLAGS = $(test_ldflags)
 test_update_refspec_checkpoint_LDADD = $(test_ldadd)
 test_update_refspec_checkpoint_SOURCES = test-update-refspec-checkpoint.c
+
+test_update_direct_CPPFLAGS = $(test_cppflags)
+test_update_direct_CFLAGS = $(test_cflags)
+test_update_direct_LDFLAGS = $(test_ldflags)
+test_update_direct_LDADD = $(test_ldadd) $(top_builddir)/src/libeos-updater-dbus.la
+test_update_direct_SOURCES = test-update-direct.c
 
 dist_uninstalled_test_data = \
 	gpghome/C1EB8F4E.asc \

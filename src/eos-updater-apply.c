@@ -241,8 +241,9 @@ handle_apply (EosUpdater            *updater,
   apply_data->orig_refspec = g_strdup (eos_updater_get_original_refspec (updater));
   apply_data->repo = g_object_ref (data->repo);
 
+  eos_updater_data_reset_cancellable (data);
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_APPLYING_UPDATE);
-  task = g_task_new (updater, NULL, apply_finished, NULL);
+  task = g_task_new (updater, data->cancellable, apply_finished, NULL);
   g_task_set_task_data (task, g_steal_pointer (&apply_data), (GDestroyNotify) apply_data_free);
   g_task_run_in_thread (task, apply);
 

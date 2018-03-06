@@ -587,8 +587,9 @@ handle_poll (EosUpdater            *updater,
 
   /* FIXME: Passing the #OstreeRepo to the worker thread here is not thread safe.
    * See: https://phabricator.endlessm.com/T15923 */
+  eos_updater_data_reset_cancellable (data);
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
-  task = g_task_new (updater, NULL, metadata_fetch_finished, data);
+  task = g_task_new (updater, data->cancellable, metadata_fetch_finished, data);
   g_task_set_task_data (task, g_object_ref (data->repo), g_object_unref);
   g_task_run_in_thread (task, metadata_fetch);
 
@@ -735,8 +736,9 @@ handle_poll_volume (EosUpdater            *updater,
   /* FIXME: The #OstreeRepo instance here is not thread safe. */
   poll_volume_data = poll_volume_data_new (data->repo, path);
 
+  eos_updater_data_reset_cancellable (data);
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_POLLING);
-  task = g_task_new (updater, NULL, metadata_fetch_finished, data);
+  task = g_task_new (updater, data->cancellable, metadata_fetch_finished, data);
   g_task_set_task_data (task, g_steal_pointer (&poll_volume_data),
                         (GDestroyNotify) poll_volume_data_free);
   g_task_run_in_thread (task, poll_volume);

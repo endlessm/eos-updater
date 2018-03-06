@@ -71,6 +71,43 @@ local_data_init (LocalData *local_data,
   local_data->loop = g_main_loop_ref (loop);
 }
 
+static gboolean
+handle_cancel (EosUpdater            *updater,
+               GDBusMethodInvocation *call,
+               gpointer               user_data)
+{
+  EosUpdaterData *data = user_data;
+  EosUpdaterState state = eos_updater_get_state (updater);
+
+  switch (state)
+    {
+      case EOS_UPDATER_STATE_POLLING:
+      case EOS_UPDATER_STATE_FETCHING:
+      case EOS_UPDATER_STATE_APPLYING_UPDATE:
+        break;
+      case EOS_UPDATER_STATE_NONE:
+      case EOS_UPDATER_STATE_READY:
+      case EOS_UPDATER_STATE_UPDATE_AVAILABLE:
+      case EOS_UPDATER_STATE_UPDATE_READY:
+      case EOS_UPDATER_STATE_ERROR:
+      case EOS_UPDATER_STATE_UPDATE_APPLIED:
+      default:
+        g_dbus_method_invocation_return_error (call,
+                                               EOS_UPDATER_ERROR,
+                                               EOS_UPDATER_ERROR_WRONG_STATE,
+                                               "Can't call Cancel() while in "
+                                               "state %s (nothing to be cancelled)",
+                                               eos_updater_state_to_string (state));
+        return TRUE;
+    }
+
+  g_cancellable_cancel (data->cancellable);
+  eos_updater_data_reset_cancellable (data);
+
+  eos_updater_complete_cancel (updater, call);
+  return TRUE;
+}
+
 static void
 on_bus_acquired (GDBusConnection *connection,
                  const gchar     *name,
@@ -83,6 +120,11 @@ on_bus_acquired (GDBusConnection *connection,
   g_autofree gchar *sum = NULL;
 
   g_message ("Acquired a message bus connection");
+
+  /* Associate GIO's cancellation error with the EosUpdater domain's, since this
+   * is an error that can happen commonly */
+  g_dbus_error_register_error (G_IO_ERROR, G_IO_ERROR_CANCELLED,
+                               "com.endlessm.Updater.Error.Cancelled");
 
   /* Create a new org.freedesktop.DBus.ObjectManager rooted at /com/endlessm */
   local_data->manager = g_dbus_object_manager_server_new ("/com/endlessm");
@@ -129,6 +171,7 @@ on_bus_acquired (GDBusConnection *connection,
       g_signal_connect (updater, "handle-poll-volume",
                         G_CALLBACK (handle_on_live_boot), local_data->data);
       g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_on_live_boot), local_data->data);
+      g_signal_connect (updater, "handle-cancel",  G_CALLBACK (handle_on_live_boot), local_data->data);
 
       eos_updater_set_error (updater, error);
       g_clear_error (&error);
@@ -142,6 +185,7 @@ on_bus_acquired (GDBusConnection *connection,
       g_signal_connect (updater, "handle-poll-volume",
                         G_CALLBACK (handle_poll_volume), local_data->data);
       g_signal_connect (updater, "handle-apply", G_CALLBACK (handle_apply), local_data->data);
+      g_signal_connect (updater, "handle-cancel",  G_CALLBACK (handle_cancel), local_data->data);
     }
 
   /* Export the object (@manager takes its own reference to @object) */

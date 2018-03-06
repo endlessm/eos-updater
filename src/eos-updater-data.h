@@ -48,14 +48,21 @@ struct EosUpdaterData
    * This needs to be passed from poll() to fetch().
    * May be NULL if using the fallback code in poll(). */
   OstreeRepoFinderResult **results;
+
+  /* The object to pass to the tasks performed by the updater, in order to be
+   * able to cancel them. Upon cancellation (which is done by the Cancel()
+   * method), the object is renewed (unreffed + replaced by a new instance). */
+  GCancellable *cancellable;
 };
 
-#define EOS_UPDATER_DATA_CLEARED { NULL, NULL }
+#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL }
 
 void eos_updater_data_init (EosUpdaterData *data,
                             OstreeRepo *repo);
 
 void eos_updater_data_clear (EosUpdaterData *data);
+
+void eos_updater_data_reset_cancellable (EosUpdaterData *data);
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (EosUpdaterData, eos_updater_data_clear)
 

@@ -35,6 +35,7 @@ eos_updater_data_init (EosUpdaterData *data,
 
   memset (data, 0, sizeof *data);
   data->repo = g_object_ref (repo);
+  data->cancellable = g_cancellable_new ();
 }
 
 void
@@ -45,4 +46,18 @@ eos_updater_data_clear (EosUpdaterData *data)
   g_clear_pointer (&data->results, ostree_repo_finder_result_freev);
   g_clear_pointer (&data->overridden_urls, g_strfreev);
   g_clear_object (&data->repo);
+  g_clear_object (&data->cancellable);
+}
+
+void
+eos_updater_data_reset_cancellable (EosUpdaterData *data)
+{
+  /* from the documentation, using g_cancellable_reset is not recommended, so,
+   * if the cancellable is canceled, we just unref the object and create a
+   * new one */
+  if (!g_cancellable_is_cancelled (data->cancellable))
+    return;
+
+  g_object_unref (data->cancellable);
+  data->cancellable = g_cancellable_new ();
 }
