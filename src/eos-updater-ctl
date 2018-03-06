@@ -78,7 +78,7 @@ def dump_daemon_properties(proxy):
     for x in proxy.get_cached_property_names():
         if x != "State":
             value = proxy.get_cached_property(x)
-            print("{:>{}}: {}".format(x, width, value)
+            print("{:>{}}: {}".format(x, width, value))
 
     print("")
 
