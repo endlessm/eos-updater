@@ -31,6 +31,7 @@ Build-Depends:
  libsystemd-dev,
  ostree (>= 2017.12),
  ostree-tests (>= 2017.6),
+ python3-flake8,
  python3-gi,
 
 Package: eos-updater
