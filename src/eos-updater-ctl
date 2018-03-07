@@ -15,9 +15,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+# You should have received a copy of the GNU Lesser General Public License
+# along with this library; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
 import argparse
 import os
@@ -60,7 +60,7 @@ EOS_UPDATER_CONFS = [
 current_proxy = None
 
 
-def signal_emitted(proxy, signal, parameters):
+def signal_emitted(proxy, sender, signal, parameters):
     if signal != "StateChanged":
         return
     state = UPDATER_STATES[parameters[0]]
@@ -83,6 +83,10 @@ def dump_daemon_properties(proxy):
     print("")
 
 
+def g_properties_changed_cb(proxy, changed, invalidated):
+    dump_daemon_properties(proxy)
+
+
 def name_appeared_cb(connection, name, name_owner):
     global current_proxy
 
@@ -97,12 +101,8 @@ def name_appeared_cb(connection, name, name_owner):
                                    'com.endlessm.Updater',
                                    None)  # cancellable
 
-    proxy.connect('g-properties-changed',
-                  lambda proxy, changed, invalidated, user_data: \
-                      dump_daemon_properties(proxy), None)
-    proxy.connect('g-signal',
-                  lambda proxy, sender, signal, parameters, user_data: \
-                      signal_emitted(proxy, signal, parameters), None)
+    proxy.connect('g-properties-changed', g_properties_changed_cb)
+    proxy.connect('g-signal', signal_emitted, None)
 
     dump_daemon_properties(proxy)
     current_proxy = proxy
@@ -147,7 +147,8 @@ def command_dbus(command, block, quiet=False, parameters=None):
     # Call the method, wait for the updater to enter the expected in-progress
     # state; then wait for it to leave that state again (either to Error, or
     # the next state corresponding to the method).
-    proxy.call_sync('com.endlessm.Updater.' + function_name, parameters, 0, -1, None)
+    qualified_method_name = 'com.endlessm.Updater.' + function_name
+    proxy.call_sync(qualified_method_name, parameters, 0, -1, None)
 
     cancelled = False
     seen_in_progress_state = False

@@ -154,4 +154,8 @@ EXTRA_DIST += \
 	$(eos_updater_resource_deps) \
 	$(NULL)
 
+check-local: eos-updater-ctl.flake8
+%.flake8: %
+	$(AM_V_GEN) python3 -m flake8 $<
+
 -include $(top_srcdir)/git.mk
