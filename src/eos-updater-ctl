@@ -105,7 +105,7 @@ def name_appeared_cb(connection, name, name_owner):
                                    None)  # cancellable
 
     proxy.connect('g-properties-changed', g_properties_changed_cb)
-    proxy.connect('g-signal', signal_emitted, None)
+    proxy.connect('g-signal', signal_emitted)
 
     dump_daemon_properties(proxy)
     current_proxy = proxy
