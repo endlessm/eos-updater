@@ -68,8 +68,11 @@ def signal_emitted(proxy, sender, signal, parameters):
 
 
 def dump_daemon_properties(proxy):
-    print("======= Properties =======")
     property_names = proxy.get_cached_property_names()
+    if not property_names:
+        return
+
+    print("======= Properties =======")
     width = max(len(x) for x in property_names)
 
     s = proxy.get_cached_property("State").get_uint32()
@@ -102,7 +105,7 @@ def name_appeared_cb(connection, name, name_owner):
                                    None)  # cancellable
 
     proxy.connect('g-properties-changed', g_properties_changed_cb)
-    proxy.connect('g-signal', signal_emitted, None)
+    proxy.connect('g-signal', signal_emitted)
 
     dump_daemon_properties(proxy)
     current_proxy = proxy
