@@ -150,7 +150,8 @@ EosUpdateInfo *run_fetchers (OstreeRepo   *repo,
                              GMainContext *context,
                              GCancellable *cancellable,
                              GPtrArray    *fetchers,
-                             GArray       *sources);
+                             GArray       *sources,
+                             GError      **error);
 
 void metadata_fetch_finished (GObject *object,
                               GAsyncResult *res,

@@ -849,7 +849,8 @@ run_fetchers (OstreeRepo   *repo,
               GMainContext *context,
               GCancellable *cancellable,
               GPtrArray    *fetchers,
-              GArray       *sources)
+              GArray       *sources,
+              GError      **error)
 {
   guint idx;
   g_autoptr(GHashTable) source_to_update = g_hash_table_new_full (NULL,
@@ -876,6 +877,12 @@ run_fetchers (OstreeRepo   *repo,
 
       if (!fetcher (repo, context, &info, cancellable, &local_error))
         {
+          if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+            {
+              g_propagate_error (error, g_steal_pointer (&local_error));
+              return NULL;
+            }
+
           g_message ("Failed to poll metadata from source %s: %s",
                      name, local_error->message);
           continue;
@@ -900,6 +907,8 @@ run_fetchers (OstreeRepo   *repo,
         }
     }
 
+  g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+               "No update has been found");
   return NULL;
 }
 

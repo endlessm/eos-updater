@@ -469,6 +469,12 @@ metadata_fetch_internal (OstreeRepo     *repo,
 
       if (local_error != NULL)
         {
+          if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+            {
+              g_propagate_error (error, g_steal_pointer (&local_error));
+              return FALSE;
+            }
+
           use_new_code = FALSE;
 
           g_warning ("Error polling for updates using libostree P2P code; falling back to old code: %s",
@@ -510,7 +516,8 @@ metadata_fetch_internal (OstreeRepo     *repo,
                                task_context,
                                cancellable,
                                fetchers,
-                               config.download_order);
+                               config.download_order,
+                               &local_error);
         }
       else
         {
