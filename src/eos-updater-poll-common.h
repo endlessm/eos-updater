@@ -73,6 +73,7 @@ struct _EosUpdateInfo
   GVariant *commit;
   gchar *new_refspec;
   gchar *old_refspec;
+  gchar *version;
   gchar **urls;
 
   OstreeRepoFinderResult **results;  /* (owned) (array zero-terminated=1) */
@@ -83,6 +84,7 @@ eos_update_info_new (const gchar *csum,
                      GVariant *commit,
                      const gchar *new_refspec,
                      const gchar *old_refspec,
+                     const gchar *version,
                      const gchar * const *urls,
                      OstreeRepoFinderResult **results);
 
@@ -114,6 +116,7 @@ gboolean fetch_latest_commit (OstreeRepo *repo,
                               const gchar *url_override,
                               gchar **out_checksum,
                               gchar **out_new_refspec,
+                              gchar **out_version,
                               GError **error);
 
 gboolean parse_latest_commit (OstreeRepo           *repo,
@@ -122,6 +125,7 @@ gboolean parse_latest_commit (OstreeRepo           *repo,
                               gchar               **out_checksum,
                               gchar               **out_new_refspec,
                               OstreeCollectionRef **out_new_collection_ref,
+                              gchar               **out_version,
                               GCancellable         *cancellable,
                               GError              **error);
 
