@@ -42,7 +42,19 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 # @network-io is required for logging to the journal to work
 # @privileged is required for certain ostree operations
-SystemCallFilter=~@chown @clock @cpu-emulation @debug @keyring @mount @module @obsolete @raw-io @resources
+#
+# Currently commented out. Changes in flatpak, ostree or systemd
+# itself can easily break the flatpak installer by preventing it
+# from doing what it needs to do. Every time this happens, it is
+# a pain to debug, since we need to do a process of elimination
+# to determine what system call was causing it to trip up. We
+# need the flatpak installer to work correctly in order to ensure
+# the integrity of updates and it should not fail because a change
+# in security policy prevented it from working. Once flatpak, ostree
+# and systemd stabilize a little more, we can reconsider enabling
+# this option again.
+#
+# SystemCallFilter=~@chown @clock @cpu-emulation @debug @keyring @mount @module @obsolete @raw-io @resources
 
 [Install]
 WantedBy=multi-user.target
