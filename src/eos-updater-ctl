@@ -43,6 +43,7 @@ METHODS = {
     'poll': ('Poll', 'Polling'),
     'fetch': ('FetchFull', 'Fetching'),
     'apply': ('Apply', 'ApplyingUpdate'),
+    'cancel': ('Cancel', 'Error'),
 }
 
 # Various well-known file locations for eos-updater
@@ -137,6 +138,10 @@ def command_dbus(command, block, quiet=False, parameters=None):
 
         if new_state == in_progress_state:
             seen_in_progress_state = True
+            # If it got an error, then we shouldn't expect a next state
+            # automatically
+            if new_state == "Error":
+                seen_next_state = True
         elif new_state != in_progress_state and seen_in_progress_state:
             seen_next_state = True
 
@@ -188,6 +193,10 @@ def command_fetch(block, quiet=False, force=False, timeout=0):
 
 def command_apply(block, quiet=False):
     return command_dbus('apply', block, quiet)
+
+
+def command_cancel(block, quiet=False):
+    return command_dbus('cancel', block, quiet)
 
 
 def command_update(quiet=False):
@@ -357,6 +366,10 @@ def main():
     parser_apply = subparsers.add_parser('apply', parents=[common_parser],
                                          help='deploy downloaded updates')
     parser_apply.set_defaults(function=command_apply)
+
+    parser_cancel = subparsers.add_parser('cancel', parents=[common_parser],
+                                          help='cancel an on-going operation')
+    parser_cancel.set_defaults(function=command_cancel)
 
     parser_monitor = subparsers.add_parser('monitor',
                                            help='watch eos-updater properties')

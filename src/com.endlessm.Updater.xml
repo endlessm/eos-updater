@@ -12,6 +12,7 @@
       <arg name="options" type="a{sv}" direction="in"/>
     </method>
     <method name="Apply"></method>
+    <method name="Cancel"></method>
 
     <property name="State"            type="u" access="read"/>
     <property name="UpdateID"         type="s" access="read"/>

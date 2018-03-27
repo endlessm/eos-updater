@@ -1058,8 +1058,9 @@ handle_fetch_full (EosUpdater            *updater,
    * See: https://phabricator.endlessm.com/T15923 */
   fetch_data->data = data;
 
+  eos_updater_data_reset_cancellable (data);
   eos_updater_clear_error (updater, EOS_UPDATER_STATE_FETCHING);
-  task = g_task_new (updater, NULL, content_fetch_finished, NULL);
+  task = g_task_new (updater, data->cancellable, content_fetch_finished, NULL);
   g_task_set_task_data (task, g_steal_pointer (&fetch_data), (GDestroyNotify) fetch_data_free);
   g_task_run_in_thread (task, content_fetch_task);
 

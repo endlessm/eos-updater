@@ -109,6 +109,27 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
                               gconstpointer user_data)
 {
   g_autoptr (GError) error = NULL;
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+  g_autofree gchar *gpg_home_path = g_file_get_path (fixture->gpg_home);
+  const gchar *argv[] =
+    {
+      "gpg-connect-agent",
+      "--homedir",
+      gpg_home_path,
+      "killagent",
+      "/bye",
+      NULL
+    };
+
+  /* kill the gpg-agent in order because if too many get spawned, it will
+   * result in connections getting refused... */
+  if (!test_spawn ((const gchar * const *) argv, NULL, &cmd, &error) ||
+      !cmd_result_ensure_ok (&cmd, &error))
+    {
+      g_warning ("Failed to kill gpg-agent %s: %s", gpg_home_path,
+                 error->message);
+      g_clear_error (&error);
+    }
 
   rm_rf (fixture->gpg_home, &error);
   g_assert_no_error (error);
