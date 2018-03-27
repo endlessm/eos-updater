@@ -41,8 +41,8 @@ RestrictRealtime=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 # @network-io is required for logging to the journal to work
-# @privileged is required for certain ostree operations
-SystemCallFilter=~@chown @clock @cpu-emulation @debug @keyring @mount @module @obsolete @raw-io @resources
+# @privileged and @chown are required for certain ostree operations
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @mount @module @obsolete @raw-io @resources
 
 [Install]
 WantedBy=multi-user.target
