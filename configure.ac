@@ -1,4 +1,4 @@
-dnl Copyright © 2017 Endless Mobile, Inc.
+dnl Copyright © 2017-2018 Endless Mobile, Inc.
 dnl
 dnl This library is free software; you can redistribute it and/or
 dnl modify it under the terms of the GNU Lesser General Public
