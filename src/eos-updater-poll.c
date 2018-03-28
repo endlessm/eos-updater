@@ -268,6 +268,7 @@ metadata_fetch_new (OstreeRepo    *repo,
   g_auto(OstreeRepoFinderResultv) results = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
   g_autofree gchar *checksum = NULL;
+  g_autofree gchar *version = NULL;
   g_autoptr(GVariant) commit = NULL;
   g_autofree gchar *booted_refspec = NULL, *new_refspec = NULL;
   g_autoptr(OstreeCollectionRef) collection_ref_to_upgrade_on_for_booted_deployment = NULL, new_collection_ref = NULL;
@@ -354,7 +355,8 @@ metadata_fetch_new (OstreeRepo    *repo,
 
       /* Parse the commit and check there’s no redirection to a new ref. */
       if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed,
-                                &checksum, &new_refspec, NULL, cancellable, error))
+                                &checksum, &new_refspec, NULL, &version,
+                                cancellable, error))
         return NULL;
 
       if (new_refspec != NULL)
@@ -372,7 +374,7 @@ metadata_fetch_new (OstreeRepo    *repo,
     return NULL;
 
   info = eos_update_info_new (checksum, commit,
-                              upgrade_refspec, booted_refspec,
+                              upgrade_refspec, booted_refspec, version,
                               NULL, g_steal_pointer (&results));
   metrics_report_successful_poll (info);
 
@@ -390,6 +392,7 @@ metadata_fetch_from_main (OstreeRepo     *repo,
 {
   g_autofree gchar *refspec = NULL;
   g_autofree gchar *new_refspec = NULL;
+  g_autofree gchar *version = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
@@ -406,6 +409,7 @@ metadata_fetch_from_main (OstreeRepo     *repo,
                             NULL,
                             &checksum,
                             &new_refspec,
+                            &version,
                             error))
     return FALSE;
 
@@ -417,6 +421,7 @@ metadata_fetch_from_main (OstreeRepo     *repo,
                                 commit,
                                 new_refspec,
                                 refspec,
+                                version,
                                 NULL,
                                 NULL);
 

@@ -294,4 +294,9 @@ GFile * get_flatpak_autoinstall_override_dir (GFile *client_root);
 
 GFile * eos_test_get_flatpak_build_dir_for_updater_dir (GFile *updater_dir);
 
+void eos_test_add_metadata_for_commit (GHashTable **commit_metadata,
+                                       guint commit_number,
+                                       const gchar *key,
+                                       const gchar *value);
+
 G_END_DECLS

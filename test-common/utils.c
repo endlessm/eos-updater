@@ -2712,3 +2712,40 @@ eos_test_has_ostree_boot_id (void)
   boot_id_file = g_file_new_for_path ("/proc/sys/kernel/random/boot_id");
   return g_file_query_exists (boot_id_file, NULL);
 }
+
+/**
+ * eos_test_add_metadata_for_commit:
+ *
+ * Adds the provided metadata (@key and @value) for the given @commit_number
+ * to the passed @commit_metadata hash table. If the latter is %NULL, it will
+ * create it with the right types and assign it to @commit_metadata.
+ */
+void
+eos_test_add_metadata_for_commit (GHashTable **commit_metadata,
+                                  guint commit_number,
+                                  const gchar *key,
+                                  const gchar *value)
+{
+  GHashTable *metadata = NULL;
+
+  if (*commit_metadata == NULL)
+    *commit_metadata = g_hash_table_new_full (g_direct_hash,
+                                              g_direct_equal,
+                                              NULL,
+                                              (GDestroyNotify) g_hash_table_unref);
+
+  metadata = g_hash_table_lookup (*commit_metadata,
+                                  GUINT_TO_POINTER (commit_number));
+  if (metadata == NULL)
+    {
+      metadata = g_hash_table_new_full (g_str_hash,
+                                        g_str_equal,
+                                        g_free,
+                                        g_free);
+      g_hash_table_insert (*commit_metadata,
+                           GUINT_TO_POINTER (commit_number),
+                           metadata);
+    }
+
+  g_hash_table_insert (metadata, g_strdup (key), g_strdup (value));
+}

@@ -21,6 +21,7 @@
     <property name="CurrentID"        type="s" access="read"/>
     <property name="UpdateLabel"      type="s" access="read"/>
     <property name="UpdateMessage"    type="s" access="read"/>
+    <property name="Version"          type="s" access="read"/>
     <property name="DownloadSize"     type="x" access="read"/>
     <property name="DownloadedBytes"  type="x" access="read"/>
     <property name="UnpackedSize"     type="x" access="read"/>

@@ -153,6 +153,7 @@ eos_update_info_finalize_impl (EosUpdateInfo *info)
   g_free (info->checksum);
   g_free (info->new_refspec);
   g_free (info->old_refspec);
+  g_free (info->version);
   g_strfreev (info->urls);
   g_clear_pointer (&info->results, ostree_repo_finder_result_freev);
 }
@@ -169,6 +170,7 @@ eos_update_info_new (const gchar *checksum,
                      GVariant *commit,
                      const gchar *new_refspec,
                      const gchar *old_refspec,
+                     const gchar *version,
                      const gchar * const *urls,
                      OstreeRepoFinderResult **results)
 {
@@ -184,6 +186,7 @@ eos_update_info_new (const gchar *checksum,
   info->commit = g_variant_ref (commit);
   info->new_refspec = g_strdup (new_refspec);
   info->old_refspec = g_strdup (old_refspec);
+  info->version = g_strdup (version);
   info->urls = g_strdupv ((gchar **) urls);
   info->results = g_steal_pointer (&results);
 
@@ -455,6 +458,7 @@ fetch_latest_commit (OstreeRepo *repo,
                      const gchar *url_override,
                      gchar **out_checksum,
                      gchar **out_new_refspec,
+                     gchar **out_version,
                      GError **error)
 {
   g_autofree gchar *checksum = NULL;
@@ -472,6 +476,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_return_val_if_fail (refspec != NULL, FALSE);
   g_return_val_if_fail (out_checksum != NULL, FALSE);
   g_return_val_if_fail (out_new_refspec != NULL, FALSE);
+  g_return_val_if_fail (out_version != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   /* Check whether the commit is a redirection; if so, fetch the new ref and
@@ -497,7 +502,8 @@ fetch_latest_commit (OstreeRepo *repo,
         return FALSE;
 
       if (!parse_latest_commit (repo, refspec, &redirect_followed, &checksum,
-                                &new_refspec, NULL, cancellable, error))
+                                &new_refspec, NULL, out_version, cancellable,
+                                error))
         return FALSE;
 
       if (new_refspec != NULL)
@@ -523,6 +529,7 @@ parse_latest_commit (OstreeRepo           *repo,
                      gchar               **out_checksum,
                      gchar               **out_new_refspec,
                      OstreeCollectionRef **out_new_collection_ref,
+                     gchar               **out_version,
                      GCancellable         *cancellable,
                      GError              **error)
 {
@@ -531,6 +538,7 @@ parse_latest_commit (OstreeRepo           *repo,
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
   g_autoptr(GVariant) rebase = NULL;
+  g_autoptr(GVariant) version = NULL;
   g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *collection_id = NULL;
 
@@ -540,6 +548,7 @@ parse_latest_commit (OstreeRepo           *repo,
   g_return_val_if_fail (out_redirect_followed != NULL, FALSE);
   g_return_val_if_fail (out_checksum != NULL, FALSE);
   g_return_val_if_fail (out_new_refspec != NULL, FALSE);
+  g_return_val_if_fail (out_version != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
@@ -573,6 +582,12 @@ parse_latest_commit (OstreeRepo           *repo,
     }
   else
     *out_redirect_followed = FALSE;
+
+  version = g_variant_lookup_value (metadata, "version", G_VARIANT_TYPE_STRING);
+  if (version == NULL)
+    *out_version = NULL;
+  else
+    *out_version = g_variant_dup_string (version, NULL);
 
   *out_checksum = g_steal_pointer (&checksum);
   *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
@@ -746,6 +761,7 @@ eos_update_info_to_string (EosUpdateInfo *update)
   g_autofree gchar *timestamp_str = NULL;
   g_autoptr(GString) results_string = NULL;
   g_autofree gchar *results = NULL;
+  const gchar *version = update->version;
   gsize i;
 
   if (update->urls != NULL)
@@ -771,10 +787,14 @@ eos_update_info_to_string (EosUpdateInfo *update)
 
   results = g_string_free (g_steal_pointer (&results_string), FALSE);
 
-  return g_strdup_printf ("%s, %s, %s, %s\n   %s%s",
+  if (version == NULL)
+    version = "(no version information)";
+
+  return g_strdup_printf ("%s, %s, %s, %s, %s\n   %s%s",
                           update->checksum,
                           update->new_refspec,
                           update->old_refspec,
+                          version,
                           timestamp_str,
                           update_urls,
                           results);
@@ -995,6 +1015,7 @@ metadata_fetch_finished (GObject *object,
       eos_updater_set_update_id (updater, info->checksum);
       eos_updater_set_update_refspec (updater, info->new_refspec);
       eos_updater_set_original_refspec (updater, info->old_refspec);
+      eos_updater_set_version (updater, info->version);
 
       g_variant_get_child (info->commit, 3, "&s", &label);
       g_variant_get_child (info->commit, 4, "&s", &message);
