@@ -927,8 +927,6 @@ run_fetchers (OstreeRepo   *repo,
         }
     }
 
-  g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-               "No update has been found");
   return NULL;
 }
 
