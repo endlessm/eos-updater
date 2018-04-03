@@ -39,6 +39,71 @@ typedef struct
 } TestCancelHelper;
 
 static gboolean
+skip_test_on_ostree_boot_id (void)
+{
+  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
+   * afterwards we hit unsupported syscalls in qemu-user when running in an
+   * ARM chroot (for example), so just bail. */
+  if (!eos_test_has_ostree_boot_id ())
+    {
+      g_test_skip ("OSTree will not work without a boot ID");
+      return TRUE;
+    }
+
+  return FALSE;
+}
+
+static gboolean
+setup_basic_test_server_client (EosUpdaterFixture *fixture,
+                                EosTestServer **out_server,
+                                EosTestSubserver **out_subserver,
+                                EosTestClient **out_client,
+                                GError **error)
+{
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) server_root = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(GFile) client_root = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+
+  server_root = g_file_get_child (fixture->tmpdir, "main");
+  server = eos_test_server_new_quick (server_root,
+                                      default_vendor,
+                                      default_product,
+                                      default_collection_ref,
+                                      0,
+                                      fixture->gpg_home,
+                                      keyid,
+                                      default_ostree_path,
+                                      NULL, NULL, NULL,
+                                      error);
+
+  if (server == NULL)
+    return FALSE;
+
+  g_assert_cmpuint (server->subservers->len, ==, 1u);
+
+  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
+  client_root = g_file_get_child (fixture->tmpdir, "client");
+  client = eos_test_client_new (client_root,
+                                default_remote_name,
+                                subserver,
+                                default_collection_ref,
+                                default_vendor,
+                                default_product,
+                                error);
+
+  if (client == NULL)
+    return FALSE;
+
+  *out_server = g_steal_pointer (&server);
+  *out_subserver = g_steal_pointer (&subserver);
+  *out_client = g_steal_pointer (&client);
+  return TRUE;
+}
+
+static gboolean
 cancel_update (EosUpdater *updater,
                TestCancelHelper *helper)
 {
@@ -151,12 +216,9 @@ static void
 test_cancel_update (EosUpdaterFixture *fixture,
                     gconstpointer user_data)
 {
-  g_autoptr(GFile) server_root = NULL;
-  g_autoptr(EosTestServer) server = NULL;
-  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GError) local_error = NULL;
+  g_autoptr(EosTestServer) server = NULL;
   g_autoptr(EosTestSubserver) subserver = NULL;
-  g_autoptr(GFile) client_root = NULL;
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(EosUpdater) updater = NULL;
   g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
@@ -166,38 +228,11 @@ test_cancel_update (EosUpdaterFixture *fixture,
   gboolean cancelled_states[EOS_UPDATER_STATE_LAST + 1] = { FALSE };
   TestCancelHelper helper = { loop, cancelled_states, 0, 0 };
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (skip_test_on_ostree_boot_id ())
+    return;
 
-  server_root = g_file_get_child (fixture->tmpdir, "main");
-  server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
-                                      default_collection_ref,
-                                      0,
-                                      fixture->gpg_home,
-                                      keyid,
-                                      default_ostree_path,
-                                      NULL, NULL, NULL,
-                                      &local_error);
-  g_assert_no_error (local_error);
-  g_assert_cmpuint (server->subservers->len, ==, 1u);
-
-  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
-  client_root = g_file_get_child (fixture->tmpdir, "client");
-  client = eos_test_client_new (client_root,
-                                default_remote_name,
-                                subserver,
-                                default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                &local_error);
+  setup_basic_test_server_client (fixture, &server, &subserver, &client,
+                                  &local_error);
   g_assert_no_error (local_error);
 
   g_hash_table_insert (subserver->ref_to_commit,
@@ -265,50 +300,19 @@ static void
 test_update_version (EosUpdaterFixture *fixture,
                      gconstpointer user_data)
 {
-  g_autoptr(GFile) server_root = NULL;
-  g_autoptr(EosTestServer) server = NULL;
-  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestServer) server = NULL;
   g_autoptr(EosTestSubserver) subserver = NULL;
-  g_autoptr(GFile) client_root = NULL;
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(EosUpdater) updater = NULL;
   g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
   DownloadSource main_source = DOWNLOAD_MAIN;
   const gchar *version = (user_data != NULL) ? (const gchar *) user_data : "";
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (skip_test_on_ostree_boot_id ())
+    return;
 
-  server_root = g_file_get_child (fixture->tmpdir, "main");
-  server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
-                                      default_collection_ref,
-                                      0,
-                                      fixture->gpg_home,
-                                      keyid,
-                                      default_ostree_path,
-                                      NULL, NULL, NULL,
-                                      &error);
-  g_assert_no_error (error);
-  g_assert_cmpuint (server->subservers->len, ==, 1u);
-
-  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
-  client_root = g_file_get_child (fixture->tmpdir, "client");
-  client = eos_test_client_new (client_root,
-                                default_remote_name,
-                                subserver,
-                                default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                &error);
+  setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
   g_assert_no_error (error);
 
   g_hash_table_insert (subserver->ref_to_commit,
@@ -356,12 +360,9 @@ static void
 test_update_when_none_available (EosUpdaterFixture *fixture,
                                  gconstpointer user_data)
 {
-  g_autoptr(GFile) server_root = NULL;
-  g_autoptr(EosTestServer) server = NULL;
-  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestServer) server = NULL;
   g_autoptr(EosTestSubserver) subserver = NULL;
-  g_autoptr(GFile) client_root = NULL;
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(EosUpdater) updater = NULL;
   DownloadSource main_source = DOWNLOAD_MAIN;
@@ -369,38 +370,10 @@ test_update_when_none_available (EosUpdaterFixture *fixture,
   g_autoptr(GMainLoop) loop = g_main_loop_new (context, FALSE);
   gulong state_change_handler = 0;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return TRUE;
-    }
+  if (skip_test_on_ostree_boot_id ())
+    return;
 
-  server_root = g_file_get_child (fixture->tmpdir, "main");
-  server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
-                                      default_collection_ref,
-                                      0,
-                                      fixture->gpg_home,
-                                      keyid,
-                                      default_ostree_path,
-                                      NULL, NULL, NULL,
-                                      &error);
-  g_assert_no_error (error);
-  g_assert_cmpuint (server->subservers->len, ==, 1u);
-
-  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
-  client_root = g_file_get_child (fixture->tmpdir, "client");
-  client = eos_test_client_new (client_root,
-                                default_remote_name,
-                                subserver,
-                                default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                &error);
+  setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
   g_assert_no_error (error);
 
   eos_test_client_run_updater (client,
