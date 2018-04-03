@@ -51,7 +51,7 @@ flatpak_ref_actions_and_progresses (GStrv        directories_to_search,
   if (flatpak_ref_actions_for_this_boot == NULL)
     {
       g_prefix_error (error,
-                      "Could get flatpak ref actions for this OSTree deployment: ");
+                      "Could not get flatpak ref actions for this OSTree deployment: ");
       return FALSE;
     }
 
