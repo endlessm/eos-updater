@@ -224,7 +224,7 @@ main (int    argc,
 
           if (new_flatpak_ref_actions_to_apply == NULL)
             return fail (EXIT_FAILED,
-                         "Could not get information on which flatpak ref actions to check: %s",
+                         "Could not get information on which flatpak ref actions to apply: %s",
                          error->message);
 
           squashed_ref_actions_to_apply = euu_flatten_flatpak_ref_actions_table (new_flatpak_ref_actions_to_apply);
