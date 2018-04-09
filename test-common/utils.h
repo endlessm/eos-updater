@@ -264,22 +264,26 @@ typedef struct _SimpleFile SimpleFile;
 SimpleFile * simple_file_new_steal (gchar *rel_path, gchar *contents);
 void         simple_file_free (gpointer file_ptr);
 
-gboolean eos_test_setup_flatpak_repo (GFile        *updater_path,
-                                      const gchar  *branch,
-                                      const gchar  *repo_name,
-                                      const gchar  *repo_collection_id,
-                                      const gchar  *remote_config_collection_id,
-                                      const gchar **flatpak_names,
-                                      GError      **error);
+/* The eos_test_setup_flatpak_repo_*simple family of functions here
+ * will set up a flatpak repo containing flatpaks with the given flatpak_names
+ * all linked to the same runtime (org.test.Runtime), with the same branch
+ * in the same repo having the same collection_id. */
+gboolean eos_test_setup_flatpak_repo_simple (GFile        *updater_path,
+                                             const gchar  *branch,
+                                             const gchar  *repo_name,
+                                             const gchar  *repo_collection_id,
+                                             const gchar  *remote_config_collection_id,
+                                             const gchar **flatpak_names,
+                                             GError      **error);
 
-gboolean eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_path,
-                                                             const gchar  *branch,
-                                                             const gchar  *repo_name,
-                                                             const gchar  *repo_collection_id,
-                                                             const gchar  *remote_config_collection_id,
-                                                             const gchar **flatpak_names,
-                                                             const gchar **preinstalled_flatpak_names,
-                                                             GError      **error);
+gboolean eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile        *updater_path,
+                                                                    const gchar  *branch,
+                                                                    const gchar  *repo_name,
+                                                                    const gchar  *repo_collection_id,
+                                                                    const gchar  *remote_config_collection_id,
+                                                                    const gchar **flatpak_names,
+                                                                    const gchar **preinstalled_flatpak_names,
+                                                                    GError      **error);
 
 gboolean eos_test_run_flatpak_installer (GFile        *client_root,
                                          const gchar  *deployment_csum,

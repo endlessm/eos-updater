@@ -58,14 +58,14 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
 
   g_assert_no_error (error);
 
-  eos_test_setup_flatpak_repo_with_preinstalled_apps (flatpak_deployments_directory,
-                                                      "stable",
-                                                      "test-repo",
-                                                      "com.test.CollectionId",
-                                                      "com.test.CollectionId",
-                                                      flatpak_names,
-                                                      preinstall_flatpak_names,
-                                                      &error);
+  eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (flatpak_deployments_directory,
+                                                             "stable",
+                                                             "test-repo",
+                                                             "com.test.CollectionId",
+                                                             "com.test.CollectionId",
+                                                             flatpak_names,
+                                                             preinstall_flatpak_names,
+                                                             &error);
   g_assert_no_error (error);
 
   fixture->flatpak_deployments_directory = g_object_ref (flatpak_deployments_directory);
