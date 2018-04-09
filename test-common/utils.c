@@ -2084,14 +2084,14 @@ format_flatpak_ref_name_with_branch_override_arch (const gchar *name,
 }
 
 gboolean
-eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
-                                                    const gchar  *branch,
-                                                    const gchar  *repo_name,
-                                                    const gchar  *repo_collection_id,
-                                                    const gchar  *remote_config_collection_id,
-                                                    const gchar **flatpak_names,
-                                                    const gchar **preinstall_flatpak_names,
-                                                    GError      **error)
+eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile        *updater_dir,
+                                                           const gchar  *branch,
+                                                           const gchar  *repo_name,
+                                                           const gchar  *repo_collection_id,
+                                                           const gchar  *remote_config_collection_id,
+                                                           const gchar **flatpak_names,
+                                                           const gchar **preinstall_flatpak_names,
+                                                           GError      **error)
 {
   /* A few steps here:
    * 1. Create a runtime (org.test.Runtime)
@@ -2203,24 +2203,24 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps (GFile        *updater_dir,
 }
 
 gboolean
-eos_test_setup_flatpak_repo (GFile        *updater_dir,
-                             const gchar  *branch,
-                             const gchar  *repo_name,
-                             const gchar  *repo_collection_id,
-                             const gchar  *remote_config_collection_id,
-                             const gchar **flatpak_names,
-                             GError      **error)
+eos_test_setup_flatpak_repo_simple (GFile        *updater_dir,
+                                    const gchar  *branch,
+                                    const gchar  *repo_name,
+                                    const gchar  *repo_collection_id,
+                                    const gchar  *remote_config_collection_id,
+                                    const gchar **flatpak_names,
+                                    GError      **error)
 {
   const gchar *empty_strv[] = { NULL };
 
-  return eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_dir,
-                                                             branch,
-                                                             repo_name,
-                                                             repo_collection_id,
-                                                             remote_config_collection_id,
-                                                             flatpak_names,
-                                                             empty_strv,
-                                                             error);
+  return eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (updater_dir,
+                                                                    branch,
+                                                                    repo_name,
+                                                                    repo_collection_id,
+                                                                    remote_config_collection_id,
+                                                                    flatpak_names,
+                                                                    empty_strv,
+                                                                    error);
 }
 
 gboolean
