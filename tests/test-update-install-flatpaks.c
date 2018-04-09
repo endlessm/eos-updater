@@ -640,13 +640,13 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -713,13 +713,13 @@ test_update_install_flatpaks_custom_branch_name (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "custom_branch",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "custom_branch",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -787,13 +787,13 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_repo_config (
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection", /* repo config */
-                               NULL, /* remote config on local repo  */
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection", /* repo config */
+                                      NULL, /* remote config on local repo  */
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -861,13 +861,13 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_remote_or_rep
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               NULL, /* repo collection-id */
-                               NULL, /* remote config */
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      NULL, /* repo collection-id */
+                                      NULL, /* remote config */
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -939,13 +939,13 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1037,13 +1037,13 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1137,13 +1137,13 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               NULL, /* repo collection-id */
-                               "com.endlessm.TestInstallFlatpaksCollection", /* remote config */
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      NULL, /* repo collection-id */
+                                      "com.endlessm.TestInstallFlatpaksCollection", /* remote config */
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1237,13 +1237,13 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1338,13 +1338,13 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1447,14 +1447,14 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
 
   /* Set up the flatpak repo and also preinstall the apps */
-  eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "stable",
-                                                      "test-repo",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      (const gchar **) wanted_flatpaks,
-                                                      (const gchar **) wanted_flatpaks,
-                                                      &error);
+  eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (updater_directory,
+                                                             "stable",
+                                                             "test-repo",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             (const gchar **) wanted_flatpaks,
+                                                             (const gchar **) wanted_flatpaks,
+                                                             &error);
 
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
   flatpak_repo_dir = g_file_get_child (flatpak_build_dir, "repo");
@@ -1571,13 +1571,13 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1709,13 +1709,13 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1818,13 +1818,13 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1894,13 +1894,13 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1970,13 +1970,13 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2046,13 +2046,13 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2135,13 +2135,13 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2287,13 +2287,13 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2447,13 +2447,13 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
                                           "flatpak",
                                           NULL);
   flatpak_remote_dir = g_file_new_for_path (flatpak_remote_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2544,13 +2544,13 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                                 "flatpak-user",
                                                 NULL);
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2624,13 +2624,13 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2719,14 +2719,14 @@ test_update_no_op_flatpak_already_installed (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "stable",
-                                                      "test-repo",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      (const gchar **) wanted_flatpaks,
-                                                      (const gchar **) wanted_flatpaks,
-                                                      &error);
+  eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (updater_directory,
+                                                             "stable",
+                                                             "test-repo",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             (const gchar **) wanted_flatpaks,
+                                                             (const gchar **) wanted_flatpaks,
+                                                             &error);
 
 
   /* Get the contents of the executable before the update */
@@ -2842,13 +2842,13 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2962,13 +2962,13 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3096,13 +3096,13 @@ test_update_uninstall_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3220,13 +3220,13 @@ test_update_uninstall_flatpaks_on_reboot_custom_branch_name (EosUpdaterFixture *
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "custom_branch",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "custom_branch",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3345,13 +3345,13 @@ test_update_no_uninstall_flatpaks_on_reboot_different_branch_name (EosUpdaterFix
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3454,13 +3454,13 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3550,14 +3550,14 @@ test_update_flatpaks_no_op_if_up_to_date (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "stable",
-                                                      "test-repo",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      (const gchar **) wanted_flatpaks,
-                                                      (const gchar **) wanted_flatpaks,
-                                                      &error);
+  eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (updater_directory,
+                                                             "stable",
+                                                             "test-repo",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             (const gchar **) wanted_flatpaks,
+                                                             (const gchar **) wanted_flatpaks,
+                                                             &error);
 
   /* Get the contents of the executable before the update */
   installed_app_executable_path = g_build_filename (flatpak_user_installation,
@@ -3670,14 +3670,14 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "stable",
-                                                      "test-repo",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      (const gchar **) wanted_flatpaks,
-                                                      (const gchar **) wanted_flatpaks,
-                                                      &error);
+  eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (updater_directory,
+                                                             "stable",
+                                                             "test-repo",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             (const gchar **) wanted_flatpaks,
+                                                             (const gchar **) wanted_flatpaks,
+                                                             &error);
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
   flatpak_repo_dir = g_file_get_child (flatpak_build_dir, "repo");
   flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
@@ -3801,14 +3801,14 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo_with_preinstalled_apps (updater_directory,
-                                                      "stable",
-                                                      "test-repo",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      "com.endlessm.TestInstallFlatpaksCollection",
-                                                      (const gchar **) wanted_flatpaks,
-                                                      (const gchar **) wanted_flatpaks,
-                                                      &error);
+  eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (updater_directory,
+                                                             "stable",
+                                                             "test-repo",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             "com.endlessm.TestInstallFlatpaksCollection",
+                                                             (const gchar **) wanted_flatpaks,
+                                                             (const gchar **) wanted_flatpaks,
+                                                             &error);
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
   flatpak_repo_dir = g_file_get_child (flatpak_build_dir, "repo");
   flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
@@ -3918,13 +3918,13 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
                                        &error);
   g_assert_no_error (error);
 
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4041,13 +4041,13 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
                                    &data->additional_directories_for_commit,
                                    &data->additional_files_for_commit);
 
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4142,13 +4142,13 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4273,13 +4273,13 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
   flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4413,13 +4413,13 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
   updater_directory = g_file_get_child (data->client->root, "updater");
   deployment_repo_dir = g_file_get_child (data->client->root,
                                           deployment_repo_relative_path);
-  eos_test_setup_flatpak_repo (updater_directory,
-                               "stable",
-                               "test-repo",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               "com.endlessm.TestInstallFlatpaksCollection",
-                               (const gchar **) wanted_flatpaks,
-                               &error);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      &error);
 
   /* Update the server, so it has a new commit (3).
    */
