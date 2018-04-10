@@ -868,6 +868,7 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_remote_or_rep
                                       NULL, /* remote config */
                                       (const gchar **) wanted_flatpaks,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
