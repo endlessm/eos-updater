@@ -126,7 +126,7 @@ GHashTable *euu_hoist_flatpak_remote_ref_actions (GHashTable *ref_actions_file_t
 GHashTable *euu_flatpak_ref_action_application_progress_in_state_path (GCancellable  *cancellable,
                                                                        GError       **error);
 GHashTable *euu_filter_for_new_flatpak_ref_actions (GHashTable *ref_actions,
-                                                                  GHashTable *progresses);
+                                                    GHashTable *progresses);
 GHashTable *euu_filter_for_existing_flatpak_ref_actions (GHashTable *ref_actions,
                                                          GHashTable *progresses);
 GHashTable *euu_squash_remote_ref_actions (GHashTable *ref_actions);
