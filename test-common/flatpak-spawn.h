@@ -31,6 +31,7 @@ G_BEGIN_DECLS
 gboolean flatpak_remote_add (GFile        *updater_dir,
                              const gchar  *repo_name,
                              const gchar  *repo_directory,
+                             GFile        *gpg_key,
                              GError      **error);
 
 gboolean flatpak_install (GFile        *updater_dir,
@@ -53,6 +54,8 @@ gboolean flatpak_build_export (GFile        *updater_dir,
                                const gchar  *bundle_path,
                                const gchar  *repo_path,
                                const gchar  *branch,
+                               GFile        *gpg_home_dir,
+                               const gchar  *key_id,
                                GError      **error);
 
 gboolean flatpak_build_finish (GFile        *updater_dir,
@@ -70,6 +73,8 @@ gboolean flatpak_populate_app (GFile        *updater_dir,
                                const gchar  *runtime_name,
                                const gchar  *branch,
                                const gchar  *repo_directory,
+                               GFile        *gpg_home_dir,
+                               const gchar  *keyid,
                                GError      **error);
 
 gboolean flatpak_populate_runtime (GFile        *updater_dir,
@@ -80,6 +85,8 @@ gboolean flatpak_populate_runtime (GFile        *updater_dir,
                                    const gchar  *branch,
                                    const gchar  *collection_id,
                                    const gchar  *repo_collection_id,
+                                   GFile        *gpg_home_dir,
+                                   const gchar  *keyid,
                                    GError      **error);
 
 G_END_DECLS

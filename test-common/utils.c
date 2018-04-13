@@ -2083,10 +2083,12 @@ flatpak_repo_info_free (FlatpakRepoInfo *info)
 }
 
 gboolean
-eos_test_setup_flatpak_repo (GFile *updater_dir,
-                             GPtrArray *install_infos,
-                             GHashTable *repository_infos,
-                             GError **error)
+eos_test_setup_flatpak_repo (GFile       *updater_dir,
+                             GPtrArray   *install_infos,
+                             GHashTable  *repository_infos,
+                             GFile       *gpg_key,
+                             const gchar *keyid,
+                             GError     **error)
 {
   g_autoptr(GFile) flatpak_build_directory = g_file_get_child (updater_dir,
                                                                "flatpak");
@@ -2102,6 +2104,7 @@ eos_test_setup_flatpak_repo (GFile *updater_dir,
                                                              "repos",
                                                              NULL);
   g_autoptr(GHashTable) already_uninstalled_runtimes = NULL;
+  g_autoptr(GFile) gpg_home_dir = g_file_get_parent (gpg_key);
   guint i = 0;
   GHashTableIter iter;
   gpointer key, value;
@@ -2119,7 +2122,7 @@ eos_test_setup_flatpak_repo (GFile *updater_dir,
       g_autofree gchar *repo_path = g_build_filename (repos_directory_path,
                                                       repo_name,
                                                       NULL);
-      GFile *repo = g_file_new_for_path (repo_path);
+      g_autoptr(GFile) repo = g_file_new_for_path (repo_path);
       g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
       if (!create_directory (repo, error))
@@ -2137,9 +2140,21 @@ eos_test_setup_flatpak_repo (GFile *updater_dir,
             return FALSE;
         }
 
+      /* Verify the summary */
+      if (!ostree_summary (repo,
+                           gpg_home_dir,
+                           keyid,
+                           &cmd,
+                           error))
+        return FALSE;
+
+      if (!cmd_result_ensure_ok (&cmd, error))
+        return FALSE;
+
       if (!flatpak_remote_add (updater_dir,
                                repo_name,
                                repo_path,
+                               gpg_key,
                                error))
         return FALSE;
     }
@@ -2177,6 +2192,8 @@ eos_test_setup_flatpak_repo (GFile *updater_dir,
                                              install_info->branch,
                                              repo_info->remote_collection_id,
                                              repo_info->collection_id,
+                                             gpg_home_dir,
+                                             keyid,
                                              error))
                 return FALSE;
 
@@ -2208,6 +2225,8 @@ eos_test_setup_flatpak_repo (GFile *updater_dir,
                                          runtime_formatted_ref_name,
                                          install_info->branch,
                                          repo_directory_path,
+                                         gpg_home_dir,
+                                         keyid,
                                          error))
                 return FALSE;
             }
@@ -2299,6 +2318,8 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile        *updater
                                                            const gchar  *remote_config_collection_id,
                                                            const gchar **flatpak_names,
                                                            const gchar **preinstall_flatpak_names,
+                                                           GFile        *gpg_key,
+                                                           const gchar  *keyid,
                                                            GError      **error)
 {
   g_autoptr(GHashTable) repo_infos = g_hash_table_new_full (g_str_hash,
@@ -2342,6 +2363,8 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile        *updater
   return eos_test_setup_flatpak_repo (updater_dir,
                                       flatpak_install_infos,
                                       repo_infos,
+                                      gpg_key,
+                                      keyid,
                                       error);
 }
 
@@ -2352,6 +2375,8 @@ eos_test_setup_flatpak_repo_simple (GFile        *updater_dir,
                                     const gchar  *repo_collection_id,
                                     const gchar  *remote_config_collection_id,
                                     const gchar **flatpak_names,
+                                    GFile        *gpg_key,
+                                    const gchar  *keyid,
                                     GError      **error)
 {
   const gchar *empty_strv[] = { NULL };
@@ -2363,6 +2388,8 @@ eos_test_setup_flatpak_repo_simple (GFile        *updater_dir,
                                                                     remote_config_collection_id,
                                                                     flatpak_names,
                                                                     empty_strv,
+                                                                    gpg_key,
+                                                                    keyid,
                                                                     error);
 }
 
