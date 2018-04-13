@@ -313,7 +313,7 @@ eos_updater_flatpak_installer_eos_updater_flatpak_installer_LDADD = \
 	$(CODE_COVERAGE_LIBS) \
 	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
 	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
-	$(top_builddir)/libeos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUFI_API_VERSION@.la
+	$(top_builddir)/libeos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUFI_API_VERSION@.la \
 	$(NULL)
 eos_updater_flatpak_installer_eos_updater_flatpak_installer_SOURCES = \
 	eos-updater-flatpak-installer/main.c \
