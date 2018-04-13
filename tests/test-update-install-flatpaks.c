@@ -1388,6 +1388,106 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
   g_assert_false (g_strv_contains ((const gchar * const *) flatpaks_in_repo, flatpaks_to_install[0].app_id));
 }
 
+/* Insert a list of flatpaks to automatically install on the commit,
+ * with one of the flatpaks using a runtime that we do not have installed.
+ * Ensure that when we only specify the flatpak itself that the runtime
+ * is also pulled automatically */
+static void
+test_update_install_flatpaks_in_repo_also_pull_runtimes (EosUpdaterFixture *fixture,
+                                                         gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_autoptr(GPtrArray) flatpak_install_infos = g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_install_info_free);
+  g_autoptr(GHashTable) flatpak_repo_infos = g_hash_table_new_full (g_str_hash,
+                                                                    g_str_equal,
+                                                                    g_free,
+                                                                    (GDestroyNotify) flatpak_repo_info_free);
+  g_auto(GStrv) flatpaks_in_repo = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T22054");
+
+  etc_data_init (data, fixture);
+
+  /* Set up a runtime and an app, neither of which should be installed by
+   * default */
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_RUNTIME,
+                                             "org.test.Runtime",
+                                             "stable",
+                                             NULL,
+                                             NULL,
+                                             "test-repo",
+                                             FALSE));
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_APP,
+                                             "org.test.Test",
+                                             "stable",
+                                             "org.test.Runtime",
+                                             "stable",
+                                             "test-repo",
+                                             FALSE));
+  g_hash_table_insert (flatpak_repo_infos,
+                       g_strdup ("test-repo"),
+                       flatpak_repo_info_new ("test-repo",
+                                              "com.endlessm.TestInstallFlatpaksCollection",
+                                              "com.endlessm.TestInstallFlatpaksCollection"));
+
+  /* Commit number 1 will install some flatpaks
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              G_N_ELEMENTS (flatpaks_to_install),
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  eos_test_setup_flatpak_repo (updater_directory,
+                               flatpak_install_infos,
+                               flatpak_repo_infos,
+                               &error);
+  g_assert_no_error (error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Assert that our runtime was pulled into the local repo */
+  flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
+                                                    &error);
+  g_assert_no_error (error);
+
+  g_assert_true (g_strv_contains ((const gchar * const *) flatpaks_in_repo,
+                                  "org.test.Runtime"));
+}
+
 /* Install a flatpak in the user repository without the use of the
  * updater's installer code. Then add an action to update the flatpak
  * on a new commit. The flatpak should be updated. */
@@ -4508,6 +4608,7 @@ main (int argc,
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-error-no-branch-name", NULL, test_update_install_flatpaks_in_repo_error_no_branch_name);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-error-no-remote-or-collection-name", NULL, test_update_install_flatpaks_no_location_error);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-error-conflicting-remote-collection-name", NULL, test_update_install_flatpaks_conflicting_location_error);
+  eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-runtimes", NULL, test_update_install_flatpaks_in_repo_also_pull_runtimes);
   eos_test_add ("/updater/update-flatpaks-pull-updated-to-repo-no-previous-install", NULL, test_update_flatpaks_updated_in_repo);
   eos_test_add ("/updater/update-flatpaks-updated-flatpak-is-installed", NULL, test_updated_flatpak_is_installed);
   eos_test_add ("/updater/update-flatpaks-updated-flatpak-is-installed-on-install-action", NULL, test_updated_flatpak_is_installed_on_install_action);
