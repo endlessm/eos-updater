@@ -611,6 +611,8 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -646,6 +648,8 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -684,6 +688,8 @@ test_update_install_flatpaks_custom_branch_name (EosUpdaterFixture *fixture,
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -719,6 +725,8 @@ test_update_install_flatpaks_custom_branch_name (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -758,6 +766,8 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_repo_config (
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T20812");
@@ -793,6 +803,8 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_repo_config (
                                       "com.endlessm.TestInstallFlatpaksCollection", /* repo config */
                                       NULL, /* remote config on local repo  */
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -832,6 +844,8 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_remote_or_rep
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T20812");
@@ -867,6 +881,8 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_remote_or_rep
                                       NULL, /* repo collection-id */
                                       NULL, /* remote config */
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
   g_assert_no_error (error);
 
@@ -911,6 +927,8 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
   g_autoptr(GFile) autoupdater_root = NULL;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -946,6 +964,8 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -1009,6 +1029,8 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
   g_autoptr(GFile) autoupdater_root = NULL;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1044,6 +1066,8 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -1109,6 +1133,8 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
   g_autoptr(GFile) autoupdater_root = NULL;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T20812");
@@ -1144,6 +1170,8 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
                                       NULL, /* repo collection-id */
                                       "com.endlessm.TestInstallFlatpaksCollection", /* remote config */
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -1209,6 +1237,8 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
   g_autoptr(GFile) autoupdater_root = NULL;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1244,6 +1274,8 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -1310,6 +1342,8 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
   g_autoptr(GFile) autoupdater_root = NULL;
   g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1345,6 +1379,8 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -1412,6 +1448,8 @@ test_update_install_flatpaks_in_repo_also_pull_runtimes (EosUpdaterFixture *fixt
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T22054");
@@ -1468,6 +1506,8 @@ test_update_install_flatpaks_in_repo_also_pull_runtimes (EosUpdaterFixture *fixt
   eos_test_setup_flatpak_repo (updater_directory,
                                flatpak_install_infos,
                                flatpak_repo_infos,
+                               gpg_key_file,
+                               keyid,
                                &error);
   g_assert_no_error (error);
 
@@ -1519,6 +1559,8 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
   g_autofree gchar *app_executable_path = NULL;
   g_autofree gchar *initially_installed_flatpak_checksum = NULL;
   g_autofree gchar *updated_flatpak_checksum = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1557,6 +1599,8 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
                                                              "com.endlessm.TestInstallFlatpaksCollection",
                                                              (const gchar **) wanted_flatpaks,
                                                              (const gchar **) wanted_flatpaks,
+                                                             gpg_key_file,
+                                                             keyid,
                                                              &error);
 
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
@@ -1589,7 +1633,13 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
   g_file_set_contents (app_executable_path, "#!/bin/bash\nexit 1\n", -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
+  flatpak_build_export (updater_directory,
+                        app_dir_path,
+                        flatpak_repo_path,
+                        "stable",
+                        fixture->gpg_home,
+                        keyid,
+                        &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1). */
@@ -1645,6 +1695,8 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
   g_autofree gchar *app_executable_path = NULL;
   g_autofree gchar *initially_installed_flatpak_checksum = NULL;
   g_autofree gchar *updated_flatpak_checksum = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1688,6 +1740,8 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -1742,7 +1796,13 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
   g_file_set_contents (app_executable_path, "#!/bin/bash\nexit 1\n", -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
+  flatpak_build_export (updater_directory,
+                        app_dir_path,
+                        flatpak_repo_path,
+                        "stable",
+                        fixture->gpg_home,
+                        keyid,
+                        &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (2). */
@@ -1791,6 +1851,8 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
   g_autofree gchar *app_executable_path = NULL;
   g_autofree gchar *initially_installed_flatpak_checksum = NULL;
   g_autofree gchar *updated_flatpak_checksum = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1834,6 +1896,8 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -1875,7 +1939,13 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
   g_file_set_contents (app_executable_path, "#!/bin/bash\nexit 1\n", -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
+  flatpak_build_export (updater_directory,
+                        app_dir_path,
+                        flatpak_repo_path,
+                        "stable",
+                        fixture->gpg_home,
+                        keyid,
+                        &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (2). */
@@ -1914,6 +1984,8 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
   g_autofree gchar *to_export_flatpaks_contents = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -1949,6 +2021,8 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -1990,6 +2064,8 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2025,6 +2101,8 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -2066,6 +2144,8 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2101,6 +2181,8 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -2142,6 +2224,8 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2177,6 +2261,8 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -2231,6 +2317,8 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autofree gchar *deployment_csum = NULL;
   g_autofree gchar *deployment_id = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2266,6 +2354,8 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -2383,6 +2473,8 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_autofree gchar *deployment_id = NULL;
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2418,6 +2510,8 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -2536,6 +2630,8 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_auto(GStrv) after_update_deployment_ids = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2578,6 +2674,8 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -2640,6 +2738,8 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_auto(GStrv) deployed_flatpaks = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2675,6 +2775,8 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -2718,6 +2820,8 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2755,6 +2859,8 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -2811,6 +2917,8 @@ test_update_no_op_flatpak_already_installed (EosUpdaterFixture *fixture,
   g_autofree gchar *installed_app_executable_contents_before_install = NULL;
   g_autofree gchar *installed_app_executable_contents_after_install = NULL;
   g_autofree gchar *installed_app_executable_path = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   const gchar *test_flatpak_relative_path = "app/org.test.Test/current/active";
   const gchar *app_executable_relative_path = "files/bin/test";
   g_autoptr(GError) error = NULL;
@@ -2851,6 +2959,8 @@ test_update_no_op_flatpak_already_installed (EosUpdaterFixture *fixture,
                                                              "com.endlessm.TestInstallFlatpaksCollection",
                                                              (const gchar **) wanted_flatpaks,
                                                              (const gchar **) wanted_flatpaks,
+                                                             gpg_key_file,
+                                                             keyid,
                                                              &error);
 
 
@@ -2936,6 +3046,8 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
   g_autofree gchar *app_executable_path = NULL;
   g_autofree gchar *installed_app_executable_path = NULL;
   g_autoptr(GFile) installed_app_executable = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -2973,6 +3085,8 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -3056,6 +3170,8 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
   g_autofree gchar *installed_app_executable_path = NULL;
   g_autoptr(GFile) installed_app_executable = NULL;
   g_autoptr(GFile) failed_flatpak_installation_directory = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -3093,6 +3209,8 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -3182,6 +3300,8 @@ test_update_uninstall_flatpaks_on_reboot (EosUpdaterFixture *fixture,
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -3227,6 +3347,8 @@ test_update_uninstall_flatpaks_on_reboot (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -3306,6 +3428,8 @@ test_update_uninstall_flatpaks_on_reboot_custom_branch_name (EosUpdaterFixture *
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -3351,6 +3475,8 @@ test_update_uninstall_flatpaks_on_reboot_custom_branch_name (EosUpdaterFixture *
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -3431,6 +3557,8 @@ test_update_no_uninstall_flatpaks_on_reboot_different_branch_name (EosUpdaterFix
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -3476,6 +3604,8 @@ test_update_no_uninstall_flatpaks_on_reboot_different_branch_name (EosUpdaterFix
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -3548,6 +3678,8 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -3585,6 +3717,8 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -3642,6 +3776,8 @@ test_update_flatpaks_no_op_if_up_to_date (EosUpdaterFixture *fixture,
   g_autofree gchar *installed_app_executable_contents_before_update = NULL;
   g_autofree gchar *installed_app_executable_contents_after_update = NULL;
   g_autofree gchar *installed_app_executable_path = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   const gchar *test_flatpak_relative_path = "app/org.test.Test/current/active";
   const gchar *app_executable_relative_path = "files/bin/test";
   g_autoptr(GError) error = NULL;
@@ -3682,6 +3818,8 @@ test_update_flatpaks_no_op_if_up_to_date (EosUpdaterFixture *fixture,
                                                              "com.endlessm.TestInstallFlatpaksCollection",
                                                              (const gchar **) wanted_flatpaks,
                                                              (const gchar **) wanted_flatpaks,
+                                                             gpg_key_file,
+                                                             keyid,
                                                              &error);
 
   /* Get the contents of the executable before the update */
@@ -3765,6 +3903,8 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
   g_autofree gchar *app_executable_path = NULL;
   g_autofree gchar *installed_app_executable_path = NULL;
   g_autofree gchar *installed_app_executable_contents = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   const gchar *expected_app_executable_contents = "CONTENTS\n";
   g_autoptr(GError) error = NULL;
 
@@ -3804,6 +3944,8 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
                                                              "com.endlessm.TestInstallFlatpaksCollection",
                                                              (const gchar **) wanted_flatpaks,
                                                              (const gchar **) wanted_flatpaks,
+                                                             gpg_key_file,
+                                                             keyid,
                                                              &error);
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
   flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
@@ -3826,7 +3968,13 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
   g_file_set_contents (app_executable_path, expected_app_executable_contents, -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
+  flatpak_build_export (updater_directory,
+                        app_dir_path,
+                        flatpak_repo_path,
+                        "stable",
+                        fixture->gpg_home,
+                        keyid,
+                        &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
@@ -3905,6 +4053,8 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
   g_autofree gchar *app_executable_path = NULL;
   g_autofree gchar *installed_app_executable_path = NULL;
   g_autofree gchar *installed_app_executable_contents = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   const gchar *expected_app_executable_contents = "CONTENTS\n";
   g_autoptr(GError) error = NULL;
 
@@ -3944,6 +4094,8 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
                                                              "com.endlessm.TestInstallFlatpaksCollection",
                                                              (const gchar **) wanted_flatpaks,
                                                              (const gchar **) wanted_flatpaks,
+                                                             gpg_key_file,
+                                                             keyid,
                                                              &error);
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
   flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
@@ -3966,7 +4118,13 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
   g_file_set_contents (app_executable_path, expected_app_executable_contents, -1, &error);
   g_assert_no_error (error);
 
-  flatpak_build_export (updater_directory, app_dir_path, flatpak_repo_path, "stable", &error);
+  flatpak_build_export (updater_directory,
+                        app_dir_path,
+                        flatpak_repo_path,
+                        "stable",
+                        fixture->gpg_home,
+                        keyid,
+                        &error);
   g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
@@ -4029,6 +4187,8 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -4067,6 +4227,8 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -4133,6 +4295,8 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -4190,6 +4354,8 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -4246,6 +4412,8 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -4291,6 +4459,8 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -4377,6 +4547,8 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -4422,6 +4594,8 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (1).
@@ -4509,6 +4683,8 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
 
   g_test_bug ("T16682");
@@ -4562,6 +4738,8 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       "com.endlessm.TestInstallFlatpaksCollection",
                                       (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
                                       &error);
 
   /* Update the server, so it has a new commit (3).
