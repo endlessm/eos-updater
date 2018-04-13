@@ -264,6 +264,11 @@ typedef struct _SimpleFile SimpleFile;
 SimpleFile * simple_file_new_steal (gchar *rel_path, gchar *contents);
 void         simple_file_free (gpointer file_ptr);
 
+gboolean eos_test_setup_flatpak_repo (GFile *updater_dir,
+                                      GPtrArray *install_infos,
+                                      GHashTable *repository_infos,
+                                      GError **error);
+
 /* The eos_test_setup_flatpak_repo_*simple family of functions here
  * will set up a flatpak repo containing flatpaks with the given flatpak_names
  * all linked to the same runtime (org.test.Runtime), with the same branch
@@ -284,6 +289,43 @@ gboolean eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile       
                                                                     const gchar **flatpak_names,
                                                                     const gchar **preinstalled_flatpak_names,
                                                                     GError      **error);
+
+typedef enum {
+  FLATPAK_INSTALL_INFO_TYPE_RUNTIME,
+  FLATPAK_INSTALL_INFO_TYPE_APP,
+  FLATPAK_INSTALL_INFO_TYPE_EXTENSION,
+} FlatpakInstallInfoType;
+
+typedef struct {
+  FlatpakInstallInfoType  type;
+  gchar                  *name;
+  gchar                  *branch;
+  gchar                  *runtime_name;
+  gchar                  *runtime_branch;
+  gchar                  *repo_name;
+  gboolean                preinstall;
+} FlatpakInstallInfo;
+
+FlatpakInstallInfo * flatpak_install_info_new (FlatpakInstallInfoType  type,
+                                               const gchar            *name,
+                                               const gchar            *branch,
+                                               const gchar            *runtime_name,
+                                               const gchar            *runtime_branch,
+                                               const gchar            *repo_name,
+                                               gboolean                preinstall);
+
+void flatpak_install_info_free (FlatpakInstallInfo *info);
+
+typedef struct {
+  gchar *name;
+  gchar *collection_id;
+  gchar *remote_collection_id;
+} FlatpakRepoInfo;
+
+FlatpakRepoInfo * flatpak_repo_info_new (const gchar *name,
+                                         const gchar *collection_id,
+                                         const gchar *remote_collection_id);
+void flatpak_repo_info_free (FlatpakRepoInfo *info);
 
 gboolean eos_test_run_flatpak_installer (GFile        *client_root,
                                          const gchar  *deployment_csum,
