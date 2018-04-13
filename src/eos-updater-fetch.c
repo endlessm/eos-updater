@@ -341,7 +341,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
       if (action->type != EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL)
         continue;
 
-      /* Invariant - must have both a remote name or a collection ID
+      /* Invariant - must have both a remote name and a collection ID
        * by this point */
       g_assert (to_install->collection_id != NULL && to_install->remote != NULL);
 
