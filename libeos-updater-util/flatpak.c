@@ -78,7 +78,8 @@ EuuFlatpakRemoteRefAction *
 euu_flatpak_remote_ref_action_new (EuuFlatpakRemoteRefActionType  type,
                                    EuuFlatpakLocationRef         *ref,
                                    const gchar                   *source,
-                                   gint32                         serial)
+                                   gint32                         serial,
+                                   EuuFlatpakRemoteRefActionFlags flags)
 {
   EuuFlatpakRemoteRefAction *action = g_slice_new0 (EuuFlatpakRemoteRefAction);
 
@@ -87,6 +88,7 @@ euu_flatpak_remote_ref_action_new (EuuFlatpakRemoteRefActionType  type,
   action->ref = euu_flatpak_location_ref_ref (ref);
   action->source = g_strdup (source);
   action->serial = serial;
+  action->flags = flags;
 
   return action;
 }
@@ -469,16 +471,51 @@ flatpak_remote_ref_action_from_json_node (const gchar  *source,
   return euu_flatpak_remote_ref_action_new (action_type,
                                             flatpak_location_ref,
                                             source,
-                                            serial);
+                                            serial,
+                                            EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_NONE);
 }
 
 static gint
 sort_flatpak_remote_ref_actions (gconstpointer a, gconstpointer b)
 {
-  EuuFlatpakRemoteRefAction **action_a = (EuuFlatpakRemoteRefAction **) a;
-  EuuFlatpakRemoteRefAction **action_b = (EuuFlatpakRemoteRefAction **) b;
+  EuuFlatpakRemoteRefAction *action_a = *(EuuFlatpakRemoteRefAction **) a;
+  EuuFlatpakRemoteRefAction *action_b = *(EuuFlatpakRemoteRefAction **) b;
+  gint position = action_a->serial - (gint) action_b->serial;
 
-  return (gint) (*action_a)->serial - (gint) (*action_b)->serial;
+  /* If the two are equal then sort dependencies:
+   * - install or update actions dependencies go before the source
+   * - uninstall actions go after the source. */
+  if (position == 0)
+    {
+      gboolean action_a_is_update_or_install =
+        action_a->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL ||
+        action_a->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE;
+      gboolean action_b_is_update_or_install =
+        action_b->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL ||
+        action_b->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE;
+      gboolean action_a_is_dependency =
+        (action_a->flags & EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY) != 0;
+      gboolean action_b_is_dependency =
+        (action_b->flags & EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY) != 0;
+
+      if (action_a_is_update_or_install && action_b_is_update_or_install)
+        {
+          if (action_a_is_dependency && !action_b_is_dependency)
+            return -1;
+          else if (!action_a_is_dependency && action_b_is_dependency)
+            return 1;
+        }
+      else if (action_a->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL &&
+               action_b->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL)
+        {
+          if (action_a_is_dependency && !action_b_is_dependency)
+            return 1;
+          else if (!action_a_is_dependency && action_b_is_dependency)
+            return -1;
+        }
+    }
+
+  return position;
 }
 
 /* Synchronously parse @file as JSON. */
@@ -1457,6 +1494,832 @@ euu_filter_for_existing_flatpak_ref_actions (GHashTable *ref_actions  /* (elemen
                                            progresses);
 }
 
+static guint
+euu_flatpak_remote_hash (gconstpointer data)
+{
+  FlatpakRemote *remote = FLATPAK_REMOTE (data);
+  /* The casting dance here is because we want to g_direct_hash the priority
+   * which may be a different size to gconstpointer. We don't really care
+   * too much about potential overflow - we just want it to hash
+   * consistently. */
+  gsize prio = (gsize) flatpak_remote_get_prio (remote);
+  const gchar *name = flatpak_remote_get_name (remote);
+  const gchar *collection_id = flatpak_remote_get_collection_id (remote);
+
+  return (g_direct_hash ((gconstpointer) prio) ^
+          g_str_hash (name) ^
+          ((collection_id != NULL) ? g_str_hash (collection_id) : 0));
+}
+
+static gboolean
+euu_flatpak_remote_equal (gconstpointer a,
+                          gconstpointer b)
+{
+  FlatpakRemote *a_remote = FLATPAK_REMOTE (a), *b_remote = FLATPAK_REMOTE (b);
+  return (flatpak_remote_get_prio (a_remote) == flatpak_remote_get_prio (b_remote) &&
+          g_strcmp0 (flatpak_remote_get_name (a_remote),
+                     flatpak_remote_get_name (b_remote)) == 0 &&
+          g_strcmp0 (flatpak_remote_get_collection_id (a_remote),
+                     flatpak_remote_get_collection_id (b_remote)) == 0);
+}
+
+static gboolean
+list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation,
+                                              GPtrArray           **out_remotes_priority_order,
+                                              GHashTable          **out_refs_for_remotes,
+                                              GCancellable         *cancellable,
+                                              GError              **error)
+{
+  g_autoptr(GPtrArray) remotes = NULL;
+  g_autoptr(GHashTable) refs_for_remotes = NULL;
+  gsize i = 0;
+
+  g_return_val_if_fail (FLATPAK_IS_INSTALLATION (installation), FALSE);
+  g_return_val_if_fail (out_remotes_priority_order != NULL, FALSE);
+  g_return_val_if_fail (out_refs_for_remotes != NULL, FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  remotes = flatpak_installation_list_remotes (installation, cancellable, error);
+
+  if (remotes == NULL)
+    return FALSE;
+
+  refs_for_remotes = g_hash_table_new_full (euu_flatpak_remote_hash,
+                                            euu_flatpak_remote_equal,
+                                            g_object_unref,
+                                            (GDestroyNotify) g_ptr_array_unref);
+
+  for (i = 0; i < remotes->len; ++i)
+    {
+      FlatpakRemote *remote = g_ptr_array_index (remotes, i);
+      g_autoptr(GPtrArray) refs_for_remote =
+        flatpak_installation_list_remote_refs_sync (installation,
+                                                    flatpak_remote_get_name (remote),
+                                                    cancellable,
+                                                    error);
+
+      if (refs_for_remote == NULL)
+        return FALSE;
+
+      g_hash_table_insert (refs_for_remotes,
+                           g_object_ref (remote),
+                           g_steal_pointer (&refs_for_remote));
+    }
+
+  /* We return both a GPtrArray of remotes and the hashtable mapping
+   * each remote to a list of refs, since we need to maintain the priority
+   * order. */
+  *out_remotes_priority_order = g_steal_pointer (&remotes);
+  *out_refs_for_remotes = g_steal_pointer (&refs_for_remotes);
+
+  return TRUE;
+}
+
+typedef struct {
+  FlatpakRemote *remote;  /* (owned) */
+  GHashTable    *related_refs;  /* (element-type FlatpakRef %NULL) */
+} EuuFlatpakRelatedRefsForRemote;
+
+static EuuFlatpakRelatedRefsForRemote *
+euu_flatpak_related_refs_for_remote_new (FlatpakRemote *remote,
+                                         GHashTable    *related_refs)
+{
+  EuuFlatpakRelatedRefsForRemote *related_refs_for_remote = g_new0 (EuuFlatpakRelatedRefsForRemote, 1);
+
+  related_refs_for_remote->remote = g_object_ref (remote);
+  related_refs_for_remote->related_refs = g_hash_table_ref (related_refs);
+
+  return related_refs_for_remote;
+}
+
+static void
+euu_flatpak_related_refs_for_remote_free (EuuFlatpakRelatedRefsForRemote *related_refs_for_remote)
+{
+  g_clear_object (&related_refs_for_remote->remote);
+  g_clear_pointer (&related_refs_for_remote->related_refs, (GDestroyNotify) g_hash_table_unref);
+
+  g_free (related_refs_for_remote);
+}
+
+/* FIXME: This is currently a linear scan. Would be nice
+ *        if it were a hashtable to get O(1) performance */
+static gboolean
+ref_in_ref_array (FlatpakRef *ref,
+                  GPtrArray  *ref_array)
+{
+  for (gsize i = 0; i < ref_array->len; ++i)
+    if (flatpak_ref_equal (ref, g_ptr_array_index (ref_array, i)))
+      return TRUE;
+
+  return FALSE;
+}
+
+/* FIXME: The runtime ref is a special case that we cannot get from
+ * flatpak_installation_fetch_remote_metadata_sync. We need to manually
+ * fetch the metadata for each remote (this will usually come from the cache)
+ * and parse it for the runtime ref.
+ *
+ * Ideally this should belong in flatpak itself through an API. The Flatpak
+ * maintainers posit that it does not belong as a part of
+ * flatpak_installation_fetch_remote_related_refs_sync but instead
+ * deserves its own API. See:
+ * - https://github.com/flatpak/flatpak/pull/1578
+ * - https://github.com/flatpak/flatpak/issues/1234
+ */
+static gboolean
+fetch_runtime_ref_for_source_ref (FlatpakInstallation *installation,
+                                  const gchar         *source_ref_remote_name,
+                                  FlatpakRef          *source_ref,
+                                  FlatpakRef         **out_runtime_ref,
+                                  GCancellable        *cancellable,
+                                  GError             **error)
+{
+  g_autoptr(FlatpakRef) runtime_ref = NULL;
+  g_autoptr(FlatpakRemoteRef) runtime_remote_ref = NULL;
+  g_autoptr(GBytes) bytes = NULL;
+  g_autoptr(GKeyFile) metadata = NULL;
+  g_autofree gchar *runtime_ref_str = NULL;
+  g_autofree gchar *runtime_ref_str_complete = NULL;
+  g_autoptr(GError) local_error = NULL;
+
+  g_return_val_if_fail (FLATPAK_IS_INSTALLATION (installation), FALSE);
+  g_return_val_if_fail (source_ref_remote_name != NULL, FALSE);
+  g_return_val_if_fail (source_ref != NULL, FALSE);
+  g_return_val_if_fail (out_runtime_ref != NULL, FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  bytes = flatpak_installation_fetch_remote_metadata_sync (installation,
+                                                           source_ref_remote_name,
+                                                           source_ref,
+                                                           cancellable,
+                                                           &local_error);
+
+  if (bytes == NULL)
+    {
+      /* G_IO_ERROR_NOT_FOUND here means that either the remote did not have
+       * a summary cache or that the source ref was not found in the
+       * summary cache. In either case, we just treat that as a non-fatal
+       * error and continue. */
+      if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+        {
+          g_autofree gchar *formatted_source_ref = flatpak_ref_format_ref (source_ref);
+          g_debug ("Remote %s did not have a summary cache "
+                   "or %s was not found in it, assuming that "
+                   "%s does not have a runtime",
+                   source_ref_remote_name,
+                   formatted_source_ref,
+                   formatted_source_ref);
+
+          *out_runtime_ref = NULL;
+          return TRUE;
+        }
+
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+    }
+
+  metadata = g_key_file_new ();
+
+  if (!g_key_file_load_from_bytes (metadata, bytes, G_KEY_FILE_NONE, error))
+    return FALSE;
+
+  runtime_ref_str = g_key_file_get_string (metadata, "Application", "runtime", NULL);
+
+  if (runtime_ref_str == NULL || strlen (runtime_ref_str) == 0)
+    {
+      *out_runtime_ref = NULL;
+      return TRUE;
+    }
+
+  runtime_ref_str_complete = g_strdup_printf ("runtime/%s", runtime_ref_str);
+  runtime_ref = flatpak_ref_parse (runtime_ref_str_complete, error);
+
+  if (runtime_ref == NULL)
+    return FALSE;
+
+  *out_runtime_ref = g_steal_pointer (&runtime_ref);
+  return TRUE;
+}
+
+/* Check if the remote specified actually has the runtime ref */
+static FlatpakRemoteRef *
+fetch_remote_ref_for_runtime_ref_and_remote (GHashTable    *all_refs_for_remotes,
+                                             FlatpakRemote *remote,
+                                             FlatpakRef    *candidate_runtime_ref)
+{
+  GPtrArray *all_refs_in_candidate_remote = NULL;
+
+  /* No candidate ref, so nothing to fetch */
+  if (candidate_runtime_ref == NULL)
+    return NULL;
+
+  all_refs_in_candidate_remote = g_hash_table_lookup (all_refs_for_remotes, remote);
+
+  g_assert (all_refs_in_candidate_remote != NULL);
+
+  /* Even if we were able to parse the runtime from this flatpak,
+   * it does not necessarily mean that the runtime was in the current
+   * remote. Check if it is first */
+  if (!ref_in_ref_array (candidate_runtime_ref, all_refs_in_candidate_remote))
+    return NULL;
+
+  return FLATPAK_REMOTE_REF (g_object_new (FLATPAK_TYPE_REMOTE_REF,
+                             "kind", flatpak_ref_get_kind (candidate_runtime_ref),
+                             "name", flatpak_ref_get_name (candidate_runtime_ref),
+                             "arch", flatpak_ref_get_arch (candidate_runtime_ref),
+                             "branch", flatpak_ref_get_branch (candidate_runtime_ref),
+                             "remote-name", flatpak_remote_get_name (remote),
+                             "collection-id", flatpak_remote_get_collection_id (remote),
+                             NULL));
+}
+
+static GPtrArray *
+list_related_refs_for_remote (FlatpakInstallation  *installation,
+                              FlatpakRemote        *remote,
+                              FlatpakRef           *source_ref,
+                              const gchar          *formatted_ref,
+                              FlatpakRef           *candidate_runtime_ref,
+                              GHashTable           *all_refs_for_remotes,
+                              GCancellable         *cancellable,
+                              GError              **error)
+{
+  g_autoptr(GPtrArray) remote_related_refs =
+    flatpak_installation_list_remote_related_refs_sync (installation,
+                                                        flatpak_remote_get_name (remote),
+                                                        formatted_ref,
+                                                        cancellable,
+                                                        error);
+  g_autoptr(FlatpakRemoteRef) remote_runtime_ref = NULL;
+  FlatpakRef *remote_runtime_ref_as_ref = NULL;
+
+  if (remote_related_refs == NULL)
+    return NULL;
+
+  /* Try and fetch the remote ref for the runtime, but if there isn't one
+   * then it is not an error */
+  remote_runtime_ref =
+    fetch_remote_ref_for_runtime_ref_and_remote (all_refs_for_remotes,
+                                                 remote,
+                                                 candidate_runtime_ref);
+
+  if (remote_runtime_ref == NULL)
+    return g_steal_pointer (&remote_related_refs);
+
+  remote_runtime_ref_as_ref = FLATPAK_REF (remote_runtime_ref);
+  g_ptr_array_add (remote_related_refs, g_object_new (FLATPAK_TYPE_RELATED_REF,
+                                                      "kind", flatpak_ref_get_kind (remote_runtime_ref_as_ref),
+                                                      "name", flatpak_ref_get_name (remote_runtime_ref_as_ref),
+                                                      "arch", flatpak_ref_get_arch (remote_runtime_ref_as_ref),
+                                                      "branch", flatpak_ref_get_branch (remote_runtime_ref_as_ref),
+                                                      "should-delete", FALSE,
+                                                      "should-download", TRUE,
+                                                      "collection-id", flatpak_remote_get_collection_id (remote),
+                                                      NULL));
+  return g_steal_pointer (&remote_related_refs);
+}
+
+static gboolean
+populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
+                                      FlatpakRef           *source_ref,
+                                      FlatpakRef           *candidate_runtime_ref,
+                                      GHashTable           *all_remote_refs,
+                                      GPtrArray            *related_refs_for_remotes,
+                                      GCancellable         *cancellable,
+                                      GError              **error)
+{
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (source_ref);
+
+  for (gsize i = 0 ; i < related_refs_for_remotes->len; ++i)
+    {
+      EuuFlatpakRelatedRefsForRemote *related_refs_for_remote =
+        g_ptr_array_index (related_refs_for_remotes, i);
+      g_autoptr(GPtrArray) related_refs =
+        list_related_refs_for_remote (installation,
+                                      related_refs_for_remote->remote,
+                                      source_ref,
+                                      formatted_ref,
+                                      candidate_runtime_ref,
+                                      all_remote_refs,
+                                      cancellable,
+                                      error);
+
+      if (related_refs == NULL)
+        return FALSE;
+
+      for (gsize j = 0; j < related_refs->len; ++j)
+        {
+          FlatpakRef *related_ref = g_ptr_array_index (related_refs, j);
+
+          /* We can avoid a rather expensive recursive call here
+           * if we check now, so check before continuing */
+          if (g_hash_table_contains (related_refs_for_remote->related_refs, related_ref))
+            continue;
+
+          g_hash_table_insert (related_refs_for_remote->related_refs,
+                               g_object_ref (related_ref),
+                               NULL);
+
+          /* Also populate all related refs for this ref. Note that
+           * runtimes and extensions cannot have runtimes, so we pass
+           * NULL for candidate_runtime_ref. */
+          if (!populate_related_refs_in_all_remotes (installation,
+                                                     related_ref,
+                                                     NULL,
+                                                     all_remote_refs,
+                                                     related_refs_for_remotes,
+                                                     cancellable,
+                                                     error))
+            return FALSE;
+        }
+    }
+
+  return TRUE;
+}
+
+static gboolean
+fetch_installed_ref_for_runtime_ref (FlatpakInstallation  *installation,
+                                     FlatpakRef           *candidate_runtime_ref,
+                                     FlatpakInstalledRef **out_installed_ref,
+                                     GCancellable         *cancellable,
+                                     GError              **error)
+{
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(FlatpakInstalledRef) installed_ref =
+    flatpak_installation_get_installed_ref (installation,
+                                            flatpak_ref_get_kind (candidate_runtime_ref),
+                                            flatpak_ref_get_name (candidate_runtime_ref),
+                                            flatpak_ref_get_arch (candidate_runtime_ref),
+                                            flatpak_ref_get_branch (candidate_runtime_ref),
+                                            cancellable,
+                                            &local_error);
+
+  if (installed_ref == NULL)
+    {
+      if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+
+      *out_installed_ref = NULL;
+      return TRUE;
+    }
+
+  *out_installed_ref = g_steal_pointer (&installed_ref);
+  return TRUE;
+}
+
+static GPtrArray *
+list_installed_related_refs_for_remote (FlatpakInstallation  *installation,
+                                        const gchar          *remote_name,
+                                        FlatpakRef           *source_ref,
+                                        FlatpakRef           *candidate_remote_ref,
+                                        const gchar          *formatted_ref,
+                                        GCancellable         *cancellable,
+                                        GError              **error)
+{
+  g_autoptr(GPtrArray) installed_related_refs = NULL;
+  g_autoptr(FlatpakInstalledRef) installed_ref = NULL;
+  g_autoptr(GError) local_error = NULL;
+
+  installed_related_refs =
+    flatpak_installation_list_installed_related_refs_sync (installation,
+                                                           remote_name,
+                                                           formatted_ref,
+                                                           cancellable,
+                                                           error);
+
+  /* Only error that can occur here is FLATPAK_ERROR_NOT_INSTALLED
+   * and it is the caller's responsibility to check if the source
+   * flatpak is installed. All errors are thus fatal. */
+  if (installed_related_refs == NULL)
+    return NULL;
+
+  if (candidate_remote_ref == NULL)
+    return g_steal_pointer (&installed_related_refs);
+
+  if (!fetch_installed_ref_for_runtime_ref (installation,
+                                            candidate_remote_ref,
+                                            &installed_ref,
+                                            cancellable,
+                                            error))
+    return NULL;
+
+  /* Not installed, just return the old array */
+  if (installed_ref == NULL)
+    return g_steal_pointer (&installed_related_refs);
+
+  g_ptr_array_add (installed_related_refs, g_steal_pointer (&installed_ref));
+  return g_steal_pointer (&installed_related_refs);
+}
+
+static gboolean
+populate_installed_related_refs (FlatpakInstallation  *installation,
+                                 FlatpakRef           *source_ref,
+                                 FlatpakRef           *candidate_runtime_ref,
+                                 GPtrArray            *remotes,
+                                 GHashTable           *installed_related_refs_set,
+                                 GCancellable         *cancellable,
+                                 GError              **error)
+{
+  g_autoptr(FlatpakInstalledRef) installed_ref = NULL;
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (source_ref);
+  g_autoptr(GError) local_error = NULL;
+
+  /* If the source flatpak is not installed, then it cannot have
+   * any related refs that are installed either, so just return
+   * an empty hashset in that case. */
+  installed_ref =
+    flatpak_installation_get_installed_ref (installation,
+                                            flatpak_ref_get_kind (source_ref),
+                                            flatpak_ref_get_name (source_ref),
+                                            flatpak_ref_get_arch (source_ref),
+                                            flatpak_ref_get_branch (source_ref),
+                                            cancellable,
+                                            &local_error);
+
+  if (installed_ref == NULL)
+   {
+     if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
+       {
+         g_clear_error (&local_error);
+         return TRUE;
+       }
+
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return FALSE;
+   }
+
+  for (gsize i = 0; i < remotes->len; ++i)
+    {
+      FlatpakRemote *remote = g_ptr_array_index (remotes, i);
+      g_autoptr(GPtrArray) installed_related_refs =
+        list_installed_related_refs_for_remote (installation,
+                                                flatpak_remote_get_name (remote),
+                                                source_ref,
+                                                candidate_runtime_ref,
+                                                formatted_ref,
+                                                cancellable,
+                                                error);
+
+      if (installed_related_refs == NULL)
+        return TRUE;
+
+      for (gsize j = 0; j < installed_related_refs->len; ++j)
+        {
+          FlatpakRef *related_ref = FLATPAK_REF (g_ptr_array_index (installed_related_refs, j));
+
+          /* We can avoid a rather expensive recursive call here
+           * if we check now, so check before continuing */
+          if (g_hash_table_contains (installed_related_refs_set, related_ref))
+            continue;
+
+          g_hash_table_insert (installed_related_refs_set,
+                               g_object_ref (related_ref),
+                               NULL);
+
+          /* Populate installed related refs for this related ref. Note that
+           * extensions and runtimes can't have a runtime, so we pass NULL here. */
+          if (!populate_installed_related_refs (installation,
+                                                related_ref,
+                                                NULL,
+                                                remotes,
+                                                installed_related_refs_set,
+                                                cancellable,
+                                                error))
+            return FALSE;
+        }
+    }
+
+  return TRUE;
+}
+
+static gboolean
+determine_action_for_related_ref (FlatpakRelatedRef             *related_ref,
+                                  EuuFlatpakRemoteRefAction     *source_ref_action,
+                                  GHashTable                    *installed_related_refs,
+                                  GHashTable                    *pending_install_related_refs,
+                                  EuuFlatpakRemoteRefActionType *out_action_type)
+{
+  gboolean related_ref_is_installed = FALSE;
+
+  g_return_val_if_fail (out_action_type != NULL, FALSE);
+
+  related_ref_is_installed = g_hash_table_contains (installed_related_refs, related_ref);
+
+  switch (source_ref_action->type)
+    {
+      case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
+        if (flatpak_related_ref_should_download (related_ref) &&
+            g_hash_table_insert (pending_install_related_refs, related_ref, NULL))
+          {
+            if (related_ref_is_installed)
+              *out_action_type = EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE;
+            else
+              *out_action_type = EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL;
+
+            return TRUE;
+          }
+        break;
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
+        if (flatpak_related_ref_should_download (related_ref) &&
+            related_ref_is_installed &&
+            g_hash_table_insert (pending_install_related_refs, related_ref, NULL))
+          {
+            *out_action_type = EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE;
+            return TRUE;
+          }
+        break;
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
+        if (flatpak_related_ref_should_delete (related_ref) &&
+            related_ref_is_installed)
+          {
+            *out_action_type = EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL;
+            return TRUE;
+          }
+          break;
+      default:
+        break;
+    }
+
+  /* Nothing to do */
+  return FALSE;
+}
+
+static gboolean
+recursively_find_remote_and_installed_related_refs (FlatpakInstallation  *installation,
+                                                    FlatpakRef           *source_ref,
+                                                    const gchar          *source_ref_remote_name,
+                                                    GPtrArray            *remotes,
+                                                    GHashTable           *all_remote_refs,
+                                                    GPtrArray            *remote_related_refs,
+                                                    GHashTable           *installed_related_refs,
+                                                    GCancellable         *cancellable,
+                                                    GError              **error)
+{
+  g_autoptr(FlatpakRef) candidate_runtime_ref = NULL;
+
+  /* This might have an outparam of NULL for candidate_runtime_ref
+   * but that is fine. */
+  if (!fetch_runtime_ref_for_source_ref (installation,
+                                         source_ref_remote_name,
+                                         source_ref,
+                                         &candidate_runtime_ref,
+                                         cancellable,
+                                         error))
+    return FALSE;
+
+  if (!populate_installed_related_refs (installation,
+                                        source_ref,
+                                        candidate_runtime_ref,
+                                        remotes,
+                                        installed_related_refs,
+                                        cancellable,
+                                        error))
+    return FALSE;
+
+  if (!populate_related_refs_in_all_remotes (installation,
+                                             source_ref,
+                                             candidate_runtime_ref,
+                                             all_remote_refs,
+                                             remote_related_refs,
+                                             cancellable,
+                                             error))
+    return FALSE;
+
+  return TRUE;
+}
+
+static GPtrArray *
+reprioritize_remotes_for_source_ref (GPtrArray   *remotes,
+                                     const gchar *source_ref_remote_name)
+{
+  g_autoptr(GPtrArray) reprioritized =
+    g_ptr_array_new_full (remotes->len, (GDestroyNotify) g_object_unref);
+  gsize source_ref_remote_index = 0;
+  gboolean source_ref_remote_index_found = FALSE;
+
+  /* Linear scan to find the index of the source ref remote. If
+   * we find it, add it to the array first and then keep note of
+   * the index so that we don't add it again */
+  for (gsize i = 0; i < remotes->len; ++i)
+    {
+      FlatpakRemote *remote = g_ptr_array_index (remotes, i);
+
+      if (g_strcmp0 (flatpak_remote_get_name (remote),
+                     source_ref_remote_name) == 0)
+        {
+          g_ptr_array_add (reprioritized, g_object_ref (remote));
+
+          source_ref_remote_index = i;
+          source_ref_remote_index_found = TRUE;
+          break;
+        }
+    }
+
+  /* Linear scan again, adding all the rest of the related_refs_for_remote
+   * object but skipping the one we just added */
+  for (gsize i = 0; i < remotes->len; ++i)
+    {
+      FlatpakRemote *remote = g_ptr_array_index (remotes, i);
+
+      if (source_ref_remote_index_found && i == source_ref_remote_index)
+        continue;
+
+      g_ptr_array_add (reprioritized, g_object_ref (remote));
+    }
+
+  return g_steal_pointer (&reprioritized);
+}
+
+static void
+initially_populate_remote_and_installed_related_refs (GPtrArray   *remotes,
+                                                      const gchar *source_ref_remote_name,
+                                                      GPtrArray  **out_remote_related_refs,
+                                                      GHashTable **out_installed_related_refs)
+{
+  /* It is assumed that when this function is called the remotes
+   * are already in the priority order indicated by flatpak_installation_list_remotes -
+   * we just adjust the priority here to make sure that we pick runtimes and extensions
+   * from the source flatpak's own remote first */
+  g_autoptr(GPtrArray) reprioritized_remotes =
+    reprioritize_remotes_for_source_ref (remotes, source_ref_remote_name);
+  g_autoptr(GPtrArray) remote_related_refs = NULL;
+
+  g_return_if_fail (out_remote_related_refs != NULL);
+  g_return_if_fail (out_installed_related_refs != NULL);
+
+  remote_related_refs = g_ptr_array_new_full (remotes->len,
+                                              (GDestroyNotify) euu_flatpak_related_refs_for_remote_free);
+
+  for (gsize i = 0; i < reprioritized_remotes->len; ++i)
+    {
+      FlatpakRemote *remote = g_ptr_array_index (reprioritized_remotes, i);
+      g_autoptr(GHashTable) refs_for_remote =
+        g_hash_table_new_full (flatpak_ref_hash,
+                               flatpak_ref_equal,
+                               g_object_unref,
+                               NULL);
+
+      g_ptr_array_add (remote_related_refs,
+                       euu_flatpak_related_refs_for_remote_new (remote, refs_for_remote));
+    }
+
+  *out_installed_related_refs = g_hash_table_new_full (flatpak_ref_hash,
+                                                       flatpak_ref_equal,
+                                                       g_object_unref,
+                                                       NULL);
+  *out_remote_related_refs = g_steal_pointer (&remote_related_refs);
+}
+
+/**
+ * euu_add_dependency_ref_actions_for_installation:
+ * @installation: A #FlatpakInstallation
+ * @ref_actions: (element-type EuuFlatpakRemoteRefAction): A #GPtrArray of
+ *               #EuuFlatpakRemoteRefAction containing pending ref actions.
+ * @error: A #GError
+ *
+ * Walk through the list of remote ref actions in @ref_actions and
+ * yield a new list with runtime and extension dependencies added. In the
+ * install or update case, runtime dependencies will be added before
+ * the original ref action and extension dependencies will be added after
+ * the original ref action. In the uninstall case extension dependencies
+ * will be added before the original ref action and runtime dependencies
+ * after the original ref action.
+ *
+ * Returns: (transfer full) (element-type EuuFlatpakRemoteRefAction): A #GPtrArray
+ *          of #EuuFlatpakRemoteRefAction containing ref actions in @ref_actions
+ *          with their dependencies inserted as appropriate.
+ */
+GPtrArray *
+euu_add_dependency_ref_actions_for_installation (FlatpakInstallation  *installation,
+                                                 GPtrArray            *ref_actions,
+                                                 GCancellable         *cancellable,
+                                                 GError              **error)
+{
+  g_autoptr(GPtrArray) dependency_ref_actions =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) euu_flatpak_remote_ref_action_unref);
+  g_autoptr(GPtrArray) remotes = NULL;
+  g_autoptr(GHashTable) refs_for_remotes = NULL;
+  g_autoptr(GHashTable) pending_install_related_refs = NULL;
+
+  if (!list_all_remote_refs_in_flatpak_installation (installation,
+                                                     &remotes,
+                                                     &refs_for_remotes,
+                                                     cancellable,
+                                                     error))
+    return NULL;
+
+  /* A set of refs that are already pending installation or update. We don't
+   * add refs here multiple times as we want to ensure that the ones that
+   * come from high priority remotes "win". If we just added them multiple
+   * times and squashed then then the dependency refs from low priority
+   * remotes would win. A side effect of this is that if two actions
+   * try to install the same dependency from different remotes then
+   * the first one wins. Can't satisfy them all, really.
+   *
+   * This hash table gets mutated by determine_action_for_related_ref
+   * below. */
+  pending_install_related_refs = g_hash_table_new_full (flatpak_ref_hash,
+                                                        flatpak_ref_equal,
+                                                        NULL,
+                                                        NULL);
+
+  for (gsize i = 0; i < ref_actions->len; ++i)
+    {
+      EuuFlatpakRemoteRefAction *ref_action = g_ptr_array_index (ref_actions, i);
+      g_autoptr(FlatpakRef) runtime_ref = NULL;
+      g_autoptr(GPtrArray) remote_related_refs = NULL;
+      g_autoptr(GHashTable) installed_related_refs = NULL;
+      g_autoptr(FlatpakInstalledRef) installed_runtime_ref = NULL;
+      g_autoptr(EuuFlatpakLocationRef) runtime_location_ref = NULL;
+      g_autoptr(GError) local_error = NULL;
+
+      initially_populate_remote_and_installed_related_refs (remotes,
+                                                            ref_action->ref->remote,
+                                                            &remote_related_refs,
+                                                            &installed_related_refs);
+
+      if (!recursively_find_remote_and_installed_related_refs (installation,
+                                                               ref_action->ref->ref,
+                                                               ref_action->ref->remote,
+                                                               remotes,
+                                                               refs_for_remotes,
+                                                               remote_related_refs,
+                                                               installed_related_refs,
+                                                               cancellable,
+                                                               error))
+        return FALSE;
+
+      /* If the source ref action is to uninstall then its
+       * dependencies should go after it. */
+      if (ref_action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL)
+        g_ptr_array_add (dependency_ref_actions,
+                         euu_flatpak_remote_ref_action_ref (ref_action));
+
+      /* Go through each of the related refs and add it to the dependency
+       * ref actions depending on what we are doing with the dependency
+       * and the state of the dependency */
+      for (gsize j = 0; j < remote_related_refs->len; ++j)
+        {
+          EuuFlatpakRelatedRefsForRemote *related_refs_for_remote = g_ptr_array_index (remote_related_refs, j);
+          GHashTableIter iter;
+          gpointer key, value;
+
+          g_hash_table_iter_init (&iter, related_refs_for_remote->related_refs);
+
+          while (g_hash_table_iter_next (&iter, &key, &value))
+            {
+              FlatpakRelatedRef *related_ref = FLATPAK_RELATED_REF (key);
+              EuuFlatpakRemoteRefActionType action_type;
+
+              /* Is there something to do with this related ref? */
+              if (determine_action_for_related_ref (related_ref,
+                                                    ref_action,
+                                                    installed_related_refs,
+                                                    pending_install_related_refs,
+                                                    &action_type))
+                {
+                  FlatpakRemote *remote = related_refs_for_remote->remote;
+                  EuuFlatpakLocationRef *location_ref =
+                    euu_flatpak_location_ref_new (FLATPAK_REF (related_ref),
+                                                  flatpak_remote_get_name (remote),
+                                                  flatpak_remote_get_collection_id (remote));
+
+                  /* Dependencies inherit the serial number and the
+                   * source and have the EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY flag set.
+                   * At the point at which dependencies are added, action ordering
+                   * and prioritization has already occurred, so the serial doesn't have
+                   * much meaning. The source is inherited because then we can at least
+                   * show where the dependency came from in the debug output. */
+                  g_ptr_array_add (dependency_ref_actions,
+                                   euu_flatpak_remote_ref_action_new (action_type,
+                                                                      location_ref,
+                                                                      ref_action->source,
+                                                                      ref_action->serial,
+                                                                      EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY));
+                }
+            }
+        }
+
+      /* If the source ref action is to install or update then its dependencies
+       * should go before it. Note that we can treat extensions and runtime
+       * dependencies in the same way here. To flatpak, they are both just runtimes
+       * which can be installed independently of the app. The only constraint
+       * we need to satisfy is that if an app is installed, its dependencies
+       * are also installed. */
+      if (ref_action->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL ||
+          ref_action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE)
+        g_ptr_array_add (dependency_ref_actions,
+                         euu_flatpak_remote_ref_action_ref (ref_action));
+    }
+
+  /* Squash the list now that we've assembled it. */
+  return squash_ref_actions_ptr_array (dependency_ref_actions);
+}
+
 const gchar *
 euu_pending_flatpak_deployments_state_path (void)
 {
@@ -1636,17 +2499,20 @@ euu_format_flatpak_ref_actions_array (const gchar *title,
       EuuFlatpakRemoteRefAction *action = g_ptr_array_index (flatpak_ref_actions, i);
       const gchar *formatted_action_type = NULL;
       g_autofree gchar *formatted_ref = NULL;
+      gboolean is_dependency =
+        (action->flags & EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY) != 0;
 
       formatted_action_type = format_remote_ref_action_type (action->type);
       formatted_ref = flatpak_ref_format_ref (action->ref->ref);
 
       g_string_append_printf (string,
-                              "    - %s (collection-id: %s|remote: %s):%s (source: %s)\n",
+                              "    - %s (collection-id: %s|remote: %s):%s (source: %s)%s\n",
                               formatted_action_type,
                               action->ref->collection_id,
                               action->ref->remote,
                               formatted_ref,
-                              action->source);
+                              action->source,
+                              is_dependency ? " [dependency]" : "");
     }
 
   if (flatpak_ref_actions->len == 0)

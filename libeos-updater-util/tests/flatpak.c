@@ -64,7 +64,8 @@ flatpak_to_install_entry_to_remote_ref_action (const gchar           *source,
   return euu_flatpak_remote_ref_action_new (entry->type,
                                             location_ref,
                                             source,
-                                            entry->serial);
+                                            entry->serial,
+                                            EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_NONE);
 }
 
 static GPtrArray *
