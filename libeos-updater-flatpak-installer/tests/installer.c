@@ -113,10 +113,12 @@ sample_flatpak_ref_actions_of_type (const gchar                   *source,
       g_autoptr(EuuFlatpakLocationRef) location_ref = euu_flatpak_location_ref_new (ref,
                                                                                     "test-repo",
                                                                                     NULL);
-      g_autoptr(EuuFlatpakRemoteRefAction) ref_action = euu_flatpak_remote_ref_action_new (action_type,
-                                                                                           location_ref,
-                                                                                           source,
-                                                                                           i + 1);
+      g_autoptr(EuuFlatpakRemoteRefAction) ref_action =
+        euu_flatpak_remote_ref_action_new (action_type,
+                                           location_ref,
+                                           source,
+                                           i + 1,
+                                           EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_NONE);
 
       g_ptr_array_add (actions, euu_flatpak_remote_ref_action_ref (ref_action));
       g_hash_table_insert (table, g_strdup ("autoinstall"), g_ptr_array_ref (actions));

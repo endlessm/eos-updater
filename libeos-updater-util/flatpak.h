@@ -45,6 +45,21 @@ typedef struct {
   const gchar *collection_id;
 } EuuFlatpakLocationRef;
 
+/**
+ * EuuFlatpakRemoteRefActionFlags:
+ * @EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_NONE: No flags
+ * @EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY: The ref action was added as a dependency
+ *
+ * Flags for euu_flatpak_remote_ref_action_new(). They affect
+ * the behavior of remote ref actions when they are applied. For
+ * instance, dependency ref actions are immediately deployed.
+ *
+ */
+typedef enum {
+  EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_NONE = 0,
+  EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY = 1 << 0
+} EuuFlatpakRemoteRefActionFlags;
+
 typedef struct {
   gint ref_count;
 
@@ -54,6 +69,8 @@ typedef struct {
   gchar *source;
 
   gint32 serial;
+
+  EuuFlatpakRemoteRefActionFlags flags;
 } EuuFlatpakRemoteRefAction;
 
 typedef struct {
@@ -72,7 +89,8 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakLocationRef, euu_flatpak_location_ref_u
 EuuFlatpakRemoteRefAction *euu_flatpak_remote_ref_action_new (EuuFlatpakRemoteRefActionType  type,
                                                               EuuFlatpakLocationRef         *ref,
                                                               const gchar                   *source,
-                                                              gint32                         serial);
+                                                              gint32                         serial,
+                                                              EuuFlatpakRemoteRefActionFlags flags);
 EuuFlatpakRemoteRefAction *euu_flatpak_remote_ref_action_ref (EuuFlatpakRemoteRefAction *action);
 void euu_flatpak_remote_ref_action_unref (EuuFlatpakRemoteRefAction *action);
 
@@ -113,6 +131,10 @@ GHashTable *euu_filter_for_existing_flatpak_ref_actions (GHashTable *ref_actions
                                                          GHashTable *progresses);
 GHashTable *euu_squash_remote_ref_actions (GHashTable *ref_actions);
 GPtrArray *euu_flatten_flatpak_ref_actions_table (GHashTable *flatpak_ref_actions);
+GPtrArray * euu_add_dependency_ref_actions_for_installation (FlatpakInstallation  *installation,
+                                                             GPtrArray            *ref_actions,
+                                                             GCancellable         *cancellable,
+                                                             GError              **error);
 
 gchar *euu_format_all_flatpak_ref_actions (const gchar *title,
                                            GHashTable  *flatpak_ref_actions_for_this_boot);
