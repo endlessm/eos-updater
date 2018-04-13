@@ -385,14 +385,13 @@ parse_ostree_refs_for_flatpaks (const gchar  *ostree_refs_stdout,
       if (g_strcmp0 (*ostree_refs_stdout_lines_iter, "") == 0)
         continue;
 
+      /* If the regex does not match this is probably a refspec for some
+       * other ostree internal ref such as the metadata. Ignore it */
       if (!g_regex_match (flatpak_refs_parser,
                           *ostree_refs_stdout_lines_iter,
                           0,
                           &match_info))
-        {
-          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Failed to parse output of OSTree refs: %s", ostree_refs_stdout);
-          return FALSE;
-        }
+        continue;
 
       matched_flatpak_name = g_match_info_fetch (match_info, 1);
 
