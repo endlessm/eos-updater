@@ -370,6 +370,8 @@ test_common_libeos_updater_test_common_la_SOURCES = \
 	test-common/convenience.h \
 	test-common/flatpak-spawn.c \
 	test-common/flatpak-spawn.h \
+	test-common/gpg.c \
+	test-common/gpg.h \
 	test-common/misc-utils.c \
 	test-common/misc-utils.h \
 	test-common/ostree-spawn.c \
