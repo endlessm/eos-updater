@@ -28,6 +28,7 @@
 
 #include <string.h>
 #include <test-common/convenience.h>
+#include <test-common/gpg.h>
 
 /* This initializes the EtcData structure. In the beginning, nothing
  * is available. Use etc_set_up_server() and

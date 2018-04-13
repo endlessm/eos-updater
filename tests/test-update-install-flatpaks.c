@@ -21,6 +21,7 @@
  */
 
 #include <test-common/flatpak-spawn.h>
+#include <test-common/gpg.h>
 #include <test-common/misc-utils.h>
 #include <test-common/spawn-utils.h>
 #include <test-common/ostree-spawn.h>

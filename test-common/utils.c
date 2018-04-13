@@ -20,6 +20,7 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
+#include <test-common/gpg.h>
 #include <test-common/misc-utils.h>
 #include <test-common/ostree-spawn.h>
 #include <test-common/utils.h>
@@ -52,15 +53,7 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
 {
   g_autoptr(GError) error = NULL;
   g_autofree gchar *tmpdir_path = NULL;
-  gsize i;
-  const gchar * const gpg_home_files[] =
-    {
-      "C1EB8F4E.asc",
-      "keyid",
-      "pubring.gpg",
-      "random_seed",
-      "secring.gpg",
-    };
+  g_autofree gchar *source_gpg_home_path = NULL;
 
   fixture->dbus = g_test_dbus_new (G_TEST_DBUS_NONE);
   g_test_dbus_up (fixture->dbus);
@@ -71,37 +64,8 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
 
   g_test_message ("Using fixture directory ‘%s’", tmpdir_path);
 
-  /* Copy the GPG files from the source directory into the fixture directory,
-   * as running GPG with them as its homedir might alter them; we don’t want
-   * that to happen in the source directory, which might be read-only (and in
-   * any case, we want determinism). */
-  fixture->gpg_home = g_file_get_child (fixture->tmpdir, "gpghome");
-  g_file_make_directory (fixture->gpg_home, NULL, &error);
-  g_assert_no_error (error);
-
-  g_file_set_attribute_uint32 (fixture->gpg_home, G_FILE_ATTRIBUTE_UNIX_MODE,
-                               0700, G_FILE_QUERY_INFO_NONE, NULL, &error);
-  g_assert_no_error (error);
-
-  for (i = 0; i < G_N_ELEMENTS (gpg_home_files); i++)
-    {
-      g_autofree gchar *source_path = NULL;
-      g_autoptr (GFile) source = NULL, destination = NULL;
-
-      source_path = g_test_build_filename (G_TEST_DIST, "gpghome",
-                                           gpg_home_files[i], NULL);
-      source = g_file_new_for_path (source_path);
-      destination = g_file_get_child (fixture->gpg_home, gpg_home_files[i]);
-
-      g_file_copy (source, destination,
-                   G_FILE_COPY_NONE, NULL, NULL, NULL,
-                   &error);
-      g_assert_no_error (error);
-
-      g_file_set_attribute_uint32 (destination, G_FILE_ATTRIBUTE_UNIX_MODE,
-                                   0600, G_FILE_QUERY_INFO_NONE, NULL, &error);
-      g_assert_no_error (error);
-    }
+  source_gpg_home_path = g_test_build_filename (G_TEST_DIST, "gpghome", NULL);
+  fixture->gpg_home = create_gpg_keys_directory (fixture->tmpdir, source_gpg_home_path);
 }
 
 void
@@ -110,27 +74,8 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
 {
   g_autoptr (GError) error = NULL;
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
-  g_autofree gchar *gpg_home_path = g_file_get_path (fixture->gpg_home);
-  const gchar *argv[] =
-    {
-      "gpg-connect-agent",
-      "--homedir",
-      gpg_home_path,
-      "killagent",
-      "/bye",
-      NULL
-    };
 
-  /* kill the gpg-agent in order because if too many get spawned, it will
-   * result in connections getting refused... */
-  if (!test_spawn ((const gchar * const *) argv, NULL, &cmd, &error) ||
-      !cmd_result_ensure_ok (&cmd, &error))
-    {
-      g_warning ("Failed to kill gpg-agent %s: %s", gpg_home_path,
-                 error->message);
-      g_clear_error (&error);
-    }
-
+  kill_gpg_agent (fixture->gpg_home);
   rm_rf (fixture->gpg_home, &error);
   g_assert_no_error (error);
   g_object_unref (fixture->gpg_home);
@@ -141,22 +86,6 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
 
   g_test_dbus_down (fixture->dbus);
   g_object_unref (fixture->dbus);
-}
-
-gchar *
-get_keyid (GFile *gpg_home)
-{
-  g_autoptr(GFile) keyid = g_file_get_child (gpg_home, "keyid");
-  g_autoptr(GBytes) bytes = NULL;
-  g_autoptr(GError) error = NULL;
-  gsize len;
-
-  load_to_bytes (keyid, &bytes, &error);
-  g_assert_no_error (error);
-  len = g_bytes_get_size (bytes);
-  g_assert (len == 8);
-
-  return g_strndup (g_bytes_get_data (bytes, NULL), len);
 }
 
 static void
@@ -1057,15 +986,6 @@ EOS_DEFINE_REFCOUNTED (EOS_TEST_CLIENT,
                        eos_test_client,
                        eos_test_client_dispose_impl,
                        eos_test_client_finalize_impl)
-
-static GFile *
-get_gpg_key_file_for_keyid (GFile *gpg_home,
-                            const gchar *keyid)
-{
-  g_autofree gchar *filename = g_strdup_printf ("%s.asc", keyid);
-
-  return g_file_get_child (gpg_home, filename);
-}
 
 static GFile *get_sysroot_for_client (GFile *client_root)
 {
