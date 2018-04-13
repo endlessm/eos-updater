@@ -45,8 +45,6 @@ void eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
 
 #define eos_test_add(testpath, tdata, ftest) g_test_add (testpath, EosUpdaterFixture, tdata, eos_updater_fixture_setup, ftest, eos_updater_fixture_teardown)
 
-gchar *get_keyid (GFile *gpg_home);
-
 extern const gchar *const default_vendor;
 extern const gchar *const default_product;
 extern const gchar *const default_collection_id;
