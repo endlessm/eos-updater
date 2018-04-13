@@ -52,15 +52,17 @@ gboolean
 flatpak_remote_add (GFile        *updater_dir,
                     const gchar  *repo_name,
                     const gchar  *repo_directory,
+                    GFile        *gpg_key,
                     GError      **error)
 {
+  g_autofree gchar *raw_key_path = g_file_get_path (gpg_key);
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   CmdArg args[] =
     {
       { NULL, FLATPAK_BINARY },
       { NULL, "remote-add" },
       { "user", NULL },
-      { "no-gpg-verify", NULL },
+      { "gpg-import", raw_key_path },
       { NULL, repo_name },
       { NULL, repo_directory },
       { NULL, NULL }
@@ -165,9 +167,12 @@ flatpak_build_export (GFile        *updater_dir,
                       const gchar  *bundle_path,
                       const gchar  *repo_path,
                       const gchar  *branch,
+                      GFile        *gpg_homedir,
+                      const gchar  *keyid,
                       GError      **error)
 {
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+  g_autofree gchar *gpg_homedir_path = g_file_get_path (gpg_homedir);
   CmdArg args[] =
     {
       { NULL, FLATPAK_BINARY },
@@ -175,6 +180,8 @@ flatpak_build_export (GFile        *updater_dir,
       { NULL, repo_path },
       { NULL, bundle_path },
       { NULL, branch },
+      { "gpg-sign", keyid },
+      { "gpg-homedir", gpg_homedir_path },
       { NULL, NULL }
     };
   g_auto(GStrv) argv = build_cmd_args (args);
@@ -245,6 +252,8 @@ flatpak_populate_app (GFile        *updater_dir,
                       const gchar  *runtime_name,
                       const gchar  *branch,
                       const gchar  *repo_directory,
+                      GFile        *gpg_homedir,
+                      const gchar  *keyid,
                       GError      **error)
 {
   g_autofree gchar *app_directory_path_str = g_file_get_path (app_directory_path);
@@ -279,6 +288,8 @@ flatpak_populate_app (GFile        *updater_dir,
                              app_directory_path_str,
                              repo_directory,
                              branch,
+                             gpg_homedir,
+                             keyid,
                              error))
     return FALSE;
 
@@ -294,6 +305,8 @@ flatpak_populate_runtime (GFile        *updater_dir,
                           const gchar  *branch,
                           const gchar  *collection_id,
                           const gchar  *repo_collection_id,
+                          GFile        *gpg_homedir,
+                          const gchar  *keyid,
                           GError      **error)
 {
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
@@ -343,6 +356,8 @@ flatpak_populate_runtime (GFile        *updater_dir,
                              runtime_directory_path_str,
                              repo_directory,
                              branch,
+                             gpg_homedir,
+                             keyid,
                              error))
     return FALSE;
 

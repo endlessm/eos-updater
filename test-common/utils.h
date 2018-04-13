@@ -262,10 +262,12 @@ typedef struct _SimpleFile SimpleFile;
 SimpleFile * simple_file_new_steal (gchar *rel_path, gchar *contents);
 void         simple_file_free (gpointer file_ptr);
 
-gboolean eos_test_setup_flatpak_repo (GFile *updater_dir,
-                                      GPtrArray *install_infos,
-                                      GHashTable *repository_infos,
-                                      GError **error);
+gboolean eos_test_setup_flatpak_repo (GFile       *updater_dir,
+                                      GPtrArray   *install_infos,
+                                      GHashTable  *repository_infos,
+                                      GFile       *gpg_key,
+                                      const gchar *keyid,
+                                      GError     **error);
 
 /* The eos_test_setup_flatpak_repo_*simple family of functions here
  * will set up a flatpak repo containing flatpaks with the given flatpak_names
@@ -277,6 +279,8 @@ gboolean eos_test_setup_flatpak_repo_simple (GFile        *updater_path,
                                              const gchar  *repo_collection_id,
                                              const gchar  *remote_config_collection_id,
                                              const gchar **flatpak_names,
+                                             GFile        *gpg_key,
+                                             const gchar  *keyid,
                                              GError      **error);
 
 gboolean eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile        *updater_path,
@@ -286,6 +290,8 @@ gboolean eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile       
                                                                     const gchar  *remote_config_collection_id,
                                                                     const gchar **flatpak_names,
                                                                     const gchar **preinstalled_flatpak_names,
+                                                                    GFile        *gpg_key,
+                                                                    const gchar  *keyid,
                                                                     GError      **error);
 
 typedef enum {

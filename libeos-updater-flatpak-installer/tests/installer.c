@@ -25,6 +25,7 @@
 #include <libeos-updater-util/flatpak.h>
 #include <libeos-updater-util/util.h>
 #include <libeos-updater-flatpak-installer/installer.h>
+#include <test-common/gpg.h>
 #include <test-common/utils.h>
 #include <locale.h>
 
@@ -34,6 +35,8 @@ typedef struct
   GFile *flatpak_installation_directory;
   GFile *flatpak_remote_directory;
   GFile *counter_file;
+  GFile *tmpdir;
+  GFile *gpg_home;
 } FlatpakDeploymentsFixture;
 
 static void
@@ -44,6 +47,10 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
   g_autofree gchar *flatpak_deployments_path = g_dir_make_tmp ("eos-updater-test-flatpak-deployments-XXXXXX", &error);
   g_autoptr(GFile) flatpak_deployments_directory = g_file_new_for_path (flatpak_deployments_path);
   g_autoptr(GFile) flatpak_build_dir = g_file_get_child (flatpak_deployments_directory, "flatpak");
+  g_autofree gchar *flatpak_installer_tmpdir = g_dir_make_tmp ("eos-updater-test-flatpak-installer-tmpdir-XXXXXX", &error);
+  g_autofree gchar *source_gpg_home_path = g_test_build_filename (G_TEST_DIST, "..", "..", "tests", "gpghome", NULL);
+  g_autoptr(GFile) gpg_key_file = NULL;
+  g_autofree gchar *keyid = NULL;
   const gchar *flatpak_names[] = {
     "org.test.Test",
     "org.test.Test2",
@@ -58,6 +65,16 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
 
   g_assert_no_error (error);
 
+  flatpak_installer_tmpdir = g_dir_make_tmp ("eos-updater-test-XXXXXX", &error);
+  g_assert_no_error (error);
+
+  fixture->tmpdir = g_file_new_for_path (flatpak_installer_tmpdir);
+  fixture->gpg_home = create_gpg_keys_directory (fixture->tmpdir,
+                                                 source_gpg_home_path);
+
+  keyid = get_keyid (fixture->gpg_home);
+  gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
+
   eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (flatpak_deployments_directory,
                                                              "stable",
                                                              "test-repo",
@@ -65,6 +82,8 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
                                                              "com.test.CollectionId",
                                                              flatpak_names,
                                                              preinstall_flatpak_names,
+                                                             gpg_key_file,
+                                                             keyid,
                                                              &error);
   g_assert_no_error (error);
 
