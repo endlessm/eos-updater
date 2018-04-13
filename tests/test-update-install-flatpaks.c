@@ -1408,7 +1408,9 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_path = NULL;
   g_autoptr(GFile) flatpak_build_dir = NULL;
+  g_autofree gchar *flatpak_apps_dir_path = NULL;
   g_autoptr(GFile) flatpak_apps_dir = NULL;
+  g_autoptr(GFile) flatpak_repos_dir = NULL;
   g_autoptr(GFile) flatpak_repo_dir = NULL;
   g_autofree gchar *flatpak_repo_path = NULL;
   g_autoptr(GFile) app_dir = NULL;
@@ -1457,16 +1459,22 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
                                                              &error);
 
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
-  flatpak_repo_dir = g_file_get_child (flatpak_build_dir, "repo");
-  flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
-  app_dir = g_file_get_child (flatpak_apps_dir, flatpaks_to_install[0].app_id);
-  app_dir_path = g_file_get_path (app_dir);
+  flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
+  flatpak_repo_dir = g_file_get_child (flatpak_repos_dir, "test-repo");
   flatpak_repo_path = g_file_get_path (flatpak_repo_dir);
+  flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
+  flatpak_apps_dir_path = g_file_get_path (flatpak_apps_dir);
+  app_dir_path = g_build_filename (flatpak_apps_dir_path,
+                                   "test-repo",
+                                   flatpaks_to_install[0].app_id,
+                                   "stable",
+                                   NULL);
   app_executable_path = g_build_filename (app_dir_path,
                                           "files",
                                           "bin",
                                           "test",
                                           NULL);
+  app_dir = g_file_new_for_path (app_dir_path);
 
   /* Get checksum for first installed flatpak */
   initially_installed_flatpak_checksum =
@@ -1523,6 +1531,8 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
   g_autofree gchar *updater_directory_path = NULL;
   g_autoptr(GFile) flatpak_build_dir = NULL;
   g_autoptr(GFile) flatpak_apps_dir = NULL;
+  g_autofree gchar *flatpak_apps_dir_path = NULL;
+  g_autoptr(GFile) flatpak_repos_dir = NULL;
   g_autoptr(GFile) flatpak_repo_dir = NULL;
   g_autoptr(GFile) deployment_repo_dir = NULL;
   g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
@@ -1610,16 +1620,22 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
   g_assert_no_error (error);
 
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
-  flatpak_repo_dir = g_file_get_child (flatpak_build_dir, "repo");
-  flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
-  app_dir = g_file_get_child (flatpak_apps_dir, flatpaks_to_install[0].app_id);
-  app_dir_path = g_file_get_path (app_dir);
+  flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
+  flatpak_repo_dir = g_file_get_child (flatpak_repos_dir, "test-repo");
   flatpak_repo_path = g_file_get_path (flatpak_repo_dir);
+  flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
+  flatpak_apps_dir_path = g_file_get_path (flatpak_apps_dir);
+  app_dir_path = g_build_filename (flatpak_apps_dir_path,
+                                   "test-repo",
+                                   flatpaks_to_install[0].app_id,
+                                   "stable",
+                                   NULL);
   app_executable_path = g_build_filename (app_dir_path,
                                           "files",
                                           "bin",
                                           "test",
                                           NULL);
+  app_dir = g_file_new_for_path (app_dir_path);
 
   /* Slightly different contents so that the checksum will change */
   g_file_set_contents (app_executable_path, "#!/bin/bash\nexit 1\n", -1, &error);
@@ -1665,6 +1681,8 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
   g_autofree gchar *updater_directory_path = NULL;
   g_autoptr(GFile) flatpak_build_dir = NULL;
   g_autoptr(GFile) flatpak_apps_dir = NULL;
+  g_autofree gchar *flatpak_apps_dir_path = NULL;
+  g_autoptr(GFile) flatpak_repos_dir = NULL;
   g_autoptr(GFile) flatpak_repo_dir = NULL;
   g_autofree gchar *flatpak_repo_path = NULL;
   g_autoptr(GFile) app_dir = NULL;
@@ -1735,16 +1753,22 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
   g_assert_no_error (error);
 
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
-  flatpak_repo_dir = g_file_get_child (flatpak_build_dir, "repo");
-  flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
-  app_dir = g_file_get_child (flatpak_apps_dir, flatpaks_to_install[0].app_id);
-  app_dir_path = g_file_get_path (app_dir);
+  flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
+  flatpak_repo_dir = g_file_get_child (flatpak_repos_dir, "test-repo");
   flatpak_repo_path = g_file_get_path (flatpak_repo_dir);
+  flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
+  flatpak_apps_dir_path = g_file_get_path (flatpak_apps_dir);
+  app_dir_path = g_build_filename (flatpak_apps_dir_path,
+                                   "test-repo",
+                                   flatpaks_to_install[0].app_id,
+                                   "stable",
+                                   NULL);
   app_executable_path = g_build_filename (app_dir_path,
                                           "files",
                                           "bin",
                                           "test",
                                           NULL);
+  app_dir = g_file_new_for_path (app_dir_path);
 
   /* Slightly different contents so that the checksum will change */
   g_file_set_contents (app_executable_path, "#!/bin/bash\nexit 1\n", -1, &error);
@@ -3629,6 +3653,8 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
   g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GFile) flatpak_build_dir = NULL;
   g_autoptr(GFile) flatpak_apps_dir = NULL;
+  g_autofree gchar *flatpak_apps_dir_path = NULL;
+  g_autoptr(GFile) flatpak_repos_dir = NULL;
   g_autoptr(GFile) flatpak_repo_dir = NULL;
   g_autofree gchar *flatpak_repo_path = NULL;
   g_autoptr(GFile) app_dir = NULL;
@@ -3679,10 +3705,17 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
                                                              (const gchar **) wanted_flatpaks,
                                                              &error);
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
-  flatpak_repo_dir = g_file_get_child (flatpak_build_dir, "repo");
+  flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
+  flatpak_repo_dir = g_file_get_child (flatpak_repos_dir, "test-repo");
+  flatpak_repo_path = g_file_get_path (flatpak_repo_dir);
   flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
-  app_dir = g_file_get_child (flatpak_apps_dir, flatpaks_to_install[0].app_id);
-  app_dir_path = g_file_get_path (app_dir);
+  flatpak_apps_dir_path = g_file_get_path (flatpak_apps_dir);
+  app_dir_path = g_build_filename (flatpak_apps_dir_path,
+                                   "test-repo",
+                                   flatpaks_to_install[0].app_id,
+                                   "stable",
+                                  NULL);
+  app_dir = g_file_new_for_path (app_dir_path);
   flatpak_repo_path = g_file_get_path (flatpak_repo_dir);
   app_executable_path = g_build_filename (app_dir_path,
                                           app_executable_relative_path,
@@ -3760,6 +3793,8 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
   g_autofree gchar *updater_directory_str = NULL;
   g_autoptr(GFile) flatpak_build_dir = NULL;
   g_autoptr(GFile) flatpak_apps_dir = NULL;
+  g_autofree gchar *flatpak_apps_dir_path = NULL;
+  g_autoptr(GFile) flatpak_repos_dir = NULL;
   g_autoptr(GFile) flatpak_repo_dir = NULL;
   g_autofree gchar *flatpak_repo_path = NULL;
   g_autoptr(GFile) app_dir = NULL;
@@ -3810,10 +3845,17 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
                                                              (const gchar **) wanted_flatpaks,
                                                              &error);
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
-  flatpak_repo_dir = g_file_get_child (flatpak_build_dir, "repo");
+  flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
+  flatpak_repo_dir = g_file_get_child (flatpak_repos_dir, "test-repo");
+  flatpak_repo_path = g_file_get_path (flatpak_repo_dir);
   flatpak_apps_dir = g_file_get_child (flatpak_build_dir, "apps");
-  app_dir = g_file_get_child (flatpak_apps_dir, flatpaks_to_install[0].app_id);
-  app_dir_path = g_file_get_path (app_dir);
+  flatpak_apps_dir_path = g_file_get_path (flatpak_apps_dir);
+  app_dir_path = g_build_filename (flatpak_apps_dir_path,
+                                   "test-repo",
+                                   flatpaks_to_install[0].app_id,
+                                   "stable",
+                                  NULL);
+  app_dir = g_file_new_for_path (app_dir_path);
   flatpak_repo_path = g_file_get_path (flatpak_repo_dir);
   app_executable_path = g_build_filename (app_dir_path,
                                           app_executable_relative_path,
