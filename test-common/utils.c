@@ -2104,6 +2104,273 @@ format_flatpak_ref_name_with_branch_override_arch (const gchar *name,
   return g_strdup_printf ("%s/%s/%s", name, arch_override_name, branch);
 }
 
+FlatpakInstallInfo *
+flatpak_install_info_new (FlatpakInstallInfoType  type,
+                          const gchar            *name,
+                          const gchar            *branch,
+                          const gchar            *runtime_name,
+                          const gchar            *runtime_branch,
+                          const gchar            *repo_name,
+                          gboolean                preinstall)
+{
+  FlatpakInstallInfo *info = g_new0 (FlatpakInstallInfo, 1);
+
+  info->type = type;
+  info->name = g_strdup (name);
+  info->branch = g_strdup (branch);
+  info->runtime_name = g_strdup (runtime_name);
+  info->runtime_branch = g_strdup (runtime_branch);
+  info->repo_name = g_strdup (repo_name);
+  info->preinstall = preinstall;
+
+  return info;
+}
+
+void
+flatpak_install_info_free (FlatpakInstallInfo *info)
+{
+  g_clear_pointer (&info->name, g_free);
+  g_clear_pointer (&info->branch, g_free);
+  g_clear_pointer (&info->runtime_name, g_free);
+  g_clear_pointer (&info->runtime_branch, g_free);
+  g_clear_pointer (&info->repo_name, g_free);
+
+  g_free (info);
+}
+
+FlatpakRepoInfo *
+flatpak_repo_info_new (const gchar *name,
+                       const gchar *collection_id,
+                       const gchar *remote_collection_id)
+{
+  FlatpakRepoInfo *info = g_new0 (FlatpakRepoInfo, 1);
+
+  info->name = g_strdup (name);
+  info->collection_id = g_strdup (collection_id);
+  info->remote_collection_id = g_strdup (remote_collection_id);
+
+  return info;
+}
+
+void
+flatpak_repo_info_free (FlatpakRepoInfo *info)
+{
+  g_clear_pointer (&info->name, g_free);
+  g_clear_pointer (&info->collection_id, g_free);
+  g_clear_pointer (&info->remote_collection_id, g_free);
+
+  g_free (info);
+}
+
+gboolean
+eos_test_setup_flatpak_repo (GFile *updater_dir,
+                             GPtrArray *install_infos,
+                             GHashTable *repository_infos,
+                             GError **error)
+{
+  g_autoptr(GFile) flatpak_build_directory = g_file_get_child (updater_dir,
+                                                               "flatpak");
+  g_autofree gchar *flatpak_build_directory_path = g_file_get_path (flatpak_build_directory);
+  g_autofree gchar *apps_directory_path = g_build_filename (flatpak_build_directory_path,
+                                                            "apps",
+                                                             NULL);
+  g_autofree gchar *runtimes_directory_path = g_build_filename (flatpak_build_directory_path,
+                                                                "runtimes",
+                                                                NULL);
+  g_autoptr(GFile) runtimes_directory = g_file_new_for_path (runtimes_directory_path);
+  g_autofree gchar *repos_directory_path = g_build_filename (flatpak_build_directory_path,
+                                                             "repos",
+                                                             NULL);
+  g_autoptr(GHashTable) already_uninstalled_runtimes = NULL;
+  guint i = 0;
+  GHashTableIter iter;
+  gpointer key, value;
+
+  if (!g_file_make_directory_with_parents (flatpak_build_directory, NULL, error))
+    return FALSE;
+
+  /* First set up the repos by ostree init'ing them and adding them
+   * as flatpak repos */
+  g_hash_table_iter_init (&iter, repository_infos);
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      FlatpakRepoInfo *repo_info = value;
+      const gchar *repo_name = key;
+      g_autofree gchar *repo_path = g_build_filename (repos_directory_path,
+                                                      repo_name,
+                                                      NULL);
+      GFile *repo = g_file_new_for_path (repo_path);
+      g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+
+      if (!create_directory (repo, error))
+        return FALSE;
+
+      if (!repo_config_exists (repo))
+        {
+          if (!ostree_init (repo,
+                            REPO_ARCHIVE_Z2,
+                            repo_info->collection_id,
+                            &cmd,
+                            error))
+            return FALSE;
+          if (!cmd_result_ensure_ok (&cmd, error))
+            return FALSE;
+        }
+
+      if (!flatpak_remote_add (updater_dir,
+                               repo_name,
+                               repo_path,
+                               error))
+        return FALSE;
+    }
+
+  /* Go through each of the FlatpakInstallInfos in install_infos
+   * and build the flatpak in the right place. It is assumed that the
+   * provided install_infos are in the correct dependency order. */
+  for (i = 0; i < install_infos->len; ++i)
+    {
+      FlatpakInstallInfo *install_info = g_ptr_array_index (install_infos, i);
+      FlatpakRepoInfo *repo_info = g_hash_table_lookup (repository_infos, install_info->repo_name);
+      g_autofree gchar *repo_directory_path = g_build_filename (repos_directory_path,
+                                                                install_info->repo_name,
+                                                                NULL);
+      g_autofree gchar *formatted_ref_name =
+        format_flatpak_ref_name_with_branch_override_arch (install_info->name,
+                                                           install_info->branch);
+
+      switch (install_info->type)
+        {
+          case FLATPAK_INSTALL_INFO_TYPE_RUNTIME:
+          case FLATPAK_INSTALL_INFO_TYPE_EXTENSION:
+            {
+              g_autofree gchar *runtime_dir = g_build_filename (runtimes_directory_path,
+                                                                install_info->repo_name,
+                                                                install_info->name,
+                                                                install_info->branch,
+                                                                NULL);
+              g_autoptr(GFile) runtime_directory = g_file_new_for_path (runtime_dir);
+              if (!flatpak_populate_runtime (updater_dir,
+                                             runtime_directory,
+                                             repo_directory_path,
+                                             install_info->name,
+                                             formatted_ref_name,
+                                             install_info->branch,
+                                             repo_info->remote_collection_id,
+                                             repo_info->collection_id,
+                                             error))
+                return FALSE;
+
+              /* Note that runtimes need to be installed in order to
+               * build the corresponding flatpaks. We will uninstall them
+               * later if they were not marked for preinstallation */
+              if (!flatpak_install (updater_dir,
+                                    install_info->repo_name,
+                                    formatted_ref_name,
+                                    error))
+                return FALSE;
+            }
+            break;
+          case FLATPAK_INSTALL_INFO_TYPE_APP:
+            {
+              g_autofree gchar *app_dir = g_build_filename (apps_directory_path,
+                                                            install_info->repo_name,
+                                                            install_info->name,
+                                                            install_info->branch,
+                                                            NULL);
+              g_autoptr(GFile) app_path = g_file_new_for_path (app_dir);
+              g_autofree gchar *runtime_formatted_ref_name =
+                format_flatpak_ref_name_with_branch_override_arch (install_info->runtime_name,
+                                                                   install_info->runtime_branch);
+
+              if (!flatpak_populate_app (updater_dir,
+                                         app_path,
+                                         install_info->name,
+                                         runtime_formatted_ref_name,
+                                         install_info->branch,
+                                         repo_directory_path,
+                                         error))
+                return FALSE;
+            }
+            break;
+          default:
+            g_assert_not_reached ();
+            return FALSE;
+        }
+    }
+
+  /* Somewhat of a niche thing: Some tests might built the same runtime
+   * in two different locations. In that case, we don't want to uninstall
+   * it twice, so keep track of what we uninstalled. */
+  already_uninstalled_runtimes =
+    g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
+  /* Now that we have finished setting everything up, go through
+   * the list of flatpaks that were to be preinstalled. If a runtime
+   * was not marked for preinstallation, then uninstall it */
+  for (i = 0; i < install_infos->len; ++i)
+    {
+      FlatpakInstallInfo *install_info = g_ptr_array_index (install_infos, i);
+      g_autofree gchar *formatted_ref_name =
+        format_flatpak_ref_name_with_branch_override_arch (install_info->name,
+                                                           install_info->branch);
+
+      switch (install_info->type)
+        {
+          case FLATPAK_INSTALL_INFO_TYPE_RUNTIME:
+          case FLATPAK_INSTALL_INFO_TYPE_EXTENSION:
+            {
+              /* If we weren't going to preinstall the runtime,
+               * uninstall it now */
+              if (!install_info->preinstall &&
+                  g_hash_table_insert (already_uninstalled_runtimes,
+                                       g_strdup (formatted_ref_name),
+                                       NULL))
+                {
+                  if (!flatpak_uninstall (updater_dir,
+                                          formatted_ref_name,
+                                          error))
+                    return FALSE;
+                }
+            }
+            break;
+          case FLATPAK_INSTALL_INFO_TYPE_APP:
+            break;
+          default:
+            g_assert_not_reached ();
+            return FALSE;
+        }
+
+      if (install_info->preinstall)
+        {
+          if (!flatpak_install (updater_dir,
+                                install_info->repo_name,
+                                formatted_ref_name,
+                                error))
+            return FALSE;
+        }
+    }
+
+  /* Now that we have finished preinstalling all the flatpaks,
+   * set the collection-id on all remote configs in the installation
+   * directory */
+  g_hash_table_iter_init (&iter, repository_infos);
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      FlatpakRepoInfo *repo_info = value;
+
+      if (repo_info->remote_collection_id == NULL)
+        continue;
+
+      if (!set_flatpak_remote_collection_id (updater_dir,
+                                             key,
+                                             repo_info->remote_collection_id,
+                                             error))
+        return FALSE;
+    }
+
+  return TRUE;
+}
+
 gboolean
 eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile        *updater_dir,
                                                            const gchar  *branch,
@@ -2114,113 +2381,48 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile        *updater
                                                            const gchar **preinstall_flatpak_names,
                                                            GError      **error)
 {
-  /* A few steps here:
-   * 1. Create a runtime (org.test.Runtime)
-   * 2. Install the runtime
-   * 3. Build and export each app in the repo
-   * 4. Add the repo to the user installation
-   *
-   * Note that while testing, the updater will need to use the user repository
-   * since the system one is locked down even if the directory is overridden.
-   */
-  g_autoptr(GFile) flatpak_build_directory_path = g_file_get_child (updater_dir,
-                                                                    "flatpak");
-  g_autofree gchar *flatpak_build_directory_path_str = g_file_get_path (flatpak_build_directory_path);
-  g_autoptr(GFile) runtime_directory_path = g_file_get_child (flatpak_build_directory_path,
-                                                          "runtime");
-  g_autofree gchar *apps_directory = g_build_filename (flatpak_build_directory_path_str,
-                                                       "apps",
-                                                       NULL);
-  g_autofree gchar *repo_directory_path = g_build_filename (flatpak_build_directory_path_str,
-                                                            "repo",
-                                                            NULL);
-  g_autoptr(GFile) repo_directory = g_file_new_for_path (repo_directory_path);
-  g_autofree gchar *runtime_directory = g_build_filename (flatpak_build_directory_path_str,
-                                                          "runtime",
-                                                          NULL);
-  g_autofree gchar *runtime_formatted_ref_name =
-    format_flatpak_ref_name_with_branch_override_arch ("org.test.Runtime", branch);
+  g_autoptr(GHashTable) repo_infos = g_hash_table_new_full (g_str_hash,
+                                                            g_str_equal,
+                                                            g_free,
+                                                            (GDestroyNotify) flatpak_repo_info_free);
+  g_autoptr(GPtrArray) flatpak_install_infos = g_ptr_array_new_full (g_strv_length ((GStrv) flatpak_names) + 1,
+                                                                     (GDestroyNotify) flatpak_install_info_free);
+  const gchar **flatpak_names_iter = NULL;
 
-  const gchar **flatpak_name_iter = NULL;
-
-  if (!g_file_make_directory_with_parents (flatpak_build_directory_path, NULL, error))
-    return FALSE;
-
-  /* We need to set the collection-id on both the remote end (the repo
-   * are pulling from) and in the remote configuration in the local mirror
-   * below */
-  if (!flatpak_populate_runtime (updater_dir,
-                                 runtime_directory_path,
-                                 repo_directory_path,
-                                 "org.test.Runtime",
-                                 runtime_formatted_ref_name,
-                                 branch,
-                                 remote_config_collection_id,
-                                 repo_collection_id,
-                                 error))
-    return FALSE;
-
-  if (!flatpak_remote_add (updater_dir,
-                           repo_name,
-                           repo_directory_path,
-                           error))
-    return FALSE;
-
-  if (!flatpak_install (updater_dir,
-                        repo_name,
-                        runtime_formatted_ref_name,
-                        error))
-    return FALSE;
-
-
-  /* Now that we have our runtime installed, let’s go ahead and build and export
-   * all the apps flatpak_name_iter our repo */
-  for (flatpak_name_iter = flatpak_names; *flatpak_name_iter != NULL; ++flatpak_name_iter)
-    {
-      g_autofree gchar *app_dir = g_build_filename (apps_directory,
-                                                    *flatpak_name_iter,
-                                                    NULL);
-      g_autoptr(GFile) app_path = g_file_new_for_path (app_dir);
-
-      if (!flatpak_populate_app (updater_dir,
-                                 app_path,
-                                 *flatpak_name_iter,
-                                 runtime_formatted_ref_name,
-                                 branch,
-                                 repo_directory_path,
-                                 error))
-        return FALSE;
-    }
-
-  /* Now that we have our runtime installed, let’s go ahead and build and export
-   * all the apps into our repo */
-  for (flatpak_name_iter = preinstall_flatpak_names; *flatpak_name_iter != NULL; ++flatpak_name_iter)
-    {
-      g_autofree gchar *app_formatted_ref_name =
-        format_flatpak_ref_name_with_branch_override_arch (*flatpak_name_iter,
-                                                           branch);
-
-      if (!flatpak_install (updater_dir,
-                            repo_name,
-                            app_formatted_ref_name,
-                            error))
-        return FALSE;
-    }
-
-  /* Setting the collection-id will turn GPG verification back on for the repo,
-   * so the remote collection ID needs to be set after the flatpak is
-   * installed. FIXME: The tests should be using GPG in order to be
-   * representative of a real system. */
-  if (remote_config_collection_id != NULL)
-    {
-      if (!set_flatpak_remote_collection_id (updater_dir,
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_RUNTIME,
+                                             "org.test.Runtime",
+                                             branch,
+                                             NULL,
+                                             NULL,
                                              repo_name,
-                                             remote_config_collection_id,
-                                             error))
-        return FALSE;
+                                             TRUE));
+
+  for (flatpak_names_iter = flatpak_names;
+       *flatpak_names_iter != NULL;
+       ++flatpak_names_iter)
+    {
+      g_ptr_array_add (flatpak_install_infos,
+                       flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_APP,
+                                                 *flatpak_names_iter,
+                                                 branch,
+                                                 "org.test.Runtime",
+                                                 branch,
+                                                 repo_name,
+                                                 g_strv_contains (preinstall_flatpak_names,
+                                                                  *flatpak_names_iter)));
     }
 
-  return TRUE;
+  g_hash_table_insert (repo_infos,
+                       g_strdup (repo_name),
+                       flatpak_repo_info_new (repo_name,
+                                              repo_collection_id,
+                                              remote_config_collection_id));
+
+  return eos_test_setup_flatpak_repo (updater_dir,
+                                      flatpak_install_infos,
+                                      repo_infos,
+                                      error);
 }
 
 gboolean
