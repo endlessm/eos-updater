@@ -300,6 +300,30 @@ typedef enum {
   FLATPAK_INSTALL_INFO_TYPE_EXTENSION,
 } FlatpakInstallInfoType;
 
+typedef enum _FlatpakExtensionPointFlags {
+  FLATPAK_EXTENSION_POINT_NONE = 0,
+  FLATPAK_EXTENSION_POINT_NO_AUTODOWNLOAD = 1 << 0,
+  FLATPAK_EXTENSION_POINT_LOCALE_SUBSET = 1 << 1,
+  FLATPAK_EXTENSION_POINT_AUTODELETE = 1 << 2,
+} FlatpakExtensionPointFlags;
+
+typedef struct _FlatpakExtensionPointInfo {
+  gchar                      *name;
+  gchar                      *directory;
+  GStrv                       versions;
+  FlatpakExtensionPointFlags  flags;
+} FlatpakExtensionPointInfo;
+
+FlatpakExtensionPointInfo * flatpak_extension_point_info_new (const gchar                *name,
+                                                              const gchar                *directory,
+                                                              const gchar * const        *versions,
+                                                              FlatpakExtensionPointFlags  flags);
+FlatpakExtensionPointInfo * flatpak_extension_point_info_new_single_version (const gchar                *name,
+                                                                             const gchar                *directory,
+                                                                             const gchar                *version,
+                                                                             FlatpakExtensionPointFlags  flags);
+void flatpak_extension_point_info_free (FlatpakExtensionPointInfo *extension_info);
+
 typedef struct {
   FlatpakInstallInfoType  type;
   gchar                  *name;
@@ -308,6 +332,8 @@ typedef struct {
   gchar                  *runtime_branch;
   gchar                  *repo_name;
   gboolean                preinstall;
+  gchar                  *extension_of_ref;
+  GPtrArray              *extension_infos;
 } FlatpakInstallInfo;
 
 FlatpakInstallInfo * flatpak_install_info_new (FlatpakInstallInfoType  type,
@@ -317,6 +343,16 @@ FlatpakInstallInfo * flatpak_install_info_new (FlatpakInstallInfoType  type,
                                                const gchar            *runtime_branch,
                                                const gchar            *repo_name,
                                                gboolean                preinstall);
+
+FlatpakInstallInfo * flatpak_install_info_new_with_extension_info (FlatpakInstallInfoType  type,
+                                                                   const gchar            *name,
+                                                                   const gchar            *branch,
+                                                                   const gchar            *runtime_name,
+                                                                   const gchar            *runtime_branch,
+                                                                   const gchar            *repo_name,
+                                                                   gboolean                preinstall,
+                                                                   const gchar            *extension_of_ref,
+                                                                   GPtrArray              *extension_infos);
 
 void flatpak_install_info_free (FlatpakInstallInfo *info);
 

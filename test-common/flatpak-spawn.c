@@ -245,12 +245,72 @@ flatpak_list (GFile      *updater_dir,
   return cmd_result_ensure_ok (cmd, error);
 }
 
+static gboolean
+customize_extensions (const gchar  *app_directory_path,
+                      GPtrArray    *extension_infos,
+                      GError      **error)
+{
+  g_autofree gchar *metadata_file_path = NULL;
+  g_autoptr(GKeyFile) key_file = NULL;
+
+  /* No extension information, so no changes need to be made to
+   * the key file */
+  if (extension_infos == NULL)
+    return TRUE;
+
+  metadata_file_path = g_build_filename (app_directory_path, "metadata", NULL);
+  key_file = g_key_file_new ();
+
+  if (!g_key_file_load_from_file (key_file,
+                                  metadata_file_path,
+                                  G_KEY_FILE_NONE,
+                                  error))
+    return FALSE;
+
+  for (gsize i = 0; i < extension_infos->len; ++i)
+    {
+      FlatpakExtensionPointInfo *extension_info = g_ptr_array_index (extension_infos, i);
+      g_autofree gchar *extension_group_name = g_strdup_printf ("Extension %s", extension_info->name);
+
+      g_key_file_set_string (key_file, extension_group_name, "directory", extension_info->directory);
+
+      if (extension_info->versions != NULL)
+        {
+          guint n_versions = g_strv_length (extension_info->versions);
+          g_key_file_set_string_list (key_file,
+                                      extension_group_name,
+                                      "versions",
+                                      (const gchar * const *) extension_info->versions,
+                                      n_versions);
+        }
+
+      g_key_file_set_boolean (key_file,
+                              extension_group_name,
+                              "no-autodownload",
+                              (extension_info->flags & FLATPAK_EXTENSION_POINT_NO_AUTODOWNLOAD) != 0);
+      g_key_file_set_boolean (key_file,
+                              extension_group_name,
+                              "locale-subset",
+                              (extension_info->flags & FLATPAK_EXTENSION_POINT_LOCALE_SUBSET) != 0);
+      g_key_file_set_boolean (key_file,
+                              extension_group_name,
+                              "autodelete",
+                              (extension_info->flags & FLATPAK_EXTENSION_POINT_AUTODELETE) != 0);
+    }
+
+  if (!g_key_file_save_to_file (key_file, metadata_file_path, error))
+    return FALSE;
+
+  return TRUE;
+}
+
 gboolean
 flatpak_populate_app (GFile        *updater_dir,
                       GFile        *app_directory_path,
                       const gchar  *app_name,
                       const gchar  *runtime_name,
                       const gchar  *branch,
+                      GPtrArray    *extension_infos,
                       const gchar  *repo_directory,
                       GFile        *gpg_homedir,
                       const gchar  *keyid,
@@ -278,6 +338,9 @@ flatpak_populate_app (GFile        *updater_dir,
   if (!g_file_set_contents (app_executable, "#!/bin/bash\nexit 0\n", -1, error))
     return FALSE;
 
+  if (!customize_extensions (app_directory_path_str, extension_infos, error))
+    return FALSE;
+
   if (!flatpak_build_finish (updater_dir,
                              app_directory_path_str,
                              "test",
@@ -303,6 +366,7 @@ flatpak_populate_runtime (GFile        *updater_dir,
                           const gchar  *name,
                           const gchar  *runtime_name,
                           const gchar  *branch,
+                          GPtrArray    *extension_infos,
                           const gchar  *collection_id,
                           const gchar  *repo_collection_id,
                           GFile        *gpg_homedir,
@@ -342,6 +406,9 @@ flatpak_populate_runtime (GFile        *updater_dir,
   if (!g_key_file_save_to_file (metadata, metadata_path, error))
     return FALSE;
 
+  if (!customize_extensions (runtime_directory_path_str, extension_infos, error))
+    return FALSE;
+
   if (!ostree_init (repo_directory_path,
                     REPO_ARCHIVE_Z2,
                     repo_collection_id,
@@ -354,6 +421,63 @@ flatpak_populate_runtime (GFile        *updater_dir,
 
   if (!flatpak_build_export (updater_dir,
                              runtime_directory_path_str,
+                             repo_directory,
+                             branch,
+                             gpg_homedir,
+                             keyid,
+                             error))
+    return FALSE;
+
+  return TRUE;
+}
+
+gboolean
+flatpak_populate_extension (GFile        *updater_dir,
+                            GFile        *extension_directory,
+                            const gchar  *repo_directory,
+                            const gchar  *name,
+                            const gchar  *runtime_name,
+                            const gchar  *branch,
+                            const gchar  *extension_of_ref,
+                            const gchar  *collection_id,
+                            const gchar  *repo_collection_id,
+                            GFile        *gpg_homedir,
+                            const gchar  *keyid,
+                            GError      **error)
+{
+  g_autofree gchar *extension_directory_path_str = g_file_get_path (extension_directory);
+  g_autoptr(GKeyFile) key_file = g_key_file_new ();
+  g_autoptr(GFile) metadata_file = g_file_get_child (extension_directory, "metadata");
+  g_autofree gchar *metadata_file_path = g_file_get_path (metadata_file);
+  g_autoptr(GPtrArray) extension_infos = g_ptr_array_new ();
+
+  /* This structure causes us to build-export twice, but that's probably
+   * not a huge problem */
+  if (!flatpak_populate_runtime (updater_dir,
+                                 extension_directory,
+                                 repo_directory,
+                                 name,
+                                 runtime_name,
+                                 branch,
+                                 extension_infos,
+                                 collection_id,
+                                 repo_collection_id,
+                                 gpg_homedir,
+                                 keyid,
+                                 error))
+    return FALSE;
+
+  if (!g_key_file_load_from_file (key_file, metadata_file_path, G_KEY_FILE_NONE, error))
+    return FALSE;
+
+  if (extension_of_ref != NULL)
+    g_key_file_set_string (key_file, "ExtensionOf", "ref", extension_of_ref);
+
+  if (!g_key_file_save_to_file (key_file, metadata_file_path, error))
+    return FALSE;
+
+  if (!flatpak_build_export (updater_dir,
+                             extension_directory_path_str,
                              repo_directory,
                              branch,
                              gpg_homedir,
