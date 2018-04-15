@@ -2024,14 +2024,56 @@ format_flatpak_ref_name_with_branch_override_arch (const gchar *name,
   return g_strdup_printf ("%s/%s/%s", name, arch_override_name, branch);
 }
 
+FlatpakExtensionPointInfo *
+flatpak_extension_point_info_new (const gchar                *name,
+                                  const gchar                *directory,
+                                  const gchar * const        *versions,
+                                  FlatpakExtensionPointFlags  flags)
+{
+  FlatpakExtensionPointInfo *extension_info = g_new0 (FlatpakExtensionPointInfo, 1);
+
+  extension_info->name = g_strdup (name);
+  extension_info->directory = g_strdup (directory);
+  extension_info->versions = g_strdupv ((GStrv) versions);
+  extension_info->flags = flags;
+
+  return extension_info;
+}
+
+FlatpakExtensionPointInfo *
+flatpak_extension_point_info_new_single_version (const gchar                *name,
+                                                 const gchar                *directory,
+                                                 const gchar                *version,
+                                                 FlatpakExtensionPointFlags  flags)
+{
+  const gchar * const versions[] = {
+    version,
+    NULL
+  };
+
+  return flatpak_extension_point_info_new (name, directory, versions, flags);
+}
+
+void
+flatpak_extension_point_info_free (FlatpakExtensionPointInfo *extension_info)
+{
+  g_clear_pointer (&extension_info->name, g_free);
+  g_clear_pointer (&extension_info->directory, g_free);
+  g_clear_pointer (&extension_info->versions, g_strfreev);
+
+  g_free (extension_info);
+}
+
 FlatpakInstallInfo *
-flatpak_install_info_new (FlatpakInstallInfoType  type,
-                          const gchar            *name,
-                          const gchar            *branch,
-                          const gchar            *runtime_name,
-                          const gchar            *runtime_branch,
-                          const gchar            *repo_name,
-                          gboolean                preinstall)
+flatpak_install_info_new_with_extension_info (FlatpakInstallInfoType  type,
+                                              const gchar            *name,
+                                              const gchar            *branch,
+                                              const gchar            *runtime_name,
+                                              const gchar            *runtime_branch,
+                                              const gchar            *repo_name,
+                                              gboolean                preinstall,
+                                              const gchar            *extension_of_ref,
+                                              GPtrArray              *extension_infos)
 {
   FlatpakInstallInfo *info = g_new0 (FlatpakInstallInfo, 1);
 
@@ -2042,8 +2084,30 @@ flatpak_install_info_new (FlatpakInstallInfoType  type,
   info->runtime_branch = g_strdup (runtime_branch);
   info->repo_name = g_strdup (repo_name);
   info->preinstall = preinstall;
+  info->extension_of_ref = g_strdup (extension_of_ref);
+  info->extension_infos = extension_infos != NULL ? g_ptr_array_ref (extension_infos) : NULL;
 
   return info;
+}
+
+FlatpakInstallInfo *
+flatpak_install_info_new (FlatpakInstallInfoType  type,
+                          const gchar            *name,
+                          const gchar            *branch,
+                          const gchar            *runtime_name,
+                          const gchar            *runtime_branch,
+                          const gchar            *repo_name,
+                          gboolean                preinstall)
+{
+  return flatpak_install_info_new_with_extension_info (type,
+                                                       name,
+                                                       branch,
+                                                       runtime_name,
+                                                       runtime_branch,
+                                                       repo_name,
+                                                       preinstall,
+                                                       NULL,
+                                                       NULL);
 }
 
 void
@@ -2054,6 +2118,8 @@ flatpak_install_info_free (FlatpakInstallInfo *info)
   g_clear_pointer (&info->runtime_name, g_free);
   g_clear_pointer (&info->runtime_branch, g_free);
   g_clear_pointer (&info->repo_name, g_free);
+  g_clear_pointer (&info->extension_of_ref, g_free);
+  g_clear_pointer (&info->extension_infos, (GDestroyNotify) g_ptr_array_unref);
 
   g_free (info);
 }
@@ -2176,7 +2242,6 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
       switch (install_info->type)
         {
           case FLATPAK_INSTALL_INFO_TYPE_RUNTIME:
-          case FLATPAK_INSTALL_INFO_TYPE_EXTENSION:
             {
               g_autofree gchar *runtime_dir = g_build_filename (runtimes_directory_path,
                                                                 install_info->repo_name,
@@ -2190,6 +2255,7 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
                                              install_info->name,
                                              formatted_ref_name,
                                              install_info->branch,
+                                             install_info->extension_infos,
                                              repo_info->remote_collection_id,
                                              repo_info->collection_id,
                                              gpg_home_dir,
@@ -2204,6 +2270,29 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
                                     install_info->repo_name,
                                     formatted_ref_name,
                                     error))
+                return FALSE;
+            }
+            break;
+          case FLATPAK_INSTALL_INFO_TYPE_EXTENSION:
+            {
+              g_autofree gchar *runtime_dir = g_build_filename (runtimes_directory_path,
+                                                                install_info->repo_name,
+                                                                install_info->name,
+                                                                install_info->branch,
+                                                                NULL);
+              g_autoptr(GFile) runtime_directory = g_file_new_for_path (runtime_dir);
+              if (!flatpak_populate_extension (updater_dir,
+                                               runtime_directory,
+                                               repo_directory_path,
+                                               install_info->name,
+                                               formatted_ref_name,
+                                               install_info->branch,
+                                               install_info->extension_of_ref,
+                                               repo_info->remote_collection_id,
+                                               repo_info->collection_id,
+                                               gpg_home_dir,
+                                               keyid,
+                                               error))
                 return FALSE;
             }
             break;
@@ -2224,6 +2313,7 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
                                          install_info->name,
                                          runtime_formatted_ref_name,
                                          install_info->branch,
+                                         install_info->extension_infos,
                                          repo_directory_path,
                                          gpg_home_dir,
                                          keyid,
@@ -2256,7 +2346,6 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
       switch (install_info->type)
         {
           case FLATPAK_INSTALL_INFO_TYPE_RUNTIME:
-          case FLATPAK_INSTALL_INFO_TYPE_EXTENSION:
             {
               /* If we weren't going to preinstall the runtime,
                * uninstall it now */
@@ -2273,6 +2362,7 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
             }
             break;
           case FLATPAK_INSTALL_INFO_TYPE_APP:
+          case FLATPAK_INSTALL_INFO_TYPE_EXTENSION:
             break;
           default:
             g_assert_not_reached ();
