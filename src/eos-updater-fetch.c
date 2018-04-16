@@ -31,6 +31,8 @@
 #include <libmogwai-schedule-client/schedule-entry.h>
 #include <libmogwai-schedule-client/scheduler.h>
 
+#define APP_CENTER_OS_UPDATES_PRIORITY 30
+
 /* Closure containing the data for the fetch worker thread. The
  * worker thread must not access EosUpdater or EosUpdaterData directly,
  * as they are not thread safe. */
@@ -757,6 +759,9 @@ schedule_download (FetchData     *fetch_data,
 
   /* Schedule the download. Similar reasoning applies to the timeout as above. */
   g_variant_dict_insert (&parameters_dict, "resumable", "b", FALSE);
+  /* Add the highest priority that the App Center uses as this will be compared
+   * at the same level in Mogwai */
+  g_variant_dict_insert (&parameters_dict, "priority", "u", APP_CENTER_OS_UPDATES_PRIORITY);
   parameters = g_variant_ref_sink (g_variant_dict_end (&parameters_dict));
 
   mwsc_scheduler_schedule_async (scheduler, parameters, cancellable,
