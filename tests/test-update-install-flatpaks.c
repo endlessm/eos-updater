@@ -5271,7 +5271,7 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
 
   /* Update the server, so it has a new commit (3).
    */
-  etc_update_server (data,3);
+  etc_update_server (data, 3);
   /* Update the client to commit 3, skipping 2.
    */
   etc_update_client (data);
