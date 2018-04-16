@@ -509,7 +509,7 @@ INTROSPECTION_GIRS += libeos-updater-util/EosUpdaterUtil-@EUU_API_VERSION@.gir
 
 # GObject Introspection for libeos-updater-flatpak-installer
 libeos-updater-flatpak-installer/EosUpdaterFlatpakInstaller-@EUFI_API_VERSION@.gir: libeos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUFI_API_VERSION@.la
-libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_gir_INCLUDES = GObject-2.0 Gio-2.0 Flatpak-1.0
+libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_gir_INCLUDES = GObject-2.0 Gio-2.0 Flatpak-1.0 EosUpdaterUtil-0
 libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_gir_CFLAGS = \
 	$(STD_CFLAGS) \
 	$(EOS_UPDATER_FLATPAK_INSTALLER_CFLAGS) \
