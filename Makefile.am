@@ -283,7 +283,7 @@ libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERS
 libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERSION@_la_LIBADD = \
 	$(CODE_COVERAGE_LIBS) \
 	$(EOS_UPDATER_FLATPAK_INSTALLER_LIBS) \
-	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUFI_API_VERSION@.la \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
 	$(NULL)
 libeos_updater_flatpak_installer_libeos_updater_flatpak_installer_@EUFI_API_VERSION@_la_SOURCES = \
 	libeos-updater-flatpak-installer/determine-flatpak-actions.c \
