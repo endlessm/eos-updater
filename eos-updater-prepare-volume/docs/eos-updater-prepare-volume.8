@@ -19,10 +19,12 @@ copy of the computer’s Endless OS updates and flatpak apps, so those apps and
 updates can be applied to another computer running Endless OS, bringing it up
 to date.
 .PP
-It will always include a copy of the Endless OS. Any flatpak applications listed
-on the command line will be included. Each app must be specified as a
-collection ID and ref, followed by the collection ID and ref of the next app,
-etc.
+It will always include a copy of the Endless OS. Any flatpak applications that
+have been configured to autoinstall upon update will also be included
+unconditionally (see \fBeos\-updater-flatpak-installer\fP(8)). Additionally,
+any apps listed on the command line will be included. Each app must be
+specified as a collection ID and ref, followed by the collection ID and ref of
+the next app, etc.
 .PP
 The updates will be put in an OSTree repository in the \fB.ostree/repo\fP
 directory on the USB drive. The path of the mounted drive must be passed as the
