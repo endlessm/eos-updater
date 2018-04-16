@@ -27,7 +27,10 @@ import gi
 gi.require_version('Flatpak', '1.0')
 gi.require_version('GLib', '2.0')
 gi.require_version('OSTree', '1.0')
+gi.require_version('EosUpdaterFlatpakInstaller', '0')
+gi.require_version('EosUpdaterUtil', '0')
 from gi.repository import Flatpak, GLib, OSTree  # noqa
+from gi.repository import EosUpdaterFlatpakInstaller, EosUpdaterUtil
 
 
 class VolumePreparer:
@@ -173,6 +176,17 @@ class VolumePreparer:
 
         return runtimes
 
+    def _add_autoinstall_flatpaks(self, flatpak_collection_refs):
+        try:
+            applied_actions = EosUpdaterFlatpakInstaller.determine_flatpak_ref_actions_to_check(None)
+        except Exception as ex:
+            print(ex)
+        #for f in applied_actions:
+        #    print(f)
+        #remaining_actions = EosUpdaterFlatpakInstaller.determine_flatpak_ref_actions_to_apply(None)
+        #for f in remaining_actions:
+        #    print(f)
+
     def prepare_volume(self):
         # We need to be root in order to read all the files in the OSTree repo
         # (unless we’re running the unit tests). */
@@ -201,6 +215,9 @@ class VolumePreparer:
                                     for (collection_id, ref) in invalid_refs]))
             return self.__fail(self.EXIT_INVALID_ARGUMENTS,
                                'Invalid flatpak collection–refs: %s' % refs_list)
+
+        # Add the flatpaks that will be installed by eos-updater-flatpak-installer
+        self._add_autoinstall_flatpaks(flatpak_collection_refs)
 
         # FIXME: Do we also want to pull in related refs, like locales?
         # Currently, they can be listed explicitly on the command line.
