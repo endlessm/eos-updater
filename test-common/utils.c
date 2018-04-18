@@ -2146,7 +2146,7 @@ eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (GFile        *updater
     return FALSE;
 
   if (!flatpak_install (updater_dir,
-                        "test-repo",
+                        repo_name,
                         runtime_formatted_ref_name,
                         error))
     return FALSE;
