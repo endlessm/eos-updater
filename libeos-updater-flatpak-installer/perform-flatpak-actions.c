@@ -363,6 +363,12 @@ eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
     {
       EuuFlatpakRemoteRefAction *pending_action = g_ptr_array_index (actions, i);
       const gchar *source = pending_action->source;
+      gboolean is_dependency = (pending_action->flags & EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY) != 0;
+
+      /* Dependencies should not be passed through this function - they
+       * were meant to be deployed earlier. Uninstall dependencies will
+       * be handled implicitly */
+      g_assert (!is_dependency);
 
       /* Only perform actions if we’re in the "perform" mode. Otherwise
        * we just pretend to perform actions and update the counter
