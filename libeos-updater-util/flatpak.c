@@ -1530,7 +1530,8 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
                                               GCancellable         *cancellable,
                                               GError              **error)
 {
-  g_autoptr(GPtrArray) remotes = NULL;
+  g_autoptr(GPtrArray) flatpak_remotes = NULL;
+  g_autoptr(GPtrArray) remotes_with_collection_ids = NULL;
   g_autoptr(GHashTable) refs_for_remotes = NULL;
   gsize i = 0;
 
@@ -1540,28 +1541,45 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  remotes = flatpak_installation_list_remotes (installation, cancellable, error);
+  flatpak_remotes = flatpak_installation_list_remotes (installation, cancellable, error);
 
-  if (remotes == NULL)
+  if (flatpak_remotes == NULL)
     return FALSE;
 
+  remotes_with_collection_ids = g_ptr_array_new_with_free_func (g_object_unref);
   refs_for_remotes = g_hash_table_new_full (euu_flatpak_remote_hash,
                                             euu_flatpak_remote_equal,
                                             g_object_unref,
                                             (GDestroyNotify) g_ptr_array_unref);
 
-  for (i = 0; i < remotes->len; ++i)
+  for (i = 0; i < flatpak_remotes->len; ++i)
     {
-      FlatpakRemote *remote = g_ptr_array_index (remotes, i);
-      g_autoptr(GPtrArray) refs_for_remote =
+      FlatpakRemote *remote = g_ptr_array_index (flatpak_remotes, i);
+      g_autoptr(GPtrArray) refs_for_remote = NULL;
+      const gchar *remote_name = flatpak_remote_get_name (remote);
+      const gchar *collection_id = flatpak_remote_get_collection_id (remote);
+
+      /* If there is no collection-id set on the remote config
+       * then we can't install this related ref as we don't know
+       * what collection to install it from. */
+      if (collection_id == NULL)
+        {
+          g_debug ("Ignoring dependencies from remote %s as "
+                   "no collection-id set",
+                   remote_name);
+          continue;
+        }
+
+      refs_for_remote =
         flatpak_installation_list_remote_refs_sync (installation,
-                                                    flatpak_remote_get_name (remote),
+                                                    remote_name,
                                                     cancellable,
                                                     error);
 
       if (refs_for_remote == NULL)
         return FALSE;
 
+      g_ptr_array_add (remotes_with_collection_ids, g_object_ref (remote));
       g_hash_table_insert (refs_for_remotes,
                            g_object_ref (remote),
                            g_steal_pointer (&refs_for_remote));
@@ -1570,7 +1588,7 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
   /* We return both a GPtrArray of remotes and the hashtable mapping
    * each remote to a list of refs, since we need to maintain the priority
    * order. */
-  *out_remotes_priority_order = g_steal_pointer (&remotes);
+  *out_remotes_priority_order = g_steal_pointer (&remotes_with_collection_ids);
   *out_refs_for_remotes = g_steal_pointer (&refs_for_remotes);
 
   return TRUE;
@@ -2283,8 +2301,11 @@ euu_add_dependency_ref_actions_for_installation (FlatpakInstallation  *installat
                                                     &action_type))
                 {
                   FlatpakRemote *remote = related_refs_for_remote->remote;
-                  EuuFlatpakLocationRef *location_ref =
-                    euu_flatpak_location_ref_new (FLATPAK_REF (related_ref),
+                  EuuFlatpakLocationRef *location_ref = NULL;
+                  FlatpakRef *related_ref_as_ref = FLATPAK_REF (related_ref);
+
+                  location_ref =
+                    euu_flatpak_location_ref_new (related_ref_as_ref,
                                                   flatpak_remote_get_name (remote),
                                                   flatpak_remote_get_collection_id (remote));
 
