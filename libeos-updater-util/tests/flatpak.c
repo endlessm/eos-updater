@@ -34,6 +34,7 @@ typedef struct
   const gchar *app_id;
   const gchar *branch;
   gint32 serial;
+  EuuFlatpakRemoteRefActionFlags flags;
 } FlatpakToInstallEntry;
 
 typedef struct
@@ -65,7 +66,7 @@ flatpak_to_install_entry_to_remote_ref_action (const gchar           *source,
                                             location_ref,
                                             source,
                                             entry->serial,
-                                            EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_NONE);
+                                            entry->flags);
 }
 
 static GPtrArray *
@@ -109,8 +110,8 @@ static void
 test_compress_install_update_as_install (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -129,8 +130,8 @@ static void
 test_compress_uninstall_update_as_uninstall (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -150,8 +151,8 @@ static void
 test_no_compress_uninstall_update_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -172,8 +173,8 @@ static void
 test_compress_install_uninstall_as_uninstall (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -193,8 +194,8 @@ static void
 test_no_compress_install_uninstall_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -216,9 +217,9 @@ static void
 test_compress_install_uninstall_install_as_install (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 3 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 3, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -237,8 +238,8 @@ static void
 test_compress_update_update_as_update (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -258,8 +259,8 @@ static void
 test_no_compress_update_update_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -280,8 +281,8 @@ static void
 test_compress_install_install_as_install (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
@@ -301,8 +302,8 @@ static void
 test_no_compress_install_install_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 2 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Runtime", "stable", 1, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
