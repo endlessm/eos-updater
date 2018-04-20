@@ -1233,8 +1233,8 @@ updater_hw_file (GFile *updater_dir)
   return g_file_get_child (updater_dir, "hw");
 }
 
-static GFile *
-flatpak_upgrade_state (GFile *updater_dir)
+GFile *
+get_flatpak_upgrade_state_dir_for_updater_dir (GFile *updater_dir)
 {
   return g_file_get_child (updater_dir, "flatpak-deployments");
 }
@@ -1473,7 +1473,7 @@ spawn_updater_simple (GFile *sysroot,
   g_autoptr(GFile) config_file_path = updater_config_file (updater_dir);
   g_autoptr(GFile) hw_file_path = updater_hw_file (updater_dir);
   g_autoptr(GFile) quit_file_path = updater_quit_file (updater_dir);
-  g_autoptr(GFile) flatpak_upgrade_state_dir_path = flatpak_upgrade_state (updater_dir);
+  g_autoptr(GFile) flatpak_upgrade_state_dir_path = get_flatpak_upgrade_state_dir_for_updater_dir (updater_dir);
   g_autoptr(GFile) flatpak_installation_dir_path = get_flatpak_user_dir_for_updater_dir (updater_dir);
   g_autoptr(GFile) flatpak_autoinstall_override_dir = get_flatpak_autoinstall_override_dir (updater_dir);
 
@@ -1891,7 +1891,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
                                                                           NULL);
   g_autoptr(GFile) updater_dir = g_file_get_child (client_root, "updater");
   g_autoptr(GFile) flatpak_installation_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
-  g_autoptr(GFile) flatpak_upgrade_state_dir = flatpak_upgrade_state (updater_dir);
+  g_autoptr(GFile) flatpak_upgrade_state_dir = get_flatpak_upgrade_state_dir_for_updater_dir (updater_dir);
   g_autoptr(GFile) flatpak_autoinstall_override_dir = get_flatpak_autoinstall_override_dir (updater_dir);
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_autofree gchar *sysroot_path = g_file_get_path (sysroot);

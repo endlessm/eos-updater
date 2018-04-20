@@ -377,6 +377,7 @@ GStrv eos_test_get_installed_flatpaks (GFile   *updater_path,
 
 GFile * get_flatpak_user_dir_for_updater_dir (GFile *updater_dir);
 GFile * get_flatpak_autoinstall_override_dir (GFile *client_root);
+GFile * get_flatpak_upgrade_state_dir_for_updater_dir (GFile *updater_dir);
 
 GFile * eos_test_get_flatpak_build_dir_for_updater_dir (GFile *updater_dir);
 
