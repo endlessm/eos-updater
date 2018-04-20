@@ -3136,6 +3136,9 @@ test_update_deploy_dependency_runtime_flatpaks_on_reboot (EosUpdaterFixture *fix
   g_assert_true (g_strv_contains ((const gchar * const *) deployed_flatpaks, "org.test.Runtime"));
 }
 
+/* See `man 8 eos-updater-flatpak-installer`. */
+#define EUFI_EXIT_CODE_APPLY_FAILED 4
+
 /* Insert a list of flatpaks to automatically install on the commit,
  * including a flatpak that has an extension marked autodownload. Pull the update
  * and then simulate a reboot by running eos-updater-flatpak-installer installer.
@@ -3534,9 +3537,6 @@ test_update_no_op_flatpak_already_installed (EosUpdaterFixture *fixture,
                    ==,
                    installed_app_executable_contents_before_install);
 }
-
-/* See `man 8 eos-updater-flatpak-installer`. */
-#define EUFI_EXIT_CODE_APPLY_FAILED 4
 
 /* Insert a list of flatpaks to automatically install on the commit
  * and simulate a reboot by running eos-updater-flatpak-installer. This
