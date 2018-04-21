@@ -365,6 +365,25 @@ autoinstall_flatpaks_files_override (GFile                   *updater_directory,
 }
 
 static GStrv
+drop_empty_lines (const gchar  *paragraph,
+                  GError      **error)
+{
+  g_auto(GStrv) lines = g_strsplit (paragraph, "\n", -1);
+  g_auto(GStrv) constructed_lines = g_new0 (gchar *, g_strv_length (lines));
+  guint i = 0;
+
+  for (const gchar **iter = (const gchar **) lines; *iter; ++iter)
+    {
+      if (g_strcmp0 (*iter, "") == 0)
+        continue;
+
+      constructed_lines[i++] = g_strdup (*iter);
+    }
+
+  return g_steal_pointer (&constructed_lines);
+}
+
+static GStrv
 parse_ostree_refs_for_flatpaks (const gchar  *ostree_refs_stdout,
                                 GError      **error)
 {
@@ -515,6 +534,19 @@ flatpaks_in_installation_repo (GFile   *flatpak_installation_dir,
     return FALSE;
 
   return parse_ostree_refs_for_flatpaks (cmd.standard_output, error);
+}
+
+static GStrv
+ostree_refspecs_in_installation_repo (GFile   *flatpak_installation_dir,
+                                      GError **error)
+{
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+  g_autoptr(GFile) flatpak_repo = g_file_get_child (flatpak_installation_dir, "repo");
+
+  if (!ostree_list_refs_in_repo (flatpak_repo, &cmd, error))
+    return FALSE;
+
+  return drop_empty_lines (cmd.standard_output, error);
 }
 
 static gchar *
