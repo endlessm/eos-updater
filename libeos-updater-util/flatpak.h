@@ -159,4 +159,7 @@ GHashTable *euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
 FlatpakInstallation *eos_updater_get_flatpak_installation (GCancellable  *cancellable,
                                                            GError       **error);
 
+guint euu_flatpak_ref_hash (gconstpointer ref);
+gboolean euu_flatpak_ref_equal (gconstpointer a, gconstpointer b);
+
 G_END_DECLS
