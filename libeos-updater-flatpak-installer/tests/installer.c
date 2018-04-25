@@ -557,6 +557,39 @@ test_deploy_failure_resume_from_latest (FlatpakDeploymentsFixture *fixture,
 }
 
 static void
+test_deploy_uninstall_also_remove_autodelete_extensions (FlatpakDeploymentsFixture *fixture,
+                                                         gconstpointer              user G_GNUC_UNUSED)
+{
+  g_autoptr(GError) error = NULL;
+  const gchar *flatpaks_to_remote[] = { "org.test.PreinstalledTestHavingExtension", NULL };
+  g_autoptr(GPtrArray) actions = sample_flatpak_ref_actions_of_type ("autoinstall",
+                                                                     flatpaks_to_remote,
+                                                                     EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
+  g_autofree gchar *state_counter_path = g_file_get_path (fixture->counter_file);
+  g_autoptr(FlatpakInstallation) installation = flatpak_installation_new_for_path (fixture->flatpak_installation_directory,
+                                                                                   TRUE,
+                                                                                   NULL,
+                                                                                   &error);
+  g_autofree gchar *installation_directory_path = g_file_get_path (fixture->flatpak_installation_directory);
+  g_autofree gchar *directory_expected_to_not_exist_path = g_build_filename (installation_directory_path,
+                                                                             "app",
+                                                                             "org.test.PreinstalledTestHavingExtension.Extension",
+                                                                             NULL);
+
+  g_assert_no_error (error);
+
+  eufi_apply_flatpak_ref_actions (installation,
+                                  state_counter_path,
+                                  actions,
+                                  EU_INSTALLER_MODE_PERFORM,
+                                  TRUE,
+                                  &error);
+  g_assert_no_error (error);
+
+  g_assert (!g_file_test (directory_expected_to_not_exist_path, G_FILE_TEST_EXISTS));
+}
+
+static void
 test_flatpak_check_succeeds_if_actions_are_up_to_date (FlatpakDeploymentsFixture *fixture,
                                                        gconstpointer              user G_GNUC_UNUSED)
 {
@@ -718,6 +751,12 @@ main (int   argc,
               NULL,
               flatpak_deployments_fixture_setup,
               test_deploy_failure_resume_from_latest,
+              flatpak_deployments_fixture_teardown);
+  g_test_add ("/flatpak/deploy-uninstall-also-remote-autodelete-extensions",
+              FlatpakDeploymentsFixture,
+              NULL,
+              flatpak_deployments_fixture_setup,
+              test_deploy_uninstall_also_remove_autodelete_extensions,
               flatpak_deployments_fixture_teardown);
 
   g_test_add ("/flatpak/check-succeeds-if-actions-are-up-to-date",
