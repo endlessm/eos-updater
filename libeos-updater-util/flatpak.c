@@ -1204,8 +1204,8 @@ euu_flatpak_ref_actions_from_directory (GFile         *directory,
   return g_steal_pointer (&ref_actions_for_files);
 }
 
-static guint
-flatpak_ref_hash (gconstpointer data)
+guint
+euu_flatpak_ref_hash (gconstpointer data)
 {
   FlatpakRef *ref = FLATPAK_REF (data);
   FlatpakRefKind kind = flatpak_ref_get_kind (ref);
@@ -1219,9 +1219,9 @@ flatpak_ref_hash (gconstpointer data)
           ((branch != NULL) ? g_str_hash (branch) : 0));
 }
 
-static gboolean
-flatpak_ref_equal (gconstpointer a,
-                   gconstpointer b)
+gboolean
+euu_flatpak_ref_equal (gconstpointer a,
+                       gconstpointer b)
 {
   FlatpakRef *a_ref = FLATPAK_REF (a), *b_ref = FLATPAK_REF (b);
   return (flatpak_ref_get_kind (a_ref) == flatpak_ref_get_kind (b_ref) &&
@@ -1236,8 +1236,8 @@ flatpak_ref_equal (gconstpointer a,
 static GPtrArray *  /* (element-type EuuFlatpakRemoteRefAction) */
 squash_ref_actions_ptr_array (GPtrArray *ref_actions  /* (element-type EuuFlatpakRemoteRefAction) */)
 {
-  g_autoptr(GHashTable) hash_table = g_hash_table_new_full (flatpak_ref_hash,
-                                                            flatpak_ref_equal,
+  g_autoptr(GHashTable) hash_table = g_hash_table_new_full (euu_flatpak_ref_hash,
+                                                            euu_flatpak_ref_equal,
                                                             g_object_unref,
                                                             (GDestroyNotify) euu_flatpak_remote_ref_action_unref);
   g_autoptr(GPtrArray) squashed_ref_actions = NULL;
@@ -1627,7 +1627,7 @@ ref_in_ref_array (FlatpakRef *ref,
                   GPtrArray  *ref_array)
 {
   for (gsize i = 0; i < ref_array->len; ++i)
-    if (flatpak_ref_equal (ref, g_ptr_array_index (ref_array, i)))
+    if (euu_flatpak_ref_equal (ref, g_ptr_array_index (ref_array, i)))
       return TRUE;
 
   return FALSE;
@@ -2176,8 +2176,8 @@ initially_populate_remote_and_installed_related_refs (GPtrArray   *remotes,
     {
       FlatpakRemote *remote = g_ptr_array_index (reprioritized_remotes, i);
       g_autoptr(GHashTable) refs_for_remote =
-        g_hash_table_new_full (flatpak_ref_hash,
-                               flatpak_ref_equal,
+        g_hash_table_new_full (euu_flatpak_ref_hash,
+                               euu_flatpak_ref_equal,
                                g_object_unref,
                                NULL);
 
@@ -2185,8 +2185,8 @@ initially_populate_remote_and_installed_related_refs (GPtrArray   *remotes,
                        euu_flatpak_related_refs_for_remote_new (remote, refs_for_remote));
     }
 
-  *out_installed_related_refs = g_hash_table_new_full (flatpak_ref_hash,
-                                                       flatpak_ref_equal,
+  *out_installed_related_refs = g_hash_table_new_full (euu_flatpak_ref_hash,
+                                                       euu_flatpak_ref_equal,
                                                        g_object_unref,
                                                        NULL);
   *out_remote_related_refs = g_steal_pointer (&remote_related_refs);
@@ -2240,8 +2240,8 @@ euu_add_dependency_ref_actions_for_installation (FlatpakInstallation  *installat
    *
    * This hash table gets mutated by determine_action_for_related_ref
    * below. */
-  pending_install_related_refs = g_hash_table_new_full (flatpak_ref_hash,
-                                                        flatpak_ref_equal,
+  pending_install_related_refs = g_hash_table_new_full (euu_flatpak_ref_hash,
+                                                        euu_flatpak_ref_equal,
                                                         NULL,
                                                         NULL);
 
