@@ -64,6 +64,35 @@ fetch_data_free (FetchData *data)
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (FetchData, fetch_data_free)
 
+typedef struct {
+  MwscScheduleEntry *scheduled_entry; /* (owned) */
+  GCancellable *general_cancellable; /* (owned) */
+  GCancellable *scheduled_entry_cancellable; /* (owned) */
+  gulong download_now_handler_id;
+  gulong invalidated_handler_id;
+  gulong cancellables_bind_handler_id;
+} ScheduledEntryCancellableHelper;
+
+static void
+schedule_entry_cancellable_helper_free (ScheduledEntryCancellableHelper *helper)
+{
+  if (helper->download_now_handler_id > 0)
+    g_signal_handler_disconnect (helper->scheduled_entry, helper->download_now_handler_id);
+
+  if (helper->invalidated_handler_id > 0)
+    g_signal_handler_disconnect (helper->scheduled_entry, helper->invalidated_handler_id);
+
+  if (helper->cancellables_bind_handler_id > 0)
+    g_cancellable_disconnect (helper->general_cancellable, helper->cancellables_bind_handler_id);
+
+  g_clear_object (&helper->scheduled_entry);
+  g_clear_object (&helper->general_cancellable);
+  g_clear_object (&helper->scheduled_entry_cancellable);
+  g_free (helper);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (ScheduledEntryCancellableHelper, schedule_entry_cancellable_helper_free)
+
 static void
 content_fetch_finished (GObject *object,
                         GAsyncResult *res,
@@ -820,6 +849,38 @@ unschedule_download (FetchData     *fetch_data,
   return TRUE;
 }
 
+static void
+cancel_if_download_forbidden_cb (GObject    *obj,
+                                 GParamSpec *pspec,
+                                 gpointer    user_data)
+{
+  MwscScheduleEntry *entry = MWSC_SCHEDULE_ENTRY (obj);
+  GCancellable *cancellable = user_data;
+
+  /* FIXME: Eventually add support for resuming OS update downloads when allowed
+   * to by the scheduler. When that happens `get_download_now()` will return
+   * %TRUE again; while waiting for that to happen, eos-updater should stay in
+   * the `fetching` state. For now, we end up the `error` state instead. */
+  if (!mwsc_schedule_entry_get_download_now (entry))
+    {
+      g_message ("Fetch cancelled because Mogwai's scheduled entry %s can no "
+                 "longer download.", mwsc_schedule_entry_get_id (entry));
+      g_cancellable_cancel (cancellable);
+    }
+}
+
+static void
+cancel_on_entry_invalidated_cb (MwscScheduleEntry *entry,
+                                const GError      *error,
+                                gpointer           user_data)
+{
+  GCancellable *cancellable = user_data;
+
+  g_message ("Fetch cancelled because Mogwai's scheduled entry %s has "
+             "been invalidated.", mwsc_schedule_entry_get_id (entry));
+  g_cancellable_cancel (cancellable);
+}
+
 /* This must be run in the same worker thread as content_fetch(), with a
  * #GMainContext used only in that thread. */
 static gboolean
@@ -924,6 +985,42 @@ check_scheduler (FetchData     *fetch_data,
   return FALSE;
 }
 
+static void
+general_cancellable_cancelled_cb (GCancellable *cancellable,
+                                  gpointer      user_data)
+{
+  GCancellable *fetch_cancellable = user_data;
+  g_cancellable_cancel (fetch_cancellable);
+}
+
+static ScheduledEntryCancellableHelper *
+connect_cancellable_to_entry (MwscScheduleEntry *entry,
+                              GCancellable      *general_cancellable)
+{
+  ScheduledEntryCancellableHelper *helper = g_new0 (ScheduledEntryCancellableHelper, 1);
+
+  helper->scheduled_entry_cancellable = g_cancellable_new ();
+  helper->general_cancellable = g_object_ref (general_cancellable);
+
+  helper->cancellables_bind_handler_id =
+    g_cancellable_connect (general_cancellable,
+                           (GCallback) general_cancellable_cancelled_cb,
+                           helper->scheduled_entry_cancellable,
+                           NULL);
+
+  helper->scheduled_entry = g_object_ref (entry);
+  helper->download_now_handler_id = g_signal_connect (entry,
+                                                      "notify::download-now",
+                                                      (GCallback) cancel_if_download_forbidden_cb,
+                                                      helper->scheduled_entry_cancellable);
+  helper->invalidated_handler_id = g_signal_connect (entry,
+                                                     "invalidated",
+                                                     (GCallback) cancel_on_entry_invalidated_cb,
+                                                     helper->scheduled_entry_cancellable);
+
+  return helper;
+}
+
 static gboolean
 content_fetch (FetchData     *fetch_data,
                GMainContext  *context,
@@ -933,6 +1030,8 @@ content_fetch (FetchData     *fetch_data,
   g_autoptr(GError) local_error = NULL;
   const gchar *update_id = fetch_data->update_id;
   EosUpdaterData *data = fetch_data->data;
+  GCancellable *fetch_cancellable = cancellable;
+  g_autoptr(ScheduledEntryCancellableHelper) cancellable_helper = NULL;
 
   /* Query the scheduler here. Just fail if downloads aren’t allowed; the
    * updater will return a D-Bus error which the caller can interpret. */
@@ -940,6 +1039,18 @@ content_fetch (FetchData     *fetch_data,
     {
       g_message ("Fetch: not fetching due to download scheduler decision");
       return FALSE;
+    }
+
+  if (fetch_data->schedule_entry != NULL)
+    {
+      /* Connect the signals again now that we know a download will be started so
+       * we can cancel it if the entry cannot download anymore */
+      cancellable_helper = connect_cancellable_to_entry (fetch_data->schedule_entry,
+                                                         cancellable);
+
+      /* we use a different cancellable for the content fetching since it may
+       * get canceled by the scheduled entry (when download-now is false) */
+      fetch_cancellable = cancellable_helper->scheduled_entry_cancellable;
     }
 
   /* Do we want to use the new libostree code for P2P, or fall back on the old
@@ -950,7 +1061,7 @@ content_fetch (FetchData     *fetch_data,
     {
       g_message ("Fetch: using results %p", data->results);
 
-      if (content_fetch_new (fetch_data, context, cancellable, &local_error))
+      if (content_fetch_new (fetch_data, context, fetch_cancellable, &local_error))
         g_message ("Fetch: finished pulling using libostree P2P code");
       else
         g_warning ("Error fetching updates using libostree P2P code; falling back to old code: %s",
@@ -964,7 +1075,7 @@ content_fetch (FetchData     *fetch_data,
       if (data->results == NULL)
         g_message ("Fetch: using old code due to lack of repo finder results");
 
-      if (content_fetch_old (fetch_data, context, cancellable, &local_error))
+      if (content_fetch_old (fetch_data, context, fetch_cancellable, &local_error))
         g_message ("Fetch: finished pulling using old code");
       else
         {
@@ -974,7 +1085,7 @@ content_fetch (FetchData     *fetch_data,
     }
 
   g_message ("Fetch: pulling any necessary new flatpaks for this update");
-  if (!prepare_flatpaks_to_deploy (data->repo, update_id, cancellable, &local_error))
+  if (!prepare_flatpaks_to_deploy (data->repo, update_id, fetch_cancellable, &local_error))
     {
       g_message ("Fetch: failed to pull necessary new flatpaks for update: %s", local_error->message);
       goto error;
