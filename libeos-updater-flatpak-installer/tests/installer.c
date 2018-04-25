@@ -39,6 +39,144 @@ typedef struct
   GFile *gpg_home;
 } FlatpakDeploymentsFixture;
 
+typedef struct
+{
+  const gchar            *name;
+  FlatpakInstallInfoType  type;
+} FlatpakInfo;
+
+typedef struct
+{
+  const gchar *source_flatpak_name;
+  const gchar *extension_flatpak_name;
+  FlatpakExtensionPointFlags flags;
+} ExtensionInfo;
+
+static GPtrArray *
+build_extension_infos_for_flatpak (const gchar         *flatpak_name,
+                                   const ExtensionInfo *infos_array,
+                                   const gchar         *branch)
+{
+  const ExtensionInfo *infos_array_iter = infos_array;
+  g_autoptr(GPtrArray) extension_infos =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_extension_point_info_free);
+
+  for (; infos_array_iter->source_flatpak_name != NULL; ++infos_array_iter)
+    {
+      if (g_strcmp0 (infos_array_iter->source_flatpak_name, flatpak_name) == 0)
+        {
+          const gchar *extension_name = infos_array_iter->extension_flatpak_name;
+          g_autofree gchar *extension_point_path = g_build_filename ("/",
+                                                                     "app",
+                                                                     "extension",
+                                                                     extension_name,
+                                                                     NULL);
+          g_ptr_array_add (extension_infos,
+                           flatpak_extension_point_info_new_single_version (extension_name,
+                                                                            extension_point_path,
+                                                                            branch,
+                                                                            infos_array_iter->flags));
+        }
+    }
+
+  return g_steal_pointer (&extension_infos);
+}
+
+static const gchar *
+find_extension_of_id (const gchar         *candidate_extension_name,
+                      const ExtensionInfo *extension_infos)
+{
+  for (const ExtensionInfo *extension_infos_iter = extension_infos;
+       extension_infos_iter->source_flatpak_name != NULL;
+       ++extension_infos_iter)
+    {
+      if (g_strcmp0 (extension_infos_iter->extension_flatpak_name,
+                     candidate_extension_name) != 0)
+        {
+          return extension_infos_iter->source_flatpak_name;
+        }
+    }
+
+  return NULL;
+}
+
+static GPtrArray *
+create_install_infos_array (const gchar          *branch,
+                            const gchar          *repo_name,
+                            const FlatpakInfo    *flatpak_infos,
+                            const gchar         **preinstalled_flatpak_names,
+                            const ExtensionInfo  *extension_infos)
+{
+  g_autoptr(GPtrArray) install_infos =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_install_info_free);
+
+  for (const FlatpakInfo *flatpak_infos_iter = flatpak_infos;
+       flatpak_infos_iter->name != NULL;
+       ++flatpak_infos_iter)
+    {
+      const gchar *flatpak_name = flatpak_infos_iter->name;
+      g_autoptr(GPtrArray) extension_infos_for_flatpak =
+        build_extension_infos_for_flatpak (flatpak_name, extension_infos, branch);
+      const gchar *extension_of =
+        find_extension_of_id (flatpak_name, extension_infos);
+      FlatpakInstallInfoType type = flatpak_infos_iter->type;
+
+      g_ptr_array_add (install_infos,
+                       flatpak_install_info_new_with_extension_info (type,
+                                                                     flatpak_name,
+                                                                     branch,
+                                                                     "org.test.Runtime",
+                                                                     branch,
+                                                                     repo_name,
+                                                                     g_strv_contains (preinstalled_flatpak_names,
+                                                                                      flatpak_name),
+                                                                     extension_of,
+                                                                     extension_infos_for_flatpak));
+    }
+
+  return g_steal_pointer (&install_infos);
+}
+
+static gboolean
+setup_flatpak_repo_from_arrays (GFile                *flatpak_deployments_directory,
+                                const gchar          *branch,
+                                const gchar          *repo_name,
+                                const gchar          *local_collection_id,
+                                const gchar          *remote_collection_id,
+                                const FlatpakInfo    *flatpak_infos,
+                                const gchar         **preinstalled_flatpak_names,
+                                const ExtensionInfo  *extension_infos,
+                                GFile                *gpg_key,
+                                const gchar          *keyid,
+                                GError              **error)
+{
+  g_autoptr(GHashTable) repos =
+    g_hash_table_new_full (g_str_hash,
+                           g_str_equal,
+                           g_free,
+                           (GDestroyNotify) flatpak_repo_info_free);
+  g_autoptr(GPtrArray) install_infos =
+    create_install_infos_array (branch,
+                                repo_name,
+                                flatpak_infos,
+                                preinstalled_flatpak_names,
+                                extension_infos);
+
+  g_hash_table_insert (repos,
+                       g_strdup (repo_name),
+                       flatpak_repo_info_new (repo_name,
+                                              local_collection_id,
+                                              remote_collection_id));
+
+  return eos_test_setup_flatpak_repo (flatpak_deployments_directory,
+                                      install_infos,
+                                      repos,
+                                      gpg_key,
+                                      keyid,
+                                      error);
+
+}
+
 static void
 flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
                                    gconstpointer               user_data G_GNUC_UNUSED)
@@ -51,16 +189,30 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
   g_autofree gchar *source_gpg_home_path = g_test_build_filename (G_TEST_DIST, "..", "..", "tests", "gpghome", NULL);
   g_autoptr(GFile) gpg_key_file = NULL;
   g_autofree gchar *keyid = NULL;
-  const gchar *flatpak_names[] = {
-    "org.test.Test",
-    "org.test.Test2",
-    "org.test.Test3",
-    "org.test.Preinstalled",
-    NULL
+  const FlatpakInfo flatpak_infos[] = {
+    { "org.test.Runtime", FLATPAK_INSTALL_INFO_TYPE_RUNTIME },
+    { "org.test.Test", FLATPAK_INSTALL_INFO_TYPE_APP },
+    { "org.test.Test2", FLATPAK_INSTALL_INFO_TYPE_APP },
+    { "org.test.Test3", FLATPAK_INSTALL_INFO_TYPE_APP },
+    { "org.test.Preinstalled", FLATPAK_INSTALL_INFO_TYPE_APP },
+    { "org.test.PreinstalledTestHavingExtension", FLATPAK_INSTALL_INFO_TYPE_APP },
+    { "org.test.PreinstalledTestHavingExtension.Extension", FLATPAK_INSTALL_INFO_TYPE_EXTENSION },
+    { NULL, 0 }
   };
   const gchar *preinstall_flatpak_names[] = {
+    "org.test.Runtime",
     "org.test.Preinstalled",
+    "org.test.PreinstalledTestHavingExtension",
+    "org.test.PreinstalledTestHavingExtension.Extension",
     NULL
+  };
+  const ExtensionInfo extensions[] = {
+    {
+      "org.test.PreinstalledTestHavingExtension",
+      "org.test.PreinstalledTestHavingExtension.Extension",
+      FLATPAK_EXTENSION_POINT_AUTODELETE
+    },
+    { NULL, NULL }
   };
 
   g_assert_no_error (error);
@@ -75,16 +227,17 @@ flatpak_deployments_fixture_setup (FlatpakDeploymentsFixture  *fixture,
   keyid = get_keyid (fixture->gpg_home);
   gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
 
-  eos_test_setup_flatpak_repo_with_preinstalled_apps_simple (flatpak_deployments_directory,
-                                                             "stable",
-                                                             "test-repo",
-                                                             "com.test.CollectionId",
-                                                             "com.test.CollectionId",
-                                                             flatpak_names,
-                                                             preinstall_flatpak_names,
-                                                             gpg_key_file,
-                                                             keyid,
-                                                             &error);
+  setup_flatpak_repo_from_arrays (flatpak_deployments_directory,
+                                  "stable",
+                                  "test-repo",
+                                  "com.test.CollectionId",
+                                  "com.test.CollectionId",
+                                  flatpak_infos,
+                                  preinstall_flatpak_names,
+                                  extensions,
+                                  gpg_key_file,
+                                  keyid,
+                                  &error);
   g_assert_no_error (error);
 
   fixture->flatpak_deployments_directory = g_object_ref (flatpak_deployments_directory);
