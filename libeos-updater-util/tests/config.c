@@ -240,6 +240,28 @@ test_config_file_nonexistent (Fixture       *fixture,
   g_assert_cmpuint (loaded_file, ==, 1);
 }
 
+/* Test that if none of the files exist, but the GResource does, we successfully
+ * use that.. */
+static void
+test_config_file_resource_only (Fixture       *fixture,
+                                gconstpointer  user_data G_GNUC_UNUSED)
+{
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EuuConfigFile) config = NULL;
+  const gchar * const paths[] =
+    {
+      fixture->key_file_nonexistent_path,
+      NULL
+    };
+  guint loaded_file;
+
+  config = euu_config_file_new (paths, fixture->default_resource, fixture->default_path);
+
+  loaded_file = euu_config_file_get_uint (config, "Test", "File", 0, G_MAXUINT, &error);
+  g_assert_no_error (error);
+  g_assert_cmpuint (loaded_file, ==, 1000);
+}
+
 /* Test that if no configuration files are found, we abort. */
 static void
 test_config_file_fallback_per_file (Fixture       *fixture,
@@ -348,6 +370,8 @@ main (int   argc,
               test_config_file_invalid, teardown);
   g_test_add ("/config/nonexistent", Fixture, NULL, setup,
               test_config_file_nonexistent, teardown);
+  g_test_add ("/config/resource-only", Fixture, NULL, setup,
+              test_config_file_resource_only, teardown);
   g_test_add ("/config/fallback/per-file", Fixture, NULL, setup,
               test_config_file_fallback_per_file, teardown);
   g_test_add ("/config/fallback/per-key", Fixture, NULL, setup,
