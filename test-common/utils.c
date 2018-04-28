@@ -2170,6 +2170,7 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
                                                              "repos",
                                                              NULL);
   g_autoptr(GHashTable) already_uninstalled_runtimes = NULL;
+  g_autoptr(GHashTable) already_installed_runtimes = NULL;
   g_autoptr(GFile) gpg_home_dir = g_file_get_parent (gpg_key);
   guint i = 0;
   GHashTableIter iter;
@@ -2225,6 +2226,11 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
         return FALSE;
     }
 
+  /* Need to keep track of which runtimes we've already installed
+   * if we're setting up the same runtime in multiple remotes */
+  already_installed_runtimes =
+    g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
   /* Go through each of the FlatpakInstallInfos in install_infos
    * and build the flatpak in the right place. It is assumed that the
    * provided install_infos are in the correct dependency order. */
@@ -2263,14 +2269,19 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
                                              error))
                 return FALSE;
 
-              /* Note that runtimes need to be installed in order to
-               * build the corresponding flatpaks. We will uninstall them
-               * later if they were not marked for preinstallation */
-              if (!flatpak_install (updater_dir,
-                                    install_info->repo_name,
-                                    formatted_ref_name,
-                                    error))
-                return FALSE;
+              if (g_hash_table_insert (already_installed_runtimes,
+                                       g_strdup (formatted_ref_name),
+                                       NULL))
+                {
+                  /* Note that runtimes need to be installed in order to
+                   * build the corresponding flatpaks. We will uninstall them
+                   * later if they were not marked for preinstallation */
+                  if (!flatpak_install (updater_dir,
+                                        install_info->repo_name,
+                                        formatted_ref_name,
+                                        error))
+                    return FALSE;
+                }
             }
             break;
           case FLATPAK_INSTALL_INFO_TYPE_EXTENSION:
