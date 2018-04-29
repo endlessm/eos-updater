@@ -168,9 +168,6 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (default_collection_ref),
                        GUINT_TO_POINTER (1));
-  eos_test_subserver_update (subserver,
-                             &error);
-  g_assert_no_error (error);
 
   /* Also insert a commit (2) for the refspec "REMOTE:REFv2". The first time we
    * update, we should only update to commit 1, but when we switch over
