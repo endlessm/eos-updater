@@ -90,7 +90,7 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
 static void
 eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
 {
-  g_clear_pointer (&subserver->ref_to_commit, g_hash_table_unref);
+  g_clear_pointer (&subserver->commit_graph, g_hash_table_unref);
   g_clear_pointer (&subserver->additional_files_for_commit, g_hash_table_unref);
   g_clear_pointer (&subserver->additional_directories_for_commit, g_hash_table_unref);
   g_clear_pointer (&subserver->additional_metadata_for_commit, g_hash_table_unref);
@@ -119,7 +119,7 @@ eos_test_subserver_new (const gchar *collection_id,
                         GFile *gpg_home,
                         const gchar *keyid,
                         const gchar *ostree_path,
-                        GHashTable *ref_to_commit,
+                        GHashTable *commit_graph,
                         GHashTable *additional_directories_for_commit,
                         GHashTable *additional_files_for_commit,
                         GHashTable *additional_metadata_for_commit)
@@ -130,7 +130,11 @@ eos_test_subserver_new (const gchar *collection_id,
   subserver->gpg_home = g_object_ref (gpg_home);
   subserver->keyid = g_strdup (keyid);
   subserver->ostree_path = g_strdup (ostree_path);
-  subserver->ref_to_commit = g_hash_table_ref (ref_to_commit);
+  subserver->commit_graph = g_hash_table_ref (commit_graph);
+  subserver->commits_in_repo = g_hash_table_new_full (g_direct_hash,
+                                                      g_direct_equal,
+                                                      NULL,
+                                                      g_free);
   subserver->additional_directories_for_commit = additional_directories_for_commit ? g_hash_table_ref (additional_directories_for_commit) : NULL;
   subserver->additional_files_for_commit = additional_files_for_commit ? g_hash_table_ref (additional_files_for_commit) : NULL;
   subserver->additional_metadata_for_commit = additional_metadata_for_commit ? g_hash_table_ref (additional_metadata_for_commit) : NULL;
@@ -507,14 +511,176 @@ maybe_hashtable_lookup (GHashTable *table,
   return g_hash_table_lookup (table, key);
 }
 
-/* Prepare a commit. It will prepare a sysroot environment and commits
- * from 0 to the given commit_number.
+EosTestUpdaterCommitInfo *
+eos_test_updater_commit_info_new (guint                      sequence_number,
+                                  guint                      parent,
+                                  const OstreeCollectionRef *collection_ref)
+{
+  EosTestUpdaterCommitInfo *commit_info = g_new0 (EosTestUpdaterCommitInfo, 1);
+
+  commit_info->sequence_number = sequence_number;
+  commit_info->parent = parent;
+  commit_info->collection_ref = ostree_collection_ref_dup (collection_ref);
+
+  return commit_info;
+}
+
+void
+eos_test_updater_commit_info_free (EosTestUpdaterCommitInfo *info)
+{
+  g_clear_pointer (&info->collection_ref, ostree_collection_ref_free);
+
+  g_free (info);
+}
+
+typedef gpointer (*CopyFunc) (gpointer);
+
+static gpointer
+no_copy (gpointer value)
+{
+  return value;
+}
+
+/* Flip keys to values and vice versa */
+static GHashTable *
+reverse_hashtable (GHashTable     *ht,
+                   GHashFunc       hash_func,
+                   GEqualFunc      equal_func,
+                   GDestroyNotify  key_destroy,
+                   GDestroyNotify  value_destroy,
+                   CopyFunc        key_copy,
+                   CopyFunc        value_copy)
+{
+  g_autoptr(GHashTable) reversed_ht = g_hash_table_new_full (hash_func,
+                                                             equal_func,
+                                                             key_destroy,
+                                                             value_destroy);
+  gpointer key, value;
+  GHashTableIter iter;
+
+  g_hash_table_iter_init (&iter, ht);
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    g_hash_table_insert (reversed_ht,
+                         (*key_copy) (value),
+                         (*value_copy) (key));
+
+  return g_steal_pointer (&reversed_ht);
+}
+
+void
+eos_test_updater_insert_commit_steal_info (GHashTable               *commit_graph,
+                                           EosTestUpdaterCommitInfo *commit_info)
+{
+  g_hash_table_insert (commit_graph,
+                       GUINT_TO_POINTER (commit_info->sequence_number),
+                       commit_info);
+}
+
+static void
+populate_commit_chain (GHashTable                *commit_graph,
+                       guint                      commit,
+                       const OstreeCollectionRef *collection_ref,
+                       GHashTable                *commit_to_ref)
+{
+  /* Recurse down first until we either hit a commit that is known
+   * in the commit_to_ref table or the zeroeth commit */
+  guint parent_commit = commit == 0 ? commit : commit - 1;
+  gboolean has_parent =
+    (commit > 0 && !g_hash_table_lookup (commit_to_ref, GUINT_TO_POINTER (parent_commit)));
+
+  if (has_parent)
+    populate_commit_chain (commit_graph, parent_commit, collection_ref, commit_to_ref);
+
+  /* Populate commit info now */
+  eos_test_updater_insert_commit_steal_info (commit_graph,
+                                             eos_test_updater_commit_info_new (commit,
+                                                                               parent_commit,
+                                                                               collection_ref));
+}
+
+static gint
+sort_commits (gconstpointer lhs, gconstpointer rhs)
+{
+  /* Technically this is playing games with casting -
+   * we should not have commits larger than G_MAXINT here */
+  gint lhs_commit = GPOINTER_TO_INT (lhs);
+  gint rhs_commit = GPOINTER_TO_INT (rhs);
+
+  /* Descending */
+  return rhs_commit - lhs_commit;
+}
+
+/**
+ * eos_test_updater_populate_commit_graph_from_leaf_nodes:
+ * @commit_graph: A #GHashTable
+ * @leaf_nodes: (element-type guint OstreeCollectionRef) A #GHashTable mapping
+ *              leaf commit ids to OstreeCollectionRef.
+ *
+ * "Fill in" the rest of the commit graph from the @leaf_nodes down. Each
+ * parent of a leaf node will use the same #OstreeCollectionRef, unless another
+ * entry was specified in @leaf_nodes with that commit id, at which point parents
+ * of that commit will use that #OstreeCollectionRef instead.
+ *
+ * This function destroys any existing graph structure and populates the graph
+ * from scratch.
+ *
  */
+void
+eos_test_updater_populate_commit_graph_from_leaf_nodes (GHashTable *commit_graph,
+                                                        GHashTable *leaf_nodes)
+{
+  g_autoptr(GHashTable) commit_to_ref = reverse_hashtable (leaf_nodes,
+                                                           g_direct_hash,
+                                                           g_direct_equal,
+                                                           NULL,
+                                                           (GDestroyNotify) ostree_collection_ref_free,
+                                                           no_copy,
+                                                           (CopyFunc) ostree_collection_ref_dup);
+
+  /* Each of the key-value pairs in leaf_nodes points to a candidate
+   * leaf node for a given refspec. From there we recursively go down the
+   * tree and create new EosTestUpdaterCommitInfo objects, unless we
+   * see an entry for that commit in commit_to_ref (we'll start from
+   * that key the next time around */
+  g_autoptr(GList) commit_keys = g_list_sort (g_hash_table_get_keys (commit_to_ref),
+                                              sort_commits);
+
+  /* Clear the hash-table first */
+  g_hash_table_remove_all (commit_graph);
+
+  for (GList *iter = commit_keys; iter != NULL; iter = iter->next)
+    {
+      guint commit = GPOINTER_TO_UINT (iter->data);
+      const OstreeCollectionRef *collection_ref =
+        g_hash_table_lookup (commit_to_ref, GUINT_TO_POINTER (commit));
+      populate_commit_chain (commit_graph,
+                             commit,
+                             collection_ref,
+                             commit_to_ref);
+    }
+}
+
+GHashTable *
+eos_test_updater_commit_graph_new_from_leaf_nodes (GHashTable *leaf_nodes)
+{
+  GHashTable *commit_graph = g_hash_table_new_full (g_direct_hash,
+                                                    g_direct_equal,
+                                                    NULL,
+                                                    (GDestroyNotify) eos_test_updater_commit_info_free);
+
+  if (leaf_nodes != NULL)
+    eos_test_updater_populate_commit_graph_from_leaf_nodes (commit_graph,
+                                                            leaf_nodes);
+
+  return commit_graph;
+}
+
+/* Prepare a commit. This function no longer recursively
+ * prepares commits, that is now the responsibility of the caller */
 static gboolean
 prepare_commit (GFile *repo,
                 GFile *tree_root,
-                guint commit_number,
-                const OstreeCollectionRef *collection_ref,
+                EosTestUpdaterCommitInfo *commit_info,
                 GFile *gpg_home,
                 const gchar *keyid,
                 GHashTable *additional_directories_for_commit,
@@ -526,6 +692,8 @@ prepare_commit (GFile *repo,
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GDateTime) timestamp = NULL;
   g_autofree gchar *subject = NULL;
+  guint commit_number = commit_info->sequence_number;
+  const OstreeCollectionRef *collection_ref = commit_info->collection_ref;
 
   if (commit_number > max_commit_number)
     {
@@ -551,27 +719,27 @@ prepare_commit (GFile *repo,
       }
   }
 
-  if (commit_number > 0)
+  /* Only need to prepare sysroot contents on the first commit */
+  if (commit_number == 0)
     {
-      if (!prepare_commit (repo,
-                           tree_root,
-                           commit_number - 1,
-                           collection_ref,
-                           gpg_home,
-                           keyid,
-                           additional_directories_for_commit,
-                           additional_files_for_commit,
-                           additional_metadata_for_commit,
-                           NULL,
-                           error))
+      if (!prepare_sysroot_contents (repo,
+                                     tree_root,
+                                     error))
         return FALSE;
     }
-  else
-    if (!prepare_sysroot_contents (repo,
-                                   tree_root,
-                                   error))
-      return FALSE;
 
+  /* FIXME: Right now this unconditionally puts all the files for a given
+   * commit into the tree and does not clean up afterwards. This is fine
+   * for linear histories, but could have some unexpected results for non-linear
+   * histories.
+   *
+   * At the moment this does not negatively impact the tests as the tests which
+   * test non-linear histories don't test the actual files in a commit.
+   *
+   * We could clean all this up between commits, however, that would probably make
+   * test performance worse since it would mean that we would have to delete
+   * and recreate files (especially large ones!) on each commit.
+   */
   if (!create_commit_files_and_directories (tree_root, commit_number, error))
     return FALSE;
 
@@ -593,7 +761,7 @@ prepare_commit (GFile *repo,
   if (!ostree_commit (repo,
                       tree_root,
                       subject,
-                      collection_ref->ref_name,
+                      commit_info->collection_ref->ref_name,
                       gpg_home,
                       keyid,
                       timestamp,
@@ -607,7 +775,10 @@ prepare_commit (GFile *repo,
     return FALSE;
 
   if (out_checksum != NULL)
-    return get_current_commit_checksum (repo, collection_ref, out_checksum, error);
+    return get_current_commit_checksum (repo,
+                                        commit_info->collection_ref,
+                                        out_checksum,
+                                        error);
 
   return TRUE;
 }
@@ -627,105 +798,144 @@ generate_delta_files (GFile *repo,
 }
 
 /**
- * get_last_ref:
- * @ref_to_commit: (element-type utf8 uint): a #GHashTable mapping refs to commit numbers.
- * @wanted_commit_number: the commit number to count down from.
+ * eos_test_updater_commit_graph_walk:
+ * @commit_graph: A #GHashTable
+ * @walk_func: A #EosTestUpdaterCommitGraphWalkFunc called on each node in level order
+ * @walk_func_data: Closure for @walk_func
+ * @error: A #GError
  *
- * Look through the ref_to_commit hashtable (which maps refs to
- * commit numbers) to try and find the last known ref before
- * wanted_commit_number. It handles the case where we have commits
- * N, N - J and don't have (N - 1)..(N - J) in the hashtable.
+ * Walk the commit graph in a breadth-first fashion, traversing
+ * in a level order. walk_func will be called on each commit with
+ * the #EosTestUpdaterCommitInfo for each commit as well as its parent.
  *
- * Returns: the last known ref before wanted_commit_number
+ * @walk_func may mutate outer state and may fail.
+ *
+ * The implementation here is a little awkward since we need to do
+ * an O(V) linear scan to expand children for each node, making the
+ * walk cost O(V^2).
+ *
+ * Returns: %TRUE if no @walk_func invocation failed on the graph, %FALSE with
+ *          @error set otherwise.
  */
-static OstreeCollectionRef *
-get_last_ref (GHashTable *ref_to_commit,
-              guint       wanted_commit_number)
+gboolean
+eos_test_updater_commit_graph_walk (GHashTable                         *commit_graph,
+                                    EosTestUpdaterCommitGraphWalkFunc   walk_func,
+                                    gpointer                            walk_func_data,
+                                    GError                            **error)
 {
-  gpointer key = NULL;
-  gpointer value = NULL;
+  GQueue queue = G_QUEUE_INIT;
 
-  g_assert (wanted_commit_number > 0);
+  g_queue_init (&queue);
+  g_queue_push_tail (&queue, GUINT_TO_POINTER (0));
 
-  /* Decrement at least once, since we want to find a commit
-   * before this one */
-  wanted_commit_number--;
-
-  for (; wanted_commit_number > 0; wanted_commit_number--)
+  while (!g_queue_is_empty (&queue))
     {
+      guint commit = GPOINTER_TO_UINT (g_queue_pop_head (&queue));
       GHashTableIter iter;
+      gpointer key, value;
+      EosTestUpdaterCommitInfo *commit_info =
+        g_hash_table_lookup (commit_graph,
+                             GUINT_TO_POINTER (commit));
+      EosTestUpdaterCommitInfo *parent_commit_info =
+        g_hash_table_lookup (commit_graph,
+                             GUINT_TO_POINTER (commit_info->parent));
 
-      g_hash_table_iter_init (&iter, ref_to_commit);
+      /* Process node */
+      if (!((*walk_func) (commit_info,
+                          commit == commit_info->parent ? NULL : parent_commit_info,
+                          walk_func_data,
+                          error)))
+        {
+          g_queue_clear (&queue);
+          return FALSE;
+        }
+
+      g_hash_table_iter_init (&iter, commit_graph);
       while (g_hash_table_iter_next (&iter, &key, &value))
         {
-          guint commit_number = GPOINTER_TO_UINT (value);
+          guint candidate_child = GPOINTER_TO_UINT (key);
+          guint candidate_parent = ((EosTestUpdaterCommitInfo *) value)->parent;
 
-          if (commit_number == wanted_commit_number)
-            return key;
+          /* Special case - root node has self as parent, ignore this */
+          if (candidate_parent == commit &&
+              candidate_parent != candidate_child)
+            g_queue_push_tail (&queue, GUINT_TO_POINTER (candidate_child));
         }
     }
 
-  return NULL;
+  g_queue_clear (&queue);
+  return TRUE;
 }
 
-/* Updates the subserver to a new commit number in the ref_to_commit
- * hash table.  This involves creating the commits, generating ref
- * files and delta files, and updating the summary.
+static gboolean
+make_commit_if_not_available (EosTestUpdaterCommitInfo  *commit_info,
+                              EosTestUpdaterCommitInfo  *parent_commit_info,
+                              gpointer                   user_data,
+                              GError                   **error)
+{
+  EosTestSubserver *subserver = user_data;
+  g_autofree gchar *checksum = NULL;
+
+  /* Commit is already in the repo, ignore.
+   *
+   * We can't insert the commit into this table just yet, we
+   * need to make it first in order to get the checksum.
+   */
+  if (g_hash_table_contains (subserver->commits_in_repo,
+                             GUINT_TO_POINTER (commit_info->sequence_number)))
+    return TRUE;
+
+  /* Make the commit */
+  if (!prepare_commit (subserver->repo,
+                       subserver->tree,
+                       commit_info,
+                       subserver->gpg_home,
+                       subserver->keyid,
+                       subserver->additional_directories_for_commit,
+                       subserver->additional_files_for_commit,
+                       subserver->additional_metadata_for_commit,
+                       &checksum,
+                       error))
+    return FALSE;
+
+  if (parent_commit_info != NULL)
+    {
+      const gchar *old_checksum = g_hash_table_lookup (subserver->commits_in_repo,
+                                                       GUINT_TO_POINTER (parent_commit_info->sequence_number));
+
+      g_assert_nonnull (old_checksum);
+
+      if (!generate_delta_files (subserver->repo,
+                                 old_checksum,
+                                 checksum,
+                                 error))
+        return FALSE;
+    }
+
+  /* Insert commit checksum into hashtable */
+  g_hash_table_insert (subserver->commits_in_repo,
+                       GUINT_TO_POINTER (commit_info->sequence_number),
+                       g_strdup (checksum));
+
+  return TRUE;
+}
+
+/* Updates the subserver to reflect the state of
+ * the internal commit graph.  This involves
+ * creating the commits, generating ref files and
+ * delta files, and updating the summary.
  */
 static gboolean
 update_commits (EosTestSubserver *subserver,
                 GError **error)
 {
-  GHashTableIter iter;
-  gpointer collection_ref_ptr;
-  gpointer commit_ptr;
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
-  g_hash_table_iter_init (&iter, subserver->ref_to_commit);
-  while (g_hash_table_iter_next (&iter, &collection_ref_ptr, &commit_ptr))
-    {
-      const OstreeCollectionRef *collection_ref = collection_ref_ptr;
-      guint commit_number = GPOINTER_TO_UINT (commit_ptr);
-      g_autofree gchar *checksum = NULL;
-      g_autofree gchar *old_checksum = NULL;
-
-
-      if (commit_number > 0)
-        {
-          /* O(N^2), sadly */
-          const OstreeCollectionRef *last_ref = get_last_ref (subserver->ref_to_commit,
-                                                              commit_number);
-          /* Get the checksum of the commit on the last ref, since
-           * it may have changed in the meantime */
-          if (!get_current_commit_checksum (subserver->repo,
-                                            (last_ref != NULL) ? last_ref : collection_ref,
-                                            &old_checksum,
-                                            error))
-            return FALSE;
-        }
-
-      if (!prepare_commit (subserver->repo,
-                           subserver->tree,
-                           commit_number,
-                           collection_ref,
-                           subserver->gpg_home,
-                           subserver->keyid,
-                           subserver->additional_directories_for_commit,
-                           subserver->additional_files_for_commit,
-                           subserver->additional_metadata_for_commit,
-                           &checksum,
-                           error))
-        return FALSE;
-
-      if (commit_number > 0)
-        {
-          if (!generate_delta_files (subserver->repo,
-                                     old_checksum,
-                                     checksum,
-                                     error))
-            return FALSE;
-        }
-    }
+  if (!eos_test_updater_commit_graph_walk (subserver->commit_graph,
+                                           make_commit_if_not_available,
+                                           subserver,
+                                           error))
+    return FALSE;
 
   if (!ostree_summary (subserver->repo,
                        subserver->gpg_home,
@@ -743,6 +953,14 @@ repo_config_exists (GFile *repo)
   g_autoptr(GFile) config = g_file_get_child (repo, "config");
 
   return g_file_query_exists (config, NULL);
+}
+
+void
+eos_test_subserver_populate_commit_graph_from_leaf_nodes (EosTestSubserver *subserver,
+                                                          GHashTable       *leaf_nodes)
+{
+  eos_test_updater_populate_commit_graph_from_leaf_nodes (subserver->commit_graph,
+                                                          leaf_nodes);
 }
 
 gboolean
@@ -936,16 +1154,19 @@ eos_test_server_new_quick (GFile *server_root,
                            GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
-  g_autoptr(GHashTable) ref_to_commit = eos_test_subserver_ref_to_commit_new ();
+  g_autoptr(GHashTable) leaf_commit_nodes = eos_test_subserver_ref_to_commit_new ();
+  g_autoptr(GHashTable) commit_graph = NULL;
 
-  g_hash_table_insert (ref_to_commit,
+  g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (collection_ref),
                        GUINT_TO_POINTER (commit_number));
+  commit_graph = eos_test_updater_commit_graph_new_from_leaf_nodes (leaf_commit_nodes);
+
   g_ptr_array_add (subservers, eos_test_subserver_new (collection_ref->collection_id,
                                                        gpg_home,
                                                        keyid,
                                                        ostree_path,
-                                                       ref_to_commit,
+                                                       commit_graph,
                                                        additional_directories_for_commit,
                                                        additional_files_for_commit,
                                                        additional_metadata_for_commit));
@@ -1530,7 +1751,21 @@ static gboolean
 ensure_ref_in_subserver (const OstreeCollectionRef *collection_ref,
                          EosTestSubserver *subserver)
 {
-  return g_hash_table_lookup_extended (subserver->ref_to_commit, collection_ref, NULL, NULL);
+  /* Linear scan of commit infos to check if the ref is
+   * in the commit_graph */
+  GHashTableIter iter;
+  gpointer value;
+
+  g_hash_table_iter_init (&iter, subserver->commit_graph);
+  while (g_hash_table_iter_next (&iter, NULL, &value))
+    {
+      EosTestUpdaterCommitInfo *commit_info = value;
+
+      if (ostree_collection_ref_equal (commit_info->collection_ref, collection_ref))
+        return TRUE;
+    }
+
+  return FALSE;
 }
 
 EosTestClient *
