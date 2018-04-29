@@ -120,6 +120,8 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_autoptr(GFile) client_root = NULL;
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
@@ -162,7 +164,7 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
                                 &error);
   g_assert_no_error (error);
 
-  g_hash_table_insert (subserver->ref_to_commit,
+  g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (default_collection_ref),
                        GUINT_TO_POINTER (1));
   eos_test_subserver_update (subserver,
@@ -172,9 +174,11 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   /* Also insert a commit (2) for the refspec "REMOTE:REFv2". The first time we
    * update, we should only update to commit 1, but when we switch over
    * the ref we pull from, we should have commit 2. */
-  g_hash_table_insert (subserver->ref_to_commit,
+  g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (next_collection_ref),
                        GUINT_TO_POINTER (2));
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
   eos_test_subserver_update (subserver,
                              &error);
   g_assert_no_error (error);

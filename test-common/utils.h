@@ -55,6 +55,35 @@ extern const OstreeCollectionRef *default_collection_ref;
 extern const gchar *const default_ostree_path;
 extern const gchar *const default_remote_name;
 
+typedef struct {
+  guint sequence_number;
+  guint parent;
+  OstreeCollectionRef *collection_ref;
+} EosTestUpdaterCommitInfo;
+
+EosTestUpdaterCommitInfo * eos_test_updater_commit_info_new (guint                      sequence_number,
+                                                             guint                      parent,
+                                                             const OstreeCollectionRef *collection_ref);
+
+void eos_test_updater_commit_info_free (EosTestUpdaterCommitInfo *info);
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (EosTestUpdaterCommitInfo, eos_test_updater_commit_info_free)
+
+typedef gboolean (*EosTestUpdaterCommitGraphWalkFunc) (EosTestUpdaterCommitInfo  *commit_info,
+                                                       EosTestUpdaterCommitInfo  *parent_commit_info,
+                                                       gpointer                   user_data,
+                                                       GError                   **error);
+gboolean eos_test_updater_commit_graph_walk (GHashTable                         *commit_graph,
+                                             EosTestUpdaterCommitGraphWalkFunc   walk_func,
+                                             gpointer                            walk_func_data,
+                                             GError                            **error);
+
+GHashTable * eos_test_updater_commit_graph_new_from_leaf_nodes (GHashTable *leaf_nodes);
+void eos_test_updater_insert_commit_steal_info (GHashTable               *commit_graph,
+                                                EosTestUpdaterCommitInfo *commit_info);
+void eos_test_updater_populate_commit_graph_from_leaf_nodes (GHashTable *commit_graph,
+                                                             GHashTable *leaf_nodes);
+
 #define EOS_TEST_TYPE_SUBSERVER eos_test_subserver_get_type ()
 G_DECLARE_FINAL_TYPE (EosTestSubserver,
                       eos_test_subserver,
@@ -69,7 +98,39 @@ struct _EosTestSubserver
   gchar *collection_id;
   gchar *keyid;
   gchar *ostree_path;
-  GHashTable *ref_to_commit;
+
+  /*
+   * Defines the "commit graph" of a given repo. OSTree repos for
+   * our system updater can have non-linear histories. For instance, we
+   * might be making commits on a given refspec and then either mark it
+   * as 'eol-rebase' or 'checkpoint' indicating that either a new refspec
+   * should be followed either immediately or upon booting into that commit.
+   *
+   * With 'checkpoint' it is possible that history might diverge. For
+   * instance, we might make a checkpoint at the end of a refspec
+   * but we find that some systems are unable to upgrade on the new
+   * refspec after rebooting (due to bad system configuration or
+   * bugs in the updater that were meant to support the new commits). In
+   * that case, we might want to create another commit on the booted
+   * refspec to fix the updater or system configuration so that systems
+   * can successfully upgrade. Thus the histories can diverge.
+   *
+   * Thus, in our tests, we need a data structure that can represent this
+   * nonlinearity (eg, a graph, just like the way git works). This graph
+   * is implemented as a reverse adjacency list with hash-tables. There is
+   * a hash table with a surjective mapping of commits to parents (eg, one
+   * commit may have many parents). A node is a root node if it has itself
+   * as its parent (typically, this is node 0). Creating a parent-child
+   * relation with this structure is fairly convenient, as we only need to
+   * insert a single value into the hash table. However, expanding children
+   * is O(V). There is also a hash table of commit-ids to an
+   * #EosTestUpdateCommitInfo struct with a little more info about that commit
+   * (for instance, which collection-ref it is on).
+   */
+  GHashTable *commit_graph;  /* (element-type guint EosTestUpdaterCommitInfo) */
+
+  /* Which commits we already have (mapping commit ids to checksums) */
+  GHashTable *commits_in_repo;  /* (element-type guint gchar) */
 
   /* This is a hashtable of string vectors - the key is the commit
    * number to insert the directories on and the value is a vector of
@@ -103,11 +164,13 @@ EosTestSubserver *eos_test_subserver_new (const gchar *collection_id,
                                           GFile *gpg_home,
                                           const gchar *keyid,
                                           const gchar *ostree_path,
-                                          GHashTable *ref_to_commit,
+                                          GHashTable *commit_graph,
                                           GHashTable *additional_directories_for_commit,
                                           GHashTable *additional_files_for_commit,
                                           GHashTable *additional_metadata_for_commit);
 
+void eos_test_subserver_populate_commit_graph_from_leaf_nodes (EosTestSubserver *subserver,
+                                                               GHashTable       *leaf_nodes);
 gboolean eos_test_subserver_update (EosTestSubserver *subserver,
                                     GError **error);
 

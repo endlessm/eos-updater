@@ -130,6 +130,37 @@ etc_set_up_client_synced_to_server (EtcData *data)
   g_assert_no_error (error);
 }
 
+static gint
+sort_commits (gconstpointer lhs, gconstpointer rhs)
+{
+  /* Technically this is playing games with casting -
+   * we should not have commits larger than G_MAXINT here */
+  gint lhs_commit = GPOINTER_TO_INT (lhs);
+  gint rhs_commit = GPOINTER_TO_INT (rhs);
+
+  /* Descending */
+  return rhs_commit - lhs_commit;
+}
+
+static EosTestUpdaterCommitInfo *
+search_for_most_recent_commit_on_collection_ref (GHashTable                *commit_graph,
+                                                 const OstreeCollectionRef *collection_ref)
+{
+  g_autoptr(GList) descending_commits = g_list_sort (g_hash_table_get_keys (commit_graph),
+                                                     sort_commits);
+
+  for (GList *iter = descending_commits; iter != NULL; iter = iter->next)
+    {
+      EosTestUpdaterCommitInfo *commit_info = g_hash_table_lookup (commit_graph,
+                                                                   iter->data);
+
+      if (ostree_collection_ref_equal (commit_info->collection_ref, collection_ref))
+        return commit_info;
+    }
+
+  return NULL;
+}
+
 /* Update the server to the new commit.
  */
 void
@@ -137,17 +168,37 @@ etc_update_server (EtcData *data,
                    guint commit)
 {
   g_autoptr(GError) error = NULL;
-  guint current_commit;
+  EosTestUpdaterCommitInfo *current_commit_info = NULL;
+  guint incoming_commit;
 
   g_assert_nonnull (data);
   g_assert_nonnull (data->subserver);
 
-  current_commit = GPOINTER_TO_UINT (g_hash_table_lookup (data->subserver->ref_to_commit, default_collection_ref));
-  g_assert_cmpint (current_commit, <, commit);
+  current_commit_info =
+    search_for_most_recent_commit_on_collection_ref (data->subserver->commit_graph,
+                                                     default_collection_ref);
 
-  g_hash_table_insert (data->subserver->ref_to_commit,
-                       ostree_collection_ref_dup (default_collection_ref),
-                       GUINT_TO_POINTER (commit));
+  g_assert_nonnull (current_commit_info);
+  g_assert_cmpint (current_commit_info->sequence_number, <, commit);
+
+  /* We also need to insert commits for all parents, do that now */
+  incoming_commit = current_commit_info->sequence_number + 1;
+
+  /* Inclusive of the final commit (eg, from the current_commit + 1
+   * to the new commit inclusive) */
+  while (incoming_commit <= commit)
+    {
+      guint parent = incoming_commit - 1;
+
+      g_hash_table_insert (data->subserver->commit_graph,
+                           GUINT_TO_POINTER (incoming_commit),
+                           eos_test_updater_commit_info_new (incoming_commit,
+                                                             parent,
+                                                             ostree_collection_ref_dup (default_collection_ref)));
+
+      ++parent;
+      ++incoming_commit;
+    }
   eos_test_subserver_update (data->subserver,
                              &error);
   g_assert_no_error (error);
