@@ -216,6 +216,351 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_assert_true (has_commit);
 }
 
+/* Start with a commit, and then make a final commit on the first refspec
+ * which adds a new marker, such that when that commit is deployed, the updater
+ * will know to use a new refspec to upgrade with. However, say we screwed
+ * up and need to do a maintenance fix on the old branch. The commit from the
+ * old branch should be preferred on the next update such that the
+ * old refspec is still in use on reboot.
+ *
+ *  REFv2              (4)
+ *                    /
+ *                   /
+ *  REF (0)--(1)--(2)--(3)
+ *
+ * (2) is a checkpoint. (3) is a maintenance commit on the original
+ * "REF" refspec.
+ */
+static void
+test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
+                                                    gconstpointer user_data)
+{
+  g_autoptr(GFile) server_root = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(GFile) client_root = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
+  gboolean has_commit;
+
+  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
+   * afterwards we hit unsupported syscalls in qemu-user when running in an
+   * ARM chroot (for example), so just bail. */
+  if (!eos_test_has_ostree_boot_id ())
+    {
+      g_test_skip ("OSTree will not work without a boot ID");
+      return;
+    }
+
+  insert_update_refspec_metadata_for_commit (1,
+                                             next_refspec,
+                                             &additional_metadata_for_commit);
+
+  server_root = g_file_get_child (fixture->tmpdir, "main");
+  server = eos_test_server_new_quick (server_root,
+                                      default_vendor,
+                                      default_product,
+                                      default_collection_ref,
+                                      0,
+                                      fixture->gpg_home,
+                                      keyid,
+                                      default_ostree_path,
+                                      NULL,
+                                      NULL,
+                                      additional_metadata_for_commit,
+                                      &error);
+  g_assert_no_error (error);
+  g_assert_cmpuint (server->subservers->len, ==, 1u);
+
+  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
+  client_root = g_file_get_child (fixture->tmpdir, "client");
+  client = eos_test_client_new (client_root,
+                                default_remote_name,
+                                subserver,
+                                default_collection_ref,
+                                default_vendor,
+                                default_product,
+                                &error);
+  g_assert_no_error (error);
+
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (1,
+                                                                               0,
+                                                                               default_collection_ref));
+
+  /* Also insert a commit (2) for the refspec "REMOTE:REFv2". The first time we
+   * update, we should only update to commit 1, but when we switch over
+   * the ref we pull from, we should have commit 2. */
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (2,
+                                                                               1,
+                                                                               next_collection_ref));
+  eos_test_subserver_update (subserver,
+                             &error);
+  g_assert_no_error (error);
+
+  /* Now update the client. We stopped making commits on this
+   * ref, so it is effectively a "checkpoint" and we should only have
+   * the first commit. */
+  update_client (fixture, client);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              1,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              2,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_false (has_commit);
+
+  /* Now, let's say we screw up something and need to do an update on
+   * the old branch. Insert another commit, but this time without the
+   * metadata. */
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (3,
+                                                                               1,
+                                                                               default_collection_ref));
+  /* For completeness insert a new commit on the checkpoint branch */
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (4,
+                                                                               2,
+                                                                               next_collection_ref));
+  eos_test_subserver_update (subserver,
+                             &error);
+  g_assert_no_error (error);
+
+  /* Update the client again. Even though we deployed
+   * the checkpoint, we should not have the new commit that
+   * came from the checkpoint branch. Instead we should
+   * have the newest commit on the non-checkpoint branch */
+  update_client (fixture, client);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              4,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_false (has_commit);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              3,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+}
+
+/* Start with a commit, and then make a final commit on the first refspec
+ * which adds a new marker, such that when that commit is deployed, the updater
+ * will know to use a new refspec to upgrade with. However, say we screwed
+ * up and need to do a maintenance fix on the old branch. The commit from the
+ * old branch should be preferred on the next update such that the
+ * old refspec is still in use on reboot. However, later on we create
+ * another checkpoint commit on the newest commit in the old branch. That
+ * should take us to our new branch.
+ *
+ *  REFv2             (4)      (6)
+ *                   /         /
+ *                  /         /
+ *  REF (0)--(1)--(2)--(3)--(5)
+ *
+ * (2) is a checkpoint. (3) is a maintenance commit on the original
+ * "REF" refspec. (5) is another checkpoint. Note that (2) is the parent
+ * of (4) and (5) is the parent of (6) in the sense that static deltas
+ * will be generated between those two.
+ *
+ */
+static void
+test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFixture *fixture,
+                                                                    gconstpointer user_data)
+{
+  g_autoptr(GFile) server_root = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(GFile) client_root = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
+  gboolean has_commit;
+
+  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
+   * afterwards we hit unsupported syscalls in qemu-user when running in an
+   * ARM chroot (for example), so just bail. */
+  if (!eos_test_has_ostree_boot_id ())
+    {
+      g_test_skip ("OSTree will not work without a boot ID");
+      return;
+    }
+
+  insert_update_refspec_metadata_for_commit (1,
+                                             next_refspec,
+                                             &additional_metadata_for_commit);
+  insert_update_refspec_metadata_for_commit (5,
+                                             next_refspec,
+                                             &additional_metadata_for_commit);
+
+  server_root = g_file_get_child (fixture->tmpdir, "main");
+  server = eos_test_server_new_quick (server_root,
+                                      default_vendor,
+                                      default_product,
+                                      default_collection_ref,
+                                      0,
+                                      fixture->gpg_home,
+                                      keyid,
+                                      default_ostree_path,
+                                      NULL,
+                                      NULL,
+                                      additional_metadata_for_commit,
+                                      &error);
+  g_assert_no_error (error);
+  g_assert_cmpuint (server->subservers->len, ==, 1u);
+
+  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
+  client_root = g_file_get_child (fixture->tmpdir, "client");
+  client = eos_test_client_new (client_root,
+                                default_remote_name,
+                                subserver,
+                                default_collection_ref,
+                                default_vendor,
+                                default_product,
+                                &error);
+  g_assert_no_error (error);
+
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (1,
+                                                                               0,
+                                                                               default_collection_ref));
+
+  /* Also insert a commit (2) for the refspec "REMOTE:REFv2". The first time we
+   * update, we should only update to commit 1, but when we switch over
+   * the ref we pull from, we should have commit 2. */
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (2,
+                                                                               1,
+                                                                               next_collection_ref));
+  eos_test_subserver_update (subserver,
+                             &error);
+  g_assert_no_error (error);
+
+  /* Now update the client. We stopped making commits on this
+   * ref, so it is effectively a "checkpoint" and we should only have
+   * the first commit. */
+  update_client (fixture, client);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              1,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              2,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_false (has_commit);
+
+  /* Now, let's say we screw up something and need to do an update on
+   * the old branch. Insert another commit, but this time without the
+   * metadata. */
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (3,
+                                                                               1,
+                                                                               default_collection_ref));
+  /* For completeness insert a new commit on the checkpoint branch */
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (4,
+                                                                               2,
+                                                                               next_collection_ref));
+  eos_test_subserver_update (subserver,
+                             &error);
+  g_assert_no_error (error);
+
+  /* Update the client again. Even though we deployed
+   * the checkpoint, we should not have the new commit that
+   * came from the checkpoint branch. Instead we should
+   * have the newest commit on the non-checkpoint branch */
+  update_client (fixture, client);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              4,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_false (has_commit);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              3,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+
+  /* Finally, we create another commit on the old branch
+   * which is a checkpoint and a new commit on the new branch
+   * which continues off from the old branch */
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (5,
+                                                                               3,
+                                                                               default_collection_ref));
+  eos_test_updater_insert_commit_steal_info (subserver->commit_graph,
+                                             eos_test_updater_commit_info_new (6,
+                                                                               5,
+                                                                               next_collection_ref));
+  eos_test_subserver_update (subserver,
+                             &error);
+  g_assert_no_error (error);
+
+  /* Update the client. We should stop
+   * at the checkpoint commit again. */
+  update_client (fixture, client);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              6,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_false (has_commit);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              5,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+
+  /* Update one more time. We should now have the
+   * commit on the post-checkpoint branch. */
+  update_client (fixture, client);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              6,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+}
+
 int
 main (int argc,
       char **argv)
@@ -227,6 +572,12 @@ main (int argc,
   eos_test_add ("/updater/update-refspec-checkpoint",
                 NULL,
                 test_update_refspec_checkpoint);
+  eos_test_add ("/updater/update-refspec-checkpoint-continue-old-branch",
+                NULL,
+                test_update_refspec_checkpoint_continue_old_branch);
+  eos_test_add ("/updater/update-refspec-checkpoint-continue-old-branch-then-new-branch",
+                NULL,
+                test_update_refspec_checkpoint_continue_old_branch_then_new_branch);
 
   return g_test_run ();
 }
