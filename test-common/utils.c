@@ -1781,7 +1781,15 @@ eos_test_client_new (GFile *client_root,
   g_autoptr(EosTestClient) client = NULL;
 
   if (!ensure_ref_in_subserver (collection_ref, subserver))
-    return FALSE;
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_FAILED,
+                   "Could not find collection ref %s:%s in subserver commits",
+                   collection_ref->collection_id,
+                   collection_ref->ref_name);
+      return FALSE;
+    }
 
   if (!prepare_client_sysroot (client_root,
                                remote_name,
