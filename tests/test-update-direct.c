@@ -223,6 +223,8 @@ test_cancel_update (EosUpdaterFixture *fixture,
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(EosUpdater) updater = NULL;
   g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
   DownloadSource main_source = DOWNLOAD_MAIN;
   gboolean has_commit;
   gulong state_change_handler = 0;
@@ -236,9 +238,11 @@ test_cancel_update (EosUpdaterFixture *fixture,
                                   &local_error);
   g_assert_no_error (local_error);
 
-  g_hash_table_insert (subserver->ref_to_commit,
+  g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (default_collection_ref),
                        GUINT_TO_POINTER (1));
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
   eos_test_subserver_update (subserver,
                              &local_error);
   g_assert_no_error (local_error);
@@ -307,6 +311,8 @@ test_update_version (EosUpdaterFixture *fixture,
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(EosUpdater) updater = NULL;
   g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
   DownloadSource main_source = DOWNLOAD_MAIN;
   const gchar *version = (user_data != NULL) ? (const gchar *) user_data : "";
 
@@ -316,13 +322,15 @@ test_update_version (EosUpdaterFixture *fixture,
   setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
   g_assert_no_error (error);
 
-  g_hash_table_insert (subserver->ref_to_commit,
+  g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (default_collection_ref),
                        GUINT_TO_POINTER (1));
   if (version != NULL)
     eos_test_add_metadata_for_commit (&subserver->additional_metadata_for_commit,
                                       1, "version", version);
 
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
   eos_test_subserver_update (subserver, &error);
   g_assert_no_error (error);
 

@@ -46,6 +46,8 @@ test_update_from_main (EosUpdaterFixture *fixture,
   g_autoptr(GPtrArray) cmds = NULL;
   gboolean has_commit;
   DownloadSource main_source = DOWNLOAD_MAIN;
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
    * afterwards we hit unsupported syscalls in qemu-user when running in an
@@ -81,9 +83,11 @@ test_update_from_main (EosUpdaterFixture *fixture,
                                 &error);
   g_assert_no_error (error);
 
-  g_hash_table_insert (subserver->ref_to_commit,
+  g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (default_collection_ref),
                        GUINT_TO_POINTER (1));
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
   eos_test_subserver_update (subserver,
                              &error);
   g_assert_no_error (error);
