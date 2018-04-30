@@ -23,7 +23,8 @@ m4_define([eus_api_version],[0])
 AC_INIT([eos-updater],[1.0])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_USE_SYSTEM_EXTENSIONS
-AM_INIT_AUTOMAKE([1.11.2 dist-xz no-dist-gzip tar-ustar foreign subdir-objects])
+AM_INIT_AUTOMAKE([1.11.2 dist-xz no-dist-gzip tar-ustar foreign subdir-objects
+                  -Wno-portability])
 AM_SILENT_RULES([yes])
 AC_PROG_CC
 AC_CONFIG_MACRO_DIR([m4])
