@@ -79,7 +79,18 @@ flatpak_ref_actions_and_progresses (GStrv        directories_to_search,
   return TRUE;
 }
 
-/* See documentation for euu_filter_for_existing_flatpak_ref_actions(). */
+/**
+ * eufi_determine_flatpak_ref_actions_to_check:
+ * @directories_to_search: (nullable): directories to search for JSON files
+ * @error: return location for a #GError, or %NULL
+ *
+ * Search each directory in @directories_to_search for JSON files (as defined
+ * by eos-updater-flatpak-autoinstall.d(5)) and find actions that should
+ * already have been applied.
+ *
+ * Returns: (element-type filename EuuFlatpakRemoteRefAction) (transfer full):
+ * a mapping from file names to actions that should have been applied
+ */
 GHashTable *
 eufi_determine_flatpak_ref_actions_to_check (GStrv    directories_to_search,
                                              GError **error)
@@ -97,7 +108,18 @@ eufi_determine_flatpak_ref_actions_to_check (GStrv    directories_to_search,
                                                       flatpak_ref_actions_progress);
 }
 
-/* See documentation for euu_filter_for_new_flatpak_ref_actions(). */
+/**
+ * eufi_determine_flatpak_ref_actions_to_apply:
+ * @directories_to_search: (nullable): directories to search for JSON files
+ * @error: return location for a #GError, or %NULL
+ *
+ * Search each directory in @directories_to_search for JSON files (as defined
+ * by eos-updater-flatpak-autoinstall.d(5)) and find actions that should
+ * be applied.
+ *
+ * Returns: (element-type filename EuuFlatpakRemoteRefAction) (transfer full):
+ * a mapping from file names to actions that should be applied
+ */
 GHashTable *
 eufi_determine_flatpak_ref_actions_to_apply (GStrv    directories_to_search,
                                              GError **error)

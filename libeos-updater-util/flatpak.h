@@ -84,7 +84,7 @@ EuuFlatpakLocationRef *euu_flatpak_location_ref_new (FlatpakRef  *ref,
 EuuFlatpakLocationRef *euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *ref);
 void euu_flatpak_location_ref_unref (EuuFlatpakLocationRef *ref);
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakLocationRef, euu_flatpak_location_ref_unref);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakLocationRef, euu_flatpak_location_ref_unref)
 
 EuuFlatpakRemoteRefAction *euu_flatpak_remote_ref_action_new (EuuFlatpakRemoteRefActionType  type,
                                                               EuuFlatpakLocationRef         *ref,
@@ -100,7 +100,7 @@ EuuFlatpakRemoteRefActionsFile *euu_flatpak_remote_ref_actions_file_new (GPtrArr
                                                                          gint       priority);
 void euu_flatpak_remote_ref_actions_file_free (EuuFlatpakRemoteRefActionsFile *file);
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakRemoteRefActionsFile, euu_flatpak_remote_ref_actions_file_free);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakRemoteRefActionsFile, euu_flatpak_remote_ref_actions_file_free)
 
 GPtrArray *euu_flatpak_ref_actions_from_file (GFile         *file,
                                               GPtrArray    **out_skipped_actions,
