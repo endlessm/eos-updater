@@ -10,6 +10,8 @@ eos\-updater\-flatpak\-installer — Endless OS Updater Flatpak Installer
 .IX Header "SYNOPSIS"
 .\"
 \fBeos\-updater\-flatpak\-installer [\-m \fPmode\fB] [\-p]
+.PP
+\fBeos\-updater\-flatpak\-installer \-\-dry\-run
 .\"
 .SH DESCRIPTION
 .IX Header "DESCRIPTION"
@@ -22,6 +24,10 @@ the old OS deployment is still running.
 .PP
 .SH OPTIONS
 .IX Header "OPTIONS"
+.\"
+.IP "\fB\-\-dry\-run\fP"
+Print the actions that would be taken without this option. The mode used affects
+this output.
 .\"
 .IP "\fB\-m\fP, \fB\-\-mode=\fP"
 Which mode to run the flatpak installer in. (Default: \fBperform\fP.)

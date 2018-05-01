@@ -529,7 +529,7 @@ euu_config_file_get_string (EuuConfigFile  *self,
  * in the default configuration file, if not in any others. It will be loaded
  * from the first configuration file which contains it.
  *
- * Returns: (transfer full) (array zero-terminated=1) (array length=n_elements_out):
+ * Returns: (transfer full) (array zero-terminated=1 length=n_elements_out):
  *    the loaded string array, which is guaranteed to be non-%NULL but may be
  *    empty
  * Since: UNRELEASED
@@ -573,7 +573,7 @@ strcmp_p (const void *p1,
  * List the groups from all the configuration files, eliminating duplicates.
  * Empty groups are included in the list. The list is sorted lexicographically.
  *
- * Returns: (transfer full) (array zero-terminated=1) (array length=n_groups_out):
+ * Returns: (transfer full) (array zero-terminated=1 length=n_groups_out):
  *    the groups in the configuration files, which is guaranteed to be non-%NULL
  *    but may be empty
  * Since: UNRELEASED

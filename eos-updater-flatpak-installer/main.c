@@ -130,8 +130,10 @@ main (int    argc,
 
   g_autofree gchar *mode = NULL;
   gboolean also_pull = FALSE;
+  gboolean dry_run = FALSE;
   GOptionEntry entries[] =
     {
+      { "dry-run", 0, 0, G_OPTION_ARG_NONE, &dry_run, "Print actions without applying them", NULL },
       { "mode", 'm', 0, G_OPTION_ARG_STRING, &mode, "Mode to use (perform, stamp, check) (default: perform)", NULL },
       { "pull", 'p', 0, G_OPTION_ARG_NONE, &also_pull, "Also pull flatpaks", NULL },
       { NULL }
@@ -202,6 +204,9 @@ main (int    argc,
                                                   squashed_ref_actions_to_check);
           g_message ("%s", formatted_ordered_flatpak_ref_actions_to_check);
 
+          if (dry_run)
+            return EXIT_OK;
+
           if (!eufi_check_ref_actions_applied (installation,
                                                pending_flatpak_deployments_state_path,
                                                squashed_ref_actions_to_check,
@@ -238,6 +243,9 @@ main (int    argc,
             euu_format_flatpak_ref_actions_array ("Order in which actions will be applied",
                                                   squashed_ref_actions_to_apply);
           g_message ("%s", formatted_ordered_flatpak_ref_actions_to_apply);
+
+          if (dry_run)
+            return EXIT_OK;
 
           if (!eufi_apply_flatpak_ref_actions (installation,
                                                euu_pending_flatpak_deployments_state_path (),
