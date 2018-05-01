@@ -29,7 +29,6 @@
 #include <locale.h>
 
 const gchar *next_ref = "REFv2";
-const gchar *next_refspec = "REMOTE:REFv2";
 const OstreeCollectionRef _next_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) "REFv2" };
 const OstreeCollectionRef *next_collection_ref = &_next_collection_ref;
 
@@ -45,11 +44,11 @@ create_checkpoint_target_metadata (const gchar *ref_to_upgrade)
 }
 
 /* Add some metadata to add to the given commit, which when running as the
- * deployed commit, tells the updater which refspec to pull from (as opposed
- * to the currently booted one */
+ * deployed commit, tells the updater which ref to pull from (as opposed to
+ * the currently booted one */
 static void
 insert_update_refspec_metadata_for_commit (guint         commit,
-                                           const gchar  *new_refspec,
+                                           const gchar  *new_ref,
                                            GHashTable  **out_metadata_hashtable)
 {
   g_return_if_fail (out_metadata_hashtable != NULL);
@@ -62,7 +61,7 @@ insert_update_refspec_metadata_for_commit (guint         commit,
 
   g_hash_table_insert (*out_metadata_hashtable,
                        GUINT_TO_POINTER (commit),
-                       create_checkpoint_target_metadata (new_refspec));
+                       create_checkpoint_target_metadata (new_ref));
 }
 
 static void
@@ -135,7 +134,7 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
     }
 
   insert_update_refspec_metadata_for_commit (1,
-                                             next_refspec,
+                                             next_ref,
                                              &additional_metadata_for_commit);
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
@@ -255,7 +254,7 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
     }
 
   insert_update_refspec_metadata_for_commit (1,
-                                             next_refspec,
+                                             next_ref,
                                              &additional_metadata_for_commit);
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
@@ -405,10 +404,10 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
     }
 
   insert_update_refspec_metadata_for_commit (1,
-                                             next_refspec,
+                                             next_ref,
                                              &additional_metadata_for_commit);
   insert_update_refspec_metadata_for_commit (5,
-                                             next_refspec,
+                                             next_ref,
                                              &additional_metadata_for_commit);
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
@@ -561,6 +560,117 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
   g_assert_true (has_commit);
 }
 
+/* Make sure the checkpoint is followed when it has a full refspec with
+ * remote. */
+static void
+test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
+                                              gconstpointer user_data)
+{
+  g_autoptr(GFile) server_root = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(GFile) client_root = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
+  gboolean has_commit;
+  g_autofree gchar *next_refspec = g_strdup_printf ("BADREMOTE:%s", next_ref);
+
+  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
+   * afterwards we hit unsupported syscalls in qemu-user when running in an
+   * ARM chroot (for example), so just bail. */
+  if (!eos_test_has_ostree_boot_id ())
+    {
+      g_test_skip ("OSTree will not work without a boot ID");
+      return;
+    }
+
+  /* Set checkpoint with full refspec */
+  insert_update_refspec_metadata_for_commit (1,
+                                             next_refspec,
+                                             &additional_metadata_for_commit);
+
+  server_root = g_file_get_child (fixture->tmpdir, "main");
+  server = eos_test_server_new_quick (server_root,
+                                      default_vendor,
+                                      default_product,
+                                      default_collection_ref,
+                                      0,
+                                      fixture->gpg_home,
+                                      keyid,
+                                      default_ostree_path,
+                                      NULL,
+                                      NULL,
+                                      additional_metadata_for_commit,
+                                      &error);
+  g_assert_no_error (error);
+  g_assert_cmpuint (server->subservers->len, ==, 1u);
+
+  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
+  client_root = g_file_get_child (fixture->tmpdir, "client");
+  client = eos_test_client_new (client_root,
+                                default_remote_name,
+                                subserver,
+                                default_collection_ref,
+                                default_vendor,
+                                default_product,
+                                &error);
+  g_assert_no_error (error);
+
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (default_collection_ref),
+                       GUINT_TO_POINTER (1));
+
+  /* Also insert a commit (2) for the refspec "REMOTE:REFv2". The first time we
+   * update, we should only update to commit 1, but when we switch over
+   * the ref we pull from, we should have commit 2. */
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (next_collection_ref),
+                       GUINT_TO_POINTER (2));
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
+  eos_test_subserver_update (subserver,
+                             &error);
+  g_assert_no_error (error);
+
+  /* Now update the client. We stopped making commits on this
+   * ref, so it is effectively a "checkpoint" and we should only have
+   * the first commit. */
+  update_client (fixture, client);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              1,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              2,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_false (has_commit);
+
+  /* Update the client client again. Because we had deployed the
+   * checkpoint, we should now have the new ref to update on and should
+   * have pulled the new commit. */
+  update_client (fixture, client);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              2,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+}
+
 int
 main (int argc,
       char **argv)
@@ -578,6 +688,9 @@ main (int argc,
   eos_test_add ("/updater/update-refspec-checkpoint-continue-old-branch-then-new-branch",
                 NULL,
                 test_update_refspec_checkpoint_continue_old_branch_then_new_branch);
+  eos_test_add ("/updater/update-refspec-checkpoint-ignore-remote",
+                NULL,
+                test_update_refspec_checkpoint_ignore_remote);
 
   return g_test_run ();
 }
