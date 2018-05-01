@@ -201,7 +201,7 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_assert_no_error (error);
   g_assert_false (has_commit);
 
-  /* Update the client client again. Because we had deployed the
+  /* Update the client again. Because we had deployed the
    * checkpoint, we should now have the new ref to update on and should
    * have pulled the new commit. */
   update_client (fixture, client);
