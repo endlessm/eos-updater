@@ -341,7 +341,6 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
                             NULL,
                             &checksum,
                             &new_refspec,
-                            &version,
                             error))
     return FALSE;
 
@@ -397,7 +396,6 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                             NULL,
                             &checksum,
                             &new_refspec,
-                            &version,
                             error))
     return FALSE;
 
