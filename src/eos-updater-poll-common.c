@@ -349,7 +349,6 @@ get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
   g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_autoptr(OstreeRepo) repo = NULL;
-  g_autoptr(GError) local_error = NULL;
 
   if (!ostree_sysroot_load (sysroot, NULL, error))
     return FALSE;
