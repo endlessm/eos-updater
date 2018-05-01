@@ -374,11 +374,11 @@ get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
                            OstreeCollectionRef **collection_ref_to_upgrade_on,
                            GError              **error)
 {
-  g_autofree gchar *refspec = NULL;
-  g_autofree gchar *remote = NULL;
-  g_autofree gchar *ref = NULL;
-  g_autoptr(OstreeCollectionRef) collection_ref = NULL;
-  g_autofree gchar *ref_for_deployment = NULL;
+  g_autofree gchar *booted_refspec = NULL;
+  g_autofree gchar *booted_remote = NULL;
+  g_autofree gchar *booted_ref = NULL;
+  g_autoptr(OstreeCollectionRef) booted_collection_ref = NULL;
+  g_autofree gchar *checkpoint_ref_for_deployment = NULL;
   g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
 
@@ -392,42 +392,47 @@ get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
     return FALSE;
 
   if (!get_booted_refspec (booted_deployment,
-                           &refspec,
-                           &remote,
-                           &ref,
-                           &collection_ref,
+                           &booted_refspec,
+                           &booted_remote,
+                           &booted_ref,
+                           &booted_collection_ref,
                            error))
     return FALSE;
 
   if (!get_ref_to_upgrade_on_from_deployment (sysroot,
                                               booted_deployment,
-                                              &ref_for_deployment,
+                                              &checkpoint_ref_for_deployment,
                                               error))
     return FALSE;
 
   /* Handle the ref from the commit's metadata */
-  if (ref_for_deployment != NULL)
+  if (checkpoint_ref_for_deployment != NULL)
     {
-      OstreeCollectionRef *orig_collection_ref = collection_ref;
+      /* Set outparams from the checkpoint ref instead */
+      if (collection_ref_to_upgrade_on != NULL)
+        *collection_ref_to_upgrade_on = ostree_collection_ref_new (booted_collection_ref->collection_id,
+                                                                   checkpoint_ref_for_deployment);
+      if (refspec_to_upgrade_on != NULL)
+        *refspec_to_upgrade_on = g_strdup_printf ("%s:%s",
+                                                  booted_remote,
+                                                  checkpoint_ref_for_deployment);
+      if (remote_to_upgrade_on != NULL)
+        *remote_to_upgrade_on = g_steal_pointer (&booted_remote);
+      if (ref_to_upgrade_on != NULL)
+        *ref_to_upgrade_on = g_steal_pointer (&booted_collection_ref);
 
-      /* Replace the ref, refspec and collection_ref */
-      g_free (ref);
-      ref = g_steal_pointer (&ref_for_deployment);
-      g_free (refspec);
-      refspec = g_strdup_printf ("%s:%s", remote, ref);
-      collection_ref = ostree_collection_ref_new (orig_collection_ref->collection_id,
-                                                  ref);
-      ostree_collection_ref_free (orig_collection_ref);
+      return TRUE;
     }
 
+  /* Just use the booted refspec */
   if (collection_ref_to_upgrade_on != NULL)
-    *collection_ref_to_upgrade_on = g_steal_pointer (&collection_ref);
+    *collection_ref_to_upgrade_on = g_steal_pointer (&booted_collection_ref);
   if (refspec_to_upgrade_on != NULL)
-    *refspec_to_upgrade_on = g_steal_pointer (&refspec);
+    *refspec_to_upgrade_on = g_steal_pointer (&booted_refspec);
   if (remote_to_upgrade_on != NULL)
-    *remote_to_upgrade_on = g_steal_pointer (&remote);
+    *remote_to_upgrade_on = g_steal_pointer (&booted_remote);
   if (ref_to_upgrade_on != NULL)
-    *ref_to_upgrade_on = g_steal_pointer (&ref);
+    *ref_to_upgrade_on = g_steal_pointer (&booted_ref);
 
   return TRUE;
 }
