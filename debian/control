@@ -48,6 +48,18 @@ Depends:
 Description: Updater for Endless OS
  This package contains the components for keeping Endless OS up to date.
 
+Package: eos-updater-dev
+Section: libdevel
+Architecture: any
+Multi-arch: same
+Depends:
+ eos-updater (= ${binary:Version})
+ ${misc:Depends}
+Description: Updater for Endless OS - development files
+ This package contains the components for keeping Endless OS up to date.
+ .
+ This package contains development headers.
+
 Package: eos-updater-tests
 Section: misc
 Architecture: any

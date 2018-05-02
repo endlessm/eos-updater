@@ -1,0 +1,4 @@
+usr/lib/*/libeos-updater-util-0.so
+usr/lib/*/libeos-updater-flatpak-installer-0.so
+usr/share/gir-1.0/EosUpdaterUtil-0.gir
+usr/share/gir-1.0/EosUpdaterFlatpakInstaller-0.gir
