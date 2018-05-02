@@ -388,7 +388,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_refspec_to_upgrade_on (&upgrade_refspec, NULL, NULL, NULL, error))
+  if (!get_refspec_to_upgrade_on (&upgrade_refspec, &ref, &remote, &collection_ref, error))
     return FALSE;
 
   if (!fetch_latest_commit (repo,
@@ -399,6 +399,9 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                             &new_refspec,
                             &version,
                             error))
+    return FALSE;
+
+  if (!is_checksum_an_update (repo, checksum, &commit, error))
     return FALSE;
 
   out_update_ref_info->refspec = g_steal_pointer (&upgrade_refspec);
@@ -438,6 +441,10 @@ check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
   /* Did we have an update? If not, we can follow the checkpoint */
   if (!had_update_on_branch)
     {
+      /* Make sure to clear update_ref_info if we're going to
+       * reassign its values here */
+      update_ref_info_clear (out_update_ref_info);
+
       if (!check_for_update_following_checkpoint_commits (repo,
                                                           out_update_ref_info,
                                                           cancellable,
