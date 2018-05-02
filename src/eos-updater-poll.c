@@ -441,6 +441,10 @@ check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
   /* Did we have an update? If not, we can follow the checkpoint */
   if (!had_update_on_branch)
     {
+      /* Make sure to clear update_ref_info if we're going to
+       * reassign its values here */
+      update_ref_info_clear (out_update_ref_info);
+
       if (!check_for_update_following_checkpoint_commits (repo,
                                                           out_update_ref_info,
                                                           cancellable,
