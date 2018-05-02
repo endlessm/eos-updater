@@ -387,7 +387,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_refspec_to_upgrade_on (&upgrade_refspec, NULL, NULL, NULL, error))
+  if (!get_refspec_to_upgrade_on (&upgrade_refspec, &ref, &remote, &collection_ref, error))
     return FALSE;
 
   if (!fetch_latest_commit (repo,
