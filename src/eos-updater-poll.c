@@ -401,6 +401,9 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                             error))
     return FALSE;
 
+  if (!is_checksum_an_update (repo, checksum, &commit, error))
+    return FALSE;
+
   out_update_ref_info->refspec = g_steal_pointer (&upgrade_refspec);
   out_update_ref_info->remote = g_steal_pointer (&remote);
   out_update_ref_info->ref = g_steal_pointer (&ref);
