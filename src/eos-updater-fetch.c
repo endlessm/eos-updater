@@ -937,6 +937,13 @@ cancel_on_entry_invalidated_cb (MwscScheduleEntry *entry,
   g_cancellable_cancel (cancellable);
 }
 
+static gboolean
+cancellable_source_cb (GCancellable *cancellable,
+                       gpointer user_data)
+{
+  return G_SOURCE_REMOVE;
+}
+
 /* This must be run in the same worker thread as content_fetch(), with a
  * #GMainContext used only in that thread. */
 static gboolean
@@ -950,6 +957,7 @@ check_scheduler (FetchData     *fetch_data,
   g_autoptr(GError) local_error = NULL;
   gboolean timed_out;
   g_autoptr(GSource) timeout_source = NULL;
+  g_autoptr(GSource) cancellable_source = NULL;
   gulong notify_id, invalidated_id;
 
   /* If we are forcing updates, don’t check the scheduler at all. */
@@ -992,9 +1000,16 @@ check_scheduler (FetchData     *fetch_data,
     g_message ("Fetch: waiting for %u seconds for response from download scheduler",
                fetch_data->scheduling_timeout_seconds);
 
+  /* Ensure we trigger a source in the main context when the operation is canceled */
+  cancellable_source = g_cancellable_source_new (cancellable);
+  g_source_set_callback (cancellable_source, (GSourceFunc) cancellable_source_cb, NULL, NULL);
+  g_source_attach (cancellable_source, context);
+
   while (!download_now && !g_cancellable_is_cancelled (cancellable) &&
          !timed_out && invalidated_error == NULL)
     g_main_context_iteration (context, TRUE);
+
+  g_source_destroy (cancellable_source);
 
   if (timeout_source != NULL)
     g_source_destroy (timeout_source);
