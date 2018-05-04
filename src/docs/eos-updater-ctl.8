@@ -72,8 +72,12 @@ Check all configured update sources for available updates.
 Enable or disable advertising and serving updates to the local network using
 \fBeos\-update\-server\fP(8).
 .\"
-.IP "\fBupdate\fP"
+.IP "\fBupdate\fP [\fB\-\-force\fP] [\fB\-\-timeout=\fPSECONDS]"
 Run all three update stages in sequence: poll, fetch, apply.
+.IP
+The \fB\-\-force\fP and \fB\-\-timeout\fP options apply only to the fetch stage
+of the update process, and have the same meanings as for the \fBfetch\fP
+command.
 .\"
 .SH OPTIONS
 .IX Header "OPTIONS"

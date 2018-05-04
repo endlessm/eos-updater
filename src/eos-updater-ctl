@@ -199,13 +199,14 @@ def command_cancel(block, quiet=False):
     return command_dbus('cancel', block, quiet)
 
 
-def command_update(quiet=False):
+def command_update(quiet=False, force=False, timeout=0):
     """Run the entire update process."""
     poll_result = command_poll(block=True, quiet=quiet)
     if poll_result != 0:
         return poll_result
 
-    fetch_result = command_fetch(block=True, quiet=quiet)
+    fetch_result = command_fetch(block=True, quiet=quiet,
+                                 force=force, timeout=timeout)
     if fetch_result != 0:
         return fetch_result
 
@@ -388,6 +389,15 @@ def main():
     parser_update = subparsers.add_parser('update',
                                           help='run the entire update process')
     parser_update.set_defaults(function=command_update)
+    parser_update.add_argument('--force', action='store_true',
+                               help='force fetching even if on a metered '
+                                    'network connection (this only affects '
+                                    'the fetch stage)')
+    parser_update.add_argument('--timeout', type=nonnegative_int, default=0,
+                               help='timeout to wait for permission from the '
+                                    'scheduler for, or zero (default) to wait '
+                                    'indefinitely (this only affects the '
+                                    'fetch stage)')
 
     # Parse the command line arguments and run the subcommand.
     args = parser.parse_args()
