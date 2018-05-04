@@ -22,9 +22,6 @@ dbuslib = libeos-updater-dbus.la
 
 noinst_LTLIBRARIES = $(dbuslib)
 libexec_PROGRAMS = eos-autoupdater
-dist_bin_SCRIPTS = eos-updater-ctl
-
-dist_man8_MANS += docs/eos-updater-ctl.8
 
 BUILT_SOURCES = \
 	eos-updater-generated.h \
@@ -153,9 +150,5 @@ EXTRA_DIST += \
 	eos-updater.gresource.xml \
 	$(eos_updater_resource_deps) \
 	$(NULL)
-
-check-local: eos-updater-ctl.flake8
-%.flake8: %
-	$(AM_V_GEN) python3 -m flake8 $<
 
 -include $(top_srcdir)/git.mk
