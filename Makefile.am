@@ -163,6 +163,12 @@ CLEANFILES += $(eos_updater_avahi_in:%.in=%)
 
 dist_man8_MANS += eos-updater-avahi/docs/eos-updater-avahi.8
 
+# eos-updater-ctl program
+dist_bin_SCRIPTS += eos-updater-ctl/eos-updater-ctl
+dist_man8_MANS += eos-updater-ctl/docs/eos-updater-ctl.8
+
+check-local: eos-updater-ctl/eos-updater-ctl.flake8
+
 # Server utility library
 noinst_LTLIBRARIES += libeos-update-server/libeos-update-server-@EUS_API_VERSION@.la
 
@@ -463,6 +469,10 @@ edit = sed \
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 %.path: %.path.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
+
+# Generic Python checking rules
+%.flake8: %
+	$(AM_V_GEN) python3 -m flake8 $<
 
 # Cleaning
 EXTRA_DIST += \
