@@ -16,15 +16,22 @@
 
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
 
-SUBDIRS = . src libeos-updater-util/tests libeos-updater-flatpak-installer/tests data tests
+SUBDIRS = . libeos-updater-util/tests libeos-updater-flatpak-installer/tests tests
 
+dbusconfdir = $(datadir)/dbus-1/system.d
+dbussystemservicedir = $(datadir)/dbus-1/system-services
+dbusinterfacesdir = $(datadir)/dbus-1/interfaces
 sysconfexampledir = $(pkgdatadir)
 
 # Pre-defines to allow appending later
+bin_PROGRAMS =
 libexec_PROGRAMS =
 noinst_LTLIBRARIES =
 lib_LTLIBRARIES =
 systemdsystemunit_DATA =
+dist_dbusconf_DATA =
+dist_dbussystemservice_DATA =
+dist_dbusinterfaces_DATA =
 dist_sysconfexample_DATA =
 dist_bin_SCRIPTS =
 dist_man5_MANS =
@@ -124,6 +131,173 @@ nodist_libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/enums.c \
 	libeos-updater-util/enums.h \
 	$(NULL)
+
+# eos-autoupdater program
+libexec_PROGRAMS += eos-autoupdater/eos-autoupdater
+
+eos_autoupdater_eos_autoupdater_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-autoupdater"\" \
+	$(NULL)
+eos_autoupdater_eos_autoupdater_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_AUTOUPDATER_CFLAGS) \
+	$(NULL)
+eos_autoupdater_eos_autoupdater_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_autoupdater_eos_autoupdater_LDADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/eos-updater/libeos-updater-dbus.la \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(EOS_AUTOUPDATER_LIBS) \
+	$(NULL)
+eos_autoupdater_eos_autoupdater_SOURCES = \
+	eos-autoupdater/main.c \
+	$(NULL)
+nodist_eos_autoupdater_eos_autoupdater_SOURCES = \
+	$(eos_updater_resource_sources) \
+	$(NULL)
+
+eos_autoupdater_in = \
+	eos-autoupdater/eos-autoupdater.service.in \
+	eos-autoupdater/eos-autoupdater.timer.in \
+	$(NULL)
+
+systemdsystemunit_DATA += $(eos_autoupdater_in:%.in=%)
+EXTRA_DIST += $(eos_autoupdater_in)
+CLEANFILES += $(eos_autoupdater_in:%.in=%)
+
+dist_sysconfexample_DATA += eos-autoupdater/eos-autoupdater.conf
+
+dist_man5_MANS += eos-autoupdater/docs/eos-autoupdater.conf.5
+dist_man8_MANS += eos-autoupdater/docs/eos-autoupdater.8
+
+# eos-updater program
+noinst_LTLIBRARIES += eos-updater/libeos-updater-dbus.la
+
+eos_updater_codegen_sources = \
+	eos-updater/dbus.c \
+	eos-updater/dbus.h \
+	$(NULL)
+BUILT_SOURCES += $(eos_updater_codegen_sources)
+CLEANFILES += $(eos_updater_codegen_sources)
+
+eos-updater/dbus.c: eos-updater/dbus.h
+eos-updater/dbus.h: eos-updater/com.endlessm.Updater.xml
+	$(AM_V_GEN)$(GDBUS_CODEGEN) \
+		--interface-prefix com.endlessm. \
+		--generate-c-code eos-updater/dbus \
+		--c-namespace Eos \
+		--c-generate-object-manager \
+		--c-generate-autocleanup all \
+		$<
+
+eos_updater_libeos_updater_dbus_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-updater-dbus"\" \
+	$(NULL)
+eos_updater_libeos_updater_dbus_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATER_CFLAGS) \
+	$(NULL)
+eos_updater_libeos_updater_dbus_la_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_updater_libeos_updater_dbus_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATER_LIBS) \
+	$(NULL)
+eos_updater_libeos_updater_dbus_la_SOURCES = \
+	eos-updater/object.c \
+	eos-updater/object.h \
+	$(NULL)
+nodist_eos_updater_libeos_updater_dbus_la_SOURCES = $(eos_updater_codegen_sources)
+
+bin_PROGRAMS += eos-updater/eos-updater
+
+eos_updater_eos_updater_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-updater"\" \
+	$(NULL)
+eos_updater_eos_updater_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_UPDATER_CFLAGS) \
+	$(NULL)
+eos_updater_eos_updater_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_updater_eos_updater_LDADD  = \
+	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/eos-updater/libeos-updater-dbus.la \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(EOS_UPDATER_LIBS) \
+	$(NULL)
+eos_updater_eos_updater_SOURCES = \
+	eos-updater/apply.c \
+	eos-updater/apply.h \
+	eos-updater/data.h \
+	eos-updater/data.c \
+	eos-updater/fetch.c \
+	eos-updater/fetch.h \
+	eos-updater/live-boot.c \
+	eos-updater/live-boot.h \
+	eos-updater/poll.c \
+	eos-updater/poll.h \
+	eos-updater/poll-common.h \
+	eos-updater/poll-common.c \
+	eos-updater/main.c \
+	$(NULL)
+nodist_eos_updater_eos_updater_SOURCES = \
+	$(eos_updater_resource_sources) \
+	$(NULL)
+
+eos_updater_resource_sources = \
+	eos-updater/resources.c \
+	eos-updater/resources.h \
+	$(NULL)
+eos_updater_resource_deps = $(shell glib-compile-resources --sourcedir=$(top_srcdir)/eos-updater --generate-dependencies $(top_srcdir)/eos-updater/eos-updater.gresource.xml)
+eos-updater/resources.c: eos-updater/eos-updater.gresource.xml $(eos_updater_resource_deps)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) \
+		--c-name=eos_updater_resources --generate-source --internal \
+		--sourcedir=$(top_srcdir)/eos-updater --target=$@ $<
+eos-updater/resources.h: eos-updater/eos-updater.gresource.xml $(eos_updater_resource_deps)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) \
+		--c-name=eos_updater_resources --generate-header --internal \
+		--sourcedir=$(top_srcdir)/eos-updater --target=$@ $<
+
+BUILT_SOURCES += $(eos_updater_resource_sources)
+CLEANFILES += $(eos_updater_resource_sources)
+EXTRA_DIST += \
+	eos-updater/eos-updater.gresource.xml \
+	$(eos_updater_resource_deps) \
+	$(NULL)
+
+dist_dbusconf_DATA += eos-updater/com.endlessm.Updater.conf
+dist_dbussystemservice_DATA += eos-updater/com.endlessm.Updater.service
+dist_dbusinterfaces_DATA += eos-updater/com.endlessm.Updater.xml
+
+eos_updater_in = \
+	eos-updater/eos-updater.service.in \
+	$(NULL)
+
+systemdsystemunit_DATA += $(eos_updater_in:%.in=%)
+EXTRA_DIST += $(eos_updater_in)
+CLEANFILES += $(eos_updater_in:%.in=%)
+
+dist_sysconfexample_DATA += eos-updater/eos-updater.conf
+
+dist_man5_MANS += eos-updater/docs/eos-updater.conf.5
+dist_man8_MANS += eos-updater/docs/eos-updater.8
 
 # eos-updater-avahi program
 libexec_PROGRAMS += eos-updater-avahi/eos-updater-avahi
@@ -466,6 +640,8 @@ edit = sed \
 %.service: %.service.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 %.socket: %.socket.in Makefile
+	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
+%.timer: %.timer.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 %.path: %.path.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@

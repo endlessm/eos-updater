@@ -20,6 +20,7 @@
  *  - Joaquim Rocha <jrocha@endlessm.com>
  */
 
+#include <eos-updater/dbus.h>
 #include <test-common/gpg.h>
 #include <test-common/misc-utils.h>
 #include <test-common/spawn-utils.h>
@@ -28,8 +29,6 @@
 
 #include <gio/gio.h>
 #include <locale.h>
-
-#include "eos-updater-generated.h"
 
 typedef struct
 {

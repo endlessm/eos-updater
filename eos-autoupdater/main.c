@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "eos-updater-generated.h"
-#include "resources.h"
+#include <eos-updater/dbus.h>
+#include <eos-updater/resources.h>
 #include <libeos-updater-util/config.h>
 #include <libeos-updater-util/types.h>
 #include <libeos-updater-util/util.h>
