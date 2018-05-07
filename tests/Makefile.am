@@ -22,7 +22,7 @@ installed_test_metadir = $(datadir)/installed-tests/eos-updater-@EU_API_VERSION@
 @VALGRIND_CHECK_RULES@
 @CODE_COVERAGE_RULES@
 CODE_COVERAGE_IGNORE_PATTERN = \
-	eos-updater-generated.c \
+	eos-updater/dbus.c \
 	"*-autocleanups.h" \
 	gmem.h \
 	gobject.h \
@@ -53,8 +53,6 @@ test_cppflags = \
 	-I$(top_srcdir) \
 	-I$(top_builddir) \
 	-include "config.h" \
-	-I$(top_srcdir)/src \
-	-I$(top_builddir)/src \
 	-DG_LOG_DOMAIN=\"eos-updater-tests\" \
 	$(NULL)
 test_cflags = \
@@ -119,7 +117,7 @@ test_update_refspec_checkpoint_SOURCES = test-update-refspec-checkpoint.c
 test_update_direct_CPPFLAGS = $(test_cppflags)
 test_update_direct_CFLAGS = $(test_cflags)
 test_update_direct_LDFLAGS = $(test_ldflags)
-test_update_direct_LDADD = $(test_ldadd) $(top_builddir)/src/libeos-updater-dbus.la
+test_update_direct_LDADD = $(test_ldadd) $(top_builddir)/eos-updater/libeos-updater-dbus.la
 test_update_direct_SOURCES = test-update-direct.c
 
 dist_uninstalled_test_data = \

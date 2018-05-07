@@ -1,6 +1,8 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  *
- * Copyright © 2016 Endless Mobile
+ * Copyright © 2013 Collabora Ltd.
+ * Copyright © 2016 Kinvolk GmbH
+ * Copyright © 2017 Endless Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -17,20 +19,22 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * Authors:
- *  - Will Thompson <wjt@endlessm.com>
+ *  - Vivek Dasmohapatra <vivek@etla.org>
+ *  - Krzesimir Nowak <krzesimir@kinvolk.io>
+ *  - Philip Withnall <withnall@endlessm.com>
  */
 
 #pragma once
 
-#include "eos-updater-generated.h"
-#include <libeos-updater-util/util.h>
-#include <ostree.h>
+#include <eos-updater/dbus.h>
+#include <glib.h>
+#include <libeos-updater-util/types.h>
 
 G_BEGIN_DECLS
 
-gboolean is_installed_system (GError **error);
-gboolean handle_on_live_boot (EosUpdater            *updater,
-                              GDBusMethodInvocation *call,
-                              gpointer               user_data);
+void eos_updater_set_error (EosUpdater *updater,
+                            const GError *error);
+void eos_updater_clear_error (EosUpdater *updater,
+                              EosUpdaterState state);
 
 G_END_DECLS

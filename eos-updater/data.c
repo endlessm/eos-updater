@@ -20,10 +20,8 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-updater-data.h"
-
+#include <eos-updater/data.h>
 #include <libeos-updater-util/util.h>
-
 #include <string.h>
 
 void

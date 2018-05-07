@@ -2,6 +2,6 @@
 <gresources>
   <gresource prefix="/com/endlessm/Updater/config">
     <file alias="eos-autoupdater.conf">../eos-autoupdater/eos-autoupdater.conf</file>
-    <file alias="eos-updater.conf">../data/eos-updater.conf</file>
+    <file alias="eos-updater.conf">../eos-updater/eos-updater.conf</file>
   </gresource>
 </gresources>

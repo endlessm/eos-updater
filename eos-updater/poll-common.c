@@ -22,22 +22,16 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-updater-object.h"
-#include "eos-updater-poll-common.h"
-
+#include <eos-updater/object.h>
+#include <eos-updater/poll-common.h>
 #include <libeos-updater-util/util.h>
+#include <libsoup/soup.h>
+#include <ostree.h>
+#include <string.h>
 
 #ifdef HAS_EOSMETRICS_0
-
 #include <eosmetrics/eosmetrics.h>
-
 #endif /* HAS_EOSMETRICS_0 */
-
-#include <ostree.h>
-
-#include <libsoup/soup.h>
-
-#include <string.h>
 
 static const gchar *const VENDOR_KEY = "sys_vendor";
 static const gchar *const PRODUCT_KEY = "product_name";

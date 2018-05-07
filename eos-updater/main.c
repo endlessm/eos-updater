@@ -21,14 +21,13 @@
  *  - Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "eos-updater-apply.h"
-#include "eos-updater-data.h"
-#include "eos-updater-fetch.h"
-#include "eos-updater-live-boot.h"
-#include "eos-updater-generated.h"
-#include "eos-updater-object.h"
-#include "eos-updater-poll.h"
-
+#include <eos-updater/apply.h>
+#include <eos-updater/data.h>
+#include <eos-updater/dbus.h>
+#include <eos-updater/fetch.h>
+#include <eos-updater/live-boot.h>
+#include <eos-updater/object.h>
+#include <eos-updater/poll.h>
 #include <libeos-updater-util/util.h>
 
 #include <errno.h>
