@@ -3116,7 +3116,7 @@ spawn_autoupdater (GFile *stamps_dir,
 {
   g_autofree gchar *eos_autoupdater_binary = g_test_build_filename (G_TEST_BUILT,
                                                                     "..",
-                                                                    "src",
+                                                                    "eos-autoupdater",
                                                                     "eos-autoupdater",
                                                                     NULL);
   const gchar *force_update_flag = force_update ? "--force-update" : NULL;

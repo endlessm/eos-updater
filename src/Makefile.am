@@ -21,7 +21,6 @@ dist_man8_MANS =
 dbuslib = libeos-updater-dbus.la
 
 noinst_LTLIBRARIES = $(dbuslib)
-libexec_PROGRAMS = eos-autoupdater
 
 BUILT_SOURCES = \
 	eos-updater-generated.h \
@@ -64,15 +63,6 @@ common_cppflags = \
 	-DPREFIX=\""$(prefix)"\" \
 	-DG_LOG_USE_STRUCTURED \
 	$(NULL)
-
-eos_autoupdater_CPPFLAGS = $(common_cppflags) -DG_LOG_DOMAIN=\""eos-autoupdater"\"
-eos_autoupdater_CFLAGS = $(common_cflags) $(EOS_AUTOUPDATER_CFLAGS)
-eos_autoupdater_LDFLAGS = $(WARN_LDFLAGS)
-eos_autoupdater_LDADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(dbuslib) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la $(EOS_AUTOUPDATER_LIBS)
-eos_autoupdater_SOURCES = eos-autoupdater.c
-nodist_eos_autoupdater_SOURCES = $(eos_updater_resource_sources)
-
-dist_man8_MANS += docs/eos-autoupdater.8
 
 common_ldadd = $(CODE_COVERAGE_LIBS) $(GIO_LIBS) $(SOUP_LIBS) $(OSTREE_LIBS) $(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 

@@ -125,6 +125,50 @@ nodist_libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/enums.h \
 	$(NULL)
 
+# eos-autoupdater program
+libexec_PROGRAMS += eos-autoupdater/eos-autoupdater
+
+eos_autoupdater_eos_autoupdater_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DG_LOG_DOMAIN=\""eos-autoupdater"\" \
+	$(NULL)
+eos_autoupdater_eos_autoupdater_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(STD_CFLAGS) \
+	$(CODE_COVERAGE_CFLAGS) \
+	$(WARN_CFLAGS) \
+	$(EOS_AUTOUPDATER_CFLAGS) \
+	$(NULL)
+eos_autoupdater_eos_autoupdater_LDFLAGS = \
+	$(WARN_LDFLAGS) \
+	$(NULL)
+eos_autoupdater_eos_autoupdater_LDADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(top_builddir)/libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la \
+	$(top_builddir)/src/libeos-updater-dbus.la \
+	$(EOS_AUTOUPDATER_LIBS) \
+	$(NULL)
+eos_autoupdater_eos_autoupdater_SOURCES = \
+	eos-autoupdater/main.c \
+	$(NULL)
+nodist_eos_autoupdater_eos_autoupdater_SOURCES = \
+	$(eos_updater_resource_sources) \
+	$(NULL)
+
+eos_autoupdater_in = \
+	eos-autoupdater/eos-autoupdater.service.in \
+	eos-autoupdater/eos-autoupdater.timer.in \
+	$(NULL)
+
+systemdsystemunit_DATA += $(eos_autoupdater_in:%.in=%)
+EXTRA_DIST += $(eos_autoupdater_in)
+CLEANFILES += $(eos_autoupdater_in:%.in=%)
+
+dist_sysconfexample_DATA += eos-autoupdater/eos-autoupdater.conf
+
+dist_man5_MANS += eos-autoupdater/docs/eos-autoupdater.conf.5
+dist_man8_MANS += eos-autoupdater/docs/eos-autoupdater.8
+
 # eos-updater-avahi program
 libexec_PROGRAMS += eos-updater-avahi/eos-updater-avahi
 
