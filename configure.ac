@@ -107,13 +107,12 @@ AX_PKG_CHECK_MODULES([EOS_UPDATER_UTIL_TESTS],[flatpak >= $FLATPAK_REQUIRED_VERS
 AX_PKG_CHECK_MODULES([EOS_UPDATER_FLATPAK_INSTALLER_TESTS],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 json-glib-1.0 >= $JSON_GLIB_REQUIRED_VERSION ostree-1 >= $OSTREE_REQUIRED_VERSION])
 AX_PKG_CHECK_MODULES([EOS_UPDATER_FLATPAK_INSTALLER],[flatpak >= $FLATPAK_REQUIRED_VERSION glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 json-glib-1.0 >= $JSON_GLIB_REQUIRED_VERSION ostree-1 >= $OSTREE_REQUIRED_VERSION])
 
-EOS_UPDATER_MODULES="glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 ostree-1 >= $OSTREE_REQUIRED_VERSION flatpak >= $FLATPAK_REQUIRED_VERSION avahi-client >= $AVAHI_REQUIRED_VERSION avahi-glib >= $AVAHI_REQUIRED_VERSION mogwai-schedule-client-0"
+EOS_UPDATER_MODULES="glib-2.0 >= $GLIB_REQUIRED_VERSION gio-2.0 gobject-2.0 gio-unix-2.0 >= $GLIB_REQUIRED_VERSION ostree-1 >= $OSTREE_REQUIRED_VERSION flatpak >= $FLATPAK_REQUIRED_VERSION avahi-client >= $AVAHI_REQUIRED_VERSION avahi-glib >= $AVAHI_REQUIRED_VERSION mogwai-schedule-client-0 libsoup-2.4"
 
 AS_IF([test "x$want_metrics" = 'xyes'],
       [EOS_UPDATER_MODULES="eosmetrics-0 $EOS_UPDATER_MODULES"
        AC_DEFINE([HAS_EOSMETRICS_0], [1], [Has eosmetrics-0 library])])
-PKG_CHECK_MODULES([EOS_UPDATER],
-                  [$EOS_UPDATER_MODULES])
+AX_PKG_CHECK_MODULES([EOS_UPDATER],[$EOS_UPDATER_MODULES])
 
 AC_PATH_PROG([GDBUS_CODEGEN],[gdbus-codegen])
 AS_IF([test "$GDBUS_CODEGEN" = ""],[
@@ -179,8 +178,6 @@ AC_CONFIG_FILES([
 Makefile
 libeos-updater-flatpak-installer/tests/Makefile
 libeos-updater-util/tests/Makefile
-src/Makefile
-data/Makefile
 tests/Makefile
 ])
 AC_OUTPUT

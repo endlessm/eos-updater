@@ -22,14 +22,17 @@
 
 #pragma once
 
-#include "eos-updater-generated.h"
-
+#include <eos-updater/dbus.h>
 #include <gio/gio.h>
 
 G_BEGIN_DECLS
 
-gboolean handle_apply (EosUpdater            *updater,
+gboolean handle_fetch (EosUpdater            *updater,
                        GDBusMethodInvocation *call,
                        gpointer               user_data);
+gboolean handle_fetch_full (EosUpdater            *updater,
+                            GDBusMethodInvocation *call,
+                            GVariant              *options,
+                            gpointer               user_data);
 
 G_END_DECLS

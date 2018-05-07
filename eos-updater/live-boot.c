@@ -20,8 +20,8 @@
  *  - Will Thompson <wjt@endlessm.com>
  */
 
-#include "eos-updater-live-boot.h"
-#include "eos-updater-object.h"
+#include <eos-updater/live-boot.h>
+#include <eos-updater/object.h>
 
 #define LIVE_BOOT_MESSAGE "Updater disabled on live systems"
 

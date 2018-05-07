@@ -24,12 +24,10 @@
  *  - Philip Withnall <withnall@endlessm.com>
  */
 
+#include <eos-updater/dbus.h>
+#include <eos-updater/object.h>
 #include <glib.h>
-
 #include <libeos-updater-util/types.h>
-
-#include "eos-updater-generated.h"
-#include "eos-updater-object.h"
 
 static void
 eos_updater_set_state_changed (EosUpdater *updater, EosUpdaterState state)

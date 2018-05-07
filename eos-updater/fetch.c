@@ -20,10 +20,9 @@
  *  - Vivek Dasmohapatra <vivek@etla.org>
  */
 
-#include "eos-updater-data.h"
-#include "eos-updater-fetch.h"
-#include "eos-updater-object.h"
-
+#include <eos-updater/data.h>
+#include <eos-updater/fetch.h>
+#include <eos-updater/object.h>
 #include <flatpak.h>
 #include <libeos-updater-util/flatpak.h>
 #include <libeos-updater-util/types.h>

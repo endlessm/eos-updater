@@ -1623,7 +1623,7 @@ spawn_updater (GFile *sysroot,
 {
   g_autofree gchar *eos_updater_binary = g_test_build_filename (G_TEST_BUILT,
                                                                 "..",
-                                                                "src",
+                                                                "eos-updater",
                                                                 "eos-updater",
                                                                 NULL);
   CmdEnvVar envv[] =

@@ -22,12 +22,11 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
-#include "eos-updater-data.h"
-#include "eos-updater-object.h"
-#include "eos-updater-poll-common.h"
-#include "eos-updater-poll.h"
-#include "resources.h"
-
+#include <eos-updater/data.h>
+#include <eos-updater/object.h>
+#include <eos-updater/poll-common.h>
+#include <eos-updater/poll.h>
+#include <eos-updater/resources.h>
 #include <libeos-updater-util/config.h>
 #include <libeos-updater-util/util.h>
 
