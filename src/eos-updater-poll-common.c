@@ -419,7 +419,7 @@ get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
       if (remote_to_upgrade_on != NULL)
         *remote_to_upgrade_on = g_steal_pointer (&booted_remote);
       if (ref_to_upgrade_on != NULL)
-        *ref_to_upgrade_on = g_steal_pointer (&booted_collection_ref);
+        *ref_to_upgrade_on = g_steal_pointer (&checkpoint_ref_for_deployment);
 
       return TRUE;
     }
