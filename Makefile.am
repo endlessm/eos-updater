@@ -467,6 +467,8 @@ edit = sed \
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 %.socket: %.socket.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
+%.timer: %.timer.in Makefile
+	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 %.path: %.path.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 
