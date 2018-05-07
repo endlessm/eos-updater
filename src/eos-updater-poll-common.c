@@ -409,9 +409,16 @@ get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
   if (checkpoint_ref_for_deployment != NULL)
     {
       /* Set outparams from the checkpoint ref instead */
-      if (collection_ref_to_upgrade_on != NULL && booted_collection_ref != NULL)
-        *collection_ref_to_upgrade_on = ostree_collection_ref_new (booted_collection_ref->collection_id,
-                                                                   checkpoint_ref_for_deployment);
+      if (collection_ref_to_upgrade_on != NULL)
+        {
+          g_autoptr(OstreeCollectionRef) collection_ref = NULL;
+
+          if (booted_collection_ref != NULL)
+            collection_ref = ostree_collection_ref_new (booted_collection_ref->collection_id,
+                                                        checkpoint_ref_for_deployment);
+
+          *collection_ref_to_upgrade_on = g_steal_pointer (&collection_ref);
+        }
       if (refspec_to_upgrade_on != NULL)
         *refspec_to_upgrade_on = g_strdup_printf ("%s:%s",
                                                   booted_remote,
