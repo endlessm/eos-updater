@@ -15,17 +15,12 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 eos_autoupdater_in = \
-	eos-autoupdater.service.in \
-	eos-autoupdater.timer.in \
 	eos-updater.service.in \
 	$(NULL)
-
-systemdsystemunit_DATA = $(eos_autoupdater_in:%.in=%)
 
 # Example configuration files.
 sysconfexampledir = $(pkgdatadir)
 dist_sysconfexample_DATA = \
-	eos-autoupdater.conf \
 	eos-updater.conf \
 	$(NULL)
 
@@ -41,12 +36,8 @@ edit = sed \
 	-e 's|@server_port[@]|$(server_port)|g' \
 	$(NULL)
 
-EXTRA_DIST = $(eos_autoupdater_in)
-CLEANFILES = $(systemdsystemunit_DATA)
-
 # Documentation
 dist_man5_MANS = \
-	docs/eos-autoupdater.conf.5 \
 	docs/eos-updater.conf.5 \
 	$(NULL)
 

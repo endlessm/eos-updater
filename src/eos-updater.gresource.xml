@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/com/endlessm/Updater/config">
-    <file alias="eos-autoupdater.conf">../data/eos-autoupdater.conf</file>
+    <file alias="eos-autoupdater.conf">../eos-autoupdater/eos-autoupdater.conf</file>
     <file alias="eos-updater.conf">../data/eos-updater.conf</file>
   </gresource>
 </gresources>
