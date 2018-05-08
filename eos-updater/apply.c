@@ -97,6 +97,66 @@ get_test_osname (void)
 }
 
 static gboolean
+update_remote_branches (OstreeRepo   *repo,
+                        const gchar  *refspec,
+                        GError      **error)
+{
+  g_autofree gchar *remote = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *cur_branches = NULL;
+  g_autofree gchar *new_branches = NULL;
+
+  if (!ostree_parse_refspec (refspec, &remote, &ref, error))
+    return FALSE;
+  if (remote == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Invalid refspec ‘%s’ in origin: did not contain a remote name",
+                   refspec);
+      return FALSE;
+    }
+
+  /* Update the remote branches option to include the origin ref.
+   * Ideally this would operate on a list of branches and add the new
+   * branch, but to keep things simple just set the option to the single
+   * origin ref. */
+  if (!ostree_repo_get_remote_option (repo, remote, "branches", NULL,
+                                      &cur_branches, error))
+    return FALSE;
+  new_branches = g_strdup_printf ("%s;", ref);
+  if (g_strcmp0 (cur_branches, new_branches) != 0)
+    {
+      /* FIXME: Update the config file directly. If ostree ever gains
+       * sane remote modification, use that. */
+      g_autoptr(GKeyFile) config = ostree_repo_copy_config (repo);
+      g_autofree gchar *remote_group = g_strdup_printf ("remote \"%s\"",
+                                                        remote);
+
+      /* Make sure that the remote group exists in the config file and
+       * the remote isn't defined in a remotes.d conf file. That
+       * shouldn't happen, but adding the group (which
+       * g_key_file_set_value() will do) would create a duplicate remote
+       * that would prevent the repo from opening again. */
+      if (!g_key_file_has_group (config, remote_group))
+        {
+          GFile *repo_file = ostree_repo_get_path (repo);
+          g_autofree gchar *repo_path = g_file_get_path (repo_file);
+
+          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                       "Remote ‘%s’ does not exist in %s/config",
+                       remote, repo_path);
+          return FALSE;
+        }
+
+      g_key_file_set_value (config, remote_group, "branches", new_branches);
+      if (!ostree_repo_write_config (repo, config, error))
+        return FALSE;
+    }
+
+  return TRUE;
+}
+
+static gboolean
 apply_internal (ApplyData     *apply_data,
                 gboolean      *out_bootversion_changed,
                 GCancellable  *cancellable,
@@ -184,6 +244,14 @@ apply_internal (ApplyData     *apply_data,
    * prunes (https://phabricator.endlessm.com/T16736). */
   if (!ostree_sysroot_cleanup (sysroot, cancellable, &local_error))
     g_warning ("Failed to clean up the sysroot after successful deployment: %s",
+               local_error->message);
+  g_clear_error (&local_error);
+
+  /* Try to update the remote branches option to use the new refspec.
+   * This option is almost never used and has no impact on future
+   * upgrades, so ignore any errors. */
+  if (!update_remote_branches (repo, update_refspec, &local_error))
+    g_warning ("Failed to set remote branches option: %s",
                local_error->message);
   g_clear_error (&local_error);
 
