@@ -26,8 +26,6 @@
 
 #include <libeos-updater-util/refcounted.h>
 
-#include <ostree.h>
-
 #include <glib.h>
 #include <glib-object.h>
 #include <gio/gio.h>
@@ -44,24 +42,10 @@ object_array_new (void)
 typedef guint EosBusNameID;
 G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
 
-OstreeRepo *eos_updater_local_repo (GError **error);
-
 gboolean eos_updater_save_or_delete  (GBytes *contents,
                                       GFile *dir,
                                       const gchar *filename,
                                       GCancellable *cancellable,
-                                      GError **error);
-
-OstreeDeployment *eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
-                                                                         GError **error);
-
-OstreeDeployment *eos_updater_get_booted_deployment (GError **error);
-
-gchar *eos_updater_get_booted_checksum (GError **error);
-
-gboolean eos_updater_get_ostree_path (OstreeRepo *repo,
-                                      const gchar *osname,
-                                      gchar **ostree_path,
                                       GError **error);
 
 guint eos_updater_queue_callback (GMainContext *context,

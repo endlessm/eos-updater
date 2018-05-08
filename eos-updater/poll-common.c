@@ -24,6 +24,7 @@
 
 #include <eos-updater/object.h>
 #include <eos-updater/poll-common.h>
+#include <libeos-updater-util/ostree.h>
 #include <libeos-updater-util/util.h>
 #include <libsoup/soup.h>
 #include <ostree.h>
