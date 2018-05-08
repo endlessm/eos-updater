@@ -23,7 +23,9 @@
 #include <glib.h>
 #include <libeos-updater-util/ostree.h>
 #include <libeos-updater-util/util.h>
+#include <libsoup/soup.h>
 #include <ostree.h>
+#include <string.h>
 
 /**
  * eos_sysroot_get_advertisable_commit:
@@ -166,5 +168,126 @@ eos_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
   if (commit_timestamp != NULL)
     *commit_timestamp = latest_commit_timestamp;
 
+  return TRUE;
+}
+
+/* Note: Returns the repository even on error, so that the repo path can be
+ * extracted for error messages. */
+OstreeRepo *
+eos_updater_local_repo (GError **error)
+{
+  g_autoptr(OstreeRepo) repo = ostree_repo_new_default ();
+  ostree_repo_open (repo, NULL, error);
+  return g_steal_pointer (&repo);
+}
+
+static gboolean
+fallback_to_the_fake_deployment (void)
+{
+  const gchar *value = NULL;
+
+  value = g_getenv ("EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK");
+
+  return value != NULL;
+}
+
+static OstreeDeployment *
+get_fake_deployment (OstreeSysroot *sysroot,
+                     GError **error)
+{
+  static OstreeDeployment *fake_booted_deployment = NULL;
+
+  if (fake_booted_deployment == NULL)
+    {
+      g_autoptr(GPtrArray) deployments = NULL;
+
+      deployments = ostree_sysroot_get_deployments (sysroot);
+      if (deployments->len == 0)
+        {
+          g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                               "No deployments found at all");
+          return NULL;
+        }
+      fake_booted_deployment = g_object_ref (g_ptr_array_index (deployments, 0));
+    }
+
+  return g_object_ref (fake_booted_deployment);
+}
+
+OstreeDeployment *
+eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
+                                                       GError **error)
+{
+  OstreeDeployment *booted_deployment = NULL;
+
+  booted_deployment = ostree_sysroot_get_booted_deployment (sysroot);
+  if (booted_deployment != NULL)
+    return g_object_ref (booted_deployment);
+
+  if (fallback_to_the_fake_deployment ())
+    return get_fake_deployment (sysroot, error);
+
+  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                       "Not an ostree system");
+  return NULL;
+}
+
+OstreeDeployment *
+eos_updater_get_booted_deployment (GError **error)
+{
+  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
+
+  if (!ostree_sysroot_load (sysroot, NULL, error))
+    return NULL;
+
+  return eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot, error);
+}
+
+gchar *
+eos_updater_get_booted_checksum (GError **error)
+{
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
+
+  booted_deployment = eos_updater_get_booted_deployment (error);
+  if (booted_deployment == NULL)
+    return NULL;
+
+  return g_strdup (ostree_deployment_get_csum (booted_deployment));
+}
+
+gboolean
+eos_updater_get_ostree_path (OstreeRepo *repo,
+                             const gchar *osname,
+                             gchar **ostree_path,
+                             GError **error)
+{
+  g_autofree gchar *ostree_url = NULL;
+  g_autoptr(SoupURI) uri = NULL;
+  g_autofree gchar *path = NULL;
+  gsize to_move = 0;
+
+  if (!ostree_repo_remote_get_url (repo, osname, &ostree_url, error))
+    return FALSE;
+
+  uri = soup_uri_new (ostree_url);
+  if (uri == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_DATA,
+                   "ostree %s remote's URL is invalid (%s)",
+                   osname,
+                   ostree_url);
+      return FALSE;
+    }
+
+  /* Take the path from the URI from `ostree remote show-url eos` and strip all
+   * leading slashes from it. */
+  path = g_strdup (soup_uri_get_path (uri));
+  while (path[to_move] == '/')
+    ++to_move;
+  if (to_move > 0)
+    memmove (path, path + to_move, strlen (path) - to_move + 1);
+  *ostree_path = g_steal_pointer (&path);
   return TRUE;
 }
