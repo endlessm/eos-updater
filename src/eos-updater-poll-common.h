@@ -36,6 +36,8 @@ G_BEGIN_DECLS
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
                        const gchar *checksum,
+                       const gchar *booted_ref,
+                       const gchar *upgrade_ref,
                        GVariant **commit,
                        GError **error);
 
