@@ -119,10 +119,14 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_autoptr(EosTestSubserver) subserver = NULL;
   g_autoptr(GFile) client_root = NULL;
   g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(GFile) repo_path = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
   g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
+  g_autofree gchar *branches_option = NULL;
+  g_autofree gchar *expected_branches = NULL;
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
    * afterwards we hit unsupported syscalls in qemu-user when running in an
@@ -164,6 +168,11 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
                                 &error);
   g_assert_no_error (error);
 
+  repo_path = eos_test_client_get_repo (client);
+  repo = ostree_repo_new (repo_path);
+  ostree_repo_open (repo, NULL, &error);
+  g_assert_no_error (error);
+
   g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (default_collection_ref),
                        GUINT_TO_POINTER (1));
@@ -201,6 +210,18 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_assert_no_error (error);
   g_assert_false (has_commit);
 
+  /* Check that the remote branches option is set to the default ref */
+  ostree_repo_reload_config (repo, NULL, &error);
+  g_assert_no_error (error);
+  g_free (branches_option);
+  g_free (expected_branches);
+  expected_branches = g_strdup_printf ("%s;", default_ref);
+  ostree_repo_get_remote_option (repo, default_remote_name,
+                                 "branches", NULL,
+                                 &branches_option, &error);
+  g_assert_no_error (error);
+  g_assert_cmpstr (branches_option, ==, expected_branches);
+
   /* Update the client again. Because we had deployed the
    * checkpoint, we should now have the new ref to update on and should
    * have pulled the new commit. */
@@ -213,6 +234,18 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
                               &error);
   g_assert_no_error (error);
   g_assert_true (has_commit);
+
+  /* Check that the remote branches option is set to the next ref */
+  ostree_repo_reload_config (repo, NULL, &error);
+  g_assert_no_error (error);
+  g_free (branches_option);
+  g_free (expected_branches);
+  expected_branches = g_strdup_printf ("%s;", next_ref);
+  ostree_repo_get_remote_option (repo, default_remote_name,
+                                 "branches", NULL,
+                                 &branches_option, &error);
+  g_assert_no_error (error);
+  g_assert_cmpstr (branches_option, ==, expected_branches);
 }
 
 /* Start with a commit, and then make a final commit on the first refspec

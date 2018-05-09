@@ -48,6 +48,10 @@ test_update_from_main (EosUpdaterFixture *fixture,
   DownloadSource main_source = DOWNLOAD_MAIN;
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
+  g_autoptr(GFile) repo_path = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
+  g_autofree gchar *branches_option = NULL;
+  g_autofree gchar *expected_branches = g_strdup_printf ("%s;", default_ref);
 
   /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
    * afterwards we hit unsupported syscalls in qemu-user when running in an
@@ -126,6 +130,17 @@ test_update_from_main (EosUpdaterFixture *fixture,
                               &error);
   g_assert_no_error (error);
   g_assert_true (has_commit);
+
+  repo_path = eos_test_client_get_repo (client);
+  repo = ostree_repo_new (repo_path);
+  ostree_repo_open (repo, NULL, &error);
+  g_assert_no_error (error);
+
+  ostree_repo_get_remote_option (repo, default_remote_name,
+                                 "branches", NULL,
+                                 &branches_option, &error);
+  g_assert_no_error (error);
+  g_assert_cmpstr (branches_option, ==, expected_branches);
 }
 
 int
