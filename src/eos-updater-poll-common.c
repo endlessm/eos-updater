@@ -76,15 +76,50 @@ G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_LAST + 1);
 static const gchar *const EOS_UPDATER_BRANCH_SELECTED = "99f48aac-b5a0-426d-95f4-18af7d081c4e";
 #endif
 
+static gboolean
+status_of_current_and_remote_commit (OstreeRepo   *repo,
+                                     const gchar  *booted_checksum,
+                                     const gchar  *checksum,
+                                     GVariant    **out_current_commit,
+                                     GVariant    **out_remote_commit,
+                                     GError      **error)
+{
+  g_autoptr(GVariant) current_commit = NULL;
+  g_autoptr(GVariant) update_commit = NULL;
+
+  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
+  g_return_val_if_fail (booted_checksum != NULL, FALSE);
+  g_return_val_if_fail (checksum != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, checksum);
+
+  if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, error))
+    return FALSE;
+
+  if (!ostree_repo_load_commit (repo, checksum, &update_commit, NULL, error))
+    return FALSE;
+
+  if (out_current_commit)
+    *out_current_commit = g_steal_pointer (&current_commit);
+
+  if (out_remote_commit)
+    *out_remote_commit = g_steal_pointer (&update_commit);
+
+  return TRUE;
+}
+
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
                        const gchar *checksum,
+                       const gchar *booted_ref,
+                       const gchar *upgrade_ref,
                        GVariant **commit,
                        GError **error)
 {
-  g_autofree gchar *cur = NULL;
   g_autoptr(GVariant) current_commit = NULL;
   g_autoptr(GVariant) update_commit = NULL;
+  g_autofree gchar *booted_checksum = NULL;
   gboolean is_newer;
   guint64 update_timestamp, current_timestamp;
 
@@ -93,16 +128,16 @@ is_checksum_an_update (OstreeRepo *repo,
   g_return_val_if_fail (commit != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  cur = eos_updater_get_booted_checksum (error);
-  if (cur == NULL)
+  booted_checksum = eos_updater_get_booted_checksum (error);
+  if (booted_checksum == NULL)
     return FALSE;
 
-  g_debug ("%s: current: %s, update: %s", G_STRFUNC, cur, checksum);
-
-  if (!ostree_repo_load_commit (repo, cur, &current_commit, NULL, error))
-    return FALSE;
-
-  if (!ostree_repo_load_commit (repo, checksum, &update_commit, NULL, error))
+  if (!status_of_current_and_remote_commit (repo,
+                                            booted_checksum,
+                                            checksum,
+                                            &current_commit,
+                                            &update_commit,
+                                            error))
     return FALSE;
 
   /* Determine if the new commit is newer than the old commit to prevent
@@ -115,11 +150,32 @@ is_checksum_an_update (OstreeRepo *repo,
            "update_timestamp: %" G_GUINT64_FORMAT,
            G_STRFUNC, update_timestamp, current_timestamp);
 
-  is_newer = update_timestamp > current_timestamp;
-  /* if we have a checksum for the remote upgrade candidate
-   * and it's ≠ what we're currently booted into, advertise it as such.
+  /* "Newer" if we are switching branches or the update timestamp
+   * is greater than the timestamp of the current commit.
+   *
+   * Generally speaking the updater is only allowed to go forward
+   * but we can go "back in time" if we switched branches. This might
+   * happen with checkpoint commits, where we have the following
+   * history (numbers indicate commit timestamps):
+   *
+   * eos3a    -----(1)
+   *               /\
+   *              /  \
+   * eos3  (0)--(2)--(3)
+   *
+   * It is possible to make a commit on a new refspec
+   * with an older timestamp than the redirect commit on the old
+   * refspec that redirects to it. So we shouldn't fail to switch branches
+   * if the commit on the new branch was older in time.
    */
-  if (is_newer && g_strcmp0 (cur, checksum) != 0)
+  is_newer = (g_strcmp0 (booted_ref, upgrade_ref) != 0 ||
+              update_timestamp > current_timestamp);
+
+  /* We also need to check if the offered checksum on the server
+   * was the same as the booted checksum. It is possible for the timestamp
+   * on the server to be newer if the commit was re-generated from an
+   * existing tree. */
+  if (is_newer && g_strcmp0 (booted_checksum, checksum) != 0)
     *commit = g_steal_pointer (&update_commit);
   else
     *commit = NULL;
