@@ -349,10 +349,26 @@ update_counter_complain_on_error (const gchar *failing_name,
                                                                   error);
 }
 
+/**
+ * eufi_apply_flatpak_ref_actions:
+ * @installation: a #FlatpakInstallation
+ * @state_counter_path: (type filename): path to the counter that records what
+ *    actions have been applied
+ * @actions: (element-type EuuFlatpakRemoteRefAction): actions to apply
+ * @mode: the #EosUpdaterInstallerMode
+ * @pull: any #EosUpdaterInstallerFlags
+ * @error: return location for a #GError, or %NULL
+ *
+ * Apply the actions @actions, and update the state counter at
+ * @state_counter_path to the last successfully applied action. The actions are
+ * only actually performed if @mode is set to %EU_INSTALLER_MODE_PERFORM.
+ *
+ * Returns: %TRUE on success, %FALSE otherwise
+ */
 gboolean
 eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
                                 const gchar               *state_counter_path,
-                                GPtrArray                 *actions  /* (element-type EuuFlatpakRemoteRefAction) */,
+                                GPtrArray                 *actions,
                                 EosUpdaterInstallerMode    mode,
                                 EosUpdaterInstallerFlags   flags,
                                 GError                   **error)
@@ -444,9 +460,22 @@ check_if_flatpak_is_installed (FlatpakInstallation        *installation,
   return TRUE;
 }
 
+/**
+ * eufi_check_ref_actions_applied:
+ * @installation: a #FlatpakInstallation
+ * @actions: (element-type EuuFlatpakRemoteRefAction): actions to apply
+ * @error: return location for a #GError, or %NULL
+ *
+ * Check each action in @actions to see if its operation has been applied. In
+ * truth only installs and updates are checked; there's not currently a way to
+ * check update operations. If some of the actions haven't been successfully
+ * applied, @error will be set with a helpful message.
+ *
+ * Returns: %TRUE on success, %FALSE otherwise
+ */
 gboolean
 eufi_check_ref_actions_applied (FlatpakInstallation  *installation,
-                                GPtrArray            *actions  /* (element-type EuuFlatpakRemoteRefAction) */,
+                                GPtrArray            *actions,
                                 GError              **error)
 {
   g_autoptr(GError) local_error = NULL;

@@ -34,6 +34,8 @@
 #include <string.h>
 
 
+G_DEFINE_BOXED_TYPE (EuuFlatpakLocationRef, euu_flatpak_location_ref, euu_flatpak_location_ref_ref, euu_flatpak_location_ref_unref)
+
 /**
  * euu_flatpak_location_ref_new:
  * @ref: a #FlatpakRef
@@ -89,6 +91,8 @@ euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *location_ref)
   ++location_ref->ref_count;
   return location_ref;
 }
+
+G_DEFINE_BOXED_TYPE (EuuFlatpakRemoteRefAction, euu_flatpak_remote_ref_action, euu_flatpak_remote_ref_action_ref, euu_flatpak_remote_ref_action_unref)
 
 EuuFlatpakRemoteRefAction *
 euu_flatpak_remote_ref_action_new (EuuFlatpakRemoteRefActionType  type,
@@ -1079,6 +1083,15 @@ euu_flatpak_ref_actions_from_data (const gchar   *data,
   return g_steal_pointer (&actions);
 }
 
+/**
+ * euu_flatpak_remote_ref_actions_file_new:
+ * @remote_ref_actions: (element-type EuuFlatpakRemoteRefAction): a potentially
+ *    empty array of actions loaded from a single file
+ * @priority: the priority of the file; lower numeric priority values are more
+ *    important
+ *
+ * Returns: (transfer full): A new #EuuFlatpakRemoteRefActionsFile
+ */
 EuuFlatpakRemoteRefActionsFile *
 euu_flatpak_remote_ref_actions_file_new (GPtrArray *remote_ref_actions,
                                          gint       priority)

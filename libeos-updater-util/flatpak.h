@@ -45,6 +45,10 @@ typedef struct {
   const gchar *collection_id;
 } EuuFlatpakLocationRef;
 
+#define EUU_TYPE_FLATPAK_LOCATION_REF (euu_flatpak_location_ref_get_type ())
+
+GType euu_flatpak_location_ref_get_type (void);
+
 /**
  * EuuFlatpakRemoteRefActionFlags:
  * @EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_NONE: No flags
@@ -72,6 +76,10 @@ typedef struct {
 
   EuuFlatpakRemoteRefActionFlags flags;
 } EuuFlatpakRemoteRefAction;
+
+#define EUU_TYPE_FLATPAK_REMOTE_REF_ACTION (euu_flatpak_remote_ref_action_get_type ())
+
+GType euu_flatpak_remote_ref_action_get_type (void);
 
 typedef struct {
   GPtrArray *remote_ref_actions;  /* (element-type EuuFlatpakRemoteRefAction) */
