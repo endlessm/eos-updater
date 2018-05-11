@@ -88,7 +88,7 @@ flatpak_ref_actions_and_progresses (GStrv        directories_to_search,
  * by eos-updater-flatpak-autoinstall.d(5)) and find actions that should
  * already have been applied.
  *
- * Returns: (element-type filename EuuFlatpakRemoteRefAction) (transfer full):
+ * Returns: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) (transfer full) (nullable):
  * a mapping from file names to actions that should have been applied
  */
 GHashTable *
@@ -117,7 +117,7 @@ eufi_determine_flatpak_ref_actions_to_check (GStrv    directories_to_search,
  * by eos-updater-flatpak-autoinstall.d(5)) and find actions that should
  * be applied.
  *
- * Returns: (element-type filename EuuFlatpakRemoteRefAction) (transfer full):
+ * Returns: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) (transfer full) (nullable):
  * a mapping from file names to actions that should be applied
  */
 GHashTable *
