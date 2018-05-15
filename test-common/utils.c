@@ -1762,8 +1762,17 @@ ensure_ref_in_subserver (const OstreeCollectionRef *collection_ref,
     {
       EosTestUpdaterCommitInfo *commit_info = value;
 
-      if (ostree_collection_ref_equal (commit_info->collection_ref, collection_ref))
-        return TRUE;
+      if (collection_ref->collection_id != NULL)
+        {
+          if (ostree_collection_ref_equal (commit_info->collection_ref, collection_ref))
+            return TRUE;
+        }
+      else
+        {
+          if (g_strcmp0 (commit_info->collection_ref->ref_name,
+                         collection_ref->ref_name) == 0)
+            return TRUE;
+        }
     }
 
   return FALSE;
