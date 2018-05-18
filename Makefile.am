@@ -487,7 +487,7 @@ EXTRA_DIST += m4/introspection.m4
 if HAVE_INTROSPECTION
 # GObject Introspection for libeos-updater-util
 libeos-updater-util/EosUpdaterUtil-@EUU_API_VERSION@.gir: libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
-libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_INCLUDES = GObject-2.0 Gio-2.0 Flatpak-1.0
+libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_INCLUDES = GObject-2.0 Gio-2.0 Flatpak-1.0 OSTree-1.0
 libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_CFLAGS = \
 	$(libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CPPFLAGS) \
 	$(libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS)
