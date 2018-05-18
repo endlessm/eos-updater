@@ -89,8 +89,8 @@ typedef struct {
 EuuFlatpakLocationRef *euu_flatpak_location_ref_new (FlatpakRef  *ref,
                                                      const gchar *remote,
                                                      const gchar *collection_id);
-EuuFlatpakLocationRef *euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *ref);
-void euu_flatpak_location_ref_unref (EuuFlatpakLocationRef *ref);
+EuuFlatpakLocationRef *euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *location_ref);
+void euu_flatpak_location_ref_unref (EuuFlatpakLocationRef *location_ref);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakLocationRef, euu_flatpak_location_ref_unref)
 
