@@ -1099,12 +1099,19 @@ euu_flatpak_ref_actions_from_data (const gchar   *data,
   return g_steal_pointer (&actions);
 }
 
+G_DEFINE_BOXED_TYPE (EuuFlatpakRemoteRefActionsFile,
+                     euu_flatpak_remote_ref_actions_file,
+                     euu_flatpak_remote_ref_actions_file_copy,
+                     euu_flatpak_remote_ref_actions_file_free)
+
 /**
  * euu_flatpak_remote_ref_actions_file_new:
  * @remote_ref_actions: (element-type EuuFlatpakRemoteRefAction): a potentially
  *    empty array of actions loaded from a single file
  * @priority: the priority of the file; lower numeric priority values are more
  *    important
+ *
+ * Create a new #EuuFlatpakRemoteRefActionsFile.
  *
  * Returns: (transfer full): A new #EuuFlatpakRemoteRefActionsFile
  */
@@ -1118,6 +1125,15 @@ euu_flatpak_remote_ref_actions_file_new (GPtrArray *remote_ref_actions,
   file->priority = priority;
 
   return file;
+}
+
+EuuFlatpakRemoteRefActionsFile *
+euu_flatpak_remote_ref_actions_file_copy (EuuFlatpakRemoteRefActionsFile *file)
+{
+  g_return_val_if_fail (file != NULL, NULL);
+
+  return euu_flatpak_remote_ref_actions_file_new (file->remote_ref_actions,
+                                                  file->priority);
 }
 
 void
