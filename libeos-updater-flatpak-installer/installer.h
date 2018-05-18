@@ -29,7 +29,6 @@
 G_BEGIN_DECLS
 
 gboolean eufi_check_ref_actions_applied (FlatpakInstallation  *installation,
-                                         const gchar          *pending_flatpak_deployments_state_path,
                                          GPtrArray            *actions,
                                          GError              **error);
 
