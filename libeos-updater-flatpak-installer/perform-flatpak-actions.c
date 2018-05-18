@@ -376,7 +376,11 @@ eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
   gsize i;
   g_autoptr(GHashTable) new_progresses = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
 
-  g_return_val_if_fail (installation != NULL, FALSE);
+  g_return_val_if_fail (FLATPAK_IS_INSTALLATION (installation), FALSE);
+  g_return_val_if_fail (state_counter_path != NULL, FALSE);
+  g_return_val_if_fail (actions != NULL, FALSE);
+  g_return_val_if_fail (mode != EU_INSTALLER_MODE_CHECK, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   for (i = 0; i < actions->len; ++i)
     {
