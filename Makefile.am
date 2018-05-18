@@ -492,7 +492,7 @@ libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_CFLAGS = \
 	$(libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CPPFLAGS) \
 	$(libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS)
 libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_FILES = \
-	$(libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES)
+	$(filter-out %-private.h,$(libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES))
 libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_LIBS = libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_NAMESPACE = EosUpdaterUtil
 libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_SCANNERFLAGS = \
