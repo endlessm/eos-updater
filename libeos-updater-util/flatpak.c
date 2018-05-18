@@ -82,6 +82,14 @@ euu_flatpak_location_ref_unref (EuuFlatpakLocationRef *location_ref)
   g_slice_free (EuuFlatpakLocationRef, location_ref);
 }
 
+/**
+ * euu_flatpak_location_ref_ref: (skip)
+ * @location_ref: an #EuuFlatpakLocationRef
+ *
+ * Increment the reference count on @location_ref and return the object.
+ *
+ * Returns: (transfer full): @location_ref
+ */
 EuuFlatpakLocationRef *
 euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *location_ref)
 {
@@ -113,6 +121,14 @@ euu_flatpak_remote_ref_action_new (EuuFlatpakRemoteRefActionType  type,
   return action;
 }
 
+/**
+ * euu_flatpak_remote_ref_action_ref: (skip)
+ * @action: an #EuuFlatpakRemoteRefAction
+ *
+ * Increment the reference count on @action and return the object.
+ *
+ * Returns: (transfer full): @action
+ */
 EuuFlatpakRemoteRefAction *
 euu_flatpak_remote_ref_action_ref (EuuFlatpakRemoteRefAction *action)
 {
@@ -2668,6 +2684,24 @@ directories_to_search_from_environment (void)
   return g_strsplit (paths_to_search_string, ";", -1);
 }
 
+/**
+ * euu_flatpak_ref_actions_from_paths:
+ * @directories_to_search: (nullable): potentially empty %NULL-terminated array
+ *    of directories to search, or %NULL to use the default directory list
+ * @error: return location for a #GError, or %NULL
+ *
+ * Load the #EuuFlatpakRemoteRefActions from all the autoinstall JSON files in
+ * the given @directories_to_search.
+ *
+ * @directories_to_search may be %NULL, in which case the default list of
+ * directories is used. Files from lower-indexed directories in
+ * @directories_to_search take priority over files with the same name in later
+ * directories.
+ *
+ * Returns: (transfer container) (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>):
+ *    a potentially empty map of autoinstall filename to array of #EuuFlatpakRemoteRefActions
+ *    in that file
+ */
 GHashTable *
 euu_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
                                     GError **error)
