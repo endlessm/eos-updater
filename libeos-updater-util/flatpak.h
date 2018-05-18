@@ -40,9 +40,9 @@ typedef enum {
 
 typedef struct {
   gint ref_count;
-  FlatpakRef *ref;
-  const gchar *remote;
-  const gchar *collection_id;
+  FlatpakRef *ref;  /* (owned) (not nullable) */
+  const gchar *remote;  /* (not nullable) */
+  const gchar *collection_id;  /* (nullable) */
 } EuuFlatpakLocationRef;
 
 #define EUU_TYPE_FLATPAK_LOCATION_REF (euu_flatpak_location_ref_get_type ())
