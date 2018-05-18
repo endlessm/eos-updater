@@ -1191,6 +1191,12 @@ euu_flatpak_ref_actions_append_from_directory (GFile         *directory,
 
       filename = g_file_info_get_name (info);
 
+      if (!g_str_has_suffix (filename, ".json"))
+        {
+          g_debug ("%s: Ignoring non-JSON file ‘%s’", G_STRFUNC, filename);
+          continue;
+        }
+
       /* We may already have a remote_ref_actions_file in the hash table
        * and we cannot just blindly replace it. Replace it only if
        * the incoming directory has a higher priority. */

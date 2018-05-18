@@ -358,7 +358,7 @@ autoinstall_flatpaks_files_override (GFile                   *updater_directory,
                                      GError                 **error)
 {
   return autoinstall_flatpaks_files_override_name (updater_directory,
-                                                   "install.override",
+                                                   "install.override.json",
                                                    flatpaks,
                                                    n_flatpaks,
                                                    error);
