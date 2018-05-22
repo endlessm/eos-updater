@@ -467,9 +467,10 @@ install_flags_for_action_flags (EuuFlatpakRemoteRefActionFlags action_flags)
 static FlatpakUpdateFlags
 update_flags_for_action_flags (EuuFlatpakRemoteRefActionFlags action_flags)
 {
-  return !(action_flags & EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY) ?
-      FLATPAK_UPDATE_FLAGS_NO_DEPLOY :
-      FLATPAK_UPDATE_FLAGS_NONE;
+  return FLATPAK_UPDATE_FLAGS_NO_PRUNE |
+      (!(action_flags & EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY) ?
+       FLATPAK_UPDATE_FLAGS_NO_DEPLOY :
+       FLATPAK_UPDATE_FLAGS_NONE);
 }
 
 static gboolean
