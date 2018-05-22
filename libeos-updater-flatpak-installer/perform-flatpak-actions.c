@@ -205,15 +205,16 @@ try_uninstall_application (FlatpakInstallation  *installation,
 
   g_message ("Attempting to uninstall %s", formatted_ref);
 
-  if (!flatpak_installation_uninstall (installation,
-                                       kind,
-                                       name,
-                                       arch,
-                                       branch,
-                                       NULL,
-                                       NULL,
-                                       NULL,
-                                       &local_error))
+  if (!flatpak_installation_uninstall_full (installation,
+                                            FLATPAK_UNINSTALL_FLAGS_NO_PRUNE,
+                                            kind,
+                                            name,
+                                            arch,
+                                            branch,
+                                            NULL,
+                                            NULL,
+                                            NULL,
+                                            &local_error))
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
         {
