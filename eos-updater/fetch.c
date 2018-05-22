@@ -464,7 +464,7 @@ install_flags_for_action_flags (EuuFlatpakRemoteRefActionFlags action_flags)
       FLATPAK_INSTALL_FLAGS_NONE;
 }
 
-static FlatpakInstallFlags
+static FlatpakUpdateFlags
 update_flags_for_action_flags (EuuFlatpakRemoteRefActionFlags action_flags)
 {
   return !(action_flags & EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY) ?
