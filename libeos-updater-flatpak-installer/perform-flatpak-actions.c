@@ -50,6 +50,7 @@ try_update_application (FlatpakInstallation       *installation,
   /* Installation may have failed because we can just update instead,
    * try that. */
   updated_ref = flatpak_installation_update (installation,
+                                             FLATPAK_UPDATE_FLAGS_NO_PRUNE |
                                              FLATPAK_UPDATE_FLAGS_NO_PULL,
                                              kind,
                                              name,
@@ -164,7 +165,8 @@ try_install_application (FlatpakInstallation       *installation,
       g_clear_error (&local_error);
 
       installed_ref = flatpak_installation_update (installation,
-                                                   !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_UPDATE_FLAGS_NO_PULL : 0,
+                                                   FLATPAK_UPDATE_FLAGS_NO_PRUNE |
+                                                   (!(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_UPDATE_FLAGS_NO_PULL : 0),
                                                    kind,
                                                    name,
                                                    arch,
