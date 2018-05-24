@@ -50,6 +50,7 @@ try_update_application (FlatpakInstallation       *installation,
   /* Installation may have failed because we can just update instead,
    * try that. */
   updated_ref = flatpak_installation_update (installation,
+                                             FLATPAK_UPDATE_FLAGS_NO_PRUNE |
                                              FLATPAK_UPDATE_FLAGS_NO_PULL,
                                              kind,
                                              name,
@@ -164,7 +165,8 @@ try_install_application (FlatpakInstallation       *installation,
       g_clear_error (&local_error);
 
       installed_ref = flatpak_installation_update (installation,
-                                                   !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_UPDATE_FLAGS_NO_PULL : 0,
+                                                   FLATPAK_UPDATE_FLAGS_NO_PRUNE |
+                                                   (!(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_UPDATE_FLAGS_NO_PULL : 0),
                                                    kind,
                                                    name,
                                                    arch,
@@ -205,15 +207,16 @@ try_uninstall_application (FlatpakInstallation  *installation,
 
   g_message ("Attempting to uninstall %s", formatted_ref);
 
-  if (!flatpak_installation_uninstall (installation,
-                                       kind,
-                                       name,
-                                       arch,
-                                       branch,
-                                       NULL,
-                                       NULL,
-                                       NULL,
-                                       &local_error))
+  if (!flatpak_installation_uninstall_full (installation,
+                                            FLATPAK_UNINSTALL_FLAGS_NO_PRUNE,
+                                            kind,
+                                            name,
+                                            arch,
+                                            branch,
+                                            NULL,
+                                            NULL,
+                                            NULL,
+                                            &local_error))
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
         {
