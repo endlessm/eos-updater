@@ -1547,7 +1547,6 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
                                               GError              **error)
 {
   g_autoptr(GPtrArray) flatpak_remotes = NULL;
-  g_autoptr(GPtrArray) remotes_with_collection_ids = NULL;
   g_autoptr(GHashTable) refs_for_remotes = NULL;
   gsize i = 0;
 
@@ -1562,7 +1561,6 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
   if (flatpak_remotes == NULL)
     return FALSE;
 
-  remotes_with_collection_ids = g_ptr_array_new_with_free_func (g_object_unref);
   refs_for_remotes = g_hash_table_new_full (euu_flatpak_remote_hash,
                                             euu_flatpak_remote_equal,
                                             g_object_unref,
@@ -1573,18 +1571,7 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
       FlatpakRemote *remote = g_ptr_array_index (flatpak_remotes, i);
       g_autoptr(GPtrArray) refs_for_remote = NULL;
       const gchar *remote_name = flatpak_remote_get_name (remote);
-      const gchar *collection_id = flatpak_remote_get_collection_id (remote);
 
-      /* If there is no collection-id set on the remote config
-       * then we can't install this related ref as we don't know
-       * what collection to install it from. */
-      if (collection_id == NULL)
-        {
-          g_warning ("Ignoring dependencies from remote %s as "
-                     "no collection-id set",
-                     remote_name);
-          continue;
-        }
 
       refs_for_remote =
         flatpak_installation_list_remote_refs_sync (installation,
@@ -1595,7 +1582,6 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
       if (refs_for_remote == NULL)
         return FALSE;
 
-      g_ptr_array_add (remotes_with_collection_ids, g_object_ref (remote));
       g_hash_table_insert (refs_for_remotes,
                            g_object_ref (remote),
                            g_steal_pointer (&refs_for_remote));
@@ -1604,7 +1590,7 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
   /* We return both a GPtrArray of remotes and the hashtable mapping
    * each remote to a list of refs, since we need to maintain the priority
    * order. */
-  *out_remotes_priority_order = g_steal_pointer (&remotes_with_collection_ids);
+  *out_remotes_priority_order = g_steal_pointer (&flatpak_remotes);
   *out_refs_for_remotes = g_steal_pointer (&refs_for_remotes);
 
   return TRUE;
