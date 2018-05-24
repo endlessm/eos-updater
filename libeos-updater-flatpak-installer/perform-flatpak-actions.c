@@ -370,8 +370,9 @@ eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
 
       /* Dependencies should not be passed through this function - they
        * were meant to be deployed earlier. Uninstall dependencies will
-       * be handled implicitly */
-      g_assert (!is_dependency);
+       * be handled implicitly. Allow them if we’re running
+       * `eos-updater-flatpak-installer -mode deploy --pull` manually though. */
+      g_assert (!is_dependency || flags & EU_INSTALLER_FLAGS_ALSO_PULL);
 
       /* Only perform actions if we’re in the "perform" mode. Otherwise
        * we just pretend to perform actions and update the counter
