@@ -192,9 +192,9 @@ try_install_application (FlatpakInstallation       *installation,
 }
 
 static gboolean
-try_uninstall_application (FlatpakInstallation  *installation,
-                           FlatpakRef           *ref,
-                           GError              **error)
+uninstall_ignoring_not_installed (FlatpakInstallation  *installation,
+                                  FlatpakRef           *ref,
+                                  GError              **error)
 {
   FlatpakRefKind kind = flatpak_ref_get_kind (ref);
   const gchar *name = flatpak_ref_get_name (ref);
@@ -202,8 +202,6 @@ try_uninstall_application (FlatpakInstallation  *installation,
   const gchar *branch = flatpak_ref_get_branch (ref);
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autoptr(GError) local_error = NULL;
-
-  g_message ("Attempting to uninstall %s", formatted_ref);
 
   if (!flatpak_installation_uninstall (installation,
                                        kind,
@@ -224,7 +222,106 @@ try_uninstall_application (FlatpakInstallation  *installation,
 
       g_message ("%s already uninstalled", formatted_ref);
       g_clear_error (&local_error);
-      return TRUE;
+    }
+
+  return TRUE;
+}
+
+/* We list the autodelete dependencies here for every remote
+ * by building up a hashset */
+static GHashTable *
+list_autodelete_dependencies (FlatpakInstallation  *installation,
+                              FlatpakRef           *ref,
+                              GError              **error)
+{
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
+  g_autoptr(GPtrArray) remotes =
+    flatpak_installation_list_remotes (installation, NULL, error);
+  g_autoptr(GHashTable) uninstall_dependencies_set =
+    g_hash_table_new_full (euu_flatpak_ref_hash,
+                           euu_flatpak_ref_equal,
+                           g_object_unref,
+                           NULL);
+
+  for (gsize i = 0; i < remotes->len; ++i)
+    {
+      FlatpakRemote *remote = g_ptr_array_index (remotes, i);
+      g_autoptr(GError) local_error = NULL;
+      g_autoptr(GPtrArray) installed_related_refs =
+        flatpak_installation_list_installed_related_refs_sync (installation,
+                                                               flatpak_remote_get_name (remote),
+                                                               formatted_ref,
+                                                               NULL,
+                                                               &local_error);
+
+      if (installed_related_refs == NULL)
+        {
+          /* If we hit this we are going to get the same error for all
+           * remotes, so just return now */
+          if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
+            return g_steal_pointer (&uninstall_dependencies_set);
+
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
+
+      for (gsize j = 0; j < installed_related_refs->len; ++j)
+        {
+          FlatpakRelatedRef *related_ref = g_ptr_array_index (installed_related_refs, j);
+
+          if (flatpak_related_ref_should_delete (related_ref))
+            g_hash_table_insert (uninstall_dependencies_set,
+                                 g_object_ref (related_ref),
+                                 NULL);
+        }
+    }
+
+  return g_steal_pointer (&uninstall_dependencies_set);
+}
+
+static gboolean
+try_uninstall_application (FlatpakInstallation  *installation,
+                           FlatpakRef           *ref,
+                           GError              **error)
+{
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
+  g_autoptr(GHashTable) uninstall_dependencies_set = NULL;
+  GHashTableIter iter;
+  gpointer key, value;
+
+  g_message ("Attempting to uninstall %s", formatted_ref);
+
+  uninstall_dependencies_set =
+    list_autodelete_dependencies (installation,
+                                  ref,
+                                  error);
+
+  if (uninstall_dependencies_set == NULL)
+    return FALSE;
+
+  if (!uninstall_ignoring_not_installed (installation,
+                                         ref,
+                                         error))
+    return FALSE;
+
+  g_hash_table_iter_init (&iter, uninstall_dependencies_set);
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      FlatpakRef *uninstall_ref = key;
+      g_autofree gchar *formatted_related_ref = flatpak_ref_format_ref (uninstall_ref);
+
+      g_debug ("Uninstalling autodelete dependency %s of %s",
+               formatted_related_ref,
+               formatted_ref);
+
+      if (!uninstall_ignoring_not_installed (installation,
+                                             uninstall_ref,
+                                             error))
+        return FALSE;
+
+      g_debug ("Successfuly uninstalled autodelete dependency %s of %s",
+               formatted_related_ref,
+               formatted_ref);
     }
 
   g_message ("Successfully uninstalled %s", formatted_ref);

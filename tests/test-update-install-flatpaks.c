@@ -4994,6 +4994,322 @@ test_update_uninstall_flatpaks_on_reboot (EosUpdaterFixture *fixture,
 }
 
 /* Insert a list of flatpaks to automatically uninstall on the commit
+ * with one of them that has an extension marked autodelete. Both are
+ * installed by default but only mark the app flatpak for uninstallation.
+ * Download the update and simulate a reboot by running
+ * eos-updater-flatpak-installer. Both the app flatpak and its autodelete
+ * extension should no longer be installed */
+static void
+test_update_uninstall_flatpaks_on_reboot_autodelete_extension (EosUpdaterFixture *fixture,
+                                                               gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_autoptr(GHashTable) flatpak_repo_infos = g_hash_table_new_full (g_str_hash,
+                                                                    g_str_equal,
+                                                                    g_free,
+                                                                    (GDestroyNotify) flatpak_repo_info_free);
+  g_autoptr(GPtrArray) flatpak_install_infos =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_install_info_free);
+  g_autoptr(GPtrArray) extension_infos =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_extension_point_info_free);
+  g_auto(GStrv) predeployed_flatpaks = NULL;
+  g_auto(GStrv) deployed_flatpaks = NULL;
+  g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
+  g_autofree gchar *deployment_csum = NULL;
+  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
+  g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T22054");
+
+  etc_data_init (data, fixture);
+
+  /* Commit number 1 will remove the app flatpak
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              1,
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  deployment_repo_dir = g_file_get_child (data->client->root,
+                                          deployment_repo_relative_path);
+
+  /* Set up an autodelete extension point for the preinstalled app */
+  g_ptr_array_add (extension_infos,
+                   flatpak_extension_point_info_new_single_version ("org.test.Test.Extension",
+                                                                    "extension_point_directory",
+                                                                    "stable",
+                                                                    FLATPAK_EXTENSION_POINT_AUTODELETE));
+
+  /* Set up runtime, app and extension, all of which will be installed by default */
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_RUNTIME,
+                                             "org.test.Runtime",
+                                             "stable",
+                                             NULL,
+                                             NULL,
+                                             "test-repo",
+                                             TRUE));
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new_with_extension_info (FLATPAK_INSTALL_INFO_TYPE_APP,
+                                                                 "org.test.Test",
+                                                                 "stable",
+                                                                 "org.test.Runtime",
+                                                                 "stable",
+                                                                 "test-repo",
+                                                                 TRUE,
+                                                                 NULL,
+                                                                 extension_infos));
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new_with_extension_info (FLATPAK_INSTALL_INFO_TYPE_EXTENSION,
+                                                                 "org.test.Test.Extension",
+                                                                 "stable",
+                                                                 NULL,
+                                                                 NULL,
+                                                                 "test-repo",
+                                                                 TRUE,
+                                                                 "app/org.test.Test/arch/stable",
+                                                                 NULL));
+
+  /* Set up repos */
+  g_hash_table_insert (flatpak_repo_infos,
+                       g_strdup ("test-repo"),
+                       flatpak_repo_info_new ("test-repo",
+                                              "com.endlessm.TestInstallFlatpaksCollection",
+                                              "com.endlessm.TestInstallFlatpaksCollection"));
+
+  eos_test_setup_flatpak_repo (updater_directory,
+                               flatpak_install_infos,
+                               flatpak_repo_infos,
+                               gpg_key_file,
+                               keyid,
+                               &error);
+
+  /* Quick sanity check that the app and extension are installed */
+  predeployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
+  g_assert_no_error (error);
+
+  g_assert_true (g_strv_contains ((const gchar * const *) predeployed_flatpaks,
+                                  "org.test.Test"));
+  g_assert_true (g_strv_contains ((const gchar * const *) predeployed_flatpaks,
+                                  "org.test.Test.Extension"));
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
+  deployment_csum = get_checksum_for_deploy_repo_dir (deployment_repo_dir,
+                                                      refspec,
+                                                      &error);
+  g_assert_no_error (error);
+
+  eos_test_run_flatpak_installer (data->client->root,
+                                  deployment_csum,
+                                  default_remote_name,
+                                  &error);
+  g_assert_no_error (error);
+
+  /* Extension should not be installed here, nor should the app */
+  deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
+  g_assert_no_error (error);
+
+  g_assert_false (g_strv_contains ((const gchar * const *) deployed_flatpaks,
+                                   "org.test.Test"));
+  g_assert_false (g_strv_contains ((const gchar * const *) deployed_flatpaks,
+                                   "org.test.Test.Extension"));
+}
+
+/* Insert a list of flatpaks to automatically uninstall on the commit
+ * with one of them that has an extension not marked autodelete. Both are
+ * installed by default but only mark the app flatpak for uninstallation.
+ * Download the update and simulate a reboot by running
+ * eos-updater-flatpak-installer. The app flatpak should not be installed,
+ * but the non-autodelete extension should still be installed. */
+static void
+test_update_uninstall_flatpaks_on_reboot_no_autodelete_extension (EosUpdaterFixture *fixture,
+                                                                  gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "uninstall", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_autoptr(GHashTable) flatpak_repo_infos = g_hash_table_new_full (g_str_hash,
+                                                                    g_str_equal,
+                                                                    g_free,
+                                                                    (GDestroyNotify) flatpak_repo_info_free);
+  g_autoptr(GPtrArray) flatpak_install_infos =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_install_info_free);
+  g_autoptr(GPtrArray) extension_infos =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_extension_point_info_free);
+  g_auto(GStrv) deployed_flatpaks = NULL;
+  g_auto(GStrv) predeployed_flatpaks = NULL;
+  g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
+  g_autofree gchar *deployment_csum = NULL;
+  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
+  g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T22054");
+
+  etc_data_init (data, fixture);
+
+  /* Commit number 1 will remove the app flatpak
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              1,
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  deployment_repo_dir = g_file_get_child (data->client->root,
+                                          deployment_repo_relative_path);
+
+  /* Set up an autodelete extension point for the preinstalled app */
+  g_ptr_array_add (extension_infos,
+                   flatpak_extension_point_info_new_single_version ("org.test.Test.Extension",
+                                                                    "extension_point_directory",
+                                                                    "stable",
+                                                                    FLATPAK_EXTENSION_POINT_NONE));
+
+  /* Set up runtime, app and extension, all of which will be installed by default */
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_RUNTIME,
+                                             "org.test.Runtime",
+                                             "stable",
+                                             NULL,
+                                             NULL,
+                                             "test-repo",
+                                             TRUE));
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new_with_extension_info (FLATPAK_INSTALL_INFO_TYPE_APP,
+                                                                 "org.test.Test",
+                                                                 "stable",
+                                                                 "org.test.Runtime",
+                                                                 "stable",
+                                                                 "test-repo",
+                                                                 TRUE,
+                                                                 NULL,
+                                                                 extension_infos));
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new_with_extension_info (FLATPAK_INSTALL_INFO_TYPE_EXTENSION,
+                                                                 "org.test.Test.Extension",
+                                                                 "stable",
+                                                                 NULL,
+                                                                 NULL,
+                                                                 "test-repo",
+                                                                 TRUE,
+                                                                 "app/org.test.Test/arch/stable",
+                                                                 NULL));
+
+  /* Set up repos */
+  g_hash_table_insert (flatpak_repo_infos,
+                       g_strdup ("test-repo"),
+                       flatpak_repo_info_new ("test-repo",
+                                              "com.endlessm.TestInstallFlatpaksCollection",
+                                              "com.endlessm.TestInstallFlatpaksCollection"));
+
+  eos_test_setup_flatpak_repo (updater_directory,
+                               flatpak_install_infos,
+                               flatpak_repo_infos,
+                               gpg_key_file,
+                               keyid,
+                               &error);
+
+  /* Quick sanity check that the app and extension are installed */
+  predeployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
+  g_assert_no_error (error);
+
+  g_assert_true (g_strv_contains ((const gchar * const *) predeployed_flatpaks,
+                                  "org.test.Test"));
+  g_assert_true (g_strv_contains ((const gchar * const *) predeployed_flatpaks,
+                                  "org.test.Test.Extension"));
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
+  deployment_csum = get_checksum_for_deploy_repo_dir (deployment_repo_dir,
+                                                      refspec,
+                                                      &error);
+  g_assert_no_error (error);
+
+  eos_test_run_flatpak_installer (data->client->root,
+                                  deployment_csum,
+                                  default_remote_name,
+                                  &error);
+  g_assert_no_error (error);
+
+  /* Extension should be installed here but app should not be */
+  deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
+  g_assert_no_error (error);
+
+  g_assert_false (g_strv_contains ((const gchar * const *) deployed_flatpaks,
+                                   "org.test.Test"));
+  g_assert_true (g_strv_contains ((const gchar * const *) deployed_flatpaks,
+                                  "org.test.Test.Extension"));
+}
+
+/* Insert a list of flatpaks to automatically uninstall on the commit
  * and simulate a reboot by running eos-updater-flatpak-installer. This
  * should check the deployment for a list of flatpak actions and
  * uninstall them in the system installation. This uses a custom branch name */
@@ -6415,6 +6731,8 @@ main (int argc,
   eos_test_add ("/updater/update-flatpaks-no-op-if-not-installed", NULL, test_update_flatpaks_no_op_if_not_installed);
   eos_test_add ("/updater/update-flatpaks-no-op-if-up-to-date", NULL, test_update_flatpaks_no_op_if_up_to_date);
   eos_test_add ("/updater/uninstall-flatpaks-on-reboot", NULL, test_update_uninstall_flatpaks_on_reboot);
+  eos_test_add ("/updater/uninstall-flatpaks-on-reboot-autodelete-extension", NULL, test_update_uninstall_flatpaks_on_reboot_autodelete_extension);
+  eos_test_add ("/updater/uninstall-flatpaks-on-reboot-no-autodelete-extension", NULL, test_update_uninstall_flatpaks_on_reboot_no_autodelete_extension);
   eos_test_add ("/updater/uninstall-flatpaks-on-reboot-custom-branch-name", NULL, test_update_uninstall_flatpaks_on_reboot_custom_branch_name);
   eos_test_add ("/updater/no-uninstall-flatpaks-on-reboot-different-branch-name", NULL, test_update_no_uninstall_flatpaks_on_reboot_different_branch_name);
   eos_test_add ("/updater/no-deploy-same-action-twice", NULL, test_update_no_deploy_flatpaks_twice);
