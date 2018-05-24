@@ -34,11 +34,27 @@
 #include <string.h>
 
 
+/**
+ * euu_flatpak_location_ref_new:
+ * @ref: a #FlatpakRef
+ * @remote: a remote name
+ * @collection_id: (nullable): collection ID for @remote, or %NULL if not
+ *    configured locally
+ *
+ * Create a new #EuuFlatpakLocationRef.
+ *
+ * Returns: (transfer full): a new #EuuFlatpakLocationRef
+ */
 EuuFlatpakLocationRef *
 euu_flatpak_location_ref_new (FlatpakRef  *ref,
                               const gchar *remote,
                               const gchar *collection_id)
 {
+  g_return_val_if_fail (FLATPAK_IS_REF (ref), NULL);
+  g_return_val_if_fail (ostree_validate_remote_name (remote, NULL), NULL);
+  g_return_val_if_fail (collection_id == NULL ||
+                        ostree_validate_collection_id (collection_id, NULL), NULL);
+
   EuuFlatpakLocationRef *location_ref = g_slice_new0 (EuuFlatpakLocationRef);
 
   location_ref->ref_count = 1;
