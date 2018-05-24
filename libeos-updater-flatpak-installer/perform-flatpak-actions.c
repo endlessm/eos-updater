@@ -351,7 +351,7 @@ eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
                                 const gchar               *state_counter_path,
                                 GPtrArray                 *actions  /* (element-type EuuFlatpakRemoteRefAction) */,
                                 EosUpdaterInstallerMode    mode,
-                                EosUpdaterInstallerFlags   pull,
+                                EosUpdaterInstallerFlags   flags,
                                 GError                   **error)
 {
   gsize i;
@@ -374,7 +374,7 @@ eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
        * we just pretend to perform actions and update the counter
        * accordingly */
       if (mode == EU_INSTALLER_MODE_PERFORM &&
-          !perform_action (installation, pending_action, pull, error))
+          !perform_action (installation, pending_action, flags, error))
         {
           /* If we fail, we should still update the state of the counter
            * to the last successful one before we get out. This is to ensure
