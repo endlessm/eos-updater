@@ -671,7 +671,7 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
                                                   cancellable,
                                                   error);
 
-  if (!flatpak_ref_actions_this_commit_wants)
+  if (flatpak_ref_actions_this_commit_wants == NULL)
     return FALSE;
 
   formatted_flatpak_ref_actions_this_commit_wants =
