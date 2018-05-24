@@ -229,19 +229,46 @@ main (int    argc,
 
           squashed_ref_actions_to_apply = euu_flatten_flatpak_ref_actions_table (new_flatpak_ref_actions_to_apply);
 
+          g_autoptr(GPtrArray) squashed_ref_actions_to_apply_with_dependencies = NULL;
+
+          if (also_pull)
+            {
+              /* We can only add the dependencies when also pulling (which only
+               * happens when e-u-f-i is run manually). When not pulling, the
+               * dependencies should have been pulled and deployed before
+               * reboot already. */
+              squashed_ref_actions_to_apply_with_dependencies =
+                  euu_add_dependency_ref_actions_for_installation (installation,
+                                                                   squashed_ref_actions_to_apply,
+                                                                   NULL,
+                                                                   &error);
+
+              if (squashed_ref_actions_to_apply_with_dependencies == NULL)
+                return fail (EXIT_FAILED,
+                             "Could not get dependencies for flatpak ref actions: %s",
+                             error->message);
+            }
+          else
+            {
+              squashed_ref_actions_to_apply_with_dependencies = g_ptr_array_ref (squashed_ref_actions_to_apply);
+            }
+
           formatted_flatpak_ref_actions_to_apply =
             euu_format_all_flatpak_ref_actions ("All flatpak ref actions that are not yet applied",
                                                 new_flatpak_ref_actions_to_apply);
           g_message ("%s", formatted_flatpak_ref_actions_to_apply);
 
+          const gchar *msg = also_pull ?
+              "Order in which actions will be applied (with dependencies)" :
+              "Order in which actions will be applied";
           formatted_ordered_flatpak_ref_actions_to_apply =
-            euu_format_flatpak_ref_actions_array ("Order in which actions will be applied",
-                                                  squashed_ref_actions_to_apply);
+            euu_format_flatpak_ref_actions_array (msg,
+                                                  squashed_ref_actions_to_apply_with_dependencies);
           g_message ("%s", formatted_ordered_flatpak_ref_actions_to_apply);
 
           if (!eufi_apply_flatpak_ref_actions (installation,
                                                euu_pending_flatpak_deployments_state_path (),
-                                               squashed_ref_actions_to_apply,
+                                               squashed_ref_actions_to_apply_with_dependencies,
                                                parsed_mode,
                                                also_pull ? EU_INSTALLER_FLAGS_ALSO_PULL : EU_INSTALLER_FLAGS_NONE,
                                                &error))
