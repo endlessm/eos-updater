@@ -1572,7 +1572,11 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
       g_autoptr(GPtrArray) refs_for_remote = NULL;
       const gchar *remote_name = flatpak_remote_get_name (remote);
 
+      if (flatpak_remote_get_disabled (remote) ||
+          flatpak_remote_get_nodeps (remote))
+        continue;
 
+      /* This internally handles noenumerate remotes specially: */
       refs_for_remote =
         flatpak_installation_list_remote_refs_sync (installation,
                                                     remote_name,
@@ -1765,6 +1769,8 @@ list_related_refs_for_remote (FlatpakInstallation  *installation,
                               GCancellable         *cancellable,
                               GError              **error)
 {
+  g_return_val_if_fail (!flatpak_remote_get_disabled (remote), NULL);
+
   g_autoptr(GPtrArray) remote_related_refs =
     flatpak_installation_list_remote_related_refs_sync (installation,
                                                         flatpak_remote_get_name (remote),
@@ -1815,6 +1821,11 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
     {
       EuuFlatpakRelatedRefsForRemote *related_refs_for_remote =
         g_ptr_array_index (related_refs_for_remotes, i);
+
+      if (flatpak_remote_get_disabled (related_refs_for_remote->remote) ||
+          flatpak_remote_get_nodeps (related_refs_for_remote->remote))
+        continue;
+
       g_autoptr(GPtrArray) related_refs =
         list_related_refs_for_remote (installation,
                                       related_refs_for_remote->remote,
@@ -2154,6 +2165,8 @@ reprioritize_remotes_for_source_ref (GPtrArray   *remotes,
   return g_steal_pointer (&reprioritized);
 }
 
+/* This will return noenumerate remotes in both returned containers, but will
+ * not return any disabled or nodeps remotes. */
 static void
 initially_populate_remote_and_installed_related_refs (GPtrArray   *remotes,
                                                       const gchar *source_ref_remote_name,
@@ -2177,6 +2190,11 @@ initially_populate_remote_and_installed_related_refs (GPtrArray   *remotes,
   for (gsize i = 0; i < reprioritized_remotes->len; ++i)
     {
       FlatpakRemote *remote = g_ptr_array_index (reprioritized_remotes, i);
+
+      if (flatpak_remote_get_disabled (remote) ||
+          flatpak_remote_get_nodeps (remote))
+        continue;
+
       g_autoptr(GHashTable) refs_for_remote =
         g_hash_table_new_full (euu_flatpak_ref_hash,
                                euu_flatpak_ref_equal,
