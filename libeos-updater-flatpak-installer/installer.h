@@ -37,7 +37,7 @@ gboolean eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation
                                          const gchar               *state_counter_path,
                                          GPtrArray                 *actions,
                                          EosUpdaterInstallerMode    mode,
-                                         EosUpdaterInstallerFlags   pull,
+                                         EosUpdaterInstallerFlags   flags,
                                          GError                   **error);
 
 GHashTable *eufi_determine_flatpak_ref_actions_to_check (GStrv    directories_to_search,
