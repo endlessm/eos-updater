@@ -921,10 +921,10 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
                                     EOS_UPDATER_ERROR,
                                     EOS_UPDATER_ERROR_UNKNOWN_ENTRY_IN_AUTOINSTALL_SPEC))
             {
-              g_debug ("%s while parsing %s. Skipping this action and it "
-                       "will not be reapplied later. System may be in an "
-                       "inconsistent state from this point forward.",
-                       local_error->message, filename);
+              g_warning ("%s while parsing %s. Skipping this action and it "
+                         "will not be reapplied later. System may be in an "
+                         "inconsistent state from this point forward.",
+                         local_error->message, filename);
               g_ptr_array_add (skipped_action_entries, json_node_to_string (element_node));
               g_clear_error (&local_error);
               continue;
@@ -1564,9 +1564,9 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
        * what collection to install it from. */
       if (collection_id == NULL)
         {
-          g_debug ("Ignoring dependencies from remote %s as "
-                   "no collection-id set",
-                   remote_name);
+          g_warning ("Ignoring dependencies from remote %s as "
+                     "no collection-id set",
+                     remote_name);
           continue;
         }
 
@@ -1683,12 +1683,12 @@ fetch_runtime_ref_for_source_ref (FlatpakInstallation *installation,
       if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
           g_autofree gchar *formatted_source_ref = flatpak_ref_format_ref (source_ref);
-          g_debug ("Remote %s did not have a summary cache "
-                   "or %s was not found in it, assuming that "
-                   "%s does not have a runtime",
-                   source_ref_remote_name,
-                   formatted_source_ref,
-                   formatted_source_ref);
+          g_warning ("Remote %s did not have a summary cache "
+                     "or %s was not found in it, assuming that "
+                     "%s does not have a runtime",
+                     source_ref_remote_name,
+                     formatted_source_ref,
+                     formatted_source_ref);
 
           *out_runtime_ref = NULL;
           return TRUE;
