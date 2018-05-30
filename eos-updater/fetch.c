@@ -654,7 +654,7 @@ perform_action_preparation (FlatpakInstallation        *installation,
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
         return TRUE;
       default:
-        g_assert_not_reached();
+        g_assert_not_reached ();
         return FALSE;
     }
 
