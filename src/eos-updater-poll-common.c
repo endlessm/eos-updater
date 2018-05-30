@@ -345,18 +345,27 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
   if (!ostree_sysroot_get_repo (sysroot, &repo, NULL, error))
    return FALSE;
 
+  /* We need to be resilient if the $checksum.commit object is missing from the
+   * local repository (for some reason). */
   if (!ostree_repo_load_variant (repo,
                                  OSTREE_OBJECT_TYPE_COMMIT,
                                  checksum,
                                  &commit,
-                                 error))
-    return FALSE;
+                                 &local_error))
+    {
+      g_warning ("Error loading commit ‘%s’ to find checkpoint (assuming none): %s",
+                 checksum, local_error->message);
+      g_clear_error (&local_error);
+    }
 
   /* Look up the checkpoint target to see if there is one on this commit. */
-  metadata = g_variant_get_child_value (commit, 0);
-  ref_for_deployment_variant = g_variant_lookup_value (metadata,
-                                                       "eos.checkpoint-target",
-                                                       G_VARIANT_TYPE_STRING);
+  if (commit != NULL)
+    {
+      metadata = g_variant_get_child_value (commit, 0);
+      ref_for_deployment_variant = g_variant_lookup_value (metadata,
+                                                           "eos.checkpoint-target",
+                                                           G_VARIANT_TYPE_STRING);
+    }
 
   /* No metadata tag on this commit, just return TRUE with no value */
   if (ref_for_deployment_variant == NULL)
@@ -560,6 +569,7 @@ parse_latest_commit (OstreeRepo           *repo,
   g_autoptr(GVariant) rebase = NULL;
   g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *collection_id = NULL;
+  g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
@@ -576,17 +586,26 @@ parse_latest_commit (OstreeRepo           *repo,
   if (!ostree_repo_get_remote_option (repo, remote_name, "collection-id", NULL, &collection_id, error))
     return FALSE;
 
+  /* We need to be resilient if the $checksum.commit object is missing from the
+   * local repository (for some reason). */
   if (!ostree_repo_load_variant (repo,
                                  OSTREE_OBJECT_TYPE_COMMIT,
                                  checksum,
                                  &commit,
-                                 error))
-    return FALSE;
+                                 &local_error))
+    {
+      g_warning ("Error loading commit ‘%s’ to find redirect (assuming none): %s",
+                 checksum, local_error->message);
+      g_clear_error (&local_error);
+    }
 
   /* If this is a redirect commit, follow it and fetch the new ref instead
    * (unless the rebase is a loop; ignore that). */
-  metadata = g_variant_get_child_value (commit, 0);
-  rebase = g_variant_lookup_value (metadata, "ostree.endoflife-rebase", G_VARIANT_TYPE_STRING);
+  if (commit != NULL)
+    {
+      metadata = g_variant_get_child_value (commit, 0);
+      rebase = g_variant_lookup_value (metadata, "ostree.endoflife-rebase", G_VARIANT_TYPE_STRING);
+    }
 
   if (rebase != NULL &&
       g_strcmp0 (g_variant_get_string (rebase, NULL), ref) != 0)
