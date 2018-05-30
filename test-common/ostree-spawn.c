@@ -51,6 +51,7 @@ spawn_ostree_in_repo (GFile *repo,
   CmdEnvVar envv[] =
     {
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL },
     };
   g_auto(GStrv) envp = build_cmd_env (envv);
@@ -470,6 +471,7 @@ ostree_admin_spawn_in_sysroot (GFile *sysroot,
   CmdEnvVar envv[] =
     {
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL },
     };
   g_auto(GStrv) envp = build_cmd_env (envv);
@@ -633,6 +635,7 @@ ostree_httpd (GFile *served_dir,
   CmdEnvVar envv[] =
     {
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL },
     };
   g_auto(GStrv) envp = build_cmd_env (envv);

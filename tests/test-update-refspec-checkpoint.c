@@ -67,9 +67,14 @@ insert_update_refspec_metadata_for_commit (guint         commit,
                        create_checkpoint_target_metadata (new_ref));
 }
 
+/* @expected_updater_warnings should typically be set to %NULL. Set it to a
+ * non-%NULL glob string for tests where the updater is expected to emit a
+ * warning. FIXME: Currently we have no way to programmatically verify that the
+ * warning matches the glob. */
 static void
 update_client (EosUpdaterFixture *fixture,
-               EosTestClient     *client)
+               EosTestClient     *client,
+               const gchar       *expected_updater_warnings)
 {
   DownloadSource main_source = DOWNLOAD_MAIN;
   g_autoptr(GPtrArray) cmds = NULL;
@@ -79,12 +84,20 @@ update_client (EosUpdaterFixture *fixture,
   g_auto(CmdResult) reaped = CMD_RESULT_CLEARED;
   g_autoptr(GError) error = NULL;
 
-  eos_test_client_run_updater (client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
+  if (expected_updater_warnings == NULL)
+    eos_test_client_run_updater (client,
+                                 &main_source,
+                                 1,
+                                 NULL,
+                                 &updater_cmd,
+                                 &error);
+  else
+    eos_test_client_run_updater_ignore_warnings (client,
+                                                 &main_source,
+                                                 1,
+                                                 NULL,
+                                                 &updater_cmd,
+                                                 &error);
   g_assert_no_error (error);
 
   autoupdater_root = g_file_get_child (fixture->tmpdir, "autoupdater");
@@ -195,7 +208,7 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   /* Now update the client. We stopped making commits on this
    * ref, so it is effectively a "checkpoint" and we should only have
    * the first commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -228,7 +241,7 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   /* Update the client again. Because we had deployed the
    * checkpoint, we should now have the new ref to update on and should
    * have pulled the new commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -331,7 +344,7 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
    * the second commit (we will also have the first, but only
    * because the tests don't have a mechanism to remove old
    * commit files). */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -345,7 +358,7 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
    * checkpoint, we should now have the new ref to update on and should
    * have pulled the new commit (we can't assert on anything here, but
    * we can do the next step to figure out what branch we're on). */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   /* Now that we should be on the new branch, make a commit there
    * and update again. */
@@ -358,7 +371,7 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
                              &error);
   g_assert_no_error (error);
 
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -449,7 +462,7 @@ test_update_refspec_checkpoint_no_collection_ref_server (EosUpdaterFixture *fixt
   /* Now update the client. We stopped making commits on this
    * ref, so it is effectively a "checkpoint" and we should only have
    * the first commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -469,7 +482,7 @@ test_update_refspec_checkpoint_no_collection_ref_server (EosUpdaterFixture *fixt
 
   /* Update the client again. We deployed the checkpoint but
    * it has no collection-ref set on the remote, so fail to use it. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -557,7 +570,7 @@ test_update_refspec_checkpoint_malformed_checkpoint (EosUpdaterFixture *fixture,
   /* Now update the client. We stopped making commits on this
    * ref, so it is effectively a "checkpoint" and we should only have
    * the first commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -575,8 +588,10 @@ test_update_refspec_checkpoint_malformed_checkpoint (EosUpdaterFixture *fixture,
   g_assert_no_error (error);
   g_assert_false (has_commit);
 
-  /* Update the client again. The checkpoint was invalid, so fail to use it. */
-  update_client (fixture, client);
+  /* Update the client again. The checkpoint was invalid, so fail to use it. We
+   * expect the updater to warn about this. */
+  update_client (fixture, client,
+                 "*Failed to parse eos.checkpoint-target ref '$^^@*invalid', ignoring it");
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -679,7 +694,7 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
   /* Now update the client. We stopped making commits on this
    * ref, so it is effectively a "checkpoint" and we should only have
    * the first commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -697,8 +712,10 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
   g_assert_no_error (error);
   g_assert_false (has_commit);
 
-  /* Update the client again. The checkpoint was invalid, so fail to use it. */
-  update_client (fixture, client);
+  /* Update the client again. The checkpoint was invalid, so fail to use it. We
+   * expect the updater to warn about this. */
+  update_client (fixture, client,
+                 "*Failed to parse eos.checkpoint-target ref '$^^@*invalid', ignoring it");
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -726,7 +743,7 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
 
   /* Update client. This was a checkpoint so we should not
    * have commit 4 (but should have commit 3) */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -746,7 +763,7 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
 
   /* Update client again. Now that we rebooted after
    * updating, we should have commit 4. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -837,7 +854,7 @@ test_update_refspec_checkpoint_no_collection_ref_client (EosUpdaterFixture *fixt
   /* Now update the client. We stopped making commits on this
    * ref, so it is effectively a "checkpoint" and we should only have
    * the first commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -857,7 +874,7 @@ test_update_refspec_checkpoint_no_collection_ref_client (EosUpdaterFixture *fixt
 
   /* Update the client again. We deployed the checkpoint but
    * it has no collection-ref set on the remote, so fail to use it. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -956,7 +973,7 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
   /* Now update the client. We stopped making commits on this
    * ref, so it is effectively a "checkpoint" and we should only have
    * the first commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -994,7 +1011,7 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
    * the checkpoint, we should not have the new commit that
    * came from the checkpoint branch. Instead we should
    * have the newest commit on the non-checkpoint branch */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -1109,7 +1126,7 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
   /* Now update the client. We stopped making commits on this
    * ref, so it is effectively a "checkpoint" and we should only have
    * the first commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -1147,7 +1164,7 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
    * the checkpoint, we should not have the new commit that
    * came from the checkpoint branch. Instead we should
    * have the newest commit on the non-checkpoint branch */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -1182,7 +1199,7 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
 
   /* Update the client. We should stop
    * at the checkpoint commit again. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -1202,7 +1219,7 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
 
   /* Update one more time. We should now have the
    * commit on the post-checkpoint branch. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -1292,7 +1309,7 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
   /* Now update the client. We stopped making commits on this
    * ref, so it is effectively a "checkpoint" and we should only have
    * the first commit. */
-  update_client (fixture, client);
+  update_client (fixture, client, NULL);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -1312,8 +1329,10 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
 
   /* Update the client again. Because we had deployed the
    * checkpoint, we should now have the new ref to update on and should
-   * have pulled the new commit. */
-  update_client (fixture, client);
+   * have pulled the new commit. The updater should warn us about the ignored
+   * remote. */
+  update_client (fixture, client,
+                 "*Ignoring remote 'BADREMOTE' in eos.checkpoint-target metadata 'BADREMOTE:REFv2'");
 
   eos_test_client_has_commit (client,
                               default_remote_name,

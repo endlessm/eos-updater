@@ -1618,6 +1618,7 @@ spawn_updater (GFile *sysroot,
                GFile *flatpak_installation_dir,
                GFile *flatpak_autoinstall_override_dir,
                const gchar *osname,
+               gboolean fatal_warnings,
                CmdAsyncResult *cmd,
                GError **error)
 {
@@ -1643,6 +1644,7 @@ spawn_updater (GFile *sysroot,
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "EOS_DISABLE_METRICS", "1", NULL },
+      { "G_DEBUG", fatal_warnings ? "gc-friendly,fatal-warnings" : "gc-friendly", NULL },
       { NULL, NULL, NULL }
     };
   const gchar *argv[] =
@@ -1688,6 +1690,7 @@ spawn_updater_simple (GFile *sysroot,
                       GFile *repo,
                       GFile *updater_dir,
                       const gchar *osname,
+                      gboolean fatal_warnings,
                       CmdAsyncResult *cmd,
                       GError **error)
 {
@@ -1707,6 +1710,7 @@ spawn_updater_simple (GFile *sysroot,
                         flatpak_installation_dir_path,
                         flatpak_autoinstall_override_dir,
                         osname,
+                        fatal_warnings,
                         cmd,
                         error);
 }
@@ -1719,6 +1723,7 @@ run_updater (GFile *client_root,
              const gchar *vendor,
              const gchar *product,
              const gchar *remote_name,
+             gboolean fatal_warnings,
              CmdAsyncResult *updater_cmd,
              GError **error)
 {
@@ -1741,6 +1746,7 @@ run_updater (GFile *client_root,
                              repo,
                              updater_dir,
                              remote_name,
+                             fatal_warnings,
                              updater_cmd,
                              error))
     return FALSE;
@@ -1839,6 +1845,30 @@ eos_test_client_run_updater (EosTestClient *client,
                     client->vendor,
                     client->product,
                     client->remote_name,
+                    TRUE,  /* fatal-warnings */
+                    cmd,
+                    error))
+    return FALSE;
+
+  return TRUE;
+}
+
+gboolean
+eos_test_client_run_updater_ignore_warnings (EosTestClient   *client,
+                                             DownloadSource  *order,
+                                             gsize            n_sources,
+                                             GPtrArray       *override_uris,
+                                             CmdAsyncResult  *cmd,
+                                             GError         **error)
+{
+  if (!run_updater (client->root,
+                    order,
+                    n_sources,
+                    override_uris,
+                    client->vendor,
+                    client->product,
+                    client->remote_name,
+                    FALSE,  /* not fatal-warnings */
                     cmd,
                     error))
     return FALSE;
@@ -1958,6 +1988,7 @@ run_update_server (GFile *repo,
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE", NULL, quit_file },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
   CmdArg args[] =
@@ -2170,6 +2201,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
       { "EOS_UPDATER_TEST_OSTREE_DATADIR", NULL, datadir },
       { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", arch_override_name, NULL },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
 
@@ -2942,6 +2974,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "GI_TYPELIB_PATH", libeos_updater_util_path, NULL },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
   g_autofree gchar *raw_volume_path = g_file_get_path (volume_path);
@@ -3147,6 +3180,7 @@ spawn_autoupdater (GFile *stamps_dir,
       { "EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS", "yes", NULL },
       { "EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT", dbus_timeout_value, NULL },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
   g_auto(GStrv) envp = build_cmd_env (envv);

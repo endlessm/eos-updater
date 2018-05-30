@@ -41,6 +41,7 @@ test_spawn_flatpak_cmd_in_local_env (GFile                *updater_dir,
     {
       { "FLATPAK_USER_DIR", NULL, flatpak_user_dir },
       { "OSTREE_SYSROOT_DEBUG", "no-xattrs", NULL },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
   g_auto(GStrv) envp = build_cmd_env (envv);
