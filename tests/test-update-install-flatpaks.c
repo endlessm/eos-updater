@@ -683,6 +683,7 @@ test_update_install_flatpaks_in_repo (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -760,6 +761,7 @@ test_update_install_flatpaks_custom_branch_name (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -838,6 +840,7 @@ test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_repo_config (
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -999,6 +1002,7 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1012,7 +1016,8 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
                                1,
                                NULL,
                                &updater_cmd,
-                               NULL);
+                               &error);
+  g_assert_no_error (error);
 
   /* Trigger update */
   autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
@@ -1101,6 +1106,7 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1114,7 +1120,8 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
                                1,
                                NULL,
                                &updater_cmd,
-                               NULL);
+                               &error);
+  g_assert_no_error (error);
 
   /* Trigger update */
   autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
@@ -1205,6 +1212,7 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1219,7 +1227,8 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
                                1,
                                NULL,
                                &updater_cmd,
-                               NULL);
+                               &error);
+  g_assert_no_error (error);
 
   /* Trigger update */
   autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
@@ -1309,6 +1318,7 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1322,7 +1332,8 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
                                1,
                                NULL,
                                &updater_cmd,
-                               NULL);
+                               &error);
+  g_assert_no_error (error);
 
   /* Trigger update */
   autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
@@ -1414,6 +1425,7 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -1427,7 +1439,8 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
                                1,
                                NULL,
                                &updater_cmd,
-                               NULL);
+                               &error);
+  g_assert_no_error (error);
 
   /* Trigger update */
   autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
@@ -2366,6 +2379,7 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
                                                              gpg_key_file,
                                                              keyid,
                                                              &error);
+  g_assert_no_error (error);
 
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
   flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
@@ -2416,6 +2430,7 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
     get_checksum_for_flatpak_in_installation_dir (flatpak_user_installation_dir,
                                                   "test-repo:app/org.test.Test",
                                                   &error);
+  g_assert_no_error (error);
 
   g_assert_cmpstr (initially_installed_flatpak_checksum, !=, updated_flatpak_checksum);
 }
@@ -2508,6 +2523,7 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2530,13 +2546,13 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
                                   deployment_csum,
                                   default_remote_name,
                                   &error);
+  g_assert_no_error (error);
 
   /* Get checksum for first installed flatpak */
   initially_installed_flatpak_checksum =
     get_checksum_for_flatpak_in_installation_dir (flatpak_user_installation_dir,
                                                   "test-repo:app/org.test.Test",
                                                   &error);
-
   g_assert_no_error (error);
 
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
@@ -2580,6 +2596,7 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
     get_checksum_for_flatpak_in_installation_dir (flatpak_user_installation_dir,
                                                   "test-repo:app/org.test.Test",
                                                   &error);
+  g_assert_no_error (error);
 
   g_assert_cmpstr (initially_installed_flatpak_checksum, !=, updated_flatpak_checksum);
 }
@@ -2665,6 +2682,7 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2680,7 +2698,6 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
     get_checksum_for_flatpak_in_installation_dir (flatpak_user_installation_dir,
                                                   "test-repo:app/org.test.Test",
                                                   &error);
-
   g_assert_no_error (error);
 
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
@@ -2724,6 +2741,7 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
     get_checksum_for_flatpak_in_installation_dir (flatpak_user_installation_dir,
                                                   "test-repo:app/org.test.Test",
                                                   &error);
+  g_assert_no_error (error);
 
   g_assert_cmpstr (initially_installed_flatpak_checksum, !=, updated_flatpak_checksum);
 }
@@ -2791,6 +2809,7 @@ test_update_skip_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2871,6 +2890,7 @@ test_update_only_install_flatpaks_on_architecture (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -2951,6 +2971,7 @@ test_update_skip_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3031,6 +3052,7 @@ test_update_only_install_flatpaks_on_locale (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3124,6 +3146,7 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3145,6 +3168,7 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   deployment_csum = get_checksum_for_deploy_repo_dir (remote_repo_directory,
                                                       default_ref,
                                                       &error);
+  g_assert_no_error (error);
   deployment_id = g_strjoin (".", deployment_csum, "0", "origin", NULL);
 
   expected_directory_relative_path = g_build_filename ("sysroot",
@@ -3171,7 +3195,8 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
                                1,
                                NULL,
                                &updater_cmd,
-                               NULL);
+                               &error);
+  g_assert_no_error (error);
 
   /* Trigger update */
   autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
@@ -3280,6 +3305,7 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3301,6 +3327,7 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   anticipated_deployment_csum = get_checksum_for_deploy_repo_dir (remote_repo_directory,
                                                                   default_ref,
                                                                   &error);
+  g_assert_no_error (error);
   deployment_id = g_strjoin (".", anticipated_deployment_csum, "0", "origin", NULL);
 
   expected_directory_relative_path = g_build_filename ("sysroot",
@@ -3327,7 +3354,7 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                1,
                                NULL,
                                &updater_cmd,
-                               NULL);
+                               &error);
   g_assert_no_error (error);
 
   /* Trigger update */
@@ -3444,6 +3471,7 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3545,6 +3573,7 @@ test_update_install_flatpaks_not_deployed (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3629,6 +3658,7 @@ test_update_deploy_flatpaks_on_reboot (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3750,6 +3780,7 @@ test_update_deploy_dependency_runtime_flatpaks_on_reboot (EosUpdaterFixture *fix
                                gpg_key_file,
                                keyid,
                                &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -3886,6 +3917,7 @@ test_update_deploy_dependency_runtime_fail_no_update_counter (EosUpdaterFixture 
                                gpg_key_file,
                                keyid,
                                &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4318,6 +4350,7 @@ test_update_deploy_dependency_autodownload_extension_flatpaks_on_reboot_no_netwo
                                gpg_key_file,
                                keyid,
                                &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4464,6 +4497,7 @@ test_update_no_deploy_dependency_non_autodownload_extension_flatpaks_on_reboot (
                                gpg_key_file,
                                keyid,
                                &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4564,7 +4598,7 @@ test_update_no_op_flatpak_already_installed (EosUpdaterFixture *fixture,
                                                              gpg_key_file,
                                                              keyid,
                                                              &error);
-
+  g_assert_no_error (error);
 
   /* Get the contents of the executable before the update */
   installed_app_executable_path = g_build_filename (flatpak_user_installation,
@@ -4687,6 +4721,7 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4811,6 +4846,7 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -4949,6 +4985,7 @@ test_update_uninstall_flatpaks_on_reboot (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -5077,6 +5114,7 @@ test_update_uninstall_flatpaks_on_reboot_custom_branch_name (EosUpdaterFixture *
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -5206,6 +5244,7 @@ test_update_no_uninstall_flatpaks_on_reboot_different_branch_name (EosUpdaterFix
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -5319,6 +5358,7 @@ test_update_flatpaks_no_op_if_not_installed (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -5420,6 +5460,7 @@ test_update_flatpaks_no_op_if_up_to_date (EosUpdaterFixture *fixture,
                                                              gpg_key_file,
                                                              keyid,
                                                              &error);
+  g_assert_no_error (error);
 
   /* Get the contents of the executable before the update */
   installed_app_executable_path = g_build_filename (flatpak_user_installation,
@@ -5546,6 +5587,8 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
                                                              gpg_key_file,
                                                              keyid,
                                                              &error);
+  g_assert_no_error (error);
+
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
   flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
   flatpak_repo_dir = g_file_get_child (flatpak_repos_dir, "test-repo");
@@ -5697,6 +5740,8 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
                                                              gpg_key_file,
                                                              keyid,
                                                              &error);
+  g_assert_no_error (error);
+
   flatpak_build_dir = eos_test_get_flatpak_build_dir_for_updater_dir (updater_directory);
   flatpak_repos_dir = g_file_get_child (flatpak_build_dir, "repos");
   flatpak_repo_dir = g_file_get_child (flatpak_repos_dir, "test-repo");
@@ -5831,6 +5876,7 @@ test_update_deploy_flatpaks_on_reboot_in_override_dir (EosUpdaterFixture *fixtur
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -5958,6 +6004,7 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -6063,6 +6110,7 @@ test_update_no_deploy_flatpaks_twice (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -6198,6 +6246,7 @@ test_update_force_reinstall_flatpak (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (1).
    */
@@ -6342,6 +6391,7 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
                                       gpg_key_file,
                                       keyid,
                                       &error);
+  g_assert_no_error (error);
 
   /* Update the server, so it has a new commit (3).
    */
