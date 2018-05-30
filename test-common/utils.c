@@ -2576,6 +2576,7 @@ eos_test_setup_flatpak_repo (GFile       *updater_dir,
                                          install_info->branch,
                                          install_info->extension_infos,
                                          repo_directory_path,
+                                         repo_info->collection_id,
                                          gpg_home_dir,
                                          keyid,
                                          error))
