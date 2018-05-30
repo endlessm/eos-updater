@@ -26,6 +26,7 @@
  * `utils.h`.
  */
 
+#include <libeos-updater-util/util.h>
 #include <string.h>
 #include <test-common/convenience.h>
 #include <test-common/gpg.h>
@@ -306,4 +307,42 @@ etc_delete_object (GFile *repo,
   object_file = g_file_get_child (prefix_dir, rest);
   g_file_delete (object_file, NULL, &error);
   g_assert_no_error (error);
+}
+
+static EosUpdaterFileFilterReturn
+filter_commit_cb (GFile     *file,
+                  GFileInfo *file_info)
+{
+  /* Always recurse. Ignore anything which isn’t a file. */
+  if (g_file_info_get_file_type (file_info) == G_FILE_TYPE_DIRECTORY)
+    return EOS_UPDATER_FILE_FILTER_HANDLE;
+  else if (g_file_info_get_file_type (file_info) != G_FILE_TYPE_REGULAR)
+    return EOS_UPDATER_FILE_FILTER_IGNORE;
+
+  /* Delete .commit and .commitmeta objects. Ignore everything else. */
+  if (g_str_has_suffix (g_file_info_get_name (file_info), ".commit") ||
+      g_str_has_suffix (g_file_info_get_name (file_info), ".commitmeta"))
+    return EOS_UPDATER_FILE_FILTER_HANDLE;
+  else
+    return EOS_UPDATER_FILE_FILTER_IGNORE;
+}
+
+/* Delete all .commit and .commitmeta objects from the client repository. We
+ * could settle for just deleting them for the currently deployed commit, but
+ * it’s easier to just delete them all, and shouldn’t affect the test. */
+void
+etc_delete_all_client_commits (EtcData *data)
+{
+  g_autoptr(GFile) client_repo = NULL;
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GFile) objects_dir = NULL;
+
+  g_assert_nonnull (data);
+  g_assert_nonnull (data->client);
+
+  client_repo = eos_test_client_get_repo (data->client);
+  objects_dir = g_file_get_child (client_repo, "objects");
+
+  eos_updater_remove_recursive (objects_dir, filter_commit_cb, &local_error);
+  g_assert_no_error (local_error);
 }

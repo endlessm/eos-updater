@@ -781,6 +781,90 @@ test_update_install_flatpaks_custom_branch_name (EosUpdaterFixture *fixture,
   g_assert_true (g_strv_contains ((const gchar * const *) flatpaks_in_repo, flatpaks_to_install[0].app_id));
 }
 
+/* As with test_update_install_flatpaks_in_repo(), except check that it works
+ * when the .commit object for the currently deployed commit is deleted before
+ * running eos-updater. */
+static void
+test_update_install_flatpaks_missing_deployed_commit (EosUpdaterFixture *fixture,
+                                                      gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
+                                                                    G_N_ELEMENTS (flatpaks_to_install));
+  g_auto(GStrv) flatpaks_in_repo = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T22805");
+
+  etc_data_init (data, fixture);
+
+  /* Commit number 1 will install some flatpaks
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              G_N_ELEMENTS (flatpaks_to_install),
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
+                                      &error);
+  g_assert_no_error (error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Delete the currently deployed commit object (and all other commit objects)
+   * from the client.
+   */
+  etc_delete_all_client_commits (data);
+  /* Try to update the client. It should succeed, but should warn about the
+   * currently deployed commit being missing. It should pull the flatpak.
+   */
+  etc_update_client_with_warnings (data,
+                                   "Error loading current commit ‘*’ to check "
+                                   "if ‘*’ is an update (assuming it is): No "
+                                   "such metadata object *.commit");
+
+  /* Assert that our flatpaks were pulled into the local repo */
+  flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
+                                                    &error);
+  g_assert_no_error (error);
+
+  g_assert_true (g_strv_contains ((const gchar * const *) flatpaks_in_repo, flatpaks_to_install[0].app_id));
+}
+
 /* Insert a list of flatpaks to automatically install on the commit, this
  * time with a collection-id specified, but no collection-id is
  * configured in the ostree config. The pulling of refs should continue
@@ -6432,6 +6516,7 @@ main (int argc,
   eos_test_add ("/updater/install-no-flatpaks", NULL, test_update_install_no_flatpaks);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo", NULL, test_update_install_flatpaks_in_repo);
   eos_test_add ("/updater/install-flatpaks-custom-branch-name", NULL, test_update_install_flatpaks_custom_branch_name);
+  eos_test_add ("/updater/install-flatpaks-missing-deployed-commit", NULL, test_update_install_flatpaks_missing_deployed_commit);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-if-collection-id-not-supported", NULL, test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_repo_config);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-fallback-if-collection-id-not-configured-in-remote-or-repo", NULL, test_update_install_flatpaks_in_repo_fallback_if_collection_not_in_remote_or_repo);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-error-if-collection-id-invalid", NULL, test_update_install_flatpaks_in_repo_error_if_collection_invalid);
