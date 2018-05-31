@@ -34,11 +34,27 @@
 #include <string.h>
 
 
+/**
+ * euu_flatpak_location_ref_new:
+ * @ref: a #FlatpakRef
+ * @remote: a remote name
+ * @collection_id: (nullable): collection ID for @remote, or %NULL if not
+ *    configured locally
+ *
+ * Create a new #EuuFlatpakLocationRef.
+ *
+ * Returns: (transfer full): a new #EuuFlatpakLocationRef
+ */
 EuuFlatpakLocationRef *
 euu_flatpak_location_ref_new (FlatpakRef  *ref,
                               const gchar *remote,
                               const gchar *collection_id)
 {
+  g_return_val_if_fail (FLATPAK_IS_REF (ref), NULL);
+  g_return_val_if_fail (ostree_validate_remote_name (remote, NULL), NULL);
+  g_return_val_if_fail (collection_id == NULL ||
+                        ostree_validate_collection_id (collection_id, NULL), NULL);
+
   EuuFlatpakLocationRef *location_ref = g_slice_new0 (EuuFlatpakLocationRef);
 
   location_ref->ref_count = 1;
@@ -1531,7 +1547,6 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
                                               GError              **error)
 {
   g_autoptr(GPtrArray) flatpak_remotes = NULL;
-  g_autoptr(GPtrArray) remotes_with_collection_ids = NULL;
   g_autoptr(GHashTable) refs_for_remotes = NULL;
   gsize i = 0;
 
@@ -1546,7 +1561,6 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
   if (flatpak_remotes == NULL)
     return FALSE;
 
-  remotes_with_collection_ids = g_ptr_array_new_with_free_func (g_object_unref);
   refs_for_remotes = g_hash_table_new_full (euu_flatpak_remote_hash,
                                             euu_flatpak_remote_equal,
                                             g_object_unref,
@@ -1557,19 +1571,12 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
       FlatpakRemote *remote = g_ptr_array_index (flatpak_remotes, i);
       g_autoptr(GPtrArray) refs_for_remote = NULL;
       const gchar *remote_name = flatpak_remote_get_name (remote);
-      const gchar *collection_id = flatpak_remote_get_collection_id (remote);
 
-      /* If there is no collection-id set on the remote config
-       * then we can't install this related ref as we don't know
-       * what collection to install it from. */
-      if (collection_id == NULL)
-        {
-          g_warning ("Ignoring dependencies from remote %s as "
-                     "no collection-id set",
-                     remote_name);
-          continue;
-        }
+      if (flatpak_remote_get_disabled (remote) ||
+          flatpak_remote_get_nodeps (remote))
+        continue;
 
+      /* This internally handles noenumerate remotes specially: */
       refs_for_remote =
         flatpak_installation_list_remote_refs_sync (installation,
                                                     remote_name,
@@ -1579,7 +1586,6 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
       if (refs_for_remote == NULL)
         return FALSE;
 
-      g_ptr_array_add (remotes_with_collection_ids, g_object_ref (remote));
       g_hash_table_insert (refs_for_remotes,
                            g_object_ref (remote),
                            g_steal_pointer (&refs_for_remote));
@@ -1588,7 +1594,7 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
   /* We return both a GPtrArray of remotes and the hashtable mapping
    * each remote to a list of refs, since we need to maintain the priority
    * order. */
-  *out_remotes_priority_order = g_steal_pointer (&remotes_with_collection_ids);
+  *out_remotes_priority_order = g_steal_pointer (&flatpak_remotes);
   *out_refs_for_remotes = g_steal_pointer (&refs_for_remotes);
 
   return TRUE;
@@ -1763,6 +1769,8 @@ list_related_refs_for_remote (FlatpakInstallation  *installation,
                               GCancellable         *cancellable,
                               GError              **error)
 {
+  g_return_val_if_fail (!flatpak_remote_get_disabled (remote), NULL);
+
   g_autoptr(GPtrArray) remote_related_refs =
     flatpak_installation_list_remote_related_refs_sync (installation,
                                                         flatpak_remote_get_name (remote),
@@ -1813,6 +1821,11 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
     {
       EuuFlatpakRelatedRefsForRemote *related_refs_for_remote =
         g_ptr_array_index (related_refs_for_remotes, i);
+
+      if (flatpak_remote_get_disabled (related_refs_for_remote->remote) ||
+          flatpak_remote_get_nodeps (related_refs_for_remote->remote))
+        continue;
+
       g_autoptr(GPtrArray) related_refs =
         list_related_refs_for_remote (installation,
                                       related_refs_for_remote->remote,
@@ -2152,6 +2165,8 @@ reprioritize_remotes_for_source_ref (GPtrArray   *remotes,
   return g_steal_pointer (&reprioritized);
 }
 
+/* This will return noenumerate remotes in both returned containers, but will
+ * not return any disabled or nodeps remotes. */
 static void
 initially_populate_remote_and_installed_related_refs (GPtrArray   *remotes,
                                                       const gchar *source_ref_remote_name,
@@ -2175,6 +2190,11 @@ initially_populate_remote_and_installed_related_refs (GPtrArray   *remotes,
   for (gsize i = 0; i < reprioritized_remotes->len; ++i)
     {
       FlatpakRemote *remote = g_ptr_array_index (reprioritized_remotes, i);
+
+      if (flatpak_remote_get_disabled (remote) ||
+          flatpak_remote_get_nodeps (remote))
+        continue;
+
       g_autoptr(GHashTable) refs_for_remote =
         g_hash_table_new_full (euu_flatpak_ref_hash,
                                euu_flatpak_ref_equal,

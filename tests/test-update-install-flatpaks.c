@@ -2185,10 +2185,10 @@ test_update_install_flatpaks_in_repo_dont_also_pull_autodownload_extension_diffe
 /* Insert a list of flatpaks to automatically install on the commit,
  * with one of the flatpaks having a runtime that was not also installed.
  * However, the runtime is in a repository that does not have a collection-id
- * set. The runtime should not be pulled along with the flatpak. */
+ * set. The runtime should still be pulled along with the flatpak. */
 static void
-test_update_install_flatpaks_in_repo_dont_also_pull_dep_no_collection_id (EosUpdaterFixture *fixture,
-                                                                          gconstpointer      user_data)
+test_update_install_flatpaks_in_repo_also_pull_dep_no_collection_id (EosUpdaterFixture *fixture,
+                                                                     gconstpointer      user_data)
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
@@ -2289,8 +2289,8 @@ test_update_install_flatpaks_in_repo_dont_also_pull_dep_no_collection_id (EosUpd
 
   g_assert_true (g_strv_contains ((const gchar * const *) flatpaks_in_repo,
                                   "org.test.Test"));
-  g_assert_false (g_strv_contains ((const gchar * const *) flatpaks_in_repo,
-                                   "org.test.Runtime"));
+  g_assert_true (g_strv_contains ((const gchar * const *) flatpaks_in_repo,
+                                  "org.test.Runtime"));
 }
 
 /* Install a flatpak in the user repository without the use of the
@@ -6389,7 +6389,7 @@ main (int argc,
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-runtimes-first-dep-remote-wins", NULL, test_update_install_flatpaks_in_repo_also_pull_runtimes_first_dep_remote_wins);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-autodownload-extensions", NULL, test_update_install_flatpaks_in_repo_also_pull_autodownload_extension);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-autodownload-extensions-different-remote", NULL, test_update_install_flatpaks_in_repo_dont_also_pull_autodownload_extension_different_remote);
-  eos_test_add ("/updater/install-flatpaks-pull-to-repo-dont-also-pull-dep-no-collection-id", NULL, test_update_install_flatpaks_in_repo_dont_also_pull_dep_no_collection_id);
+  eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-dep-no-collection-id", NULL, test_update_install_flatpaks_in_repo_also_pull_dep_no_collection_id);
   eos_test_add ("/updater/update-flatpaks-pull-updated-to-repo-no-previous-install", NULL, test_update_flatpaks_updated_in_repo);
   eos_test_add ("/updater/update-flatpaks-updated-flatpak-is-installed", NULL, test_updated_flatpak_is_installed);
   eos_test_add ("/updater/update-flatpaks-updated-flatpak-is-installed-on-install-action", NULL, test_updated_flatpak_is_installed_on_install_action);

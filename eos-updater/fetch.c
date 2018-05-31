@@ -389,12 +389,18 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
       if (action->type != EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL)
         continue;
 
-      /* Invariant - must have both a remote name and a collection ID
-       * by this point */
-      g_assert (to_install->collection_id != NULL && to_install->remote != NULL);
+      /* Invariant — we must have a remote name by this point. For refs from the
+       * autoinstall list, this will either have come from the autoinstall list
+       * itself, or from looking up the remote name matching the collection ID
+       * from the autoinstall list. For dependency refs, we will definitely have
+       * the name of the remote where we found the dependency. We might not have
+       * a collection ID, depending on whether the user’s repository
+       * configuration has one set for that remote. */
+      g_assert (to_install->remote != NULL);
 
       /* If don’t hit the remote name cache, figure it out now. */
-      if (!g_hash_table_lookup_extended (collection_ids_to_remote_names,
+      if (to_install->collection_id != NULL &&
+          !g_hash_table_lookup_extended (collection_ids_to_remote_names,
                                          to_install->collection_id,
                                          NULL, (gpointer *) &candidate_remote_name))
         {
@@ -654,7 +660,7 @@ perform_action_preparation (FlatpakInstallation        *installation,
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
         return TRUE;
       default:
-        g_assert_not_reached();
+        g_assert_not_reached ();
         return FALSE;
     }
 
@@ -720,7 +726,7 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
                                                   cancellable,
                                                   error);
 
-  if (!flatpak_ref_actions_this_commit_wants)
+  if (flatpak_ref_actions_this_commit_wants == NULL)
     return FALSE;
 
   formatted_flatpak_ref_actions_this_commit_wants =

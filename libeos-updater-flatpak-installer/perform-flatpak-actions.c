@@ -354,7 +354,7 @@ eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
                                 const gchar               *state_counter_path,
                                 GPtrArray                 *actions  /* (element-type EuuFlatpakRemoteRefAction) */,
                                 EosUpdaterInstallerMode    mode,
-                                EosUpdaterInstallerFlags   pull,
+                                EosUpdaterInstallerFlags   flags,
                                 GError                   **error)
 {
   gsize i;
@@ -370,14 +370,15 @@ eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
 
       /* Dependencies should not be passed through this function - they
        * were meant to be deployed earlier. Uninstall dependencies will
-       * be handled implicitly */
-      g_assert (!is_dependency);
+       * be handled implicitly. Allow them if we’re running
+       * `eos-updater-flatpak-installer -mode deploy --pull` manually though. */
+      g_assert (!is_dependency || flags & EU_INSTALLER_FLAGS_ALSO_PULL);
 
       /* Only perform actions if we’re in the "perform" mode. Otherwise
        * we just pretend to perform actions and update the counter
        * accordingly */
       if (mode == EU_INSTALLER_MODE_PERFORM &&
-          !perform_action (installation, pending_action, pull, error))
+          !perform_action (installation, pending_action, flags, error))
         {
           /* If we fail, we should still update the state of the counter
            * to the last successful one before we get out. This is to ensure
