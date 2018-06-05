@@ -30,6 +30,8 @@
 #include <gio/gio.h>
 #include <locale.h>
 
+#define DEFAULT_TIMEOUT_SECS 30
+
 typedef struct
 {
   gboolean reached_update_applied;
@@ -209,6 +211,16 @@ updater_state_changed_cb (EosUpdater *updater,
     }
 }
 
+static gboolean
+timeout_cb (gpointer user_data)
+{
+  gboolean *out_timed_out = user_data;
+  *out_timed_out = TRUE;
+
+  /* Removed by the caller. */
+  return G_SOURCE_CONTINUE;
+}
+
 /* Tests calling Cancel() on every EOS updater state; when the states can be
  * indeed cancelled, the update is run again without being cancelled this time
  * so the update proceeds. */
@@ -269,10 +281,16 @@ test_cancel_update (EosUpdaterFixture *fixture,
   /* start the state changes */
   updater_state_changed_cb (updater, NULL, &helper);
 
-  while (!helper.reached_update_applied)
+  gboolean timed_out = FALSE;
+  guint timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT_SECS, timeout_cb, &timed_out);
+
+  while (!helper.reached_update_applied && !timed_out)
     g_main_context_iteration (NULL, TRUE);
 
+  g_source_remove (timeout_id);
   g_signal_handler_disconnect (updater, state_change_handler);
+
+  g_assert_false (timed_out);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -353,8 +371,15 @@ test_update_version (EosUpdaterFixture *fixture,
   eos_updater_call_poll_sync (updater, NULL, &error);
   g_assert_no_error (error);
 
-  while (state == EOS_UPDATER_STATE_POLLING)
+  gboolean timed_out = FALSE;
+  guint timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT_SECS, timeout_cb, &timed_out);
+
+  while (state == EOS_UPDATER_STATE_POLLING && !timed_out)
     g_main_context_iteration (NULL, TRUE);
+
+  g_source_remove (timeout_id);
+
+  g_assert_false (timed_out);
 
   g_assert_cmpuint (eos_updater_get_state (updater), ==, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
   g_assert_cmpstr (eos_updater_get_version (updater), ==, version);
@@ -404,10 +429,16 @@ test_update_when_none_available (EosUpdaterFixture *fixture,
   eos_updater_call_poll_sync (updater, NULL, &error);
   g_assert_no_error (error);
 
-  while (state == EOS_UPDATER_STATE_POLLING)
+  gboolean timed_out = FALSE;
+  guint timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT_SECS, timeout_cb, &timed_out);
+
+  while (state == EOS_UPDATER_STATE_POLLING && !timed_out)
     g_main_context_iteration (NULL, TRUE);
 
+  g_source_remove (timeout_id);
   g_signal_handler_disconnect (updater, state_change_handler);
+
+  g_assert_false (timed_out);
 
   /* ensure that when no update is available we are not transitioning to the
    * error state */
