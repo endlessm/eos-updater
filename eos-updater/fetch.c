@@ -1140,6 +1140,8 @@ content_fetch (FetchData     *fetch_data,
 
       if (content_fetch_new (fetch_data, context, fetch_cancellable, &local_error))
         g_message ("Fetch: finished pulling using libostree P2P code");
+      else if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+        goto error;
       else
         g_warning ("Error fetching updates using libostree P2P code; falling back to old code: %s",
                    local_error->message);
