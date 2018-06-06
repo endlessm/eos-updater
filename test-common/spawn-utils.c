@@ -184,6 +184,11 @@ test_spawn_cwd_async (const gchar *cwd,
                                      error))
         return FALSE;
 
+      /* FIXME: We don’t read from these streams until much later on, so these
+       * can block the subprocess if it produces more output than the default
+       * buffer size. The fix is to use GSubprocess and
+       * g_subprocess_communicate_async().
+       * See: https://phabricator.endlessm.com/T18883. */
       cmd->in_stream = g_unix_output_stream_new (input_fd, TRUE);
       cmd->out_stream = g_unix_input_stream_new (output_fd, TRUE);
       cmd->err_stream = g_unix_input_stream_new (error_fd, TRUE);
