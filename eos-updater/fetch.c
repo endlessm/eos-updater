@@ -197,6 +197,10 @@ repo_pull (OstreeRepo *self,
     {
       g_autoptr(GVariant) fallback_options = NULL;
 
+      /* FIXME: In future, it’s likely that OSTree will internally handle
+       * retries for broken static deltas, so this case for
+       * %G_IO_ERROR_NOT_FOUND could be dropped.
+       * See https://github.com/ostreedev/ostree/pull/1612. */
       if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
           g_propagate_error (error, g_steal_pointer (&local_error));
@@ -251,6 +255,10 @@ repo_pull_from_remotes (OstreeRepo                            *repo,
       g_auto(GVariantDict) dict = { 0, };
       g_autoptr(GVariant) fallback_options = NULL;
 
+      /* FIXME: In future, it’s likely that OSTree will internally handle
+       * retries for broken static deltas, so this case for
+       * %G_IO_ERROR_NOT_FOUND could be dropped.
+       * See https://github.com/ostreedev/ostree/pull/1612. */
       if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
           g_propagate_error (error, g_steal_pointer (&local_error));
