@@ -760,8 +760,12 @@ metadata_fetch_internal (OstreeRepo     *repo,
 
           use_new_code = FALSE;
 
-          g_warning ("Error polling for updates using libostree P2P code; falling back to old code: %s",
-                     local_error->message);
+          if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED))
+            g_warning ("Error polling for updates using libostree P2P code; falling back to old code: %s",
+                       local_error->message);
+          else
+            g_message ("Failed to poll for updates using libostree P2P code as it is not supported; falling back to old code: %s",
+                       local_error->message);
           g_clear_error (&local_error);
         }
 
