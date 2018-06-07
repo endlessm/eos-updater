@@ -768,6 +768,13 @@ get_hw_descriptors (void)
   return hw_descriptors;
 }
 
+static gboolean
+get_metrics_enabled (void)
+{
+  const gchar *disable_metrics = g_getenv ("EOS_DISABLE_METRICS");
+  return (disable_metrics == NULL || !g_str_equal (disable_metrics, "1"));
+}
+
 static void
 maybe_send_metric (EosMetricsInfo *metrics)
 {
@@ -777,15 +784,25 @@ maybe_send_metric (EosMetricsInfo *metrics)
   if (metric_sent)
     return;
 
-  g_message ("Recording metric event %s: (%s, %s, %s)",
-             EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
-             metrics->ref);
-  emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
-                                         EOS_UPDATER_BRANCH_SELECTED,
-                                         g_variant_new ("(sssb)", metrics->vendor,
-                                                        metrics->product,
-                                                        metrics->ref,
-                                                        (gboolean) FALSE  /* on-hold */));
+  if (get_metrics_enabled ())
+    {
+      g_message ("Recording metric event %s: (%s, %s, %s)",
+                 EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
+                 metrics->ref);
+      emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
+                                             EOS_UPDATER_BRANCH_SELECTED,
+                                             g_variant_new ("(sssb)", metrics->vendor,
+                                                            metrics->product,
+                                                            metrics->ref,
+                                                            (gboolean) FALSE  /* on-hold */));
+    }
+  else
+    {
+      g_debug ("Skipping metric event %s: (%s, %s, %s) (metrics disabled)",
+               EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
+               metrics->ref);
+    }
+
   metric_sent = TRUE;
 #endif
 }
