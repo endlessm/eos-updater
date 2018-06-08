@@ -94,6 +94,16 @@ is_checksum_an_update (OstreeRepo *repo,
   if (booted_checksum == NULL)
     return FALSE;
 
+  /* We need to check if the offered checksum on the server
+   * was the same as the booted checksum. It is possible for the timestamp
+   * on the server to be newer if the commit was re-generated from an
+   * existing tree. */
+  if (g_str_equal (booted_checksum, checksum))
+    {
+      *commit = NULL;
+      return TRUE;
+    }
+
   g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, checksum);
 
   if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, error))
@@ -132,15 +142,7 @@ is_checksum_an_update (OstreeRepo *repo,
    */
   is_newer = (g_strcmp0 (booted_ref, upgrade_ref) != 0 ||
               update_timestamp > current_timestamp);
-
-  /* We also need to check if the offered checksum on the server
-   * was the same as the booted checksum. It is possible for the timestamp
-   * on the server to be newer if the commit was re-generated from an
-   * existing tree. */
-  if (is_newer && g_strcmp0 (booted_checksum, checksum) != 0)
-    *commit = g_steal_pointer (&update_commit);
-  else
-    *commit = NULL;
+  *commit = is_newer ? g_steal_pointer (&update_commit) : NULL;
 
   return TRUE;
 }
