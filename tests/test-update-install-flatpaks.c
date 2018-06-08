@@ -310,7 +310,7 @@ autoinstall_flatpaks_files (guint                    commit,
                             GHashTable             **out_files_hashtable)
 {
   autoinstall_flatpaks_files_name (commit,
-                                   "autoinstall",
+                                   "autoinstall.json",
                                    flatpaks,
                                    n_flatpaks,
                                    out_directories_hashtable,
@@ -358,7 +358,7 @@ autoinstall_flatpaks_files_override (GFile                   *updater_directory,
                                      GError                 **error)
 {
   return autoinstall_flatpaks_files_override_name (updater_directory,
-                                                   "install.override",
+                                                   "install.override.json",
                                                    flatpaks,
                                                    n_flatpaks,
                                                    error);
@@ -5920,7 +5920,7 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
   /* Vendor requested to install some flatpaks on the next update
    */
   autoinstall_flatpaks_files_override_name (updater_directory,
-                                            "10-autoinstall",
+                                            "10-autoinstall.json",
                                             flatpaks_to_install_override_high_priority,
                                             G_N_ELEMENTS (flatpaks_to_install_override_high_priority),
                                             &error);
@@ -5929,7 +5929,7 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
   /* Commit number 1 will install some flatpaks (low priority)
    */
   autoinstall_flatpaks_files_name (1,
-                                   "10-autoinstall",
+                                   "10-autoinstall.json",
                                    flatpaks_to_install_in_ostree_low_priority,
                                    G_N_ELEMENTS (flatpaks_to_install_in_ostree_low_priority),
                                    &data->additional_directories_for_commit,
@@ -5938,7 +5938,7 @@ test_update_deploy_flatpaks_on_reboot_override_ostree (EosUpdaterFixture *fixtur
   /* Commit number 1 will install some flatpaks (high priority)
    */
   autoinstall_flatpaks_files_name (1,
-                                   "20-autoinstall",
+                                   "20-autoinstall.json",
                                    flatpaks_to_install_in_ostree_high_priority,
                                    G_N_ELEMENTS (flatpaks_to_install_in_ostree_high_priority),
                                    &data->additional_directories_for_commit,

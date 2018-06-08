@@ -27,7 +27,9 @@ import gi
 gi.require_version('Flatpak', '1.0')
 gi.require_version('GLib', '2.0')
 gi.require_version('OSTree', '1.0')
+gi.require_version('EosUpdaterUtil', '0')
 from gi.repository import Flatpak, GLib, OSTree  # noqa
+from gi.repository import EosUpdaterUtil  # noqa
 
 
 class VolumePreparer:
@@ -90,7 +92,8 @@ class VolumePreparer:
         """Get the collection–ref tuple for the booted OS, or None."""
         deployment = self.sysroot.get_booted_deployment()
         if not deployment:
-            if 'EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK' not in os.environ:
+            if 'EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK' not in \
+               os.environ:
                 return None
 
             deployments = self.sysroot.get_deployments()
@@ -173,6 +176,27 @@ class VolumePreparer:
 
         return runtimes
 
+    def _get_autoinstall_flatpaks(self):
+        """
+        Read all the autoinstall lists (see eos-updater-flatpak-installer(8))
+        and return a set of the flatpaks listed as needing an install or
+        upgrade. Load the set irrespective of the state of the autoinstall
+        counter on this system, since whichever system the USB drive is used on
+        might have a different counter value.
+        """
+        autoinstalls = set()
+
+        applied_actions = EosUpdaterUtil.flatpak_ref_actions_from_paths(None)
+
+        for filename, actions in applied_actions.items():
+            for action in actions:
+                if action.type != \
+                   EosUpdaterUtil.FlatpakRemoteRefActionType.UNINSTALL:
+                    autoinstalls.add((action.ref.collection_id,
+                                      action.ref.ref.format_ref()))
+
+        return autoinstalls
+
     def prepare_volume(self):
         # We need to be root in order to read all the files in the OSTree repo
         # (unless we’re running the unit tests). */
@@ -191,7 +215,7 @@ class VolumePreparer:
         # Work out which collection–refs we want on the USB stick. Each one is
         # a collection ID followed by a ref name.
         refs_iter = iter(self.flatpak_refs)
-        flatpak_collection_refs = list(zip(refs_iter, refs_iter))
+        flatpak_collection_refs = set(zip(refs_iter, refs_iter))
         invalid_refs = [collection_ref
                         for collection_ref in flatpak_collection_refs
                         if not self._validate_flatpak_ref(collection_ref)]
@@ -200,12 +224,23 @@ class VolumePreparer:
                                     (collection_id, ref)
                                     for (collection_id, ref) in invalid_refs]))
             return self.__fail(self.EXIT_INVALID_ARGUMENTS,
-                               'Invalid flatpak collection–refs: %s' % refs_list)
+                               'Invalid flatpak collection–refs: %s' %
+                               refs_list)
+
+        # Add the flatpaks that will be installed by
+        # eos-updater-flatpak-installer.
+        try:
+            autoinstall_collection_refs = self._get_autoinstall_flatpaks()
+        except GLib.Error as e:
+            return self.__fail(self.EXIT_FAILED,
+                               'Failed to list autoinstall flatpaks to add to '
+                               'the USB drive')
 
         # FIXME: Do we also want to pull in related refs, like locales?
         # Currently, they can be listed explicitly on the command line.
         runtime_collection_refs = \
-            self._get_runtimes_for_flatpaks(flatpak_collection_refs)
+            self._get_runtimes_for_flatpaks(flatpak_collection_refs |
+                                            autoinstall_collection_refs)
 
         os_collection_ref = self._get_os_collection_ref()
         if not os_collection_ref:
@@ -216,6 +251,7 @@ class VolumePreparer:
         collection_refs = \
             [os_collection_ref] + \
             list(flatpak_collection_refs) + \
+            list(autoinstall_collection_refs) + \
             list(runtime_collection_refs)
 
         # Eliminate duplicates.
@@ -246,7 +282,8 @@ def main():
                         help='do not print anything; check exit status '
                              'for success')
     parser.add_argument('flatpak_refs', metavar='COLLECTION-ID REF', nargs='*',
-                        help='collection IDs and refs of flatpaks to put on the USB drive')
+                        help='collection IDs and refs of flatpaks to put on '
+                             'the USB drive')
 
     args = parser.parse_args()
 

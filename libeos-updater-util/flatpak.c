@@ -34,6 +34,8 @@
 #include <string.h>
 
 
+G_DEFINE_BOXED_TYPE (EuuFlatpakLocationRef, euu_flatpak_location_ref, euu_flatpak_location_ref_ref, euu_flatpak_location_ref_unref)
+
 /**
  * euu_flatpak_location_ref_new:
  * @ref: a #FlatpakRef
@@ -80,6 +82,14 @@ euu_flatpak_location_ref_unref (EuuFlatpakLocationRef *location_ref)
   g_slice_free (EuuFlatpakLocationRef, location_ref);
 }
 
+/**
+ * euu_flatpak_location_ref_ref: (skip)
+ * @location_ref: an #EuuFlatpakLocationRef
+ *
+ * Increment the reference count on @location_ref and return the object.
+ *
+ * Returns: (transfer full): @location_ref
+ */
 EuuFlatpakLocationRef *
 euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *location_ref)
 {
@@ -89,6 +99,8 @@ euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *location_ref)
   ++location_ref->ref_count;
   return location_ref;
 }
+
+G_DEFINE_BOXED_TYPE (EuuFlatpakRemoteRefAction, euu_flatpak_remote_ref_action, euu_flatpak_remote_ref_action_ref, euu_flatpak_remote_ref_action_unref)
 
 EuuFlatpakRemoteRefAction *
 euu_flatpak_remote_ref_action_new (EuuFlatpakRemoteRefActionType  type,
@@ -109,6 +121,14 @@ euu_flatpak_remote_ref_action_new (EuuFlatpakRemoteRefActionType  type,
   return action;
 }
 
+/**
+ * euu_flatpak_remote_ref_action_ref: (skip)
+ * @action: an #EuuFlatpakRemoteRefAction
+ *
+ * Increment the reference count on @action and return the object.
+ *
+ * Returns: (transfer full): @action
+ */
 EuuFlatpakRemoteRefAction *
 euu_flatpak_remote_ref_action_ref (EuuFlatpakRemoteRefAction *action)
 {
@@ -1079,6 +1099,22 @@ euu_flatpak_ref_actions_from_data (const gchar   *data,
   return g_steal_pointer (&actions);
 }
 
+G_DEFINE_BOXED_TYPE (EuuFlatpakRemoteRefActionsFile,
+                     euu_flatpak_remote_ref_actions_file,
+                     euu_flatpak_remote_ref_actions_file_copy,
+                     euu_flatpak_remote_ref_actions_file_free)
+
+/**
+ * euu_flatpak_remote_ref_actions_file_new:
+ * @remote_ref_actions: (element-type EuuFlatpakRemoteRefAction): a potentially
+ *    empty array of actions loaded from a single file
+ * @priority: the priority of the file; lower numeric priority values are more
+ *    important
+ *
+ * Create a new #EuuFlatpakRemoteRefActionsFile.
+ *
+ * Returns: (transfer full): A new #EuuFlatpakRemoteRefActionsFile
+ */
 EuuFlatpakRemoteRefActionsFile *
 euu_flatpak_remote_ref_actions_file_new (GPtrArray *remote_ref_actions,
                                          gint       priority)
@@ -1089,6 +1125,15 @@ euu_flatpak_remote_ref_actions_file_new (GPtrArray *remote_ref_actions,
   file->priority = priority;
 
   return file;
+}
+
+EuuFlatpakRemoteRefActionsFile *
+euu_flatpak_remote_ref_actions_file_copy (EuuFlatpakRemoteRefActionsFile *file)
+{
+  g_return_val_if_fail (file != NULL, NULL);
+
+  return euu_flatpak_remote_ref_actions_file_new (file->remote_ref_actions,
+                                                  file->priority);
 }
 
 void
@@ -1161,6 +1206,12 @@ euu_flatpak_ref_actions_append_from_directory (GFile         *directory,
         break;
 
       filename = g_file_info_get_name (info);
+
+      if (!g_str_has_suffix (filename, ".json"))
+        {
+          g_debug ("%s: Ignoring non-JSON file ‘%s’", G_STRFUNC, filename);
+          continue;
+        }
 
       /* We may already have a remote_ref_actions_file in the hash table
        * and we cannot just blindly replace it. Replace it only if
@@ -2655,6 +2706,24 @@ directories_to_search_from_environment (void)
   return g_strsplit (paths_to_search_string, ";", -1);
 }
 
+/**
+ * euu_flatpak_ref_actions_from_paths:
+ * @directories_to_search: (nullable): potentially empty %NULL-terminated array
+ *    of directories to search, or %NULL to use the default directory list
+ * @error: return location for a #GError, or %NULL
+ *
+ * Load the #EuuFlatpakRemoteRefActions from all the autoinstall JSON files in
+ * the given @directories_to_search.
+ *
+ * @directories_to_search may be %NULL, in which case the default list of
+ * directories is used. Files from lower-indexed directories in
+ * @directories_to_search take priority over files with the same name in later
+ * directories.
+ *
+ * Returns: (transfer container) (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>):
+ *    a potentially empty map of autoinstall filename to array of #EuuFlatpakRemoteRefActions
+ *    in that file
+ */
 GHashTable *
 euu_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
                                     GError **error)

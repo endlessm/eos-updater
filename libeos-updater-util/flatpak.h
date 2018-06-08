@@ -40,10 +40,14 @@ typedef enum {
 
 typedef struct {
   gint ref_count;
-  FlatpakRef *ref;
-  const gchar *remote;
-  const gchar *collection_id;
+  FlatpakRef *ref;  /* (owned) (not nullable) */
+  const gchar *remote;  /* (not nullable) */
+  const gchar *collection_id;  /* (nullable) */
 } EuuFlatpakLocationRef;
+
+#define EUU_TYPE_FLATPAK_LOCATION_REF (euu_flatpak_location_ref_get_type ())
+
+GType euu_flatpak_location_ref_get_type (void);
 
 /**
  * EuuFlatpakRemoteRefActionFlags:
@@ -73,6 +77,10 @@ typedef struct {
   EuuFlatpakRemoteRefActionFlags flags;
 } EuuFlatpakRemoteRefAction;
 
+#define EUU_TYPE_FLATPAK_REMOTE_REF_ACTION (euu_flatpak_remote_ref_action_get_type ())
+
+GType euu_flatpak_remote_ref_action_get_type (void);
+
 typedef struct {
   GPtrArray *remote_ref_actions;  /* (element-type EuuFlatpakRemoteRefAction) */
   gint priority;
@@ -81,8 +89,8 @@ typedef struct {
 EuuFlatpakLocationRef *euu_flatpak_location_ref_new (FlatpakRef  *ref,
                                                      const gchar *remote,
                                                      const gchar *collection_id);
-EuuFlatpakLocationRef *euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *ref);
-void euu_flatpak_location_ref_unref (EuuFlatpakLocationRef *ref);
+EuuFlatpakLocationRef *euu_flatpak_location_ref_ref (EuuFlatpakLocationRef *location_ref);
+void euu_flatpak_location_ref_unref (EuuFlatpakLocationRef *location_ref);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakLocationRef, euu_flatpak_location_ref_unref)
 
@@ -96,8 +104,12 @@ void euu_flatpak_remote_ref_action_unref (EuuFlatpakRemoteRefAction *action);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakRemoteRefAction, euu_flatpak_remote_ref_action_unref)
 
+#define EUU_TYPE_FLATPAK_REMOTE_REF_ACTIONS_FILE (euu_flatpak_remote_ref_actions_file_get_type ())
+GType euu_flatpak_remote_ref_actions_file_get_type (void);
+
 EuuFlatpakRemoteRefActionsFile *euu_flatpak_remote_ref_actions_file_new (GPtrArray *remote_ref_actions,
                                                                          gint       priority);
+EuuFlatpakRemoteRefActionsFile *euu_flatpak_remote_ref_actions_file_copy (EuuFlatpakRemoteRefActionsFile *file);
 void euu_flatpak_remote_ref_actions_file_free (EuuFlatpakRemoteRefActionsFile *file);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (EuuFlatpakRemoteRefActionsFile, euu_flatpak_remote_ref_actions_file_free)
