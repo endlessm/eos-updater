@@ -71,39 +71,6 @@ G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_LAST + 1);
 static const gchar *const EOS_UPDATER_BRANCH_SELECTED = "99f48aac-b5a0-426d-95f4-18af7d081c4e";
 #endif
 
-static gboolean
-status_of_current_and_remote_commit (OstreeRepo   *repo,
-                                     const gchar  *booted_checksum,
-                                     const gchar  *checksum,
-                                     GVariant    **out_current_commit,
-                                     GVariant    **out_remote_commit,
-                                     GError      **error)
-{
-  g_autoptr(GVariant) current_commit = NULL;
-  g_autoptr(GVariant) update_commit = NULL;
-
-  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
-  g_return_val_if_fail (booted_checksum != NULL, FALSE);
-  g_return_val_if_fail (checksum != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, checksum);
-
-  if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, error))
-    return FALSE;
-
-  if (!ostree_repo_load_commit (repo, checksum, &update_commit, NULL, error))
-    return FALSE;
-
-  if (out_current_commit)
-    *out_current_commit = g_steal_pointer (&current_commit);
-
-  if (out_remote_commit)
-    *out_remote_commit = g_steal_pointer (&update_commit);
-
-  return TRUE;
-}
-
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
                        const gchar *checksum,
@@ -127,12 +94,12 @@ is_checksum_an_update (OstreeRepo *repo,
   if (booted_checksum == NULL)
     return FALSE;
 
-  if (!status_of_current_and_remote_commit (repo,
-                                            booted_checksum,
-                                            checksum,
-                                            &current_commit,
-                                            &update_commit,
-                                            error))
+  g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, checksum);
+
+  if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, error))
+    return FALSE;
+
+  if (!ostree_repo_load_commit (repo, checksum, &update_commit, NULL, error))
     return FALSE;
 
   /* Determine if the new commit is newer than the old commit to prevent
