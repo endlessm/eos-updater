@@ -89,6 +89,7 @@ is_checksum_an_update (OstreeRepo *repo,
   g_autofree gchar *booted_checksum = NULL;
   gboolean is_newer;
   guint64 update_timestamp, current_timestamp;
+  g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (checksum != NULL, FALSE);
@@ -111,11 +112,27 @@ is_checksum_an_update (OstreeRepo *repo,
 
   g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, checksum);
 
-  if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, error))
-    return FALSE;
+  if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, &local_error))
+    {
+      g_warning ("Error loading current commit ‘%s’ to check if ‘%s’ is an update (assuming it is): %s",
+                 booted_checksum, checksum, local_error->message);
+      g_clear_error (&local_error);
+    }
 
   if (!ostree_repo_load_commit (repo, checksum, &update_commit, NULL, error))
     return FALSE;
+
+  /* If we failed to load the currently deployed commit, it is probably missing
+   * from the repository (see T22805). Try and recover by assuming @checksum
+   * *is* an update and fetching it. We shouldn’t fail to load the @checksum
+   * commit because we should have just pulled its metadata into the repository
+   * as part of polling. If we do fail, we can’t proceed further since we need
+   * to examine the commit metadata before upgrading to it. */
+  if (current_commit == NULL)
+    {
+      *commit = g_steal_pointer (&update_commit);
+      return TRUE;
+    }
 
   /* Determine if the new commit is newer than the old commit to prevent
    * inadvertent (or malicious) attempts to downgrade the system.
