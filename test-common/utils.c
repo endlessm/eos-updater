@@ -2932,12 +2932,17 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                                                                "eos-updater-prepare-volume",
                                                                                "eos-updater-prepare-volume",
                                                                                NULL);
+  g_autofree gchar *libeos_updater_util_path = g_test_build_filename (G_TEST_BUILT,
+                                                                      "..",
+                                                                      "libeos-updater-util",
+                                                                      NULL);
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
   CmdEnvVar envv[] =
     {
       { "EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK", "yes", NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { "GI_TYPELIB_PATH", libeos_updater_util_path, NULL },
       { NULL, NULL, NULL }
     };
   g_autofree gchar *raw_volume_path = g_file_get_path (volume_path);

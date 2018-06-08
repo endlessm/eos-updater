@@ -125,7 +125,6 @@ main (int    argc,
   g_autoptr(GOptionContext) context = NULL;
   g_autoptr(FlatpakInstallation) installation = NULL;
   const gchar *resolved_mode = NULL;
-  const gchar *pending_flatpak_deployments_state_path = euu_pending_flatpak_deployments_state_path ();
   EosUpdaterInstallerMode parsed_mode;
 
   g_autofree gchar *mode = NULL;
@@ -208,7 +207,6 @@ main (int    argc,
             return EXIT_OK;
 
           if (!eufi_check_ref_actions_applied (installation,
-                                               pending_flatpak_deployments_state_path,
                                                squashed_ref_actions_to_check,
                                                &error))
             return fail (EXIT_CHECK_FAILED,

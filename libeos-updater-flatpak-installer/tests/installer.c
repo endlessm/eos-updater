@@ -440,7 +440,6 @@ test_flatpak_check_succeeds_if_actions_are_up_to_date (FlatpakDeploymentsFixture
   /* Run the checker - it should return true because all actions will be
    * up to date */
   eufi_check_ref_actions_applied (installation,
-                                  state_counter_path,
                                   actions,
                                   &error);
   g_assert_no_error (error);
@@ -453,7 +452,6 @@ test_flatpak_check_fails_if_installed_flatpak_is_not_installed (FlatpakDeploymen
   g_autoptr(GError) error = NULL;
   const gchar *flatpaks_to_install[] = { "org.test.Test", NULL };
   g_autoptr(GPtrArray) actions = sample_flatpak_ref_actions ("autoinstall", flatpaks_to_install);
-  g_autofree gchar *state_counter_path = g_file_get_path (fixture->counter_file);
   g_autoptr(FlatpakInstallation) installation = flatpak_installation_new_for_path (fixture->flatpak_installation_directory,
                                                                                    TRUE,
                                                                                    NULL,
@@ -475,7 +473,6 @@ test_flatpak_check_fails_if_installed_flatpak_is_not_installed (FlatpakDeploymen
   /* Run the checker - it should return false because the flatpak that
    * needs to be installed is not yet installed */
   eufi_check_ref_actions_applied (installation,
-                                  state_counter_path,
                                   actions,
                                   &error);
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_FAILED);
@@ -490,7 +487,6 @@ test_flatpak_check_fails_if_unininstalled_flatpak_is_installed (FlatpakDeploymen
   g_autoptr(GPtrArray) actions = sample_flatpak_ref_actions_of_type ("autoinstall",
                                                                      flatpaks_to_install,
                                                                      EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
-  g_autofree gchar *state_counter_path = g_file_get_path (fixture->counter_file);
   g_autoptr(FlatpakInstallation) installation = flatpak_installation_new_for_path (fixture->flatpak_installation_directory,
                                                                                    TRUE,
                                                                                    NULL,
@@ -512,7 +508,6 @@ test_flatpak_check_fails_if_unininstalled_flatpak_is_installed (FlatpakDeploymen
   /* Run the checker - it should return false because the preinstalled flatpak
    * is still installed */
   eufi_check_ref_actions_applied (installation,
-                                  state_counter_path,
                                   actions,
                                   &error);
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_FAILED);

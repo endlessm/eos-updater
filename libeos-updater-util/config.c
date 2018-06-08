@@ -481,7 +481,7 @@ euu_config_file_get_boolean (EuuConfigFile  *self,
 }
 
 /**
- * euu_config_file_get_boolean:
+ * euu_config_file_get_string:
  * @self: an #EuuConfigFile
  * @group_name: name of the configuration group
  * @key_name: name of the configuration key

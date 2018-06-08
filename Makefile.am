@@ -487,7 +487,7 @@ EXTRA_DIST += m4/introspection.m4
 if HAVE_INTROSPECTION
 # GObject Introspection for libeos-updater-util
 libeos-updater-util/EosUpdaterUtil-@EUU_API_VERSION@.gir: libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
-libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_INCLUDES = GObject-2.0 Gio-2.0
+libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_INCLUDES = GObject-2.0 Gio-2.0 Flatpak-1.0
 libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_CFLAGS = \
 	$(libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CPPFLAGS) \
 	$(libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_CFLAGS)
@@ -508,8 +508,8 @@ libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_SCANNERFLAGS = \
 INTROSPECTION_GIRS += libeos-updater-util/EosUpdaterUtil-@EUU_API_VERSION@.gir
 
 # GObject Introspection for libeos-updater-flatpak-installer
-libeos-updater-flatpak-installer/EosUpdaterFlatpakInstaller-@EUFI_API_VERSION@.gir: libeos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUFI_API_VERSION@.la
-libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_gir_INCLUDES = GObject-2.0 Gio-2.0 Flatpak-1.0
+libeos-updater-flatpak-installer/EosUpdaterFlatpakInstaller-@EUFI_API_VERSION@.gir: libeos-updater-flatpak-installer/libeos-updater-flatpak-installer-@EUFI_API_VERSION@.la libeos-updater-util/EosUpdaterUtil-@EUU_API_VERSION@.gir
+libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_gir_INCLUDES = GObject-2.0 Gio-2.0 Flatpak-1.0 EosUpdaterUtil-0
 libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_gir_CFLAGS = \
 	$(STD_CFLAGS) \
 	$(EOS_UPDATER_FLATPAK_INSTALLER_CFLAGS) \
@@ -520,6 +520,7 @@ libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_g
 libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_gir_NAMESPACE = EosUpdaterFlatpakInstaller
 libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_gir_SCANNERFLAGS = \
 	$(WARN_SCANNERFLAGS) \
+	--add-include-path=$(top_builddir)/libeos-updater-util \
 	--nsversion=@EUFI_API_VERSION@ \
 	--c-include="libeos-updater-flatpak-installer/installer.h" \
 	--identifier-prefix=Eufi \
@@ -527,6 +528,7 @@ libeos_updater_flatpak_installer_EosUpdaterFlatpakInstaller_@EUFI_API_VERSION@_g
 	-I$(top_srcdir) \
 	$(NULL)
 
+INTROSPECTION_COMPILER_ARGS += --includedir=$(top_builddir)/libeos-updater-util
 INTROSPECTION_GIRS += libeos-updater-flatpak-installer/EosUpdaterFlatpakInstaller-@EUFI_API_VERSION@.gir
 
 girdir = $(datadir)/gir-1.0
