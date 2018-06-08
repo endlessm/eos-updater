@@ -76,11 +76,11 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   kill_gpg_agent (fixture->gpg_home);
-  rm_rf (fixture->gpg_home, &error);
+  eos_updater_remove_recursive (fixture->gpg_home, NULL, &error);
   g_assert_no_error (error);
   g_object_unref (fixture->gpg_home);
 
-  rm_rf (fixture->tmpdir, &error);
+  eos_updater_remove_recursive (fixture->tmpdir, NULL, &error);
   g_assert_no_error (error);
   g_object_unref (fixture->tmpdir);
 
@@ -1885,7 +1885,7 @@ simulated_reap_updater (EosTestClient *client,
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client->root);
   g_autoptr(GFile) quit_file = updater_quit_file (updater_dir);
 
-  if (!rm_rf (quit_file, error))
+  if (!eos_updater_remove_recursive (quit_file, NULL, error))
     return FALSE;
   g_free (reaped->cmdline);
   reaped->cmdline = g_strdup (cmd->cmdline);
@@ -1922,7 +1922,7 @@ real_reap_updater (EosTestClient *client,
                             &wu,
                             NULL);
 
-  if (!rm_rf (quit_file, error))
+  if (!eos_updater_remove_recursive (quit_file, NULL, error))
     return FALSE;
 
   g_main_loop_run (loop);
@@ -2822,7 +2822,7 @@ eos_test_client_remove_update_server_quit_file (EosTestClient *client,
   g_autoptr(GFile) update_server_dir = get_update_server_dir (client->root);
   g_autoptr(GFile) quit_file = get_update_server_quit_file (update_server_dir);
 
-  return rm_rf (quit_file, error);
+  return eos_updater_remove_recursive (quit_file, NULL, error);
 }
 
 gboolean
