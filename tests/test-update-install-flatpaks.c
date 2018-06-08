@@ -20,6 +20,7 @@
  *  - Sam Spilsbury <sam@endlessm.com>
  */
 
+#include <libeos-updater-util/util.h>
 #include <test-common/flatpak-spawn.h>
 #include <test-common/gpg.h>
 #include <test-common/misc-utils.h>
@@ -3449,7 +3450,7 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   /* Before updating the client, nuke the flatpak remote directory. This
    * will make the pull operation fail, which should make the entire
    * deployment fail */
-  rm_rf (flatpak_remote_dir, &error);
+  eos_updater_remove_recursive (flatpak_remote_dir, NULL, &error);
   g_assert_no_error (error);
 
   /* Attempt to update client - run updater daemon */
@@ -4035,7 +4036,7 @@ test_update_deploy_dependency_runtime_flatpaks_on_reboot_no_network (EosUpdaterF
 
   /* Kill the network connection by deleting the remote repositories */
   flatpak_remote_repositories = g_file_get_child (updater_directory, "flatpak");
-  rm_rf (flatpak_remote_repositories, &error);
+  eos_updater_remove_recursive (flatpak_remote_repositories, NULL, &error);
   g_assert_no_error (error);
 
   /* Now simulate a reboot by running eos-updater-flatpak-installer */
@@ -4327,7 +4328,7 @@ test_update_deploy_dependency_autodownload_extension_flatpaks_on_reboot_no_netwo
 
   /* Kill the network connection by deleting the remote repositories */
   flatpak_remote_repositories = g_file_get_child (updater_directory, "flatpak");
-  rm_rf (flatpak_remote_repositories, &error);
+  eos_updater_remove_recursive (flatpak_remote_repositories, NULL, &error);
   g_assert_no_error (error);
 
   /* Now simulate a reboot by running eos-updater-flatpak-installer */
@@ -4846,7 +4847,7 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
   /* Remove the offending partial installation and try again */
   failed_flatpak_installation_directory = g_file_get_child (flatpak_user_installation_dir,
                                                             test_broken_flatpak_relative_path);
-  rm_rf (failed_flatpak_installation_directory, &error);
+  eos_updater_remove_recursive (failed_flatpak_installation_directory, NULL, &error);
   g_assert_no_error (error);
 
   /* Should now work again */

@@ -100,7 +100,7 @@ flatpak_deployments_fixture_teardown (FlatpakDeploymentsFixture  *fixture,
 {
   g_autoptr(GError) error = NULL;
 
-  eos_updater_remove_recursive (fixture->flatpak_deployments_directory, &error);
+  eos_updater_remove_recursive (fixture->flatpak_deployments_directory, NULL, &error);
   g_assert_no_error (error);
 
   g_object_unref (fixture->flatpak_deployments_directory);
