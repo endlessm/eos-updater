@@ -257,15 +257,15 @@ class VolumePreparer:
         # Eliminate duplicates.
         collection_refs = list(set(collection_refs))
 
-        # Pass the heavy lifting off to `ostree create-usb`.
+        # Pass the heavy lifting off to `ostree create-usb`
+        # which requires an updated summary file
         # TODO: Verify that it adds GPG keys where appropriate.
-        # TODO: Verify that a summary file is present.
         flattened_collection_refs = [e for l in collection_refs for e in l]
         _, repo = self.sysroot.get_repo()
-        self.__run(['ostree', 'create-usb',
-                    '--repo', os.path.realpath(repo.get_path().get_path()),
-                    self.volume_path] +
-                   flattened_collection_refs)
+        repo_path = os.path.realpath(repo.get_path().get_path())
+        self.__run(['ostree', 'summary', '--update', '--repo', repo_path])
+        self.__run(['ostree', 'create-usb', '--repo', repo_path,
+                    self.volume_path] + flattened_collection_refs)
 
 
 def main():
