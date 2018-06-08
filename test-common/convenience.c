@@ -208,7 +208,8 @@ etc_update_server (EtcData *data,
 /* Pulls the updates from the server using eos-updater and autoupdater.
  */
 void
-etc_update_client (EtcData *data)
+etc_update_client_with_warnings (EtcData     *data,
+                                 const gchar *expected_updater_warnings)
 {
   DownloadSource main_source = DOWNLOAD_MAIN;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
@@ -223,7 +224,9 @@ etc_update_client (EtcData *data)
   g_assert_nonnull (data->client);
   g_assert_nonnull (data->fixture);
 
-  // update the client
+  /* Update the client. FIXME: We can’t do a glob match against
+   * @expected_updater_warnings yet. @expected_updater_warnings is ignored
+   * for the eos3.3 backport. */
   eos_test_client_run_updater (data->client,
                                &main_source,
                                1,
@@ -258,6 +261,12 @@ etc_update_client (EtcData *data)
                               &error);
   g_assert_no_error (error);
   g_assert_true (has_commit);
+}
+
+void
+etc_update_client (EtcData *data)
+{
+  etc_update_client_with_warnings (data, NULL);
 }
 
 /* Deletes an object from a repositories' objects directory. The repo
