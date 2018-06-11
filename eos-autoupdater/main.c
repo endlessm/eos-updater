@@ -35,6 +35,7 @@
 #define EOS_UPDATER_INVALID_ARGS_MSGID          "27b3a4600f7242acadf1855a2a1eaa6d"
 #define EOS_UPDATER_CONFIGURATION_ERROR_MSGID   "5af9f4df37f949a1948971e00be0d620"
 #define EOS_UPDATER_DAEMON_ERROR_MSGID          "f31fd043074a4a21b04784cf895c56ae"
+#define EOS_UPDATER_DAEMON_EXITED_ERROR_MSGID   "c415d51ed7cf499fa8e05d2db82e86b8"
 #define EOS_UPDATER_STAMP_ERROR_MSGID           "da96f3494a5d432d8bcea1217433ecbf"
 #define EOS_UPDATER_SUCCESS_MSGID               "ce0a80bb9f734dc09f8b56a7fb981ae4"
 #define EOS_UPDATER_NOT_ONLINE_MSGID            "2797d0eaca084a9192e21838ab12cbd0"
@@ -446,6 +447,23 @@ on_state_changed_notify (EosUpdater *proxy,
   on_state_changed (proxy, state);
 }
 
+static void
+on_name_owner_changed (GObject    *obj,
+                       GParamSpec *pspec,
+                       gpointer    user_data)
+{
+  g_autofree gchar *new_owner = g_dbus_proxy_get_name_owner (G_DBUS_PROXY (obj));
+
+  if (new_owner == NULL)
+    {
+      warning (EOS_UPDATER_DAEMON_EXITED_ERROR_MSGID,
+               "EOS updater exited unexpectedly");
+
+      should_exit_failure = TRUE;
+      g_main_loop_quit (main_loop);
+    }
+}
+
 static const gchar *
 get_config_file_path (void)
 {
@@ -815,6 +833,8 @@ main (int argc, char **argv)
 
   g_signal_connect (proxy, "notify::state",
                     G_CALLBACK (on_state_changed_notify), NULL);
+  g_signal_connect (proxy, "notify::g-name-owner",
+                    (GCallback) on_name_owner_changed, NULL);
 
   g_idle_add (initial_poll_idle_func, proxy);
   g_main_loop_run (main_loop);

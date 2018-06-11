@@ -30,9 +30,11 @@
 #include <gio/gio.h>
 #include <locale.h>
 
+#define DEFAULT_TIMEOUT_SECS 30
+
 typedef struct
 {
-  GMainLoop *loop;
+  gboolean reached_update_applied;
   gboolean *cancelled_states;
   guint cancelled_error_count;
   guint cancel_calls_count;
@@ -198,7 +200,7 @@ updater_state_changed_cb (EosUpdater *updater,
         eos_updater_call_apply (updater, NULL, NULL, NULL);
         break;
       case EOS_UPDATER_STATE_UPDATE_APPLIED:
-        g_main_loop_quit (helper->loop);
+        helper->reached_update_applied = TRUE;
         break;
       case EOS_UPDATER_STATE_POLLING:
       case EOS_UPDATER_STATE_FETCHING:
@@ -207,6 +209,16 @@ updater_state_changed_cb (EosUpdater *updater,
         /* let it go until the next state change occurs */
         break;
     }
+}
+
+static gboolean
+timeout_cb (gpointer user_data)
+{
+  gboolean *out_timed_out = user_data;
+  *out_timed_out = TRUE;
+
+  /* Removed by the caller. */
+  return G_SOURCE_CONTINUE;
 }
 
 /* Tests calling Cancel() on every EOS updater state; when the states can be
@@ -221,14 +233,13 @@ test_cancel_update (EosUpdaterFixture *fixture,
   g_autoptr(EosTestSubserver) subserver = NULL;
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(EosUpdater) updater = NULL;
-  g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
   DownloadSource main_source = DOWNLOAD_MAIN;
   gboolean has_commit;
   gulong state_change_handler = 0;
   gboolean cancelled_states[EOS_UPDATER_STATE_LAST + 1] = { FALSE };
-  TestCancelHelper helper = { loop, cancelled_states, 0, 0 };
+  TestCancelHelper helper = { FALSE, cancelled_states, 0, 0 };
 
   if (skip_test_on_ostree_boot_id ())
     return;
@@ -270,9 +281,16 @@ test_cancel_update (EosUpdaterFixture *fixture,
   /* start the state changes */
   updater_state_changed_cb (updater, NULL, &helper);
 
-  g_main_loop_run (loop);
+  gboolean timed_out = FALSE;
+  guint timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT_SECS, timeout_cb, &timed_out);
 
+  while (!helper.reached_update_applied && !timed_out)
+    g_main_context_iteration (NULL, TRUE);
+
+  g_source_remove (timeout_id);
   g_signal_handler_disconnect (updater, state_change_handler);
+
+  g_assert_false (timed_out);
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -288,15 +306,11 @@ test_cancel_update (EosUpdaterFixture *fixture,
 static void
 update_with_loop_state_changed_cb (EosUpdater *updater,
                                    GParamSpec *pspec,
-                                   gpointer data)
+                                   gpointer    user_data)
 {
-  EosUpdaterState state = eos_updater_get_state (updater);
-  GMainLoop *loop = (GMainLoop *) data;
+  EosUpdaterState *out_state = user_data;
 
-  if (state == EOS_UPDATER_STATE_POLLING)
-    return;
-
-  g_main_loop_quit (loop);
+  *out_state = eos_updater_get_state (updater);
 }
 
 /* Tests getting the Version property when it has a value or is empty. */
@@ -309,7 +323,6 @@ test_update_version (EosUpdaterFixture *fixture,
   g_autoptr(EosTestSubserver) subserver = NULL;
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(EosUpdater) updater = NULL;
-  g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
   DownloadSource main_source = DOWNLOAD_MAIN;
@@ -349,15 +362,24 @@ test_update_version (EosUpdaterFixture *fixture,
                                                 &error);
   g_assert_no_error (error);
 
+  EosUpdaterState state = EOS_UPDATER_STATE_POLLING;
   g_signal_connect (updater, "notify::state",
                     G_CALLBACK (update_with_loop_state_changed_cb),
-                    loop);
+                    &state);
 
   /* start the state changes */
   eos_updater_call_poll_sync (updater, NULL, &error);
   g_assert_no_error (error);
 
-  g_main_loop_run (loop);
+  gboolean timed_out = FALSE;
+  guint timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT_SECS, timeout_cb, &timed_out);
+
+  while (state == EOS_UPDATER_STATE_POLLING && !timed_out)
+    g_main_context_iteration (NULL, TRUE);
+
+  g_source_remove (timeout_id);
+
+  g_assert_false (timed_out);
 
   g_assert_cmpuint (eos_updater_get_state (updater), ==, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
   g_assert_cmpstr (eos_updater_get_version (updater), ==, version);
@@ -374,8 +396,6 @@ test_update_when_none_available (EosUpdaterFixture *fixture,
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(EosUpdater) updater = NULL;
   DownloadSource main_source = DOWNLOAD_MAIN;
-  GMainContext *context = g_main_context_default ();
-  g_autoptr(GMainLoop) loop = g_main_loop_new (context, FALSE);
   gulong state_change_handler = 0;
 
   if (skip_test_on_ostree_boot_id ())
@@ -400,16 +420,25 @@ test_update_when_none_available (EosUpdaterFixture *fixture,
                                                 &error);
   g_assert_no_error (error);
 
+  EosUpdaterState state = EOS_UPDATER_STATE_POLLING;
   state_change_handler = g_signal_connect (updater, "notify::state",
                                            G_CALLBACK (update_with_loop_state_changed_cb),
-                                           loop);
+                                           &state);
 
   /* start the state changes */
-  eos_updater_call_poll_sync (updater, NULL, NULL);
+  eos_updater_call_poll_sync (updater, NULL, &error);
+  g_assert_no_error (error);
 
-  g_main_loop_run (loop);
+  gboolean timed_out = FALSE;
+  guint timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT_SECS, timeout_cb, &timed_out);
 
+  while (state == EOS_UPDATER_STATE_POLLING && !timed_out)
+    g_main_context_iteration (NULL, TRUE);
+
+  g_source_remove (timeout_id);
   g_signal_handler_disconnect (updater, state_change_handler);
+
+  g_assert_false (timed_out);
 
   /* ensure that when no update is available we are not transitioning to the
    * error state */

@@ -39,7 +39,8 @@ G_DEFINE_BOXED_TYPE (EuuFlatpakLocationRef, euu_flatpak_location_ref, euu_flatpa
 /**
  * euu_flatpak_location_ref_new:
  * @ref: a #FlatpakRef
- * @remote: a remote name
+ * @remote: (nullable): a remote name, or %NULL if not known (for example, for
+ *    an uninstall or upgrade entry)
  * @collection_id: (nullable): collection ID for @remote, or %NULL if not
  *    configured locally
  *
@@ -53,7 +54,8 @@ euu_flatpak_location_ref_new (FlatpakRef  *ref,
                               const gchar *collection_id)
 {
   g_return_val_if_fail (FLATPAK_IS_REF (ref), NULL);
-  g_return_val_if_fail (ostree_validate_remote_name (remote, NULL), NULL);
+  g_return_val_if_fail (remote == NULL ||
+                        ostree_validate_remote_name (remote, NULL), NULL);
   g_return_val_if_fail (collection_id == NULL ||
                         ostree_validate_collection_id (collection_id, NULL), NULL);
 
@@ -373,7 +375,7 @@ flatpak_remote_ref_from_uninstall_action_entry (JsonObject  *entry,
                       "branch", branch,
                       NULL);
 
-  return euu_flatpak_location_ref_new (ref, "none", NULL);
+  return euu_flatpak_location_ref_new (ref, NULL, NULL);
 }
 
 /* Parse an @entry of type %EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE to a
@@ -397,7 +399,7 @@ flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
                       "branch", branch,
                       NULL);
 
-  return euu_flatpak_location_ref_new (ref, "none", NULL);
+  return euu_flatpak_location_ref_new (ref, NULL, NULL);
 }
 
 /* Parse the bits of @entry which are specific to the @action_type. */
@@ -1719,11 +1721,22 @@ fetch_runtime_ref_for_source_ref (FlatpakInstallation *installation,
   g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (FLATPAK_IS_INSTALLATION (installation), FALSE);
-  g_return_val_if_fail (source_ref_remote_name != NULL, FALSE);
   g_return_val_if_fail (source_ref != NULL, FALSE);
   g_return_val_if_fail (out_runtime_ref != NULL, FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  /* In this case, the caller couldn’t resolve the remote name of the ref, which
+   * likely means it’s not installed. */
+  if (source_ref_remote_name == NULL)
+    {
+      g_autofree gchar *formatted_source_ref = flatpak_ref_format_ref (source_ref);
+      g_debug ("Source ref %s has no remote origin; assuming it has no runtime",
+               formatted_source_ref);
+
+      *out_runtime_ref = NULL;
+      return TRUE;
+    }
 
   bytes = flatpak_installation_fetch_remote_metadata_sync (installation,
                                                            source_ref_remote_name,
@@ -2326,14 +2339,46 @@ euu_add_dependency_ref_actions_for_installation (FlatpakInstallation  *installat
       g_autoptr(EuuFlatpakLocationRef) runtime_location_ref = NULL;
       g_autoptr(GError) local_error = NULL;
 
+      g_autofree gchar *resolved_remote_name = g_strdup (ref_action->ref->remote);
+
+      /* Upgrades and uninstalls don’t provide a remote name in the autoinstall
+       * file, so we need to look it up from the installed ref ourselves. If
+       * that’s not possible, the ref probably isn’t installed. */
+      if (resolved_remote_name == NULL)
+        {
+          /* Resolve the remote name. */
+          g_autoptr(FlatpakInstalledRef) installed_ref =
+            flatpak_installation_get_installed_ref (installation,
+                                                    flatpak_ref_get_kind (ref_action->ref->ref),
+                                                    flatpak_ref_get_name (ref_action->ref->ref),
+                                                    flatpak_ref_get_arch (ref_action->ref->ref),
+                                                    flatpak_ref_get_branch (ref_action->ref->ref),
+                                                    cancellable,
+                                                    &local_error);
+
+          if (installed_ref == NULL &&
+              !g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
+            {
+              g_propagate_error (error, g_steal_pointer (&local_error));
+              return NULL;
+            }
+          else if (installed_ref != NULL)
+            {
+              g_free (resolved_remote_name);
+              resolved_remote_name = g_strdup (flatpak_installed_ref_get_origin (installed_ref));
+            }
+
+          g_clear_error (&local_error);
+        }
+
       initially_populate_remote_and_installed_related_refs (remotes,
-                                                            ref_action->ref->remote,
+                                                            resolved_remote_name,
                                                             &remote_related_refs,
                                                             &installed_related_refs);
 
       if (!recursively_find_remote_and_installed_related_refs (installation,
                                                                ref_action->ref->ref,
-                                                               ref_action->ref->remote,
+                                                               resolved_remote_name,
                                                                remotes,
                                                                refs_for_remotes,
                                                                remote_related_refs,

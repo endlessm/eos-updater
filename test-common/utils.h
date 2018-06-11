@@ -244,6 +244,12 @@ gboolean eos_test_client_run_updater (EosTestClient *client,
                                       GPtrArray *override_uris,
                                       CmdAsyncResult *cmd,
                                       GError **error);
+gboolean eos_test_client_run_updater_ignore_warnings (EosTestClient   *client,
+                                                      DownloadSource  *order,
+                                                      gsize            n_sources,
+                                                      GPtrArray       *override_uris,
+                                                      CmdAsyncResult  *cmd,
+                                                      GError         **error);
 
 gboolean eos_test_client_reap_updater (EosTestClient *client,
                                        CmdAsyncResult *cmd,
