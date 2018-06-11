@@ -38,14 +38,8 @@ test_update_missing_deployed_commit (EosUpdaterFixture *fixture,
 
   g_test_bug ("T22805");
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   etc_data_init (data, fixture);
   /* Create and set up the server with the commit 0.

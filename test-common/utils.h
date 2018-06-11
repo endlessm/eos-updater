@@ -325,6 +325,7 @@ EosTestAutoupdater *eos_test_autoupdater_new (GFile       *autoupdater_root,
                                               GError     **error);
 
 gboolean eos_test_has_ostree_boot_id (void);
+gboolean eos_test_skip_chroot (void);
 
 typedef struct _SimpleFile SimpleFile;
 

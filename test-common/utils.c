@@ -3254,6 +3254,31 @@ eos_test_has_ostree_boot_id (void)
 }
 
 /**
+ * eos_test_skip_chroot:
+ *
+ * Check whether the test is running in a chroot and, if so, skip it using
+ * g_test_skip(). This avoids issues when running the tests in an ARM chroot.
+ * See commit https://github.com/endlessm/eos-updater/commit/5032d0a879bb5b22.
+ *
+ * Returns: %TRUE if the test has been skipped and should be returned from
+ *    immediately; %FALSE to continue and run the test
+ */
+gboolean
+eos_test_skip_chroot (void)
+{
+  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
+   * afterwards we hit unsupported syscalls in qemu-user when running in an
+   * ARM chroot (for example), so just bail. */
+  if (!eos_test_has_ostree_boot_id ())
+    {
+      g_test_skip ("OSTree will not work without a boot ID");
+      return TRUE;
+    }
+
+  return FALSE;
+}
+
+/**
  * eos_test_add_metadata_for_commit:
  *
  * Adds the provided metadata (@key and @value) for the given @commit_number
