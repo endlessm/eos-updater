@@ -2974,7 +2974,9 @@ eos_test_client_prepare_volume (EosTestClient *client,
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "GI_TYPELIB_PATH", libeos_updater_util_path, NULL },
-      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
+      /* FIXME: Add back G_DEBUG=fatal-warnings after we can rely on
+       * https://gitlab.gnome.org/GNOME/pygobject/commit/806c5059f989ed1b8bc62e6aa1ef55123ac110de */
+      { "G_DEBUG", "gc-friendly", NULL },
       { NULL, NULL, NULL }
     };
   g_autofree gchar *raw_volume_path = g_file_get_path (volume_path);
