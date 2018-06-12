@@ -780,14 +780,20 @@ metadata_fetch_internal (OstreeRepo     *repo,
       if (main_enabled)
         {
           g_autoptr(GPtrArray) fetchers = g_ptr_array_sized_new (1);
-          g_assert (config.download_order->len > 0);
+          g_autoptr(GArray) order = g_array_sized_new (FALSE, /* not null terminated */
+                                                       FALSE, /* no clearing */
+                                                       sizeof (EosUpdaterDownloadSource),
+                                                       1);
+          EosUpdaterDownloadSource main_source = EOS_UPDATER_DOWNLOAD_MAIN;
+
           g_ptr_array_add (fetchers, metadata_fetch_from_main);
+          g_array_append_val (order, main_source);
 
           info = run_fetchers (repo,
                                task_context,
                                cancellable,
                                fetchers,
-                               config.download_order);
+                               order);
         }
       else
         {
