@@ -2967,6 +2967,13 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                                                       "..",
                                                                       "libeos-updater-util",
                                                                       NULL);
+  gchar *ld_library_path = g_getenv ("LD_LIBRARY_PATH");
+  g_autofree gchar *new_ld_library_path = NULL;
+  if (ld_library_path == NULL || *ld_library_path == '\0')
+    new_ld_library_path = g_strdup (libeos_updater_util_path);
+  else
+    new_ld_library_path = g_strdup_printf ("%s:%s", libeos_updater_util_path, ld_library_path);
+
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
   CmdEnvVar envv[] =
     {
@@ -2974,6 +2981,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "GI_TYPELIB_PATH", libeos_updater_util_path, NULL },
+      { "LD_LIBRARY_PATH", new_ld_library_path, NULL },
       /* FIXME: Add back G_DEBUG=fatal-warnings after we can rely on
        * https://gitlab.gnome.org/GNOME/pygobject/commit/806c5059f989ed1b8bc62e6aa1ef55123ac110de */
       { "G_DEBUG", "gc-friendly", NULL },
