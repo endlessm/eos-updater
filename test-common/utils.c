@@ -2967,12 +2967,17 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                                                       "..",
                                                                       "libeos-updater-util",
                                                                       NULL);
+  g_autofree gchar *libeos_updater_util_libs_path = g_test_build_filename (G_TEST_BUILT,
+                                                                           "..",
+                                                                           "libeos-updater-util",
+                                                                           ".libs",
+                                                                           NULL);
   gchar *ld_library_path = g_getenv ("LD_LIBRARY_PATH");
   g_autofree gchar *new_ld_library_path = NULL;
   if (ld_library_path == NULL || *ld_library_path == '\0')
-    new_ld_library_path = g_strdup (libeos_updater_util_path);
+    new_ld_library_path = g_strdup (libeos_updater_util_libs_path);
   else
-    new_ld_library_path = g_strdup_printf ("%s:%s", libeos_updater_util_path, ld_library_path);
+    new_ld_library_path = g_strdup_printf ("%s:%s", libeos_updater_util_libs_path, ld_library_path);
 
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
   CmdEnvVar envv[] =
