@@ -29,13 +29,6 @@
 #include <unistd.h>
 
 gboolean
-rm_rf (GFile   *file,
-       GError **error)
-{
-  return eos_updater_remove_recursive (file, error);
-}
-
-gboolean
 load_to_bytes (GFile *file,
                GBytes **bytes,
                GError **error)

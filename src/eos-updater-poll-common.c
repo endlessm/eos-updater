@@ -76,39 +76,6 @@ G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_LAST + 1);
 static const gchar *const EOS_UPDATER_BRANCH_SELECTED = "99f48aac-b5a0-426d-95f4-18af7d081c4e";
 #endif
 
-static gboolean
-status_of_current_and_remote_commit (OstreeRepo   *repo,
-                                     const gchar  *booted_checksum,
-                                     const gchar  *checksum,
-                                     GVariant    **out_current_commit,
-                                     GVariant    **out_remote_commit,
-                                     GError      **error)
-{
-  g_autoptr(GVariant) current_commit = NULL;
-  g_autoptr(GVariant) update_commit = NULL;
-
-  g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
-  g_return_val_if_fail (booted_checksum != NULL, FALSE);
-  g_return_val_if_fail (checksum != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, checksum);
-
-  if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, error))
-    return FALSE;
-
-  if (!ostree_repo_load_commit (repo, checksum, &update_commit, NULL, error))
-    return FALSE;
-
-  if (out_current_commit)
-    *out_current_commit = g_steal_pointer (&current_commit);
-
-  if (out_remote_commit)
-    *out_remote_commit = g_steal_pointer (&update_commit);
-
-  return TRUE;
-}
-
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
                        const gchar *checksum,
@@ -122,6 +89,7 @@ is_checksum_an_update (OstreeRepo *repo,
   g_autofree gchar *booted_checksum = NULL;
   gboolean is_newer;
   guint64 update_timestamp, current_timestamp;
+  g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (checksum != NULL, FALSE);
@@ -132,13 +100,39 @@ is_checksum_an_update (OstreeRepo *repo,
   if (booted_checksum == NULL)
     return FALSE;
 
-  if (!status_of_current_and_remote_commit (repo,
-                                            booted_checksum,
-                                            checksum,
-                                            &current_commit,
-                                            &update_commit,
-                                            error))
+  /* We need to check if the offered checksum on the server
+   * was the same as the booted checksum. It is possible for the timestamp
+   * on the server to be newer if the commit was re-generated from an
+   * existing tree. */
+  if (g_str_equal (booted_checksum, checksum))
+    {
+      *commit = NULL;
+      return TRUE;
+    }
+
+  g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, checksum);
+
+  if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, &local_error))
+    {
+      g_warning ("Error loading current commit ‘%s’ to check if ‘%s’ is an update (assuming it is): %s",
+                 booted_checksum, checksum, local_error->message);
+      g_clear_error (&local_error);
+    }
+
+  if (!ostree_repo_load_commit (repo, checksum, &update_commit, NULL, error))
     return FALSE;
+
+  /* If we failed to load the currently deployed commit, it is probably missing
+   * from the repository (see T22805). Try and recover by assuming @checksum
+   * *is* an update and fetching it. We shouldn’t fail to load the @checksum
+   * commit because we should have just pulled its metadata into the repository
+   * as part of polling. If we do fail, we can’t proceed further since we need
+   * to examine the commit metadata before upgrading to it. */
+  if (current_commit == NULL)
+    {
+      *commit = g_steal_pointer (&update_commit);
+      return TRUE;
+    }
 
   /* Determine if the new commit is newer than the old commit to prevent
    * inadvertent (or malicious) attempts to downgrade the system.
@@ -170,15 +164,7 @@ is_checksum_an_update (OstreeRepo *repo,
    */
   is_newer = (g_strcmp0 (booted_ref, upgrade_ref) != 0 ||
               update_timestamp > current_timestamp);
-
-  /* We also need to check if the offered checksum on the server
-   * was the same as the booted checksum. It is possible for the timestamp
-   * on the server to be newer if the commit was re-generated from an
-   * existing tree. */
-  if (is_newer && g_strcmp0 (booted_checksum, checksum) != 0)
-    *commit = g_steal_pointer (&update_commit);
-  else
-    *commit = NULL;
+  *commit = is_newer ? g_steal_pointer (&update_commit) : NULL;
 
   return TRUE;
 }
@@ -359,18 +345,27 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
   if (!ostree_sysroot_get_repo (sysroot, &repo, NULL, error))
    return FALSE;
 
+  /* We need to be resilient if the $checksum.commit object is missing from the
+   * local repository (for some reason). */
   if (!ostree_repo_load_variant (repo,
                                  OSTREE_OBJECT_TYPE_COMMIT,
                                  checksum,
                                  &commit,
-                                 error))
-    return FALSE;
+                                 &local_error))
+    {
+      g_warning ("Error loading commit ‘%s’ to find checkpoint (assuming none): %s",
+                 checksum, local_error->message);
+      g_clear_error (&local_error);
+    }
 
   /* Look up the checkpoint target to see if there is one on this commit. */
-  metadata = g_variant_get_child_value (commit, 0);
-  ref_for_deployment_variant = g_variant_lookup_value (metadata,
-                                                       "eos.checkpoint-target",
-                                                       G_VARIANT_TYPE_STRING);
+  if (commit != NULL)
+    {
+      metadata = g_variant_get_child_value (commit, 0);
+      ref_for_deployment_variant = g_variant_lookup_value (metadata,
+                                                           "eos.checkpoint-target",
+                                                           G_VARIANT_TYPE_STRING);
+    }
 
   /* No metadata tag on this commit, just return TRUE with no value */
   if (ref_for_deployment_variant == NULL)
@@ -574,6 +569,7 @@ parse_latest_commit (OstreeRepo           *repo,
   g_autoptr(GVariant) rebase = NULL;
   g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *collection_id = NULL;
+  g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
@@ -590,17 +586,26 @@ parse_latest_commit (OstreeRepo           *repo,
   if (!ostree_repo_get_remote_option (repo, remote_name, "collection-id", NULL, &collection_id, error))
     return FALSE;
 
+  /* We need to be resilient if the $checksum.commit object is missing from the
+   * local repository (for some reason). */
   if (!ostree_repo_load_variant (repo,
                                  OSTREE_OBJECT_TYPE_COMMIT,
                                  checksum,
                                  &commit,
-                                 error))
-    return FALSE;
+                                 &local_error))
+    {
+      g_warning ("Error loading commit ‘%s’ to find redirect (assuming none): %s",
+                 checksum, local_error->message);
+      g_clear_error (&local_error);
+    }
 
   /* If this is a redirect commit, follow it and fetch the new ref instead
    * (unless the rebase is a loop; ignore that). */
-  metadata = g_variant_get_child_value (commit, 0);
-  rebase = g_variant_lookup_value (metadata, "ostree.endoflife-rebase", G_VARIANT_TYPE_STRING);
+  if (commit != NULL)
+    {
+      metadata = g_variant_get_child_value (commit, 0);
+      rebase = g_variant_lookup_value (metadata, "ostree.endoflife-rebase", G_VARIANT_TYPE_STRING);
+    }
 
   if (rebase != NULL &&
       g_strcmp0 (g_variant_get_string (rebase, NULL), ref) != 0)

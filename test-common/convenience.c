@@ -26,6 +26,7 @@
  * `utils.h`.
  */
 
+#include <libeos-updater-util/util.h>
 #include <string.h>
 #include <test-common/convenience.h>
 #include <test-common/gpg.h>
@@ -208,7 +209,8 @@ etc_update_server (EtcData *data,
 /* Pulls the updates from the server using eos-updater and autoupdater.
  */
 void
-etc_update_client (EtcData *data)
+etc_update_client_with_warnings (EtcData     *data,
+                                 const gchar *expected_updater_warnings)
 {
   DownloadSource main_source = DOWNLOAD_MAIN;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
@@ -223,7 +225,9 @@ etc_update_client (EtcData *data)
   g_assert_nonnull (data->client);
   g_assert_nonnull (data->fixture);
 
-  // update the client
+  /* Update the client. FIXME: We can’t do a glob match against
+   * @expected_updater_warnings yet. @expected_updater_warnings is ignored
+   * for the eos3.3 backport. */
   eos_test_client_run_updater (data->client,
                                &main_source,
                                1,
@@ -260,6 +264,12 @@ etc_update_client (EtcData *data)
   g_assert_true (has_commit);
 }
 
+void
+etc_update_client (EtcData *data)
+{
+  etc_update_client_with_warnings (data, NULL);
+}
+
 /* Deletes an object from a repositories' objects directory. The repo
  * should be a GFile pointing to the ostree repository, and the object
  * should describe what will be removed.  The object string should
@@ -290,4 +300,42 @@ etc_delete_object (GFile *repo,
   object_file = g_file_get_child (prefix_dir, rest);
   g_file_delete (object_file, NULL, &error);
   g_assert_no_error (error);
+}
+
+static EosUpdaterFileFilterReturn
+filter_commit_cb (GFile     *file,
+                  GFileInfo *file_info)
+{
+  /* Always recurse. Ignore anything which isn’t a file. */
+  if (g_file_info_get_file_type (file_info) == G_FILE_TYPE_DIRECTORY)
+    return EOS_UPDATER_FILE_FILTER_HANDLE;
+  else if (g_file_info_get_file_type (file_info) != G_FILE_TYPE_REGULAR)
+    return EOS_UPDATER_FILE_FILTER_IGNORE;
+
+  /* Delete .commit and .commitmeta objects. Ignore everything else. */
+  if (g_str_has_suffix (g_file_info_get_name (file_info), ".commit") ||
+      g_str_has_suffix (g_file_info_get_name (file_info), ".commitmeta"))
+    return EOS_UPDATER_FILE_FILTER_HANDLE;
+  else
+    return EOS_UPDATER_FILE_FILTER_IGNORE;
+}
+
+/* Delete all .commit and .commitmeta objects from the client repository. We
+ * could settle for just deleting them for the currently deployed commit, but
+ * it’s easier to just delete them all, and shouldn’t affect the test. */
+void
+etc_delete_all_client_commits (EtcData *data)
+{
+  g_autoptr(GFile) client_repo = NULL;
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GFile) objects_dir = NULL;
+
+  g_assert_nonnull (data);
+  g_assert_nonnull (data->client);
+
+  client_repo = eos_test_client_get_repo (data->client);
+  objects_dir = g_file_get_child (client_repo, "objects");
+
+  eos_updater_remove_recursive (objects_dir, filter_commit_cb, &local_error);
+  g_assert_no_error (local_error);
 }
