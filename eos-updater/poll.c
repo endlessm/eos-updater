@@ -610,6 +610,7 @@ metadata_fetch_new (OstreeRepo    *repo,
         return NULL;
 
       g_clear_pointer (&checksum, g_free);
+      g_clear_pointer (&version, g_free);
       g_clear_pointer (&new_refspec, g_free);
       g_clear_pointer (&new_collection_ref, ostree_collection_ref_free);
 

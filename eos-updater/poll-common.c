@@ -529,6 +529,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autofree gchar *ref = NULL;
   g_autofree gchar *upgrade_refspec = NULL;
   g_autofree gchar *new_refspec = NULL;
+  g_autofree gchar *version = NULL;
   gboolean redirect_followed = FALSE;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
@@ -549,6 +550,7 @@ fetch_latest_commit (OstreeRepo *repo,
       g_clear_pointer (&ref, g_free);
       g_clear_pointer (&new_refspec, g_free);
       g_clear_pointer (&checksum, g_free);
+      g_clear_pointer (&version, g_free);
 
       if (!ostree_parse_refspec (upgrade_refspec, &remote_name, &ref, error))
         return FALSE;
@@ -564,7 +566,7 @@ fetch_latest_commit (OstreeRepo *repo,
         return FALSE;
 
       if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed, &checksum,
-                                &new_refspec, NULL, out_version, cancellable,
+                                &new_refspec, NULL, &version, cancellable,
                                 error))
         return FALSE;
 
@@ -576,6 +578,7 @@ fetch_latest_commit (OstreeRepo *repo,
     }
   while (redirect_followed);
 
+  *out_version = g_steal_pointer (&version);
   *out_checksum = g_steal_pointer (&checksum);
   if (new_refspec != NULL)
     *out_new_refspec = g_steal_pointer (&new_refspec);
