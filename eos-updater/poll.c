@@ -613,14 +613,14 @@ metadata_fetch_new (OstreeRepo    *repo,
 
       /* Parse the commit and check there’s no redirection to a new ref. */
       if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed,
-                                &checksum, &new_refspec, NULL, &version,
+                                &checksum, &new_refspec, &new_collection_ref, &version,
                                 cancellable, error))
         return NULL;
 
       if (new_refspec != NULL)
         {
           g_clear_pointer (&upgrade_refspec, g_free);
-          upgrade_refspec = g_steal_pointer (&new_refspec);
+          upgrade_refspec = g_strdup (new_refspec);
         }
       if (new_collection_ref != NULL)
         {

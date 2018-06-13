@@ -39,6 +39,7 @@ uninstalled_test_programs = \
 	test-update-install-flatpaks \
 	test-update-missing-deployed-commit \
 	test-update-refspec-checkpoint \
+	test-update-refspec-endoflife \
 	test-update-direct \
 	$(NULL)
 
@@ -120,6 +121,12 @@ test_update_refspec_checkpoint_CFLAGS = $(test_cflags)
 test_update_refspec_checkpoint_LDFLAGS = $(test_ldflags)
 test_update_refspec_checkpoint_LDADD = $(test_ldadd)
 test_update_refspec_checkpoint_SOURCES = test-update-refspec-checkpoint.c
+
+test_update_refspec_endoflife_CPPFLAGS = $(test_cppflags)
+test_update_refspec_endoflife_CFLAGS = $(test_cflags)
+test_update_refspec_endoflife_LDFLAGS = $(test_ldflags)
+test_update_refspec_endoflife_LDADD = $(test_ldadd)
+test_update_refspec_endoflife_SOURCES = test-update-refspec-endoflife.c
 
 test_update_direct_CPPFLAGS = $(test_cppflags)
 test_update_direct_CFLAGS = $(test_cflags)
