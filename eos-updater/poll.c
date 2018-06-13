@@ -581,6 +581,8 @@ metadata_fetch_new (OstreeRepo    *repo,
       while (find_result == NULL)
         g_main_context_iteration (context, TRUE);
 
+      g_clear_pointer (&results, ostree_repo_finder_result_freev);
+
       results = ostree_repo_find_remotes_finish (repo, find_result, error);
       if (results == NULL)
         return NULL;
