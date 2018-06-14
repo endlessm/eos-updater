@@ -1138,6 +1138,24 @@ content_fetch (FetchData     *fetch_data,
       fetch_cancellable = cancellable_helper->scheduled_entry_cancellable;
     }
 
+  /* Prune before fetching, to increase the chance that we will have enough free
+   * disk space for the downloads. This is non-fatal since it’s not really a
+   * critical part of the update process. */
+  gint n_objects_found, n_objects_pruned;
+  guint64 space_freed_bytes;
+
+  if (!ostree_repo_prune (data->repo, OSTREE_REPO_PRUNE_FLAGS_REFS_ONLY,
+                          -1  /* depth */,
+                          &n_objects_found, &n_objects_pruned, &space_freed_bytes,
+                          cancellable, &local_error))
+    g_warning ("Failed to prune repository before pulling: %s",
+               local_error->message);
+  else
+    g_debug ("Successfully pruned repository before pulling. "
+             "Pruned %u/%u objects, freeing %" G_GUINT64_FORMAT "B.",
+             n_objects_pruned, n_objects_found, space_freed_bytes);
+  g_clear_error (&local_error);
+
   /* Do we want to use the new libostree code for P2P, or fall back on the old
    * eos-updater code?
    * FIXME: Eventually drop the old code. See:

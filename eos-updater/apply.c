@@ -238,10 +238,8 @@ apply_internal (ApplyData     *apply_data,
 
   newbootver = ostree_deployment_get_deployserial (new_deployment);
 
-  /* FIXME: Cleaning up after update should be non-fatal, since we've
-   * already successfully deployed the new OS. This clearly is a
-   * workaround for a more serious issue, likely related to concurrent
-   * prunes (https://phabricator.endlessm.com/T16736). */
+  /* Cleaning up after update should be non-fatal, since we've
+   * already successfully deployed the new OS. */
   if (!ostree_sysroot_cleanup (sysroot, cancellable, &local_error))
     g_warning ("Failed to clean up the sysroot after successful deployment: %s",
                local_error->message);
