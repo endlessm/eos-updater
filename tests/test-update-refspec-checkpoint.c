@@ -144,14 +144,8 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_autofree gchar *branches_option = NULL;
   g_autofree gchar *expected_branches = NULL;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
@@ -284,14 +278,8 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   insert_update_refspec_metadata_for_commit (2,
                                              next_ref,
@@ -403,14 +391,8 @@ test_update_refspec_checkpoint_no_collection_ref_server (EosUpdaterFixture *fixt
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
@@ -512,14 +494,8 @@ test_update_refspec_checkpoint_malformed_checkpoint (EosUpdaterFixture *fixture,
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              "$^^@*invalid",
@@ -632,14 +608,8 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              "$^^@*invalid",
@@ -795,14 +765,8 @@ test_update_refspec_checkpoint_no_collection_ref_client (EosUpdaterFixture *fixt
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
@@ -914,14 +878,8 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
   g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
   gboolean has_commit;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
@@ -1064,14 +1022,8 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
   g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
   gboolean has_commit;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
@@ -1249,14 +1201,8 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
   gboolean has_commit;
   g_autofree gchar *next_refspec = g_strdup_printf ("BADREMOTE:%s", next_ref);
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
+  if (eos_test_skip_chroot ())
+    return;
 
   /* Set checkpoint with full refspec */
   insert_update_refspec_metadata_for_commit (1,

@@ -56,8 +56,12 @@ void etc_update_server (EtcData *data,
                         guint commit);
 
 void etc_update_client (EtcData *data);
+void etc_update_client_with_warnings (EtcData     *data,
+                                      const gchar *expected_updater_warnings);
 
 void etc_delete_object (GFile *repo,
                         const gchar *object);
+
+void etc_delete_all_client_commits (EtcData *data);
 
 G_END_DECLS

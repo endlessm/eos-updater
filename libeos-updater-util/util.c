@@ -345,6 +345,7 @@ eos_updater_setup_quit_file (const gchar *path,
 
 static gboolean
 rm_file_ignore_noent (GFile         *file,
+                      gboolean       ignore_enotempty,
                       GCancellable  *cancellable,
                       GError       **error)
 {
@@ -355,17 +356,21 @@ rm_file_ignore_noent (GFile         *file,
 
   if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
     return TRUE;
+  if (ignore_enotempty &&
+      g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_EMPTY))
+    return TRUE;
 
   g_propagate_error (error, g_steal_pointer (&local_error));
   return FALSE;
 }
 
 static gboolean
-rm_rf_internal (GFile   *topdir,
-                GError **error)
+rm_rf_internal (GFile                     *topdir,
+                EosUpdaterFileFilterFunc   filter_func,
+                GError                   **error)
 {
   GQueue queue = G_QUEUE_INIT;
-  GList *dir_stack = NULL;
+  GList *dirs_to_delete = NULL;
   g_autoptr(GError) local_error = NULL;
   g_autoptr(GFileInfo) top_info = NULL;
 
@@ -381,11 +386,17 @@ rm_rf_internal (GFile   *topdir,
       g_propagate_error (error, g_steal_pointer (&local_error));
       return FALSE;
     }
+
+  if (filter_func != NULL &&
+      filter_func (topdir, top_info) == EOS_UPDATER_FILE_FILTER_IGNORE)
+    return TRUE;
   if (g_file_info_get_file_type (top_info) != G_FILE_TYPE_DIRECTORY)
-    return rm_file_ignore_noent (topdir, NULL, error);
+    return rm_file_ignore_noent (topdir, FALSE, NULL, error);
+
+  gboolean any_ignored = FALSE;
 
   g_queue_push_head (&queue, g_object_ref (topdir));
-  dir_stack = g_list_prepend (dir_stack, g_object_ref (topdir));
+
   while (!g_queue_is_empty (&queue))
     {
       g_autoptr(GFile) dir = G_FILE (g_queue_pop_tail (&queue));
@@ -397,6 +408,8 @@ rm_rf_internal (GFile   *topdir,
 
       if (enumerator == NULL)
         return FALSE;
+
+      guint n_ignored = 0;
 
       for (;;)
         {
@@ -413,24 +426,36 @@ rm_rf_internal (GFile   *topdir,
           if (info == NULL || child == NULL)
             break;
 
-          if (g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY)
+          if (filter_func != NULL &&
+              filter_func (child, info) == EOS_UPDATER_FILE_FILTER_IGNORE)
             {
-              g_queue_push_head (&queue, g_object_ref (child));
-              dir_stack = g_list_prepend (dir_stack, g_object_ref (child));
+              n_ignored++;
+              continue;
             }
-          else if (!rm_file_ignore_noent (child, NULL, error))
+
+          if (g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY)
+            g_queue_push_head (&queue, g_object_ref (child));
+          else if (!rm_file_ignore_noent (child, FALSE, NULL, error))
             return FALSE;
         }
+
+      if (n_ignored == 0)
+        dirs_to_delete = g_list_prepend (dirs_to_delete, g_object_ref (dir));
+      else
+        any_ignored = TRUE;
     }
 
-  while (dir_stack != NULL)
+  if (!any_ignored)
+    dirs_to_delete = g_list_append (dirs_to_delete, g_object_ref (topdir));
+
+  while (dirs_to_delete != NULL)
     {
-      GList *first = dir_stack;
+      GList *first = dirs_to_delete;
       g_autoptr(GFile) dir = G_FILE (first->data);
 
-      dir_stack = g_list_remove_link (dir_stack, first);
+      dirs_to_delete = g_list_remove_link (dirs_to_delete, first);
       g_list_free_1 (first);
-      if (!rm_file_ignore_noent (dir, NULL, error))
+      if (!rm_file_ignore_noent (dir, TRUE, NULL, error))
         return FALSE;
     }
 
@@ -438,9 +463,11 @@ rm_rf_internal (GFile   *topdir,
 }
 
 gboolean
-eos_updater_remove_recursive (GFile *topdir, GError **error)
+eos_updater_remove_recursive (GFile                     *topdir,
+                              EosUpdaterFileFilterFunc   filter_func,
+                              GError                   **error)
 {
-  if (!rm_rf_internal (topdir, error))
+  if (!rm_rf_internal (topdir, filter_func, error))
     {
       g_autofree gchar *raw_path = g_file_get_path (topdir);
       g_prefix_error (error,

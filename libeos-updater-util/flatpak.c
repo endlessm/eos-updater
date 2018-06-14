@@ -2845,7 +2845,7 @@ inspect_directory_in_ostree_repo (OstreeRepo    *repo,
                                 cancellable,
                                 error))
     {
-      eos_updater_remove_recursive (checkout_directory, NULL);
+      eos_updater_remove_recursive (checkout_directory, NULL, NULL);
       return NULL;
     }
 
@@ -2905,7 +2905,7 @@ euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
    * OstreeRepo. Note that these operations may fail, but we don’t
    * really care. */
   if (checkout_directory != NULL)
-    eos_updater_remove_recursive (checkout_directory, NULL);
+    eos_updater_remove_recursive (checkout_directory, NULL, NULL);
   ostree_repo_checkout_gc (repo, cancellable, NULL);
 
   return g_steal_pointer (&flatpak_ref_actions_table);

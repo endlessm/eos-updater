@@ -41,21 +41,6 @@ typedef struct
 } TestCancelHelper;
 
 static gboolean
-skip_test_on_ostree_boot_id (void)
-{
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return TRUE;
-    }
-
-  return FALSE;
-}
-
-static gboolean
 setup_basic_test_server_client (EosUpdaterFixture *fixture,
                                 EosTestServer **out_server,
                                 EosTestSubserver **out_subserver,
@@ -241,7 +226,7 @@ test_cancel_update (EosUpdaterFixture *fixture,
   gboolean cancelled_states[EOS_UPDATER_STATE_LAST + 1] = { FALSE };
   TestCancelHelper helper = { FALSE, cancelled_states, 0, 0 };
 
-  if (skip_test_on_ostree_boot_id ())
+  if (eos_test_skip_chroot ())
     return;
 
   setup_basic_test_server_client (fixture, &server, &subserver, &client,
@@ -328,7 +313,7 @@ test_update_version (EosUpdaterFixture *fixture,
   DownloadSource main_source = DOWNLOAD_MAIN;
   const gchar *version = (user_data != NULL) ? (const gchar *) user_data : "";
 
-  if (skip_test_on_ostree_boot_id ())
+  if (eos_test_skip_chroot ())
     return;
 
   setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
@@ -398,7 +383,7 @@ test_update_when_none_available (EosUpdaterFixture *fixture,
   DownloadSource main_source = DOWNLOAD_MAIN;
   gulong state_change_handler = 0;
 
-  if (skip_test_on_ostree_boot_id ())
+  if (eos_test_skip_chroot ())
     return;
 
   setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);

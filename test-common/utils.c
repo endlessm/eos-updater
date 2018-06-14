@@ -76,11 +76,11 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
 
   kill_gpg_agent (fixture->gpg_home);
-  rm_rf (fixture->gpg_home, &error);
+  eos_updater_remove_recursive (fixture->gpg_home, NULL, &error);
   g_assert_no_error (error);
   g_object_unref (fixture->gpg_home);
 
-  rm_rf (fixture->tmpdir, &error);
+  eos_updater_remove_recursive (fixture->tmpdir, NULL, &error);
   g_assert_no_error (error);
   g_object_unref (fixture->tmpdir);
 
@@ -1885,7 +1885,7 @@ simulated_reap_updater (EosTestClient *client,
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client->root);
   g_autoptr(GFile) quit_file = updater_quit_file (updater_dir);
 
-  if (!rm_rf (quit_file, error))
+  if (!eos_updater_remove_recursive (quit_file, NULL, error))
     return FALSE;
   g_free (reaped->cmdline);
   reaped->cmdline = g_strdup (cmd->cmdline);
@@ -1922,7 +1922,7 @@ real_reap_updater (EosTestClient *client,
                             &wu,
                             NULL);
 
-  if (!rm_rf (quit_file, error))
+  if (!eos_updater_remove_recursive (quit_file, NULL, error))
     return FALSE;
 
   g_main_loop_run (loop);
@@ -2822,7 +2822,7 @@ eos_test_client_remove_update_server_quit_file (EosTestClient *client,
   g_autoptr(GFile) update_server_dir = get_update_server_dir (client->root);
   g_autoptr(GFile) quit_file = get_update_server_quit_file (update_server_dir);
 
-  return rm_rf (quit_file, error);
+  return eos_updater_remove_recursive (quit_file, NULL, error);
 }
 
 gboolean
@@ -3266,6 +3266,31 @@ eos_test_has_ostree_boot_id (void)
 
   boot_id_file = g_file_new_for_path ("/proc/sys/kernel/random/boot_id");
   return g_file_query_exists (boot_id_file, NULL);
+}
+
+/**
+ * eos_test_skip_chroot:
+ *
+ * Check whether the test is running in a chroot and, if so, skip it using
+ * g_test_skip(). This avoids issues when running the tests in an ARM chroot.
+ * See commit https://github.com/endlessm/eos-updater/commit/5032d0a879bb5b22.
+ *
+ * Returns: %TRUE if the test has been skipped and should be returned from
+ *    immediately; %FALSE to continue and run the test
+ */
+gboolean
+eos_test_skip_chroot (void)
+{
+  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
+   * afterwards we hit unsupported syscalls in qemu-user when running in an
+   * ARM chroot (for example), so just bail. */
+  if (!eos_test_has_ostree_boot_id ())
+    {
+      g_test_skip ("OSTree will not work without a boot ID");
+      return TRUE;
+    }
+
+  return FALSE;
 }
 
 /**

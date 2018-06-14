@@ -79,7 +79,17 @@ EosQuitFile *eos_updater_setup_quit_file (const gchar *path,
                                           guint timeout_seconds,
                                           GError **error);
 
-gboolean eos_updater_remove_recursive (GFile   *topdir,
-                                       GError **error);
+typedef enum
+{
+  EOS_UPDATER_FILE_FILTER_IGNORE = 0,
+  EOS_UPDATER_FILE_FILTER_HANDLE = 1,
+} EosUpdaterFileFilterReturn;
+
+typedef EosUpdaterFileFilterReturn (*EosUpdaterFileFilterFunc) (GFile     *file,
+                                                                GFileInfo *file_info);
+
+gboolean eos_updater_remove_recursive (GFile                     *topdir,
+                                       EosUpdaterFileFilterFunc   filter_func,
+                                       GError                   **error);
 
 G_END_DECLS
