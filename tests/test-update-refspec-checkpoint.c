@@ -48,7 +48,7 @@ create_checkpoint_target_metadata (const gchar *ref_to_upgrade)
 
 /* Add some metadata to add to the given commit, which when running as the
  * deployed commit, tells the updater which ref to pull from (as opposed to
- * the currently booted one */
+ * the currently booted one) */
 static void
 insert_update_refspec_metadata_for_commit (guint         commit,
                                            const gchar  *new_ref,
