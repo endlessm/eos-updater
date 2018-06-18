@@ -300,6 +300,8 @@ static gboolean
 check_for_update_using_booted_branch (OstreeRepo           *repo,
                                       gboolean             *out_is_update,
                                       UpdateRefInfo        *out_update_ref_info,
+                                      GPtrArray            *finders, /* (element-type OstreeRepoFinder) */
+                                      GMainContext         *context,
                                       GCancellable         *cancellable,
                                       GError              **error)
 {
@@ -338,8 +340,11 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
 
   if (!fetch_latest_commit (repo,
                             cancellable,
+                            context,
                             booted_refspec,
                             NULL,
+                            finders,
+                            collection_ref,
                             &checksum,
                             &new_refspec,
                             &version,
@@ -409,6 +414,8 @@ get_booted_refspec_from_default_booted_sysroot_deployment (gchar               *
 static gboolean
 check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                                                UpdateRefInfo  *out_update_ref_info,
+                                               GPtrArray      *finders, /* (element-type OstreeRepoFinder) */
+                                               GMainContext   *context,
                                                GCancellable   *cancellable,
                                                GError        **error)
 {
@@ -438,8 +445,11 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
 
   if (!fetch_latest_commit (repo,
                             cancellable,
+                            context,
                             upgrade_refspec,
                             NULL,
+                            finders,
+                            collection_ref,
                             &checksum,
                             &new_refspec,
                             &version,
@@ -472,6 +482,8 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
 static gboolean
 check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
                                                   UpdateRefInfo  *out_update_ref_info,
+                                                  GPtrArray      *finders, /* (element-type OstreeRepoFinder) */
+                                                  GMainContext   *context,
                                                   GCancellable   *cancellable,
                                                   GError        **error)
 {
@@ -487,6 +499,8 @@ check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
   if (!check_for_update_using_booted_branch (repo,
                                              &had_update_on_branch,
                                              out_update_ref_info,
+                                             finders,
+                                             context,
                                              cancellable,
                                              error))
     return FALSE;
@@ -500,6 +514,8 @@ check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
 
       if (!check_for_update_following_checkpoint_commits (repo,
                                                           out_update_ref_info,
+                                                          finders,
+                                                          context,
                                                           cancellable,
                                                           error))
         return FALSE;
@@ -531,6 +547,14 @@ metadata_fetch_new (OstreeRepo    *repo,
   g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
   gboolean redirect_followed = FALSE;
 
+  finders = get_finders (config, context, &finder_avahi);
+  if (finders->len == 0)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "All configured update sources failed to initialize.");
+      return NULL;
+    }
+
   update_ref_info_init (&update_ref_info);
 
   /* The upgrade refspec here is either the booted refspec if
@@ -538,6 +562,8 @@ metadata_fetch_new (OstreeRepo    *repo,
    * the checkpoint refspec. */
   if (!check_for_update_following_checkpoint_if_allowed (repo,
                                                          &update_ref_info,
+                                                         finders,
+                                                         context,
                                                          cancellable,
                                                          error))
     return FALSE;
@@ -552,14 +578,6 @@ metadata_fetch_new (OstreeRepo    *repo,
   booted_collection_ref = update_ref_info.collection_ref;
   upgrade_collection_ref = ostree_collection_ref_dup (booted_collection_ref);
   upgrade_refspec = g_strdup (update_ref_info.refspec);
-
-  finders = get_finders (config, context, &finder_avahi);
-  if (finders->len == 0)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                   "All configured update sources failed to initialize.");
-      return NULL;
-    }
 
   /* Check whether the commit is a redirection; if so, fetch the new ref and
    * check again. */
@@ -677,6 +695,8 @@ metadata_fetch_from_main (OstreeRepo     *repo,
 
   if (!check_for_update_following_checkpoint_if_allowed (repo,
                                                          &update_ref_info,
+                                                         NULL,
+                                                         context,
                                                          cancellable,
                                                          error))
     return FALSE;
