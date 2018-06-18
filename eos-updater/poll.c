@@ -523,9 +523,9 @@ metadata_fetch_new (OstreeRepo    *repo,
   g_autoptr(GVariant) commit = NULL;
   g_autofree gchar *new_refspec = NULL;
   g_autoptr(OstreeCollectionRef) new_collection_ref = NULL;
-  const gchar *upgrade_refspec;
+  g_autoptr(OstreeCollectionRef) upgrade_collection_ref = NULL;
+  g_autofree gchar *upgrade_refspec = NULL;
   const OstreeCollectionRef *booted_collection_ref;
-  const OstreeCollectionRef *upgrade_collection_ref;
   g_auto(UpdateRefInfo) update_ref_info;
   g_autoptr(GPtrArray) finders = NULL;  /* (element-type OstreeRepoFinder) */
   g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
@@ -550,8 +550,8 @@ metadata_fetch_new (OstreeRepo    *repo,
     }
 
   booted_collection_ref = update_ref_info.collection_ref;
-  upgrade_collection_ref = booted_collection_ref;
-  upgrade_refspec = update_ref_info.refspec;
+  upgrade_collection_ref = ostree_collection_ref_dup (booted_collection_ref);
+  upgrade_refspec = g_strdup (update_ref_info.refspec);
 
   finders = get_finders (config, context, &finder_avahi);
   if (finders->len == 0)
@@ -618,9 +618,15 @@ metadata_fetch_new (OstreeRepo    *repo,
         return NULL;
 
       if (new_refspec != NULL)
-        upgrade_refspec = new_refspec;
+        {
+          g_clear_pointer (&upgrade_refspec, g_free);
+          upgrade_refspec = g_steal_pointer (&new_refspec);
+        }
       if (new_collection_ref != NULL)
-        upgrade_collection_ref = new_collection_ref;
+        {
+          g_clear_pointer (&upgrade_collection_ref, ostree_collection_ref_free);
+          upgrade_collection_ref = g_steal_pointer (&new_collection_ref);
+        }
     }
   while (redirect_followed);
 

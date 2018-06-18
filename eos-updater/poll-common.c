@@ -527,6 +527,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *remote_name = NULL;
   g_autofree gchar *ref = NULL;
+  g_autofree gchar *upgrade_refspec = NULL;
   g_autofree gchar *new_refspec = NULL;
   gboolean redirect_followed = FALSE;
 
@@ -538,6 +539,8 @@ fetch_latest_commit (OstreeRepo *repo,
   g_return_val_if_fail (out_version != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
+  upgrade_refspec = g_strdup (refspec);
+
   /* Check whether the commit is a redirection; if so, fetch the new ref and
    * check again. */
   do
@@ -547,7 +550,7 @@ fetch_latest_commit (OstreeRepo *repo,
       g_clear_pointer (&new_refspec, g_free);
       g_clear_pointer (&checksum, g_free);
 
-      if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
+      if (!ostree_parse_refspec (upgrade_refspec, &remote_name, &ref, error))
         return FALSE;
       g_assert (remote_name != NULL);  /* caller must guarantee this */
 
@@ -560,13 +563,16 @@ fetch_latest_commit (OstreeRepo *repo,
                                           error))
         return FALSE;
 
-      if (!parse_latest_commit (repo, refspec, &redirect_followed, &checksum,
+      if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed, &checksum,
                                 &new_refspec, NULL, out_version, cancellable,
                                 error))
         return FALSE;
 
       if (new_refspec != NULL)
-        refspec = new_refspec;
+        {
+          g_clear_pointer (&upgrade_refspec, g_free);
+          upgrade_refspec = g_strdup (new_refspec);
+        }
     }
   while (redirect_followed);
 
