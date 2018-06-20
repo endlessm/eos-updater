@@ -514,7 +514,9 @@ check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
   return TRUE;
 }
 
-/* May return NULL without setting an error if no updates were found. */
+/* Fetch metadata such as commit checksums from OSTree repositories that may be
+ * found on the Internet, the local network, or a removable drive. May return
+ * NULL without setting an error if no updates were found. */
 static EosUpdateInfo *
 metadata_fetch_new (OstreeRepo    *repo,
                     SourcesConfig *config,
@@ -568,8 +570,9 @@ metadata_fetch_new (OstreeRepo    *repo,
     }
 }
 
-/* Fetch metadata such as commit checksums from OSTree repositories that may be
- * found on the Internet, the local network, or a removable drive. */
+/* Fetch metadata such as commit checksums from OSTree repositories, only
+ * checking the Internet not peer sources. May return NULL without setting an
+ * error if no updates were found. */
 static gboolean
 metadata_fetch_from_main (OstreeRepo     *repo,
                           GMainContext   *context,
