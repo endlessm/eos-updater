@@ -528,6 +528,7 @@ fetch_latest_commit (OstreeRepo *repo,
                      const gchar *url_override,
                      GPtrArray *finders, /* (element-type OstreeRepoFinder) */
                      OstreeCollectionRef *collection_ref,
+                     OstreeRepoFinderResult ***out_results,
                      gchar **out_checksum,
                      gchar **out_new_refspec,
                      gchar **out_version,
@@ -664,6 +665,9 @@ fetch_latest_commit (OstreeRepo *repo,
     *out_new_refspec = g_steal_pointer (&new_refspec);
   else
     *out_new_refspec = g_strdup (refspec);
+
+  if (out_results != NULL)
+    *out_results = g_steal_pointer (&results);
 
   return TRUE;
 }

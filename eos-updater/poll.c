@@ -247,21 +247,12 @@ repo_finder_avahi_stop_and_unref (RepoFinderAvahiRunning *finder)
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (RepoFinderAvahiRunning, repo_finder_avahi_stop_and_unref)
 
-static void
-async_result_cb (GObject      *source_object,
-                 GAsyncResult *result,
-                 gpointer      user_data)
-{
-  GAsyncResult **result_out = user_data;
-
-  *result_out = g_object_ref (result);
-}
-
 typedef struct {
   gchar *refspec;
   gchar *remote;
   gchar *ref;
   OstreeCollectionRef *collection_ref;
+  OstreeRepoFinderResult **results;
   gchar *new_refspec;
   gchar *checksum;
   gchar *version;
@@ -275,6 +266,7 @@ update_ref_info_init (UpdateRefInfo *update_ref_info)
   update_ref_info->remote = NULL;
   update_ref_info->ref = NULL;
   update_ref_info->collection_ref = NULL;
+  update_ref_info->results = NULL;
   update_ref_info->new_refspec = NULL;
   update_ref_info->checksum = NULL;
   update_ref_info->version = NULL;
@@ -288,6 +280,7 @@ update_ref_info_clear (UpdateRefInfo *update_ref_info)
   g_clear_pointer (&update_ref_info->remote, g_free);
   g_clear_pointer (&update_ref_info->ref, g_free);
   g_clear_pointer (&update_ref_info->collection_ref, ostree_collection_ref_free);
+  g_clear_pointer (&update_ref_info->results, ostree_repo_finder_result_freev);
   g_clear_pointer (&update_ref_info->new_refspec, g_free);
   g_clear_pointer (&update_ref_info->checksum, g_free);
   g_clear_pointer (&update_ref_info->version, g_free);
@@ -317,6 +310,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
   g_autoptr(GVariant) commit = NULL;
   g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
+  g_auto(OstreeRepoFinderResultv) results = NULL;
 
   g_return_val_if_fail (out_is_update != NULL, FALSE);
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
@@ -345,6 +339,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
                             NULL,
                             finders,
                             collection_ref,
+                            &results,
                             &checksum,
                             &new_refspec,
                             &version,
@@ -371,6 +366,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
       out_update_ref_info->remote = g_steal_pointer (&remote);
       out_update_ref_info->ref = g_steal_pointer (&ref);
       out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
+      out_update_ref_info->results = g_steal_pointer (&results);
       out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
       out_update_ref_info->checksum = g_steal_pointer (&checksum);
       out_update_ref_info->version = g_steal_pointer (&version);
@@ -429,6 +425,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_autofree gchar *version = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
+  g_auto(OstreeRepoFinderResultv) results = NULL;
 
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -450,6 +447,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                             NULL,
                             finders,
                             collection_ref,
+                            &results,
                             &checksum,
                             &new_refspec,
                             &version,
@@ -471,6 +469,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   out_update_ref_info->remote = g_steal_pointer (&remote);
   out_update_ref_info->ref = g_steal_pointer (&ref);
   out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
+  out_update_ref_info->results = g_steal_pointer (&results);
   out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
   out_update_ref_info->checksum = g_steal_pointer (&checksum);
   out_update_ref_info->version = g_steal_pointer (&version);
@@ -534,18 +533,9 @@ metadata_fetch_new (OstreeRepo    *repo,
 {
   g_auto(OstreeRepoFinderResultv) results = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
-  g_autofree gchar *checksum = NULL;
-  g_autofree gchar *version = NULL;
-  g_autoptr(GVariant) commit = NULL;
-  g_autofree gchar *new_refspec = NULL;
-  g_autoptr(OstreeCollectionRef) new_collection_ref = NULL;
-  g_autoptr(OstreeCollectionRef) upgrade_collection_ref = NULL;
-  g_autofree gchar *upgrade_refspec = NULL;
-  const OstreeCollectionRef *booted_collection_ref;
   g_auto(UpdateRefInfo) update_ref_info;
   g_autoptr(GPtrArray) finders = NULL;  /* (element-type OstreeRepoFinder) */
   g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
-  gboolean redirect_followed = FALSE;
 
   finders = get_finders (config, context, &finder_avahi);
   if (finders->len == 0)
@@ -568,109 +558,23 @@ metadata_fetch_new (OstreeRepo    *repo,
                                                          error))
     return FALSE;
 
-  if (update_ref_info.collection_ref == NULL)
+  if (update_ref_info.commit != NULL)
     {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-                   "No collection ID set for currently booted deployment.");
+      info = eos_update_info_new (update_ref_info.checksum,
+                                  update_ref_info.commit,
+                                  update_ref_info.new_refspec,
+                                  update_ref_info.refspec,
+                                  update_ref_info.version,
+                                  NULL,
+                                  g_steal_pointer (&update_ref_info.results));
+      metrics_report_successful_poll (info);
+      return g_steal_pointer (&info);
+    }
+  else
+    {
+      g_message ("Poll: Couldn’t find any updates");
       return NULL;
     }
-
-  booted_collection_ref = update_ref_info.collection_ref;
-  upgrade_collection_ref = ostree_collection_ref_dup (booted_collection_ref);
-  upgrade_refspec = g_strdup (update_ref_info.refspec);
-
-  /* Check whether the commit is a redirection; if so, fetch the new ref and
-   * check again. */
-  do
-    {
-      const OstreeCollectionRef *refs[] = { upgrade_collection_ref, NULL };
-      g_autoptr(GVariant) pull_options = NULL;
-      g_autoptr(GAsyncResult) find_result = NULL, pull_result = NULL;
-      g_auto(GVariantBuilder) builder = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE ("a{sv}"));
-
-      g_debug ("%s: Finding remotes advertising upgrade_collection_ref: (%s, %s)",
-               G_STRFUNC, upgrade_collection_ref->collection_id, upgrade_collection_ref->ref_name);
-
-      ostree_repo_find_remotes_async (repo, refs, NULL  /* options */,
-                                      (OstreeRepoFinder **) finders->pdata,
-                                      NULL  /* progress */,
-                                      cancellable, async_result_cb, &find_result);
-
-      while (find_result == NULL)
-        g_main_context_iteration (context, TRUE);
-
-      g_clear_pointer (&results, ostree_repo_finder_result_freev);
-
-      results = ostree_repo_find_remotes_finish (repo, find_result, error);
-      if (results == NULL)
-        return NULL;
-
-      /* No updates available. */
-      if (results[0] == NULL)
-        {
-          g_message ("Poll: Couldn’t find any updates");
-          return NULL;
-        }
-
-      g_variant_builder_add (&builder, "{s@v}", "flags",
-                             g_variant_new_variant (g_variant_new_int32 (OSTREE_REPO_PULL_FLAGS_COMMIT_ONLY)));
-      pull_options = g_variant_ref_sink (g_variant_builder_end (&builder));
-
-      ostree_repo_pull_from_remotes_async (repo,
-                                           (const OstreeRepoFinderResult * const *) results,
-                                           pull_options, NULL  /* progress */, cancellable,
-                                           async_result_cb, &pull_result);
-
-      while (pull_result == NULL)
-        g_main_context_iteration (context, TRUE);
-
-      if (!ostree_repo_pull_from_remotes_finish (repo, pull_result, error))
-        return NULL;
-
-      g_clear_pointer (&checksum, g_free);
-      g_clear_pointer (&version, g_free);
-      g_clear_pointer (&new_refspec, g_free);
-      g_clear_pointer (&new_collection_ref, ostree_collection_ref_free);
-
-      /* Parse the commit and check there’s no redirection to a new ref. */
-      if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed,
-                                &checksum, &new_refspec, &new_collection_ref, &version,
-                                cancellable, error))
-        return NULL;
-
-      if (new_refspec != NULL)
-        {
-          g_clear_pointer (&upgrade_refspec, g_free);
-          upgrade_refspec = g_strdup (new_refspec);
-        }
-      if (new_collection_ref != NULL)
-        {
-          g_clear_pointer (&upgrade_collection_ref, ostree_collection_ref_free);
-          upgrade_collection_ref = g_steal_pointer (&new_collection_ref);
-        }
-    }
-  while (redirect_followed);
-
-  /* Final checks on the commit we found. */
-  if (!is_checksum_an_update (repo,
-                              checksum,
-                              booted_collection_ref->ref_name,
-                              upgrade_collection_ref->ref_name,
-                              &commit,
-                              error))
-    return NULL;
-
-  if (commit == NULL)
-    return NULL;
-
-  info = eos_update_info_new (checksum, commit,
-                              upgrade_refspec,
-                              update_ref_info.refspec,
-                              version,
-                              NULL, g_steal_pointer (&results));
-  metrics_report_successful_poll (info);
-
-  return g_steal_pointer (&info);
 }
 
 /* Fetch metadata such as commit checksums from OSTree repositories that may be
