@@ -290,6 +290,33 @@ update_ref_info_clear (UpdateRefInfo *update_ref_info)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (UpdateRefInfo, update_ref_info_clear)
 
 static gboolean
+get_booted_refspec_from_default_booted_sysroot_deployment (gchar               **out_refspec,
+                                                           gchar               **out_remote,
+                                                           gchar               **out_ref,
+                                                           OstreeCollectionRef **out_collection_ref,
+                                                           GError              **error)
+{
+  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
+
+  if (!ostree_sysroot_load (sysroot, NULL, error))
+    return FALSE;
+
+  booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
+                                                                             error);
+
+  if (booted_deployment == NULL)
+    return FALSE;
+
+  return get_booted_refspec (booted_deployment,
+                             out_refspec,
+                             out_remote,
+                             out_ref,
+                             out_collection_ref,
+                             error);
+}
+
+static gboolean
 check_for_update_using_booted_branch (OstreeRepo           *repo,
                                       gboolean             *out_is_update,
                                       UpdateRefInfo        *out_update_ref_info,
@@ -316,20 +343,11 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!ostree_sysroot_load (sysroot, NULL, error))
-    return FALSE;
-
-  booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
-                                                                             error);
-
-  if (booted_deployment == NULL)
-    return FALSE;
-
-  if (!get_booted_refspec (booted_deployment,
-                           &booted_refspec,
-                           &remote,
-                           &ref,
-                           &collection_ref, error))
+  if (!get_booted_refspec_from_default_booted_sysroot_deployment (&booted_refspec,
+                                                                  &remote,
+                                                                  &ref,
+                                                                  &collection_ref,
+                                                                  error))
     return FALSE;
 
   if (!fetch_latest_commit (repo,
@@ -378,33 +396,6 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
     }
 
   return TRUE;
-}
-
-static gboolean
-get_booted_refspec_from_default_booted_sysroot_deployment (gchar               **out_refspec,
-                                                           gchar               **out_remote,
-                                                           gchar               **out_ref,
-                                                           OstreeCollectionRef **out_collection_ref,
-                                                           GError              **error)
-{
-  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
-  g_autoptr(OstreeDeployment) booted_deployment = NULL;
-
-  if (!ostree_sysroot_load (sysroot, NULL, error))
-    return FALSE;
-
-  booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
-                                                                             error);
-
-  if (booted_deployment == NULL)
-    return FALSE;
-
-  return get_booted_refspec (booted_deployment,
-                             out_refspec,
-                             out_remote,
-                             out_ref,
-                             out_collection_ref,
-                             error);
 }
 
 static gboolean
