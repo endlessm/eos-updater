@@ -556,7 +556,7 @@ metadata_fetch_new (OstreeRepo    *repo,
                                                          context,
                                                          cancellable,
                                                          error))
-    return FALSE;
+    return NULL;
 
   if (update_ref_info.commit != NULL)
     {
