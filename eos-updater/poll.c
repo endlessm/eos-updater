@@ -599,31 +599,9 @@ metadata_fetch_from_main (OstreeRepo     *repo,
                                                          error))
     return FALSE;
 
-  if (!get_booted_refspec_from_default_booted_sysroot_deployment (NULL,
-                                                                  NULL,
-                                                                  &ref,
-                                                                  NULL,
-                                                                  error))
-    return FALSE;
-
-  if (!ostree_parse_refspec (update_ref_info.new_refspec, NULL, &new_ref, error))
-    return FALSE;
-
-  /* The checksum that is being checked here is either the
-   * most recent commit on the branch (following
-   * eol-rebase redirects) or the checkpoint commit if we have
-   * that. */
-  if (!is_checksum_an_update (repo,
-                              update_ref_info.checksum,
-                              ref,
-                              new_ref,
-                              &commit,
-                              error))
-    return FALSE;
-
-  if (commit != NULL)
+  if (update_ref_info.commit != NULL)
     info = eos_update_info_new (update_ref_info.checksum,
-                                commit,
+                                update_ref_info.commit,
                                 update_ref_info.new_refspec,
                                 update_ref_info.refspec,
                                 update_ref_info.version,
