@@ -79,6 +79,8 @@ handle_cancel (EosUpdater            *updater,
   EosUpdaterData *data = user_data;
   EosUpdaterState state = eos_updater_get_state (updater);
 
+  g_debug ("Cancel() was called while in state %s", eos_updater_state_to_string (state));
+
   switch (state)
     {
       case EOS_UPDATER_STATE_POLLING:
