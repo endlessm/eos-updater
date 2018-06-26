@@ -257,6 +257,16 @@ apply_internal (ApplyData     *apply_data,
                                                                              error);
   if (booted_deployment == NULL)
     return FALSE;
+
+  g_message ("Booted (old) deployment: index: %d, OS name: %s, deploy serial: %d, "
+             "checksum: %s, boot checksum: %s, boot serial: %d",
+             ostree_deployment_get_index (booted_deployment),
+             ostree_deployment_get_osname (booted_deployment),
+             ostree_deployment_get_deployserial (booted_deployment),
+             ostree_deployment_get_csum (booted_deployment),
+             ostree_deployment_get_bootcsum (booted_deployment),
+             ostree_deployment_get_bootserial (booted_deployment));
+
   origin = ostree_sysroot_origin_new_from_refspec (sysroot, update_refspec);
 
   if (!ostree_sysroot_deploy_tree (sysroot,
@@ -303,6 +313,14 @@ apply_internal (ApplyData     *apply_data,
                                                error))
     return FALSE;
 
+  g_message ("New deployment: index: %d, OS name: %s, deploy serial: %d, "
+             "checksum: %s, boot checksum: %s, boot serial: %d",
+             ostree_deployment_get_index (new_deployment),
+             ostree_deployment_get_osname (new_deployment),
+             ostree_deployment_get_deployserial (new_deployment),
+             ostree_deployment_get_csum (new_deployment),
+             ostree_deployment_get_bootcsum (new_deployment),
+             ostree_deployment_get_bootserial (new_deployment));
 
   /* FIXME: Cleaning up after update should be non-fatal, since we've
    * already successfully deployed the new OS. This clearly is a
