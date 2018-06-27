@@ -247,21 +247,12 @@ repo_finder_avahi_stop_and_unref (RepoFinderAvahiRunning *finder)
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (RepoFinderAvahiRunning, repo_finder_avahi_stop_and_unref)
 
-static void
-async_result_cb (GObject      *source_object,
-                 GAsyncResult *result,
-                 gpointer      user_data)
-{
-  GAsyncResult **result_out = user_data;
-
-  *result_out = g_object_ref (result);
-}
-
 typedef struct {
   gchar *refspec;
   gchar *remote;
   gchar *ref;
   OstreeCollectionRef *collection_ref;
+  OstreeRepoFinderResult **results;
   gchar *new_refspec;
   gchar *checksum;
   gchar *version;
@@ -275,6 +266,7 @@ update_ref_info_init (UpdateRefInfo *update_ref_info)
   update_ref_info->remote = NULL;
   update_ref_info->ref = NULL;
   update_ref_info->collection_ref = NULL;
+  update_ref_info->results = NULL;
   update_ref_info->new_refspec = NULL;
   update_ref_info->checksum = NULL;
   update_ref_info->version = NULL;
@@ -288,6 +280,7 @@ update_ref_info_clear (UpdateRefInfo *update_ref_info)
   g_clear_pointer (&update_ref_info->remote, g_free);
   g_clear_pointer (&update_ref_info->ref, g_free);
   g_clear_pointer (&update_ref_info->collection_ref, ostree_collection_ref_free);
+  g_clear_pointer (&update_ref_info->results, ostree_repo_finder_result_freev);
   g_clear_pointer (&update_ref_info->new_refspec, g_free);
   g_clear_pointer (&update_ref_info->checksum, g_free);
   g_clear_pointer (&update_ref_info->version, g_free);
@@ -295,89 +288,6 @@ update_ref_info_clear (UpdateRefInfo *update_ref_info)
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (UpdateRefInfo, update_ref_info_clear)
-
-static gboolean
-check_for_update_using_booted_branch (OstreeRepo           *repo,
-                                      gboolean             *out_is_update,
-                                      UpdateRefInfo        *out_update_ref_info,
-                                      GCancellable         *cancellable,
-                                      GError              **error)
-{
-  g_autofree gchar *booted_refspec = NULL;
-  g_autofree gchar *remote = NULL;
-  g_autofree gchar *ref = NULL;
-  g_autoptr(OstreeCollectionRef) collection_ref = NULL;
-  g_autofree gchar *new_refspec = NULL;
-  g_autofree gchar *new_ref = NULL;
-  g_autofree gchar *version = NULL;
-  gboolean is_update = FALSE;
-  g_autofree gchar *checksum = NULL;
-  g_autoptr(GVariant) commit = NULL;
-  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
-  g_autoptr(OstreeDeployment) booted_deployment = NULL;
-
-  g_return_val_if_fail (out_is_update != NULL, FALSE);
-  g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  if (!ostree_sysroot_load (sysroot, NULL, error))
-    return FALSE;
-
-  booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
-                                                                             error);
-
-  if (booted_deployment == NULL)
-    return FALSE;
-
-  if (!get_booted_refspec (booted_deployment,
-                           &booted_refspec,
-                           &remote,
-                           &ref,
-                           &collection_ref, error))
-    return FALSE;
-
-  if (!fetch_latest_commit (repo,
-                            cancellable,
-                            booted_refspec,
-                            NULL,
-                            &checksum,
-                            &new_refspec,
-                            &version,
-                            error))
-    return FALSE;
-
-  if (!ostree_parse_refspec (new_refspec, NULL, &new_ref, error))
-    return FALSE;
-
-  if (!is_checksum_an_update (repo,
-                              checksum,
-                              ref,
-                              new_ref,
-                              &commit,
-                              error))
-    return FALSE;
-
-  is_update = (commit != NULL);
-  *out_is_update = is_update;
-
-  if (is_update)
-    {
-      out_update_ref_info->refspec = g_steal_pointer (&booted_refspec);
-      out_update_ref_info->remote = g_steal_pointer (&remote);
-      out_update_ref_info->ref = g_steal_pointer (&ref);
-      out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
-      out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
-      out_update_ref_info->checksum = g_steal_pointer (&checksum);
-      out_update_ref_info->version = g_steal_pointer (&version);
-      out_update_ref_info->commit = g_steal_pointer (&commit);
-    }
-  else
-    {
-      update_ref_info_clear (out_update_ref_info);
-    }
-
-  return TRUE;
-}
 
 static gboolean
 get_booted_refspec_from_default_booted_sysroot_deployment (gchar               **out_refspec,
@@ -407,8 +317,92 @@ get_booted_refspec_from_default_booted_sysroot_deployment (gchar               *
 }
 
 static gboolean
+check_for_update_using_booted_branch (OstreeRepo           *repo,
+                                      gboolean             *out_is_update,
+                                      UpdateRefInfo        *out_update_ref_info,
+                                      GPtrArray            *finders, /* (element-type OstreeRepoFinder) */
+                                      GMainContext         *context,
+                                      GCancellable         *cancellable,
+                                      GError              **error)
+{
+  g_autofree gchar *booted_refspec = NULL;
+  g_autofree gchar *remote = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autoptr(OstreeCollectionRef) collection_ref = NULL;
+  g_autofree gchar *new_refspec = NULL;
+  g_autofree gchar *new_ref = NULL;
+  g_autofree gchar *version = NULL;
+  gboolean is_update = FALSE;
+  g_autofree gchar *checksum = NULL;
+  g_autoptr(GVariant) commit = NULL;
+  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
+  g_autoptr(OstreeDeployment) booted_deployment = NULL;
+  g_auto(OstreeRepoFinderResultv) results = NULL;
+
+  g_return_val_if_fail (out_is_update != NULL, FALSE);
+  g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  if (!get_booted_refspec_from_default_booted_sysroot_deployment (&booted_refspec,
+                                                                  &remote,
+                                                                  &ref,
+                                                                  &collection_ref,
+                                                                  error))
+    return FALSE;
+
+  if (!fetch_latest_commit (repo,
+                            cancellable,
+                            context,
+                            booted_refspec,
+                            NULL,
+                            finders,
+                            collection_ref,
+                            &results,
+                            &checksum,
+                            &new_refspec,
+                            &version,
+                            error))
+    return FALSE;
+
+  if (!ostree_parse_refspec (new_refspec, NULL, &new_ref, error))
+    return FALSE;
+
+  if (!is_checksum_an_update (repo,
+                              checksum,
+                              ref,
+                              new_ref,
+                              &commit,
+                              error))
+    return FALSE;
+
+  is_update = (commit != NULL);
+  *out_is_update = is_update;
+
+  if (is_update)
+    {
+      out_update_ref_info->refspec = g_steal_pointer (&booted_refspec);
+      out_update_ref_info->remote = g_steal_pointer (&remote);
+      out_update_ref_info->ref = g_steal_pointer (&ref);
+      out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
+      out_update_ref_info->results = g_steal_pointer (&results);
+      out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
+      out_update_ref_info->checksum = g_steal_pointer (&checksum);
+      out_update_ref_info->version = g_steal_pointer (&version);
+      out_update_ref_info->commit = g_steal_pointer (&commit);
+    }
+  else
+    {
+      update_ref_info_clear (out_update_ref_info);
+    }
+
+  return TRUE;
+}
+
+static gboolean
 check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                                                UpdateRefInfo  *out_update_ref_info,
+                                               GPtrArray      *finders, /* (element-type OstreeRepoFinder) */
+                                               GMainContext   *context,
                                                GCancellable   *cancellable,
                                                GError        **error)
 {
@@ -422,6 +416,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_autofree gchar *version = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
+  g_auto(OstreeRepoFinderResultv) results = NULL;
 
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -438,8 +433,12 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
 
   if (!fetch_latest_commit (repo,
                             cancellable,
+                            context,
                             upgrade_refspec,
                             NULL,
+                            finders,
+                            collection_ref,
+                            &results,
                             &checksum,
                             &new_refspec,
                             &version,
@@ -461,6 +460,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   out_update_ref_info->remote = g_steal_pointer (&remote);
   out_update_ref_info->ref = g_steal_pointer (&ref);
   out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
+  out_update_ref_info->results = g_steal_pointer (&results);
   out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
   out_update_ref_info->checksum = g_steal_pointer (&checksum);
   out_update_ref_info->version = g_steal_pointer (&version);
@@ -472,6 +472,8 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
 static gboolean
 check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
                                                   UpdateRefInfo  *out_update_ref_info,
+                                                  GPtrArray      *finders, /* (element-type OstreeRepoFinder) */
+                                                  GMainContext   *context,
                                                   GCancellable   *cancellable,
                                                   GError        **error)
 {
@@ -487,6 +489,8 @@ check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
   if (!check_for_update_using_booted_branch (repo,
                                              &had_update_on_branch,
                                              out_update_ref_info,
+                                             finders,
+                                             context,
                                              cancellable,
                                              error))
     return FALSE;
@@ -500,6 +504,8 @@ check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
 
       if (!check_for_update_following_checkpoint_commits (repo,
                                                           out_update_ref_info,
+                                                          finders,
+                                                          context,
                                                           cancellable,
                                                           error))
         return FALSE;
@@ -508,7 +514,9 @@ check_for_update_following_checkpoint_if_allowed (OstreeRepo     *repo,
   return TRUE;
 }
 
-/* May return NULL without setting an error if no updates were found. */
+/* Fetch metadata such as commit checksums from OSTree repositories that may be
+ * found on the Internet, the local network, or a removable drive. May return
+ * NULL without setting an error if no updates were found. */
 static EosUpdateInfo *
 metadata_fetch_new (OstreeRepo    *repo,
                     SourcesConfig *config,
@@ -518,40 +526,9 @@ metadata_fetch_new (OstreeRepo    *repo,
 {
   g_auto(OstreeRepoFinderResultv) results = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
-  g_autofree gchar *checksum = NULL;
-  g_autofree gchar *version = NULL;
-  g_autoptr(GVariant) commit = NULL;
-  g_autofree gchar *new_refspec = NULL;
-  g_autoptr(OstreeCollectionRef) new_collection_ref = NULL;
-  const gchar *upgrade_refspec;
-  const OstreeCollectionRef *booted_collection_ref;
-  const OstreeCollectionRef *upgrade_collection_ref;
   g_auto(UpdateRefInfo) update_ref_info;
   g_autoptr(GPtrArray) finders = NULL;  /* (element-type OstreeRepoFinder) */
   g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
-  gboolean redirect_followed = FALSE;
-
-  update_ref_info_init (&update_ref_info);
-
-  /* The upgrade refspec here is either the booted refspec if
-   * there were new commits on the branch of the booted refspec, or
-   * the checkpoint refspec. */
-  if (!check_for_update_following_checkpoint_if_allowed (repo,
-                                                         &update_ref_info,
-                                                         cancellable,
-                                                         error))
-    return FALSE;
-
-  if (update_ref_info.collection_ref == NULL)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-                   "No collection ID set for currently booted deployment.");
-      return NULL;
-    }
-
-  booted_collection_ref = update_ref_info.collection_ref;
-  upgrade_collection_ref = booted_collection_ref;
-  upgrade_refspec = update_ref_info.refspec;
 
   finders = get_finders (config, context, &finder_avahi);
   if (finders->len == 0)
@@ -561,93 +538,41 @@ metadata_fetch_new (OstreeRepo    *repo,
       return NULL;
     }
 
-  /* Check whether the commit is a redirection; if so, fetch the new ref and
-   * check again. */
-  do
+  update_ref_info_init (&update_ref_info);
+
+  /* The upgrade refspec here is either the booted refspec if
+   * there were new commits on the branch of the booted refspec, or
+   * the checkpoint refspec. */
+  if (!check_for_update_following_checkpoint_if_allowed (repo,
+                                                         &update_ref_info,
+                                                         finders,
+                                                         context,
+                                                         cancellable,
+                                                         error))
+    return NULL;
+
+  if (update_ref_info.commit != NULL)
     {
-      const OstreeCollectionRef *refs[] = { upgrade_collection_ref, NULL };
-      g_autoptr(GVariant) pull_options = NULL;
-      g_autoptr(GAsyncResult) find_result = NULL, pull_result = NULL;
-      g_auto(GVariantBuilder) builder = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE ("a{sv}"));
-
-      g_debug ("%s: Finding remotes advertising upgrade_collection_ref: (%s, %s)",
-               G_STRFUNC, upgrade_collection_ref->collection_id, upgrade_collection_ref->ref_name);
-
-      ostree_repo_find_remotes_async (repo, refs, NULL  /* options */,
-                                      (OstreeRepoFinder **) finders->pdata,
-                                      NULL  /* progress */,
-                                      cancellable, async_result_cb, &find_result);
-
-      while (find_result == NULL)
-        g_main_context_iteration (context, TRUE);
-
-      results = ostree_repo_find_remotes_finish (repo, find_result, error);
-      if (results == NULL)
-        return NULL;
-
-      /* No updates available. */
-      if (results[0] == NULL)
-        {
-          g_message ("Poll: Couldn’t find any updates");
-          return NULL;
-        }
-
-      g_variant_builder_add (&builder, "{s@v}", "flags",
-                             g_variant_new_variant (g_variant_new_int32 (OSTREE_REPO_PULL_FLAGS_COMMIT_ONLY)));
-      pull_options = g_variant_ref_sink (g_variant_builder_end (&builder));
-
-      ostree_repo_pull_from_remotes_async (repo,
-                                           (const OstreeRepoFinderResult * const *) results,
-                                           pull_options, NULL  /* progress */, cancellable,
-                                           async_result_cb, &pull_result);
-
-      while (pull_result == NULL)
-        g_main_context_iteration (context, TRUE);
-
-      if (!ostree_repo_pull_from_remotes_finish (repo, pull_result, error))
-        return NULL;
-
-      g_clear_pointer (&checksum, g_free);
-      g_clear_pointer (&new_refspec, g_free);
-      g_clear_pointer (&new_collection_ref, ostree_collection_ref_free);
-
-      /* Parse the commit and check there’s no redirection to a new ref. */
-      if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed,
-                                &checksum, &new_refspec, NULL, &version,
-                                cancellable, error))
-        return NULL;
-
-      if (new_refspec != NULL)
-        upgrade_refspec = new_refspec;
-      if (new_collection_ref != NULL)
-        upgrade_collection_ref = new_collection_ref;
+      info = eos_update_info_new (update_ref_info.checksum,
+                                  update_ref_info.commit,
+                                  update_ref_info.new_refspec,
+                                  update_ref_info.refspec,
+                                  update_ref_info.version,
+                                  NULL,
+                                  g_steal_pointer (&update_ref_info.results));
+      metrics_report_successful_poll (info);
+      return g_steal_pointer (&info);
     }
-  while (redirect_followed);
-
-  /* Final checks on the commit we found. */
-  if (!is_checksum_an_update (repo,
-                              checksum,
-                              booted_collection_ref->ref_name,
-                              upgrade_collection_ref->ref_name,
-                              &commit,
-                              error))
-    return NULL;
-
-  if (commit == NULL)
-    return NULL;
-
-  info = eos_update_info_new (checksum, commit,
-                              upgrade_refspec,
-                              update_ref_info.refspec,
-                              version,
-                              NULL, g_steal_pointer (&results));
-  metrics_report_successful_poll (info);
-
-  return g_steal_pointer (&info);
+  else
+    {
+      g_message ("Poll: Couldn’t find any updates");
+      return NULL;
+    }
 }
 
-/* Fetch metadata such as commit checksums from OSTree repositories that may be
- * found on the Internet, the local network, or a removable drive. */
+/* Fetch metadata such as commit checksums from OSTree repositories, only
+ * checking the Internet not peer sources. May return NULL without setting an
+ * error if no updates were found. */
 static gboolean
 metadata_fetch_from_main (OstreeRepo     *repo,
                           GMainContext   *context,
@@ -668,35 +593,15 @@ metadata_fetch_from_main (OstreeRepo     *repo,
 
   if (!check_for_update_following_checkpoint_if_allowed (repo,
                                                          &update_ref_info,
+                                                         NULL,
+                                                         context,
                                                          cancellable,
                                                          error))
     return FALSE;
 
-  if (!get_booted_refspec_from_default_booted_sysroot_deployment (NULL,
-                                                                  NULL,
-                                                                  &ref,
-                                                                  NULL,
-                                                                  error))
-    return FALSE;
-
-  if (!ostree_parse_refspec (update_ref_info.new_refspec, NULL, &new_ref, error))
-    return FALSE;
-
-  /* The checksum that is being checked here is either the
-   * most recent commit on the branch (following
-   * eol-rebase redirects) or the checkpoint commit if we have
-   * that. */
-  if (!is_checksum_an_update (repo,
-                              update_ref_info.checksum,
-                              ref,
-                              new_ref,
-                              &commit,
-                              error))
-    return FALSE;
-
-  if (commit != NULL)
+  if (update_ref_info.commit != NULL)
     info = eos_update_info_new (update_ref_info.checksum,
-                                commit,
+                                update_ref_info.commit,
                                 update_ref_info.new_refspec,
                                 update_ref_info.refspec,
                                 update_ref_info.version,
