@@ -20,7 +20,8 @@ ExecStart=@libexecdir@/eos-updater-flatpak-installer
 Restart=no
 
 # Sandboxing
-CapabilityBoundingSet=
+# flatpak triggers use bwrap which requires net/sys admin and chroot
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_ADMIN CAP_SYS_CHROOT
 Environment=GIO_USE_VFS=local
 Environment=GVFS_DISABLE_FUSE=1
 Environment=GVFS_REMOTE_VOLUME_MONITOR_IGNORE=1
@@ -34,15 +35,17 @@ PrivateUsers=yes
 ProtectControlGroups=yes
 ProtectHome=yes
 ProtectKernelModules=yes
-ProtectKernelTunables=yes
+# bwrap also mounts /proc
+ProtectKernelTunables=no
 ProtectSystem=no
-RestrictAddressFamilies=AF_UNIX
+RestrictAddressFamilies=AF_NETLINK AF_UNIX
 RestrictRealtime=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 # @network-io is required for logging to the journal to work
 # @privileged and @chown are required for certain ostree operations
-SystemCallFilter=~@clock @cpu-emulation @debug @keyring @mount @module @obsolete @raw-io @resources
+# @mount is required for bwrap
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io @resources
 
 [Install]
 WantedBy=multi-user.target
