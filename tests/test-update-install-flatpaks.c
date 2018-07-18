@@ -1772,6 +1772,146 @@ test_update_install_flatpaks_in_repo_also_pull_runtimes_different_remote (EosUpd
 
 /* Insert a list of flatpaks to automatically install on the commit,
  * with one of the flatpaks using a runtime that we do not have installed.
+ * There are three remotes available that we could search, one of them
+ * is broken and the other contains the runtime. Make sure that the runtime
+ * still gets installed even though one of the remotes is broken. */
+static void
+test_update_install_flatpaks_in_repo_also_pull_runtimes_ignore_broken_remote (EosUpdaterFixture *fixture,
+                                                                              gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_autoptr(GPtrArray) flatpak_install_infos = g_ptr_array_new_with_free_func ((GDestroyNotify) flatpak_install_info_free);
+  g_autoptr(GHashTable) flatpak_repo_infos = g_hash_table_new_full (g_str_hash,
+                                                                    g_str_equal,
+                                                                    g_free,
+                                                                    (GDestroyNotify) flatpak_repo_info_free);
+  g_auto(GStrv) flatpaks_in_repo = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *summary_path = NULL;
+  g_autoptr(GFile) summary_file = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
+  g_autoptr(GError) error = NULL;
+
+  g_test_bug ("T23357");
+
+  etc_data_init (data, fixture);
+
+  /* Set up a runtime and an app, neither of which should be installed by
+   * default */
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_RUNTIME,
+                                             "org.test.Runtime",
+                                             "stable",
+                                             NULL,
+                                             NULL,
+                                             "other-repo",
+                                             FALSE));
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_RUNTIME,
+                                             "org.test.OtherRuntime",
+                                             "stable",
+                                             NULL,
+                                             NULL,
+                                             "broken-repo",
+                                             FALSE));
+  g_ptr_array_add (flatpak_install_infos,
+                   flatpak_install_info_new (FLATPAK_INSTALL_INFO_TYPE_APP,
+                                             "org.test.Test",
+                                             "stable",
+                                             "org.test.Runtime",
+                                             "stable",
+                                             "test-repo",
+                                             FALSE));
+  g_hash_table_insert (flatpak_repo_infos,
+                       g_strdup ("test-repo"),
+                       flatpak_repo_info_new ("test-repo",
+                                              "com.endlessm.TestInstallFlatpaksCollection",
+                                              "com.endlessm.TestInstallFlatpaksCollection"));
+
+  g_hash_table_insert (flatpak_repo_infos,
+                       g_strdup ("broken-repo"),
+                       flatpak_repo_info_new ("broken-repo",
+                                              "com.endlessm.TestInstallBrokenFlatpaksCollection",
+                                              "com.endlessm.TestInstallBrokenFlatpaksCollection"));
+
+  g_hash_table_insert (flatpak_repo_infos,
+                       g_strdup ("other-repo"),
+                       flatpak_repo_info_new ("other-repo",
+                                              "com.endlessm.TestInstallOtherFlatpaksCollection",
+                                              "com.endlessm.TestInstallOtherFlatpaksCollection"));
+
+  /* Commit number 1 will install some flatpaks
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              G_N_ELEMENTS (flatpaks_to_install),
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  eos_test_setup_flatpak_repo (updater_directory,
+                               flatpak_install_infos,
+                               flatpak_repo_infos,
+                               gpg_key_file,
+                               keyid,
+                               &error);
+  g_assert_no_error (error);
+
+  /* Nuke the summary file on other-repo. This would ordinarily
+   * cause flatpak to throw an error when checking it for refs
+   * but we should ignore that error and continue. */
+  summary_path = g_build_filename (updater_directory_str,
+                                   "flatpak",
+                                   "repos",
+                                   "broken-repo",
+                                   "summary",
+                                   NULL);
+  summary_file = g_file_new_for_path (summary_path);
+  g_file_delete (summary_file, NULL, &error);
+  g_assert_no_error (error);
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Assert that our runtime was pulled into the local repo */
+  flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
+                                                    &error);
+  g_assert_no_error (error);
+
+  g_assert_true (g_strv_contains ((const gchar * const *) flatpaks_in_repo,
+                                  "org.test.Runtime"));
+}
+
+/* Insert a list of flatpaks to automatically install on the commit,
+ * with one of the flatpaks using a runtime that we do not have installed.
  * That runtime will be available both in the source remote and in another
  * remote. We should take the runtime from the source remote and not the
  * other remote. */
@@ -6526,6 +6666,7 @@ main (int argc,
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-error-conflicting-remote-collection-name", NULL, test_update_install_flatpaks_conflicting_location_error);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-runtimes", NULL, test_update_install_flatpaks_in_repo_also_pull_runtimes);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-runtimes-different-remote", NULL, test_update_install_flatpaks_in_repo_also_pull_runtimes_different_remote);
+  eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-runtimes-ignore-broken-remote", NULL, test_update_install_flatpaks_in_repo_also_pull_runtimes_ignore_broken_remote);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-runtimes-prioritize-source-remote", NULL, test_update_install_flatpaks_in_repo_also_pull_runtimes_prioritize_source_remote);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-runtimes-first-dep-remote-wins", NULL, test_update_install_flatpaks_in_repo_also_pull_runtimes_first_dep_remote_wins);
   eos_test_add ("/updater/install-flatpaks-pull-to-repo-also-pull-autodownload-extensions", NULL, test_update_install_flatpaks_in_repo_also_pull_autodownload_extension);
