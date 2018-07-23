@@ -79,10 +79,10 @@ AC_SUBST([server_port], [$port])
 AC_DEFINE_UNQUOTED([EOS_AVAHI_PORT], [$port], [Socket activation port to be used by eos-update-server])
 
 GLIB_REQUIRED_VERSION=2.54.0
-OSTREE_REQUIRED_VERSION=2017.12
+OSTREE_REQUIRED_VERSION=2018.6
 AVAHI_REQUIRED_VERSION=0.6.31
 NM_REQUIRED_VERSION=1.2.0
-FLATPAK_REQUIRED_VERSION=0.9.8
+FLATPAK_REQUIRED_VERSION=0.99.1
 JSON_GLIB_REQUIRED_VERSION=1.2.6
 
 PKG_CHECK_MODULES([FLATPAK],
@@ -143,14 +143,6 @@ AC_PATH_PROG([GLIB_MKENUMS],[glib-mkenums])
 AS_IF([test "$GLIB_MKENUMS" == ""],[
 	AC_MSG_ERROR([glib-mkenums not found])
 ])
-
-# Ensure we have the libOSTree experimental API available
-ostree_features=$($PKG_CONFIG --variable=features ostree-1)
-AS_CASE(["$ostree_features"],
-      [*experimental*],[have_ostree_experimental=yes])
-AS_IF([test "x$have_ostree_experimental" != "xyes"],
-    [AC_MSG_ERROR([Experimental API not found in ostree-1, which is needed for --enable-p2p. OSTree must be compiled with --enable-experimental-api.])])
-AC_DEFINE([OSTREE_ENABLE_EXPERIMENTAL_API],[1],[Define if libOSTree experimental API should be enabled])
 
 # Code coverage
 AX_CODE_COVERAGE
