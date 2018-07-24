@@ -91,6 +91,7 @@ flatpak_install (GFile        *updater_dir,
       { NULL, FLATPAK_BINARY },
       { NULL, "install" },
       { "user", NULL },
+      { "assumeyes", NULL },
       { NULL, remote },
       { NULL, app_id },
       { NULL, NULL }
@@ -117,6 +118,7 @@ flatpak_uninstall (GFile        *updater_dir,
       { NULL, FLATPAK_BINARY },
       { NULL, "uninstall" },
       { "user", NULL },
+      { "assumeyes", NULL },
       { NULL, app_id },
       { NULL, NULL }
     };
