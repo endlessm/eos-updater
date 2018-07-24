@@ -126,7 +126,7 @@ update_client (EosUpdaterFixture *fixture,
 static void
 _test_update_refspec_endoflife (EosUpdaterFixture *fixture,
                                 gconstpointer user_data,
-                                OstreeCollectionRef *collection_ref)
+                                const OstreeCollectionRef *collection_ref)
 {
   g_autoptr(GFile) server_root = NULL;
   g_autoptr(EosTestServer) server = NULL;
