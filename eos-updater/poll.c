@@ -409,6 +409,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_autofree gchar *upgrade_refspec = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
+  g_autofree gchar *booted_refspec = NULL;
   g_autofree gchar *booted_ref = NULL;
   g_autofree gchar *ref_after_following_rebases = NULL;
   g_autoptr(OstreeCollectionRef) collection_ref = NULL;
@@ -421,7 +422,10 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_booted_refspec_from_default_booted_sysroot_deployment (NULL,
+  /* Get the booted refspec. We'll use this to work out whether
+   * we are pulling from a different refspec than the one we booted
+   * on, which has implications for cleanup later. */
+  if (!get_booted_refspec_from_default_booted_sysroot_deployment (&booted_refspec,
                                                                   NULL,
                                                                   &booted_ref,
                                                                   NULL,
@@ -470,7 +474,9 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                               error))
     return FALSE;
 
-  out_update_ref_info->refspec = g_steal_pointer (&upgrade_refspec);
+  /* The "refspec" member is the *currently booted* refspec
+   * which may get cleaned up later if we change away from it. */
+  out_update_ref_info->refspec = g_steal_pointer (&booted_refspec);
 
   /* The "remote", "ref" and "collection_ref" refer here to the
    * ref and remote that we should be following given checkpoints. */
