@@ -1624,6 +1624,7 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
       FlatpakRemote *remote = g_ptr_array_index (flatpak_remotes, i);
       g_autoptr(GPtrArray) refs_for_remote = NULL;
       const gchar *remote_name = flatpak_remote_get_name (remote);
+      g_autoptr(GError) local_error = NULL;
 
       if (flatpak_remote_get_disabled (remote) ||
           flatpak_remote_get_nodeps (remote))
@@ -1634,10 +1635,22 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
         flatpak_installation_list_remote_refs_sync (installation,
                                                     remote_name,
                                                     cancellable,
-                                                    error);
+                                                    &local_error);
 
+      /* On failure, just log the error and insert an empty array
+       * into the hash table. We don't want broken remotes to block
+       * updates. If a dependency couldn't be found, that error will
+       * be handled later. */
       if (refs_for_remote == NULL)
-        return FALSE;
+        {
+          g_message ("Ignoring remote %s in dependency searches "
+                     "because an error occurred whilst trying to list its "
+                     "contents: %s",
+                     remote_name,
+                     local_error->message);
+          refs_for_remote = g_ptr_array_new ();
+          g_clear_error (&local_error);
+        }
 
       g_hash_table_insert (refs_for_remotes,
                            g_object_ref (remote),
@@ -1883,6 +1896,7 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
 
   for (gsize i = 0 ; i < related_refs_for_remotes->len; ++i)
     {
+      g_autoptr(GError) local_error = NULL;
       EuuFlatpakRelatedRefsForRemote *related_refs_for_remote =
         g_ptr_array_index (related_refs_for_remotes, i);
 
@@ -1898,10 +1912,25 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
                                       candidate_runtime_ref,
                                       all_remote_refs,
                                       cancellable,
-                                      error);
+                                      &local_error);
 
       if (related_refs == NULL)
-        return FALSE;
+        {
+          /* If an error occurrs when searching a remote for dependencies,
+           * just report it and continue. We don't want a single broken
+           * remote to break updates completely because we couldn't search
+           * it for dependencies. If the broken remote means that the
+           * dependency couldn't be found, then that error should be
+           * dealt with separately, but at least warn here to give
+           * the user some indication of what is going on. */
+          g_message ("Ignoring remote %s in dependency search for %s "
+                     "because an error occurred whilst trying to list its "
+                     "contents: %s",
+                     flatpak_remote_get_name (related_refs_for_remote->remote),
+                     formatted_ref,
+                     local_error->message);
+          g_clear_error (&local_error);
+        }
 
       for (gsize j = 0; j < related_refs->len; ++j)
         {
