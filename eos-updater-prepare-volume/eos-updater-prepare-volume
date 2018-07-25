@@ -190,8 +190,9 @@ class VolumePreparer:
         self.__run(['ostree', 'summary', '--update', '--repo', repo_path])
         self.__run(['ostree', 'create-usb', '--repo', repo_path,
                     self.volume_path, os_collection_ref[0], os_collection_ref[1]])
-        self.__run(['flatpak', '--system', 'create-usb',
-                    self.volume_path] + all_flatpak_refs)
+        if len(all_flatpak_refs) > 0:
+            self.__run(['flatpak', '--system', 'create-usb',
+                        self.volume_path] + all_flatpak_refs)
 
 
 def main():
