@@ -69,13 +69,10 @@ class VolumePreparer:
 
         sys.exit(exit_status)
 
-    def _validate_flatpak_ref(self, collection_ref):
-        """Validate a collection ID and flatpak ref tuple."""
-        collection_id, ref = collection_ref
+    def _validate_flatpak_ref(self, flatpak_ref):
+        """Validate a flatpak ref"""
         try:
-            # FIXME: Doesn’t seem to be in the GIR file.
-            # OSTree.validate_collection_id(collection_id)
-            Flatpak.Ref.parse(ref)
+            Flatpak.Ref.parse(flatpak_ref)
             return True
         except GLib.Error as e:
             # This could be IOError.NOT_FOUND or IOError.FAILED. Since the
@@ -119,63 +116,6 @@ class VolumePreparer:
         # For example: ('com.endlessm.Os.Amd64', 'os/eos/amd64/master')
         return (collection_id, ref_name)
 
-    def _get_installed_ref_for_parsed_ref(self, installations, parsed_ref):
-        for installation in installations:
-            try:
-                return installation.get_installed_ref(parsed_ref.get_kind(),
-                                                      parsed_ref.get_name(),
-                                                      parsed_ref.get_arch(),
-                                                      parsed_ref.get_branch())
-            except GLib.Error as e:
-                if e.matches(Flatpak.Error.quark(),
-                             Flatpak.Error.NOT_INSTALLED):
-                    continue
-                raise e
-
-        return None
-
-    def _get_runtimes_for_flatpaks(self, flatpak_collection_refs):
-        """
-        Get the collection–ref tuples for the runtimes needed for the given
-        list of collection–refs of flatpaks. Unrecognised flatpaks are ignored.
-        """
-        runtimes = set()
-
-        # Creating installations can fail if they don’t exist on disk and we
-        # don’t have permission to create them. Ignore that, since we want to
-        # run read-only.
-        try:
-            installations = Flatpak.get_system_installations()
-        except GLib.Error:
-            installations = []
-        try:
-            installations.append(Flatpak.Installation.new_user())
-        except GLib.Error:
-            pass
-
-        if not installations:
-            return runtimes
-
-        for (collection_id, ref) in flatpak_collection_refs:
-            parsed_ref = Flatpak.Ref.parse(ref)
-            if parsed_ref.get_kind() != Flatpak.RefKind.APP:
-                continue
-
-            installed_ref = \
-                self._get_installed_ref_for_parsed_ref(installations,
-                                                       parsed_ref)
-            if not installed_ref:
-                continue
-
-            metadata = installed_ref.load_metadata()
-            metadata_key_file = GLib.KeyFile.new()
-            metadata_key_file.load_from_bytes(metadata, GLib.KeyFileFlags.NONE)
-
-            runtime = metadata_key_file.get_string('Application', 'runtime')
-            runtimes.add((collection_id, runtime))
-
-        return runtimes
-
     def _get_autoinstall_flatpaks(self):
         """
         Read all the autoinstall lists (see eos-updater-flatpak-installer(8))
@@ -192,8 +132,7 @@ class VolumePreparer:
             for action in actions:
                 if action.type != \
                    EosUpdaterUtil.FlatpakRemoteRefActionType.UNINSTALL:
-                    autoinstalls.add((action.ref.collection_id,
-                                      action.ref.ref.format_ref()))
+                    autoinstalls.add(action.ref.ref.format_ref())
 
         return autoinstalls
 
@@ -212,35 +151,23 @@ class VolumePreparer:
                                'OSTree sysroot could not be loaded; '
                                'are you on an OSTree system?')
 
-        # Work out which collection–refs we want on the USB stick. Each one is
-        # a collection ID followed by a ref name.
-        refs_iter = iter(self.flatpak_refs)
-        flatpak_collection_refs = set(zip(refs_iter, refs_iter))
-        invalid_refs = [collection_ref
-                        for collection_ref in flatpak_collection_refs
-                        if not self._validate_flatpak_ref(collection_ref)]
+        # Try to validate the flatpak refs now rather than failing when
+        # `flatpak create-usb` is called
+        invalid_refs = [ref for ref in self.flatpak_refs
+                        if not self._validate_flatpak_ref(ref)]
         if invalid_refs:
-            refs_list = (', '.join(['(%s, %s)' %
-                                    (collection_id, ref)
-                                    for (collection_id, ref) in invalid_refs]))
             return self.__fail(self.EXIT_INVALID_ARGUMENTS,
-                               'Invalid flatpak collection–refs: %s' %
-                               refs_list)
+                               'Invalid flatpak refs: %s' %
+                               ', '.join(invalid_refs))
 
         # Add the flatpaks that will be installed by
         # eos-updater-flatpak-installer.
         try:
-            autoinstall_collection_refs = self._get_autoinstall_flatpaks()
+            autoinstall_flatpaks = self._get_autoinstall_flatpaks()
         except GLib.Error as e:
             return self.__fail(self.EXIT_FAILED,
                                'Failed to list autoinstall flatpaks to add to '
                                'the USB drive')
-
-        # FIXME: Do we also want to pull in related refs, like locales?
-        # Currently, they can be listed explicitly on the command line.
-        runtime_collection_refs = \
-            self._get_runtimes_for_flatpaks(flatpak_collection_refs |
-                                            autoinstall_collection_refs)
 
         os_collection_ref = self._get_os_collection_ref()
         if not os_collection_ref:
@@ -248,24 +175,24 @@ class VolumePreparer:
                                'OSTree deployment ref could not be found; '
                                'are you on an OSTree system?')
 
-        collection_refs = \
-            [os_collection_ref] + \
-            list(flatpak_collection_refs) + \
-            list(autoinstall_collection_refs) + \
-            list(runtime_collection_refs)
+        all_flatpak_refs = \
+            list(self.flatpak_refs) + \
+            list(autoinstall_flatpaks)
 
         # Eliminate duplicates.
-        collection_refs = list(set(collection_refs))
+        all_flatpak_refs = list(set(all_flatpak_refs))
 
-        # Pass the heavy lifting off to `ostree create-usb`
-        # which requires an updated summary file
+        # Pass the heavy lifting off to `ostree create-usb` and `flatpak create-usb`
+        # which require an updated summary file
         # TODO: Verify that it adds GPG keys where appropriate.
-        flattened_collection_refs = [e for l in collection_refs for e in l]
         _, repo = self.sysroot.get_repo()
         repo_path = os.path.realpath(repo.get_path().get_path())
         self.__run(['ostree', 'summary', '--update', '--repo', repo_path])
         self.__run(['ostree', 'create-usb', '--repo', repo_path,
-                    self.volume_path] + flattened_collection_refs)
+                    self.volume_path, os_collection_ref[0], os_collection_ref[1]])
+        if len(all_flatpak_refs) > 0:
+            self.__run(['flatpak', '--system', 'create-usb',
+                        self.volume_path] + all_flatpak_refs)
 
 
 def main():
@@ -281,9 +208,9 @@ def main():
     parser.add_argument('--quiet', action='store_const', const=True,
                         help='do not print anything; check exit status '
                              'for success')
-    parser.add_argument('flatpak_refs', metavar='COLLECTION-ID REF', nargs='*',
-                        help='collection IDs and refs of flatpaks to put on '
-                             'the USB drive')
+    parser.add_argument('flatpak_refs', metavar='REF', nargs='*',
+                        help='refs of flatpaks to put on the USB drive '
+                             '(e.g. app/com.endlessm.wiki_art.en/x86_64/eos3)')
 
     args = parser.parse_args()
 
