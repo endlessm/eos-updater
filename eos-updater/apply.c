@@ -156,6 +156,35 @@ update_remote_branches (OstreeRepo   *repo,
   return TRUE;
 }
 
+static void
+prune_repo_and_report_statistics (OstreeRepo           *repo,
+                                  OstreeRepoPruneFlags  flags,
+                                  GCancellable         *cancellable)
+{
+  gint objects_total;
+  gint objects_pruned;
+  guint64 pruned_size_total;
+  g_autoptr(GError) local_error = NULL;
+
+  if (!ostree_repo_prune (repo,
+                          flags,
+                          -1,
+                          &objects_total,
+                          &objects_pruned,
+                          &pruned_size_total,
+                          cancellable,
+                          &local_error))
+    {
+      g_warning ("Failed to prune ostree repo: %s", local_error->message);
+      return;
+    }
+
+  g_message ("Pruned %d objects, %llu bytes total. %d remain",
+             objects_pruned,
+             pruned_size_total,
+             objects_total);
+}
+
 static gboolean
 apply_internal (ApplyData     *apply_data,
                 gboolean      *out_bootversion_changed,
@@ -246,6 +275,12 @@ apply_internal (ApplyData     *apply_data,
     g_warning ("Failed to clean up the sysroot after successful deployment: %s",
                local_error->message);
   g_clear_error (&local_error);
+
+  /* Prune any unused objects in the repo. This is a necessary step
+   * after removing old refs. */
+  prune_repo_and_report_statistics (repo,
+                                    OSTREE_REPO_PRUNE_FLAGS_REFS_ONLY,
+                                    cancellable);
 
   /* Try to update the remote branches option to use the new refspec.
    * This option is almost never used and has no impact on future
