@@ -125,16 +125,19 @@ class VolumePreparer:
         might have a different counter value.
         """
         autoinstalls = set()
+        autouninstalls = set()
 
         applied_actions = EosUpdaterUtil.flatpak_ref_actions_from_paths(None)
 
         for filename, actions in applied_actions.items():
             for action in actions:
-                if action.type != \
+                if action.type == \
                    EosUpdaterUtil.FlatpakRemoteRefActionType.UNINSTALL:
+                    autouninstalls.add(action.ref.ref.format_ref())
+                else:
                     autoinstalls.add(action.ref.ref.format_ref())
 
-        return autoinstalls
+        return autoinstalls - autouninstalls
 
     def prepare_volume(self):
         # We need to be root in order to read all the files in the OSTree repo
