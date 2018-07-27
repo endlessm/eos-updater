@@ -258,6 +258,106 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_assert_cmpstr (branches_option, ==, expected_branches);
 }
 
+/* Start with a commit, and then make a final commit on the first refspec
+ * which adds a new marker, such that when that commit is deployed, the updater
+ * will know to use a new refspec to upgrade with. Then upgrade again on
+ * that deployed commit and ensure that the new refspec is used. */
+static void
+test_update_refspec_checkpoint_old_ref_deleted (EosUpdaterFixture *fixture,
+                                                gconstpointer user_data)
+{
+  g_autoptr(GFile) server_root = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(GFile) client_root = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(GFile) repo_path = NULL;
+  g_autoptr(OstreeRepo) repo = NULL;
+  g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
+  g_autoptr(GHashTable) refs = NULL;
+  gboolean has_original_ref, has_new_ref;
+  g_autofree gchar *branches_option = NULL;
+  g_autofree gchar *expected_branches = NULL;
+
+  if (eos_test_skip_chroot ())
+    return;
+
+  insert_update_refspec_metadata_for_commit (1,
+                                             next_ref,
+                                             &additional_metadata_for_commit);
+
+  server_root = g_file_get_child (fixture->tmpdir, "main");
+  server = eos_test_server_new_quick (server_root,
+                                      default_vendor,
+                                      default_product,
+                                      default_collection_ref,
+                                      0,
+                                      fixture->gpg_home,
+                                      keyid,
+                                      default_ostree_path,
+                                      NULL,
+                                      NULL,
+                                      additional_metadata_for_commit,
+                                      &error);
+  g_assert_no_error (error);
+  g_assert_cmpuint (server->subservers->len, ==, 1u);
+
+  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
+  client_root = g_file_get_child (fixture->tmpdir, "client");
+  client = eos_test_client_new (client_root,
+                                default_remote_name,
+                                subserver,
+                                default_collection_ref,
+                                default_vendor,
+                                default_product,
+                                &error);
+  g_assert_no_error (error);
+
+  repo_path = eos_test_client_get_repo (client);
+  repo = ostree_repo_new (repo_path);
+  ostree_repo_open (repo, NULL, &error);
+  g_assert_no_error (error);
+
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (default_collection_ref),
+                       GUINT_TO_POINTER (1));
+
+  /* Also insert a commit (2) for the refspec "REMOTE:REFv2". The first time we
+   * update, we should only update to commit 1, but when we switch over
+   * the ref we pull from, we should have commit 2. */
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (next_collection_ref),
+                       GUINT_TO_POINTER (2));
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
+  eos_test_subserver_update (subserver,
+                             &error);
+  g_assert_no_error (error);
+
+  /* Now update the client. We stopped making commits on this
+   * ref, so it is effectively a "checkpoint" and we should only have
+   * the first commit. */
+  update_client (fixture, client, NULL);
+
+  /* Update the client again. Because we had deployed the
+   * checkpoint, we should have the new ref and should have
+   * dropped the old one */
+  update_client (fixture, client, NULL);
+
+  ostree_repo_list_refs (repo, NULL, &refs, NULL, &error);
+  g_assert_no_error (error);
+
+  has_original_ref = g_hash_table_contains (refs, "REMOTE:REF");
+  has_new_ref = g_hash_table_contains (refs, "REMOTE:REFv2");
+
+  g_assert_true (has_new_ref);
+  g_assert_false (has_original_ref);
+}
+
 /* Start with a commit, then make a new commit (2) on a new branch. Finally,
  * make a "checkpoint" commit on the old branch (3) which points to the new
  * branch. Even though (2) is older than (3), the checkpoint should still be
@@ -1300,6 +1400,9 @@ main (int argc,
   eos_test_add ("/updater/update-refspec-checkpoint",
                 NULL,
                 test_update_refspec_checkpoint);
+  eos_test_add ("/updater/update-refspec-checkpoint-old-ref-deleted",
+                NULL,
+                test_update_refspec_checkpoint_old_ref_deleted);
   eos_test_add ("/updater/update-refspec-checkpoint-even-if-downgrade",
                 NULL,
                 test_update_refspec_checkpoint_even_if_downgrade);

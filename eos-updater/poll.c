@@ -409,6 +409,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_autofree gchar *upgrade_refspec = NULL;
   g_autofree gchar *remote = NULL;
   g_autofree gchar *ref = NULL;
+  g_autofree gchar *booted_refspec = NULL;
   g_autofree gchar *booted_ref = NULL;
   g_autofree gchar *ref_after_following_rebases = NULL;
   g_autoptr(OstreeCollectionRef) collection_ref = NULL;
@@ -421,16 +422,30 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if (!get_booted_refspec_from_default_booted_sysroot_deployment (NULL,
+  /* Get the booted refspec. We'll use this to work out whether
+   * we are pulling from a different refspec than the one we booted
+   * on, which has implications for cleanup later. */
+  if (!get_booted_refspec_from_default_booted_sysroot_deployment (&booted_refspec,
                                                                   NULL,
                                                                   &booted_ref,
                                                                   NULL,
                                                                   error))
     return FALSE;
 
+  /* Get the refspec to upgrade on. This typically the "checkpoint commit"
+   * refspec contained in the metadata of the currently booted refspec. It
+   * tells us which refspec we should be looking at for future upgrades
+   * if we are booted in a given commit. This is used to ensure that the updater
+   * or its dependencies supports a particular feature that we'll need in order
+   * to be able to upgrade properly to newer versions. */
   if (!get_refspec_to_upgrade_on (&upgrade_refspec, &remote, &ref, &collection_ref, error))
     return FALSE;
 
+  /* Fetch the latest commit on the upgrade refspec, potentially following
+   * eol-rebase refspec metadata on commits. We always unconditionally follow
+   * the eol-rebase metadata until we reach the end of a series - this is
+   * different to checkpoint commits where we can only follow the new
+   * refspec once booted into that commit. */
   if (!fetch_latest_commit (repo,
                             cancellable,
                             context,
@@ -448,6 +463,9 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   if (!ostree_parse_refspec (new_refspec, NULL, &ref_after_following_rebases, error))
     return FALSE;
 
+  /* Work out whether the most recently available checksum
+   * on ref_after_following_rebases represents an update to
+   * whatever we currently have booted. If it isn't, abort. */
   if (!is_checksum_an_update (repo,
                               checksum,
                               booted_ref,
@@ -456,13 +474,22 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                               error))
     return FALSE;
 
-  out_update_ref_info->refspec = g_steal_pointer (&upgrade_refspec);
+  /* The "refspec" member is the *currently booted* refspec
+   * which may get cleaned up later if we change away from it. */
+  out_update_ref_info->refspec = g_steal_pointer (&booted_refspec);
+
+  /* The "remote", "ref" and "collection_ref" refer here to the
+   * ref and remote that we should be following given checkpoints. */
   out_update_ref_info->remote = g_steal_pointer (&remote);
   out_update_ref_info->ref = g_steal_pointer (&ref);
+
+  /* "collection_ref", "new_refspec" and "checksum" refer to the collection
+   * ref and refspec of the checksum that we will be pulling and updating to */
   out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
-  out_update_ref_info->results = g_steal_pointer (&results);
   out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
   out_update_ref_info->checksum = g_steal_pointer (&checksum);
+
+  out_update_ref_info->results = g_steal_pointer (&results);
   out_update_ref_info->version = g_steal_pointer (&version);
   out_update_ref_info->commit = g_steal_pointer (&commit);
 
