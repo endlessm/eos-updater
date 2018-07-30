@@ -2841,6 +2841,32 @@ euu_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
   return euu_hoist_flatpak_remote_ref_actions (ref_actions);
 }
 
+/**
+ * euu_flattened_flatpak_ref_actions_from_paths:
+ * @directories_to_search: (nullable): potentially empty %NULL-terminated array
+ *    of directories to search, or %NULL to use the default directory list
+ * @error: return location for a #GError, or %NULL
+ *
+ * Using this function is equivalent to calling
+ * euu_flatpak_ref_actions_from_paths() followed by
+ * euu_flatten_flatpak_ref_actions_table().
+ *
+ * Returns: (transfer full) (element-type GPtrArray<EuuFlatpakRemoteRefAction>):
+ *    The set of actions, with at most one per ref
+ */
+GPtrArray *
+euu_flattened_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
+                                              GError **error)
+{
+  g_autoptr(GHashTable) ref_actions = NULL;
+
+  ref_actions = euu_flatpak_ref_actions_from_paths (directories_to_search, error);
+  if (ref_actions == NULL)
+    return NULL;
+
+  return euu_flatten_flatpak_ref_actions_table (ref_actions);
+}
+
 static GFile *
 get_temporary_directory_to_check_out_in (GError **error)
 {

@@ -163,6 +163,8 @@ const gchar *euu_get_system_architecture_string (void);
 
 GHashTable *euu_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
                                                 GError **error);
+GPtrArray *euu_flattened_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
+                                                         GError **error);
 GHashTable *euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
                                                         const gchar   *checksum,
                                                         GCancellable  *cancellable,
