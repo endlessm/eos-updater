@@ -2568,11 +2568,21 @@ euu_flatpak_ref_action_application_progress_in_state_path (GCancellable  *cancel
   return g_steal_pointer (&ref_action_progress_for_files);
 }
 
-/* Examine remote ref actions coming from multiple sources and flatten
+/**
+ * euu_flatten_flatpak_ref_actions_table:
+ * @ref_actions_table: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>):
+ *     a mapping from filenames to lists of actions, as returned by for example
+ *     euu_flatpak_ref_actions_from_paths()
+ *
+ * Examine remote ref actions coming from multiple sources and flatten
  * them into a single squashed list based on their lexicographical
- * priority */
-GPtrArray *  /* (element-type EuuFlatpakRemoteRefAction) */
-euu_flatten_flatpak_ref_actions_table (GHashTable *ref_actions_table  /* (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) */)
+ * priority.
+ *
+ * Returns: (transfer full) (element-type EuuFlatpakRemoteRefAction):
+ *    The set of actions, with at most one per ref
+ */
+GPtrArray *
+euu_flatten_flatpak_ref_actions_table (GHashTable *ref_actions_table)
 {
   g_autoptr(GList) remote_ref_actions_keys = g_hash_table_get_keys (ref_actions_table);
   g_autoptr(GPtrArray) concatenated_actions_pointer_array = g_ptr_array_new_with_free_func ((GDestroyNotify) euu_flatpak_remote_ref_action_unref);
@@ -2829,6 +2839,32 @@ euu_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
     }
 
   return euu_hoist_flatpak_remote_ref_actions (ref_actions);
+}
+
+/**
+ * euu_flattened_flatpak_ref_actions_from_paths:
+ * @directories_to_search: (nullable): potentially empty %NULL-terminated array
+ *    of directories to search, or %NULL to use the default directory list
+ * @error: return location for a #GError, or %NULL
+ *
+ * Using this function is equivalent to calling
+ * euu_flatpak_ref_actions_from_paths() followed by
+ * euu_flatten_flatpak_ref_actions_table().
+ *
+ * Returns: (transfer full) (element-type GPtrArray<EuuFlatpakRemoteRefAction>):
+ *    The set of actions, with at most one per ref
+ */
+GPtrArray *
+euu_flattened_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
+                                              GError **error)
+{
+  g_autoptr(GHashTable) ref_actions = NULL;
+
+  ref_actions = euu_flatpak_ref_actions_from_paths (directories_to_search, error);
+  if (ref_actions == NULL)
+    return NULL;
+
+  return euu_flatten_flatpak_ref_actions_table (ref_actions);
 }
 
 static GFile *
