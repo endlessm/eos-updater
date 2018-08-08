@@ -2851,7 +2851,7 @@ euu_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
  * euu_flatpak_ref_actions_from_paths() followed by
  * euu_flatten_flatpak_ref_actions_table().
  *
- * Returns: (transfer full) (element-type GPtrArray<EuuFlatpakRemoteRefAction>):
+ * Returns: (transfer container) (element-type EuuFlatpakRemoteRefAction):
  *    The set of actions, with at most one per ref
  */
 GPtrArray *
