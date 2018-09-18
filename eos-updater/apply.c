@@ -97,6 +97,82 @@ get_test_osname (void)
 }
 
 static gboolean
+update_remote_collection_id (OstreeRepo   *repo,
+                             const gchar  *refspec,
+                             GError      **error)
+{
+  g_autofree gchar *remote = NULL;
+  g_autofree gchar *ref = NULL;
+  g_autofree gchar *cur_collection_id = NULL;
+  g_autofree gchar *checksum = NULL;
+  g_autofree gchar *remote_group = NULL;
+  g_autoptr(GVariant) commit = NULL;
+  g_autoptr(GVariant) metadata = NULL;
+  g_autoptr(GKeyFile) config = NULL;
+  const char *collection_id;
+
+  if (!ostree_parse_refspec (refspec, &remote, &ref, error))
+    return FALSE;
+  if (remote == NULL)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Invalid refspec ‘%s’ in origin: did not contain a remote name",
+                   refspec);
+      return FALSE;
+    }
+
+  /* If the remote already has a collection ID set, there's nothing to do */
+  if (!ostree_repo_get_remote_option (repo, remote, "collection-id", NULL,
+                                      &cur_collection_id, error))
+    return FALSE;
+  if (cur_collection_id != NULL && *cur_collection_id != '\0')
+    return TRUE;
+
+  if (!ostree_repo_resolve_rev (repo, refspec, FALSE, &checksum, error))
+    return FALSE;
+  if (!ostree_repo_load_variant (repo,
+                                 OSTREE_OBJECT_TYPE_COMMIT,
+                                 checksum,
+                                 &commit,
+                                 error))
+    return FALSE;
+
+  metadata = g_variant_get_child_value (commit, 0);
+  if (!g_variant_lookup (metadata, OSTREE_COMMIT_META_KEY_COLLECTION_BINDING, "&s", &collection_id))
+    {
+      g_debug ("No ostree.collection-binding metadata key on commit; not setting a collection ID locally");
+      return TRUE;
+    }
+
+  /* FIXME: Update the config file directly. If ostree ever gains
+   * sane remote modification, use that. */
+  config = ostree_repo_copy_config (repo);
+  remote_group = g_strdup_printf ("remote \"%s\"", remote);
+
+  /* Make sure that the remote group exists in the config file and
+   * the remote isn't defined in a remotes.d conf file. That
+   * shouldn't happen, but adding the group (which
+   * g_key_file_set_value() will do) would create a duplicate remote
+   * that would prevent the repo from opening again. */
+  if (!g_key_file_has_group (config, remote_group))
+    {
+      GFile *repo_file = ostree_repo_get_path (repo);
+      g_autofree gchar *repo_path = g_file_get_path (repo_file);
+
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Remote ‘%s’ does not exist in %s/config",
+                   remote, repo_path);
+      return FALSE;
+    }
+
+  g_key_file_set_value (config, remote_group, "collection-id", collection_id);
+  if (!ostree_repo_write_config (repo, config, error))
+    return FALSE;
+
+  return TRUE;
+}
+
+static gboolean
 update_remote_branches (OstreeRepo   *repo,
                         const gchar  *refspec,
                         GError      **error)
@@ -252,6 +328,15 @@ apply_internal (ApplyData     *apply_data,
    * upgrades, so ignore any errors. */
   if (!update_remote_branches (repo, update_refspec, &local_error))
     g_warning ("Failed to set remote branches option: %s",
+               local_error->message);
+  g_clear_error (&local_error);
+
+  /* Try to add a collection ID to the OS remote, which enables LAN/USB OS
+   * updates when combined with eos-updater.conf changes. Don't treat any
+   * errors as fatal to the update. */
+  /* FIXME: Remove this function call after the next checkpoint after 3.4.8 */
+  if (!update_remote_collection_id (repo, update_refspec, &local_error))
+    g_warning ("Failed to set collection-id on remote: %s",
                local_error->message);
   g_clear_error (&local_error);
 
