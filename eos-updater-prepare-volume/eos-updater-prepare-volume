@@ -192,6 +192,8 @@ class VolumePreparer:
         if len(all_flatpak_refs) > 0:
             self.__run(['flatpak', '--system', 'create-usb',
                         self.volume_path] + all_flatpak_refs)
+        # Ensure that this USB drive can later be written to by non-root users
+        self.__run(['chmod', '-R', '777', GLib.build_filenamev([self.volume_path, '.ostree'])])
 
 
 def main():
