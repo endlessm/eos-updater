@@ -85,8 +85,8 @@ class VolumePreparer:
         _, repo = self.sysroot.get_repo()
         return repo.get_remote_option(remote_name, 'collection-id', None)
 
-    def _get_os_collection_ref(self):
-        """Get the collection–ref tuple for the booted OS, or None."""
+    def _get_os_collection_ref_checksum(self):
+        """Get the collection–ref and checksum 3-tuple for the booted OS, or None."""
         deployment = self.sysroot.get_booted_deployment()
         if not deployment:
             if 'EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK' not in \
@@ -97,6 +97,10 @@ class VolumePreparer:
             if not deployments:
                 return None
             deployment = deployments[0]
+
+        booted_commit = deployment.get_csum()
+        if not booted_commit:
+            return None
 
         origin = deployment.get_origin()
         if not origin:
@@ -117,8 +121,8 @@ class VolumePreparer:
         if not collection_id:
             return None
 
-        # For example: ('com.endlessm.Os', 'os/eos/amd64/master')
-        return (collection_id, ref_name)
+        # For example: ('com.endlessm.Os', 'os/eos/amd64/master', '470ab0359...')
+        return (collection_id, ref_name, booted_commit)
 
     def _get_autoinstall_flatpaks(self):
         """
@@ -172,7 +176,7 @@ class VolumePreparer:
                                'Failed to list autoinstall flatpaks to add to '
                                'the USB drive')
 
-        os_collection_ref = self._get_os_collection_ref()
+        os_collection_ref = self._get_os_collection_ref_checksum()
         if not os_collection_ref:
             return self.__fail(self.EXIT_FAILED,
                                'OSTree deployment ref could not be found; '
@@ -192,6 +196,7 @@ class VolumePreparer:
         repo_path = os.path.realpath(repo.get_path().get_path())
         self.__run(['ostree', 'summary', '--update', '--repo', repo_path])
         self.__run(['ostree', 'create-usb', '--repo', repo_path,
+                    '--commit={}'.format(os_collection_ref[2]),
                     self.volume_path, os_collection_ref[0], os_collection_ref[1]])
         if len(all_flatpak_refs) > 0:
             self.__run(['flatpak', '--system', 'create-usb',
