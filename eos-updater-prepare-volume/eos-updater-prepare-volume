@@ -117,7 +117,7 @@ class VolumePreparer:
         if not collection_id:
             return None
 
-        # For example: ('com.endlessm.Os.Amd64', 'os/eos/amd64/master')
+        # For example: ('com.endlessm.Os', 'os/eos/amd64/master')
         return (collection_id, ref_name)
 
     def _get_autoinstall_flatpaks(self):
