@@ -109,6 +109,10 @@ class VolumePreparer:
         _, remote_name, ref_name = OSTree.parse_refspec(refspec)
         if not remote_name:
             return None
+
+        # Technically the collection ID configured for updates might not match
+        # the one of the booted OSTree, but we can't use the correct one here
+        # until https://github.com/ostreedev/ostree/issues/1487 is fixed
         _, collection_id = self._get_collection_id_for_remote(remote_name)
         if not collection_id:
             return None
