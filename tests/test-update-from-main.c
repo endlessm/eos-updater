@@ -52,6 +52,10 @@ test_update_from_main (EosUpdaterFixture *fixture,
   g_autoptr(OstreeRepo) repo = NULL;
   g_autofree gchar *branches_option = NULL;
   g_autofree gchar *expected_branches = g_strdup_printf ("%s;", default_ref);
+  g_autofree gchar *collection_id_before_update = NULL;
+  g_autofree gchar *collection_id_after_update = NULL;
+  g_autoptr(GKeyFile) config = NULL;
+  g_autofree gchar *remote_group = NULL;
 
   if (eos_test_skip_chroot ())
     return;
@@ -90,6 +94,27 @@ test_update_from_main (EosUpdaterFixture *fixture,
                              &error);
   g_assert_no_error (error);
 
+  repo_path = eos_test_client_get_repo (client);
+  repo = ostree_repo_new (repo_path);
+  ostree_repo_open (repo, NULL, &error);
+  g_assert_no_error (error);
+
+  /* Unset the collection ID so we can test that the update sets it */
+  config = ostree_repo_copy_config (repo);
+  remote_group = g_strdup_printf ("remote \"%s\"", default_remote_name);
+  g_key_file_remove_key (config, remote_group, "collection-id", &error);
+  g_assert_no_error (error);
+  ostree_repo_write_config (repo, config, &error);
+  g_assert_no_error (error);
+  ostree_repo_reload_config (repo, NULL, &error);
+  g_assert_no_error (error);
+
+  ostree_repo_get_remote_option (repo, default_remote_name,
+                                 "collection-id", NULL,
+                                 &collection_id_before_update, &error);
+  g_assert_no_error (error);
+  g_assert_null (collection_id_before_update);
+
   eos_test_client_run_updater (client,
                                &main_source,
                                1,
@@ -125,9 +150,7 @@ test_update_from_main (EosUpdaterFixture *fixture,
   g_assert_no_error (error);
   g_assert_true (has_commit);
 
-  repo_path = eos_test_client_get_repo (client);
-  repo = ostree_repo_new (repo_path);
-  ostree_repo_open (repo, NULL, &error);
+  ostree_repo_reload_config (repo, NULL, &error);
   g_assert_no_error (error);
 
   ostree_repo_get_remote_option (repo, default_remote_name,
@@ -135,6 +158,12 @@ test_update_from_main (EosUpdaterFixture *fixture,
                                  &branches_option, &error);
   g_assert_no_error (error);
   g_assert_cmpstr (branches_option, ==, expected_branches);
+
+  ostree_repo_get_remote_option (repo, default_remote_name,
+                                 "collection-id", NULL,
+                                 &collection_id_after_update, &error);
+  g_assert_no_error (error);
+  g_assert_cmpstr (collection_id_after_update, ==, default_collection_ref->collection_id);
 }
 
 int
