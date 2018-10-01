@@ -20,6 +20,7 @@
 
 import argparse
 import os
+import signal
 import subprocess
 import sys
 
@@ -45,12 +46,16 @@ class VolumePreparer:
     EXIT_FAILED = 1
     EXIT_INVALID_ARGUMENTS = 2
     EXIT_RUN_AS_ROOT = 3
+    # as of this writing, this is the default hard-coded in OSTree but there's
+    # no apparent way to retrieve it
+    OSTREE_LOCK_TIMEOUT_S_DEFAULT = 30
 
     def __init__(self, volume_path, flatpak_refs, quiet=False, debug=False):
         self.volume_path = volume_path
         self.flatpak_refs = flatpak_refs
         self.quiet = quiet
         self.debug = debug
+        self.ostree_lock_timeout_s = self.OSTREE_LOCK_TIMEOUT_S_DEFAULT
 
         self.sysroot = OSTree.Sysroot.new_default()
 
@@ -143,6 +148,40 @@ class VolumePreparer:
 
         return autoinstalls
 
+    def _ostree_get_lock_timeout(self):
+        """
+        Retrieve the OSTree lock timeout.
+
+        This determines how long commands like 'ostree summary --update' and
+        'ostree create-usb' will wait to get an exclusive lock on the repo
+        before failing.
+        """
+
+        timeout_s = self.OSTREE_LOCK_TIMEOUT_S_DEFAULT
+        try:
+            out = subprocess.check_output(['ostree', 'config', 'get',
+                                          'core.lock-timeout-secs'])
+            timeout_s = int(out)
+        except Exception:
+            print("no value set for OSTree's core.lock-timeout-secs config;"
+                  " using fallback of %d", timeout_s)
+
+        return timeout_s
+
+    def _ostree_set_lock_timeout(self, timeout_s):
+        try:
+            subprocess.check_call(['ostree', 'config', 'set',
+                                   'core.lock-timeout-secs', str(timeout_s)])
+        except subprocess.CalledProcessError:
+                sys.stderr.write("failed to set OSTree's core.lock-timeout-secs"
+                                 " config value")
+
+    def _ostree_restore_lock_timeout(self):
+        self._ostree_set_lock_timeout(self.ostree_lock_timeout_s)
+
+    def _sigint_handler(self, signal, frame):
+        self._ostree_restore_lock_timeout()
+
     def prepare_volume(self):
         # We need to be root in order to read all the files in the OSTree repo
         # (unless we’re running the unit tests). */
@@ -194,13 +233,29 @@ class VolumePreparer:
         # TODO: Verify that it adds GPG keys where appropriate.
         _, repo = self.sysroot.get_repo()
         repo_path = os.path.realpath(repo.get_path().get_path())
-        self.__run(['ostree', 'summary', '--update', '--repo', repo_path])
+
+        # Increase the OSTree exclusive lock timeout significantly for the
+        # following OSTree commands.
+        #
+        # This reduces (but does not eliminate) the risk of another process
+        # holding the lock so long one of these commands gives up and this
+        # entire program fails.
+        self.ostree_lock_timeout_s = self._ostree_get_lock_timeout()
+        handler = signal.signal(signal.SIGINT, self._sigint_handler)
+        self._ostree_set_lock_timeout(8*60)
+
         self.__run(['ostree', 'create-usb', '--repo', repo_path,
                     '--commit={}'.format(os_collection_ref[2]),
                     self.volume_path, os_collection_ref[0], os_collection_ref[1]])
         if len(all_flatpak_refs) > 0:
             self.__run(['flatpak', '--system', 'create-usb',
                         self.volume_path] + all_flatpak_refs)
+
+        # restore the original timeout so other OSTree processes wait the
+        # amount of time they normally would
+        self._ostree_restore_lock_timeout()
+        signal.signal(signal.SIGINT, handler)
+
         # Ensure that this USB drive can later be written to by non-root users
         self.__run(['chmod', '-R', '777', GLib.build_filenamev([self.volume_path, '.ostree'])])
 
