@@ -190,11 +190,9 @@ class VolumePreparer:
         all_flatpak_refs = list(set(all_flatpak_refs))
 
         # Pass the heavy lifting off to `ostree create-usb` and `flatpak create-usb`
-        # which require an updated summary file
         # TODO: Verify that it adds GPG keys where appropriate.
         _, repo = self.sysroot.get_repo()
         repo_path = os.path.realpath(repo.get_path().get_path())
-        self.__run(['ostree', 'summary', '--update', '--repo', repo_path])
         self.__run(['ostree', 'create-usb', '--repo', repo_path,
                     '--commit={}'.format(os_collection_ref[2]),
                     self.volume_path, os_collection_ref[0], os_collection_ref[1]])
