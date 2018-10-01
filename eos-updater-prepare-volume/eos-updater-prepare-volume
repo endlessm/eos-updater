@@ -244,7 +244,6 @@ class VolumePreparer:
         handler = signal.signal(signal.SIGINT, self._sigint_handler)
         self._ostree_set_lock_timeout(8*60)
 
-        self.__run(['ostree', 'summary', '--update', '--repo', repo_path])
         self.__run(['ostree', 'create-usb', '--repo', repo_path,
                     '--commit={}'.format(os_collection_ref[2]),
                     self.volume_path, os_collection_ref[0], os_collection_ref[1]])
