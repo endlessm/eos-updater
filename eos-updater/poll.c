@@ -651,7 +651,7 @@ metadata_fetch_internal (OstreeRepo     *repo,
   g_auto(SourcesConfig) config = SOURCES_CONFIG_CLEARED;
   g_autoptr(OstreeDeployment) deployment = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
-  static gboolean use_new_code = TRUE;
+  gboolean use_new_code = TRUE;
   /* TODO: link this --^ to failure of the fetch or apply stages?
    * Add environment variables or something else to force it one way or the other?
    * Make it clear in the logging which code path is being used. */
