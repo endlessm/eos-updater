@@ -42,12 +42,19 @@ struct EosUpdaterData
    */
   gchar **overridden_urls;
 
-  /* The results from ostree_repo_find_remotes_async(), which contain all the
-   * possible sources of the given refs, including internet, LAN and USB sources
-   * (depending on what OstreeRepoFinders were enabled in the poll stage).
+  /* The results from ostree_repo_find_remotes_async(), which contain different
+   * possible sources of the given refs. If LAN/USB OstreeRepoFinders were
+   * configured at the poll stage, and any updates were found in them, this
+   * array contains only results from those sources. Otherwise it contains
+   * results from the Internet.
    * This needs to be passed from poll() to fetch().
    * May be NULL if using the fallback code in poll(). */
   OstreeRepoFinderResult **results;
+
+  /* This is TRUE if the results array above only contains offline (LAN/USB)
+   * sources for refs, which implies that the fetch can be done without
+   * consulting the update scheduler. */
+  gboolean offline_results_only;
 
   /* The object to pass to the tasks performed by the updater, in order to be
    * able to cancel them. Upon cancellation (which is done by the Cancel()

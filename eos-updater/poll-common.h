@@ -74,6 +74,7 @@ struct _EosUpdateInfo
   gchar *old_refspec;
   gchar *version;
   gchar **urls;
+  gboolean offline_results_only;
 
   OstreeRepoFinderResult **results;  /* (owned) (array zero-terminated=1) */
 };
@@ -85,6 +86,7 @@ eos_update_info_new (const gchar *csum,
                      const gchar *old_refspec,
                      const gchar *version,
                      const gchar * const *urls,
+                     gboolean offline_results_only,
                      OstreeRepoFinderResult **results);
 
 GDateTime *

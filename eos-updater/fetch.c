@@ -981,6 +981,13 @@ check_scheduler (FetchData     *fetch_data,
       return TRUE;
     }
 
+  /* If we are using offline (LAN/USB) sources, don’t check the scheduler at all. */
+  if (fetch_data->data->offline_results_only)
+    {
+      g_message ("Fetch: not checking with download scheduler for offline updates");
+      return TRUE;
+    }
+
   /* Otherwise, connect to the download scheduler. If we can’t connect, fail
    * safe, and don’t download on a potentially metered connection. */
   if (!schedule_download (fetch_data, context, cancellable, error))

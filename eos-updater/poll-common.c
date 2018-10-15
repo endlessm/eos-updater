@@ -219,6 +219,7 @@ eos_update_info_new (const gchar *checksum,
                      const gchar *old_refspec,
                      const gchar *version,
                      const gchar * const *urls,
+                     gboolean offline_results_only,
                      OstreeRepoFinderResult **results)
 {
   EosUpdateInfo *info;
@@ -235,6 +236,7 @@ eos_update_info_new (const gchar *checksum,
   info->old_refspec = g_strdup (old_refspec);
   info->version = g_strdup (version);
   info->urls = g_strdupv ((gchar **) urls);
+  info->offline_results_only = offline_results_only;
   info->results = g_steal_pointer (&results);
 
   return info;
@@ -1184,6 +1186,8 @@ metadata_fetch_finished (GObject *object,
 
       g_clear_pointer (&data->results, ostree_repo_finder_result_freev);
       data->results = g_steal_pointer (&info->results);
+
+      data->offline_results_only = info->offline_results_only;
 
       /* Everything is happy thusfar */
       /* if we have a checksum for the remote upgrade candidate
