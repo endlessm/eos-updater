@@ -155,14 +155,16 @@ object_unref0 (gpointer obj)
   g_object_unref (obj);
 }
 
-static GPtrArray *
+static void
 get_finders (SourcesConfig          *config,
              GMainContext           *context,
+             GPtrArray             **out_offline_finders,
+             GPtrArray             **out_online_finders,
              OstreeRepoFinderAvahi **out_finder_avahi)
 {
   g_autoptr(OstreeRepoFinderAvahi) finder_avahi = NULL;
-  g_autoptr(GPtrArray) finders = g_ptr_array_new_full (config->download_order->len,
-                                                       object_unref0);
+  g_autoptr(GPtrArray) offline_finders = g_ptr_array_new_full (0, object_unref0);
+  g_autoptr(GPtrArray) online_finders = g_ptr_array_new_full (0, object_unref0);
   g_autoptr(GError) local_error = NULL;
   gsize i;
 
@@ -176,19 +178,19 @@ get_finders (SourcesConfig          *config,
       switch (g_array_index (config->download_order, EosUpdaterDownloadSource, i))
         {
         case EOS_UPDATER_DOWNLOAD_MAIN:
-          g_ptr_array_add (finders, ostree_repo_finder_config_new ());
+          g_ptr_array_add (online_finders, ostree_repo_finder_config_new ());
           break;
 
         case EOS_UPDATER_DOWNLOAD_LAN:
           /* strv_to_download_order() already checks for duplicated download_order entries */
           g_assert (finder_avahi == NULL);
           finder_avahi = ostree_repo_finder_avahi_new (context);
-          g_ptr_array_add (finders, g_object_ref (finder_avahi));
+          g_ptr_array_add (offline_finders, g_object_ref (finder_avahi));
           break;
 
         case EOS_UPDATER_DOWNLOAD_VOLUME:
           /* TODO: How to make this one testable? */
-          g_ptr_array_add (finders, ostree_repo_finder_mount_new (NULL));
+          g_ptr_array_add (offline_finders, ostree_repo_finder_mount_new (NULL));
           break;
 
         default:
@@ -200,8 +202,13 @@ get_finders (SourcesConfig          *config,
     {
       g_autoptr(OstreeRepoFinderOverride) finder_override = ostree_repo_finder_override_new ();
 
-      g_ptr_array_set_size (finders, 0);  /* override everything */
-      g_ptr_array_add (finders, g_object_ref (finder_override));
+      g_ptr_array_set_size (offline_finders, 0);  /* override everything */
+      g_ptr_array_set_size (online_finders, 0);  /* override everything */
+
+      /* We don't know if the URIs are online or offline; assume online so we
+       * don't accidentally bypass the scheduler */
+      g_ptr_array_add (online_finders, g_object_ref (finder_override));
+
       g_clear_object (&finder_avahi);
 
       for (i = 0; config->override_uris[i] != NULL; i++)
@@ -211,7 +218,10 @@ get_finders (SourcesConfig          *config,
         }
     }
 
-  g_ptr_array_add (finders, NULL);  /* NULL terminator */
+  if (offline_finders->len > 0)
+    g_ptr_array_add (offline_finders, NULL);  /* NULL terminator */
+  if (online_finders->len > 0)
+    g_ptr_array_add (online_finders, NULL);  /* NULL terminator */
 
   /* TODO: Stop this at some point; think of a better way to store it and
    * control its lifecycle. */
@@ -222,7 +232,7 @@ get_finders (SourcesConfig          *config,
   if (local_error != NULL)
     {
       g_warning ("Avahi finder failed; removing it: %s", local_error->message);
-      g_ptr_array_remove (finders, finder_avahi);
+      g_ptr_array_remove (offline_finders, finder_avahi);
       g_clear_object (&finder_avahi);
       g_clear_error (&local_error);
     }
@@ -230,7 +240,10 @@ get_finders (SourcesConfig          *config,
   if (out_finder_avahi != NULL)
     *out_finder_avahi = g_steal_pointer (&finder_avahi);
 
-  return g_steal_pointer (&finders);
+  if (out_offline_finders != NULL)
+    *out_offline_finders = g_steal_pointer (&offline_finders);
+  if (out_online_finders != NULL)
+    *out_online_finders = g_steal_pointer (&online_finders);
 }
 
 typedef OstreeRepoFinderAvahi RepoFinderAvahiRunning;
@@ -554,11 +567,13 @@ metadata_fetch_new (OstreeRepo    *repo,
   g_auto(OstreeRepoFinderResultv) results = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
   g_auto(UpdateRefInfo) update_ref_info;
-  g_autoptr(GPtrArray) finders = NULL;  /* (element-type OstreeRepoFinder) */
+  g_autoptr(GPtrArray) offline_finders = NULL;  /* (element-type OstreeRepoFinder) */
+  g_autoptr(GPtrArray) online_finders = NULL;  /* (element-type OstreeRepoFinder) */
   g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
+  gboolean offline_results_only = TRUE;
 
-  finders = get_finders (config, context, &finder_avahi);
-  if (finders->len == 0)
+  get_finders (config, context, &offline_finders, &online_finders, &finder_avahi);
+  if (offline_finders->len == 0 && online_finders->len == 0)
     {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
                    "All configured update sources failed to initialize.");
@@ -570,13 +585,31 @@ metadata_fetch_new (OstreeRepo    *repo,
   /* The upgrade refspec here is either the booted refspec if
    * there were new commits on the branch of the booted refspec, or
    * the checkpoint refspec. */
-  if (!check_for_update_following_checkpoint_if_allowed (repo,
+  if (offline_finders->len > 0 &&
+      !check_for_update_following_checkpoint_if_allowed (repo,
                                                          &update_ref_info,
-                                                         finders,
+                                                         offline_finders,
                                                          context,
                                                          cancellable,
                                                          error))
     return NULL;
+
+  /* If checking for updates offline failed, check online */
+  if (update_ref_info.commit == NULL)
+    {
+      offline_results_only = FALSE;
+
+      update_ref_info_clear (&update_ref_info);
+
+      if (online_finders->len > 0 &&
+          !check_for_update_following_checkpoint_if_allowed (repo,
+                                                             &update_ref_info,
+                                                             online_finders,
+                                                             context,
+                                                             cancellable,
+                                                             error))
+        return NULL;
+    }
 
   if (update_ref_info.commit != NULL)
     {
@@ -586,6 +619,7 @@ metadata_fetch_new (OstreeRepo    *repo,
                                   update_ref_info.refspec,
                                   update_ref_info.version,
                                   NULL,
+                                  offline_results_only,
                                   g_steal_pointer (&update_ref_info.results));
       metrics_report_successful_poll (info);
       return g_steal_pointer (&info);
@@ -633,6 +667,7 @@ metadata_fetch_from_main (OstreeRepo     *repo,
                                 update_ref_info.refspec,
                                 update_ref_info.version,
                                 NULL,
+                                FALSE,
                                 NULL);
 
   *out_info = g_steal_pointer (&info);
