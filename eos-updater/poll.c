@@ -595,7 +595,9 @@ metadata_fetch_new (OstreeRepo    *repo,
     return NULL;
 
   /* If checking for updates offline failed, check online */
-  if (update_ref_info.commit == NULL)
+  if (update_ref_info.commit == NULL ||
+      update_ref_info.results == NULL ||
+      update_ref_info.results[0] == NULL)
     {
       offline_results_only = FALSE;
 
@@ -611,7 +613,9 @@ metadata_fetch_new (OstreeRepo    *repo,
         return NULL;
     }
 
-  if (update_ref_info.commit != NULL)
+  if (update_ref_info.commit != NULL &&
+      update_ref_info.results != NULL &&
+      update_ref_info.results[0] != NULL)
     {
       info = eos_update_info_new (update_ref_info.checksum,
                                   update_ref_info.commit,
