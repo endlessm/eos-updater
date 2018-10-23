@@ -91,7 +91,7 @@ typedef struct
   gchar **override_uris;  /* (owned) (nullable) (array zero-terminated=1) */
 } SourcesConfig;
 
-#define SOURCES_CONFIG_CLEARED { NULL }
+#define SOURCES_CONFIG_CLEARED { NULL, NULL }
 
 static void
 sources_config_clear (SourcesConfig *config)

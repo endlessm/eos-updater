@@ -62,7 +62,7 @@ struct EosUpdaterData
   GCancellable *cancellable;
 };
 
-#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL }
+#define EOS_UPDATER_DATA_CLEARED { NULL, NULL, NULL, FALSE, NULL }
 
 void eos_updater_data_init (EosUpdaterData *data,
                             OstreeRepo *repo);
