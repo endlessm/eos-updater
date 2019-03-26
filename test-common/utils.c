@@ -2972,7 +2972,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                                                            "libeos-updater-util",
                                                                            ".libs",
                                                                            NULL);
-  gchar *ld_library_path = g_getenv ("LD_LIBRARY_PATH");
+  const gchar *ld_library_path = g_getenv ("LD_LIBRARY_PATH");
   g_autofree gchar *new_ld_library_path = NULL;
   if (ld_library_path == NULL || *ld_library_path == '\0')
     new_ld_library_path = g_strdup (libeos_updater_util_libs_path);
