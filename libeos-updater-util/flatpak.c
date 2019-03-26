@@ -1687,7 +1687,7 @@ static void
 euu_flatpak_related_refs_for_remote_free (EuuFlatpakRelatedRefsForRemote *related_refs_for_remote)
 {
   g_clear_object (&related_refs_for_remote->remote);
-  g_clear_pointer (&related_refs_for_remote->related_refs, (GDestroyNotify) g_hash_table_unref);
+  g_clear_pointer (&related_refs_for_remote->related_refs, g_hash_table_unref);
 
   g_free (related_refs_for_remote);
 }
