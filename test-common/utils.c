@@ -2403,7 +2403,7 @@ flatpak_install_info_free (FlatpakInstallInfo *info)
   g_clear_pointer (&info->runtime_branch, g_free);
   g_clear_pointer (&info->repo_name, g_free);
   g_clear_pointer (&info->extension_of_ref, g_free);
-  g_clear_pointer (&info->extension_infos, (GDestroyNotify) g_ptr_array_unref);
+  g_clear_pointer (&info->extension_infos, g_ptr_array_unref);
 
   g_free (info);
 }
