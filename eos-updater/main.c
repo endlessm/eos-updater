@@ -361,7 +361,7 @@ main (gint argc, gchar *argv[])
   g_autoptr(GMainLoop) loop = NULL;
   g_autoptr(OstreeRepo) repo = NULL;
   g_auto(EosUpdaterData) data = EOS_UPDATER_DATA_CLEARED;
-  g_auto(EosBusNameID) id = 0;
+  g_auto(EuuBusNameID) id = 0;
   g_autoptr(GError) error = NULL;
   g_auto(LocalData) local_data = LOCAL_DATA_CLEARED;
   GBusType bus_type = G_BUS_TYPE_SYSTEM;

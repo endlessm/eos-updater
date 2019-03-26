@@ -39,8 +39,8 @@ object_array_new (void)
 }
 
 /* id returned by g_bus_own_name */
-typedef guint EosBusNameID;
-G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
+typedef guint EuuBusNameID;
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EuuBusNameID, g_bus_unown_name, 0)
 
 const gchar *eos_updater_get_envvar_or (const gchar *envvar,
                                         const gchar *default_value);
