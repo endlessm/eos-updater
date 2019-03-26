@@ -288,7 +288,7 @@ autoinstall_flatpaks_files_name (guint                    commit,
     *out_files_hashtable = g_hash_table_new_full (g_direct_hash,
                                                   g_direct_equal,
                                                   NULL,
-                                                  (GDestroyNotify) g_ptr_array_free);
+                                                  (GDestroyNotify) g_ptr_array_unref);
 
   directories_to_create_strv[0] = g_build_filename ("usr", "share", "eos-application-tools", "flatpak-autoinstall.d", NULL);
   g_ptr_array_add (files_to_create,
