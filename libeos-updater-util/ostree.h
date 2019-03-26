@@ -27,11 +27,11 @@
 
 G_BEGIN_DECLS
 
-gboolean eos_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
-                                              gchar         **commit_checksum,
-                                              gchar         **commit_ostree_path,
-                                              guint64        *commit_timestamp,
-                                              GError        **error);
+gboolean eos_updater_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
+                                                      gchar         **commit_checksum,
+                                                      gchar         **commit_ostree_path,
+                                                      guint64        *commit_timestamp,
+                                                      GError        **error);
 
 OstreeRepo *eos_updater_local_repo (GError **error);
 

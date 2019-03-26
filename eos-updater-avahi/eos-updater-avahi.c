@@ -254,11 +254,11 @@ update_service_file (gboolean       advertise_updates,
       g_warning ("Error loading sysroot: %s", local_error->message);
       g_clear_error (&local_error);
     }
-  else if (!eos_sysroot_get_advertisable_commit (sysroot,
-                                                 &commit_checksum,
-                                                 &commit_ostree_path,
-                                                 &commit_timestamp,
-                                                 &local_error))
+  else if (!eos_updater_sysroot_get_advertisable_commit (sysroot,
+                                                         &commit_checksum,
+                                                         &commit_ostree_path,
+                                                         &commit_timestamp,
+                                                         &local_error))
     {
       g_warning ("Error getting advertisable commit: %s", local_error->message);
       g_clear_error (&local_error);

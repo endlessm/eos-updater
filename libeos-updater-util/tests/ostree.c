@@ -134,11 +134,11 @@ test_ostree_no_deployments (Fixture       *fixture,
   g_autofree gchar *commit_ostree_path = NULL;
   guint64 commit_timestamp = 0;
 
-  retval = eos_sysroot_get_advertisable_commit (fixture->sysroot,
-                                                &commit_checksum,
-                                                &commit_ostree_path,
-                                                &commit_timestamp,
-                                                &error);
+  retval = eos_updater_sysroot_get_advertisable_commit (fixture->sysroot,
+                                                        &commit_checksum,
+                                                        &commit_ostree_path,
+                                                        &commit_timestamp,
+                                                        &error);
   g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND);
   g_assert_false (retval);
 

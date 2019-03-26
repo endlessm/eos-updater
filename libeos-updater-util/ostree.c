@@ -28,7 +28,7 @@
 #include <string.h>
 
 /**
- * eos_sysroot_get_advertisable_commit:
+ * eos_updater_sysroot_get_advertisable_commit:
  * @sysroot: loaded OSTree sysroot to use
  * @commit_checksum: (out callee-allocates) (transfer full) (nullable) (optional):
  *    return location for the checksum of an advertisable commit
@@ -57,11 +57,11 @@
  * Returns: %TRUE on success, %FALSE on error
  */
 gboolean
-eos_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
-                                     gchar         **commit_checksum,
-                                     gchar         **commit_ostree_path,
-                                     guint64        *commit_timestamp,
-                                     GError        **error)
+eos_updater_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
+                                             gchar         **commit_checksum,
+                                             gchar         **commit_ostree_path,
+                                             guint64        *commit_timestamp,
+                                             GError        **error)
 {
   g_autoptr(OstreeRepo) repo = NULL;
   g_autoptr(GPtrArray/*<OstreeDeployment>*/) deployments = NULL;
