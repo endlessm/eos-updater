@@ -288,20 +288,5 @@
     <signal name="StateChanged">
       <arg type="u" name="state"/>
     </signal>
-
-    <!--
-      Progress:
-      @fetched: Number of bytes fetched.
-      @expected: Number of bytes expected.
-
-      Unused.
-
-      Deprecated: Use `org.freedesktop.DBus.Properties.PropertiesChanged`.
-    -->
-    <signal name="Progress">
-      <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
-      <arg type="x" name="fetched"/>
-      <arg type="x" name="expected"/>
-    </signal>
   </interface>
 </node>
