@@ -1930,6 +1930,7 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
                      formatted_ref,
                      local_error->message);
           g_clear_error (&local_error);
+          continue;
         }
 
       for (gsize j = 0; j < related_refs->len; ++j)
