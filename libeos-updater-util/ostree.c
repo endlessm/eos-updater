@@ -171,8 +171,15 @@ eos_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
   return TRUE;
 }
 
-/* Note: Returns the repository even on error, so that the repo path can be
- * extracted for error messages. */
+/**
+ * eos_updater_local_repo:
+ * @error:
+ *
+ * Note: Returns the repository even on error, so that the repo path can be
+ * extracted for error messages.
+ *
+ * Returns: (transfer full):
+ */
 OstreeRepo *
 eos_updater_local_repo (GError **error)
 {
@@ -214,6 +221,13 @@ get_fake_deployment (OstreeSysroot *sysroot,
   return g_object_ref (fake_booted_deployment);
 }
 
+/**
+ * eos_updater_get_booted_deployment_from_loaded_sysroot:
+ * @sysroot:
+ * @error:
+ *
+ * Returns: (transfer full):
+ */
 OstreeDeployment *
 eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
                                                        GError **error)
@@ -232,6 +246,12 @@ eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
   return NULL;
 }
 
+/**
+ * eos_updater_get_booted_deployment:
+ * @error:
+ *
+ * Returns: (transfer full):
+ */
 OstreeDeployment *
 eos_updater_get_booted_deployment (GError **error)
 {

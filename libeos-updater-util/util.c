@@ -309,6 +309,17 @@ on_quit_file_changed (GFileMonitor *monitor,
   quit_file->signal_id = 0;
 }
 
+/**
+ * eos_updater_setup_quit_file: (skip)
+ * @path:
+ * @check_callback:
+ * @user_data:
+ * @notify:
+ * @timeout_seconds:
+ * @error:
+ *
+ * Returns:
+ */
 EosQuitFile *
 eos_updater_setup_quit_file (const gchar *path,
                              EosQuitFileCheckCallback check_callback,
@@ -462,6 +473,14 @@ rm_rf_internal (GFile                     *topdir,
   return TRUE;
 }
 
+/**
+ * eos_updater_remove_recursive:
+ * @topdir:
+ * @filter_func: (scope call):
+ * @error:
+ *
+ * Returns:
+ */
 gboolean
 eos_updater_remove_recursive (GFile                     *topdir,
                               EosUpdaterFileFilterFunc   filter_func,
