@@ -1916,7 +1916,7 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
 
       if (related_refs == NULL)
         {
-          /* If an error occurrs when searching a remote for dependencies,
+          /* If an error occurs when searching a remote for dependencies,
            * just report it and continue. We don't want a single broken
            * remote to break updates completely because we couldn't search
            * it for dependencies. If the broken remote means that the
