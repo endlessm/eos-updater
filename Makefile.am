@@ -500,9 +500,13 @@ libeos_updater_util_EosUpdaterUtil_@EUU_API_VERSION@_gir_SCANNERFLAGS = \
 	--nsversion=@EUU_API_VERSION@ \
 	--c-include="libeos-updater-util/util.h" \
 	--identifier-prefix=EosUpdater \
+	--identifier-prefix=EosOstreeAvahi \
+	--identifier-prefix=EosAvahi \
 	--identifier-prefix=Euu \
 	--symbol-prefix=euu \
 	--symbol-prefix=eos_updater \
+	--symbol-prefix=eos_ostree_avahi \
+	--symbol-prefix=eos_avahi \
 	$(NULL)
 
 INTROSPECTION_GIRS += libeos-updater-util/EosUpdaterUtil-@EUU_API_VERSION@.gir
