@@ -356,7 +356,7 @@ update_counter_complain_on_error (const gchar *failing_name,
  *    actions have been applied
  * @actions: (element-type EuuFlatpakRemoteRefAction): actions to apply
  * @mode: the #EosUpdaterInstallerMode
- * @pull: any #EosUpdaterInstallerFlags
+ * @flags: any #EosUpdaterInstallerFlags
  * @error: return location for a #GError, or %NULL
  *
  * Apply the actions @actions, and update the state counter at
