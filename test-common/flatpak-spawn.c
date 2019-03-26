@@ -149,6 +149,8 @@ flatpak_build_init (GFile        *updater_dir,
     {
       { NULL, FLATPAK_BINARY },
       { NULL, "build-init" },
+      { "verbose", NULL },
+      { "ostree-verbose", NULL },
       { NULL, bundle_path },
       { NULL, app_id },
       /* Once as the SDK, once as the Runtime */
