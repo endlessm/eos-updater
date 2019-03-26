@@ -250,25 +250,19 @@ eus_server_class_init (EusServerClass *klass)
 
 static void
 update_pending_requests (EusServer *self,
-                         gint       delta)
+                         gboolean   increment)
 {
   GObject *obj = G_OBJECT (self);
 
-  g_assert (delta >= 0 || self->pending_requests >= (guint) -delta);
-  g_assert (delta <= 0 || self->pending_requests <= G_MAXUINT - (guint) delta);
+  g_assert (increment ? self->pending_requests < G_MAXUINT : self->pending_requests > 0);
 
-  if (delta == 0)
-    return;
+  g_debug ("%s: Updating from %u by %d", G_STRFUNC, self->pending_requests,
+           increment ? 1 : -1);
 
-  g_debug ("%s: Updating from %u by %d", G_STRFUNC, self->pending_requests, delta);
-
-  /* Silence a -Wconversion warning. @delta may be negative, but
-   * @pending_requests may be outside the range we can losslessly cast to
-   * (gint), so we have to do everything in terms of (guint)s. */
-  if (delta > 0)
-    self->pending_requests += (guint) delta;
+  if (increment)
+    self->pending_requests++;
   else
-    self->pending_requests -= (guint) -delta;
+    self->pending_requests--;
   self->last_request_time = g_get_monotonic_time ();
 
   g_object_freeze_notify (obj);
@@ -285,7 +279,7 @@ request_read_cb (SoupServer        *soup_server,
 {
   EusServer *self = EUS_SERVER (user_data);
 
-  update_pending_requests (self, 1);
+  update_pending_requests (self, TRUE);
 }
 
 static void
@@ -296,7 +290,7 @@ request_finished_cb (SoupServer        *soup_server,
 {
   EusServer *self = EUS_SERVER (user_data);
 
-  update_pending_requests (self, -1);
+  update_pending_requests (self, FALSE);
 }
 
 static void
@@ -307,7 +301,7 @@ request_aborted_cb (SoupServer        *soup_server,
 {
   EusServer *self = EUS_SERVER (user_data);
 
-  update_pending_requests (self, -1);
+  update_pending_requests (self, FALSE);
 }
 
 /**
