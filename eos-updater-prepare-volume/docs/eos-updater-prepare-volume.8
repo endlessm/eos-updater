@@ -9,7 +9,7 @@ eos\-updater\-prepare\-volume — Endless OS Updater USB Drive Preparation Tool
 .SH SYNOPSIS
 .IX Header "SYNOPSIS"
 .\"
-\fBeos\-updater\-prepare\-volume [\-q] \fPvolume-directory\fB [\fPcollection\-id ref\fB …]
+\fBeos\-updater\-prepare\-volume [\-q] \fPvolume-directory\fB [\fPflatpak\-ref\fB …]
 .\"
 .SH DESCRIPTION
 .IX Header "DESCRIPTION"
@@ -23,8 +23,7 @@ It will always include a copy of the Endless OS. Any flatpak applications that
 have been configured to autoinstall upon update will also be included
 unconditionally (see \fBeos\-updater-flatpak-installer\fP(8)). Additionally,
 any apps listed on the command line will be included. Each app must be
-specified as a collection ID and ref, followed by the collection ID and ref of
-the next app, etc.
+specified as a flatpak ref, followed by the flatpak ref of the next app, etc.
 .PP
 The updates will be put in an OSTree repository in the \fB.ostree/repo\fP
 directory on the USB drive. The path of the mounted drive must be passed as the
@@ -58,7 +57,7 @@ new\-machine$ # List available apps
 new\-machine$ flatpak list \-\-app
 new\-machine$ sudo eos\-updater\-prepare\-volume /run/media/user/some\-volume \\
 .br
-               com.endlessm.Apps app/com.endlessm.photos/x86_64/master
+               app/com.endlessm.photos/x86_64/master
 .RE
 .fi
 .PP
