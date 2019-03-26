@@ -231,8 +231,12 @@
 
       Error code of the current error, or `0` if no error has been reported.
       This is in an unspecified error doman, and hence is useless.
+
+      Deprecated: Use `ErrorName` instead.
     -->
-    <property name="ErrorCode" type="u" access="read"/>
+    <property name="ErrorCode" type="u" access="read">
+      <annotation name="org.freedesktop.DBus.Deprecated" value="true"/>
+    </property>
 
     <!--
       ErrorName:
