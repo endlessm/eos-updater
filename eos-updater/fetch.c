@@ -1023,7 +1023,7 @@ check_scheduler (FetchData     *fetch_data,
 
   /* Ensure we trigger a source in the main context when the operation is canceled */
   cancellable_source = g_cancellable_source_new (cancellable);
-  g_source_set_callback (cancellable_source, (GSourceFunc) cancellable_source_cb, NULL, NULL);
+  g_source_set_callback (cancellable_source, G_SOURCE_FUNC (cancellable_source_cb), NULL, NULL);
   g_source_attach (cancellable_source, context);
 
   while (!download_now && !g_cancellable_is_cancelled (cancellable) &&
