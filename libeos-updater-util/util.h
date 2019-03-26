@@ -50,19 +50,19 @@ gboolean eos_updater_read_file_to_bytes (GFile *file,
                                          GBytes **out_bytes,
                                          GError **error);
 
-#define EOS_TYPE_QUIT_FILE eos_quit_file_get_type ()
-G_DECLARE_FINAL_TYPE (EosQuitFile, eos_quit_file, EOS, QUIT_FILE, GObject)
+#define EUU_TYPE_QUIT_FILE euu_quit_file_get_type ()
+G_DECLARE_FINAL_TYPE (EuuQuitFile, euu_quit_file, EUU, QUIT_FILE, GObject)
 
 typedef enum
 {
-  EOS_QUIT_FILE_QUIT,
-  EOS_QUIT_FILE_KEEP_CHECKING
-} EosQuitFileCheckResult;
+  EUU_QUIT_FILE_QUIT,
+  EUU_QUIT_FILE_KEEP_CHECKING
+} EuuQuitFileCheckResult;
 
-typedef EosQuitFileCheckResult (* EosQuitFileCheckCallback) (gpointer user_data);
+typedef EuuQuitFileCheckResult (* EuuQuitFileCheckCallback) (gpointer user_data);
 
-EosQuitFile *eos_updater_setup_quit_file (const gchar *path,
-                                          EosQuitFileCheckCallback check_callback,
+EuuQuitFile *eos_updater_setup_quit_file (const gchar *path,
+                                          EuuQuitFileCheckCallback check_callback,
                                           gpointer user_data,
                                           GDestroyNotify notify,
                                           guint timeout_seconds,

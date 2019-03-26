@@ -62,7 +62,7 @@ eos_updater_read_file_to_bytes (GFile *file,
   return TRUE;
 }
 
-struct _EosQuitFile
+struct _EuuQuitFile
 {
   GObject parent_instance;
 
@@ -70,13 +70,13 @@ struct _EosQuitFile
   gulong signal_id;
   guint timeout_seconds;
   guint timeout_id;
-  EosQuitFileCheckCallback callback;
+  EuuQuitFileCheckCallback callback;
   gpointer user_data;
   GDestroyNotify notify;
 };
 
 static void
-quit_clear_user_data (EosQuitFile *quit_file)
+quit_clear_user_data (EuuQuitFile *quit_file)
 {
   gpointer user_data = g_steal_pointer (&quit_file->user_data);
   GDestroyNotify notify = quit_file->notify;
@@ -87,7 +87,7 @@ quit_clear_user_data (EosQuitFile *quit_file)
 }
 
 static void
-quit_disconnect_monitor (EosQuitFile *quit_file)
+quit_disconnect_monitor (EuuQuitFile *quit_file)
 {
   gulong id = quit_file->signal_id;
 
@@ -97,7 +97,7 @@ quit_disconnect_monitor (EosQuitFile *quit_file)
 }
 
 static void
-quit_clear_source (EosQuitFile *quit_file)
+quit_clear_source (EuuQuitFile *quit_file)
 {
   guint id = quit_file->timeout_id;
 
@@ -107,7 +107,7 @@ quit_clear_source (EosQuitFile *quit_file)
 }
 
 static void
-eos_quit_file_dispose_impl (EosQuitFile *quit_file)
+euu_quit_file_dispose_impl (EuuQuitFile *quit_file)
 {
   quit_clear_user_data (quit_file);
   quit_clear_source (quit_file);
@@ -115,18 +115,18 @@ eos_quit_file_dispose_impl (EosQuitFile *quit_file)
   g_clear_object (&quit_file->monitor);
 }
 
-EOS_DEFINE_REFCOUNTED (EOS_QUIT_FILE,
-                       EosQuitFile,
-                       eos_quit_file,
-                       eos_quit_file_dispose_impl,
+EOS_DEFINE_REFCOUNTED (EUU_QUIT_FILE,
+                       EuuQuitFile,
+                       euu_quit_file,
+                       euu_quit_file_dispose_impl,
                        NULL)
 
 static gboolean
 quit_file_source_func (gpointer quit_file_ptr)
 {
-  EosQuitFile *quit_file = EOS_QUIT_FILE (quit_file_ptr);
+  EuuQuitFile *quit_file = EUU_QUIT_FILE (quit_file_ptr);
 
-  if (quit_file->callback (quit_file->user_data) == EOS_QUIT_FILE_KEEP_CHECKING)
+  if (quit_file->callback (quit_file->user_data) == EUU_QUIT_FILE_KEEP_CHECKING)
     return G_SOURCE_CONTINUE;
 
   quit_file->timeout_id = 0;
@@ -141,12 +141,12 @@ on_quit_file_changed (GFileMonitor *monitor,
                       GFileMonitorEvent event,
                       gpointer quit_file_ptr)
 {
-  EosQuitFile *quit_file = EOS_QUIT_FILE (quit_file_ptr);
+  EuuQuitFile *quit_file = EUU_QUIT_FILE (quit_file_ptr);
 
   if (event != G_FILE_MONITOR_EVENT_DELETED)
     return;
 
-  if (quit_file->callback (quit_file->user_data) == EOS_QUIT_FILE_KEEP_CHECKING)
+  if (quit_file->callback (quit_file->user_data) == EUU_QUIT_FILE_KEEP_CHECKING)
     quit_file->timeout_id = g_timeout_add_seconds (quit_file->timeout_seconds,
                                                    quit_file_source_func,
                                                    quit_file);
@@ -165,9 +165,9 @@ on_quit_file_changed (GFileMonitor *monitor,
  *
  * Returns:
  */
-EosQuitFile *
+EuuQuitFile *
 eos_updater_setup_quit_file (const gchar *path,
-                             EosQuitFileCheckCallback check_callback,
+                             EuuQuitFileCheckCallback check_callback,
                              gpointer user_data,
                              GDestroyNotify notify,
                              guint timeout_seconds,
@@ -175,7 +175,7 @@ eos_updater_setup_quit_file (const gchar *path,
 {
   g_autoptr(GFile) file = NULL;
   g_autoptr(GFileMonitor) monitor = NULL;
-  g_autoptr(EosQuitFile) quit_file = NULL;
+  g_autoptr(EuuQuitFile) quit_file = NULL;
 
   file = g_file_new_for_path (path);
   monitor = g_file_monitor_file (file,
@@ -185,7 +185,7 @@ eos_updater_setup_quit_file (const gchar *path,
   if (monitor == NULL)
     return NULL;
 
-  quit_file = g_object_new (EOS_TYPE_QUIT_FILE, NULL);
+  quit_file = g_object_new (EUU_TYPE_QUIT_FILE, NULL);
   quit_file->monitor = g_steal_pointer (&monitor);
   quit_file->signal_id = g_signal_connect (quit_file->monitor,
                                            "changed",

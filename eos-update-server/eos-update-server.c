@@ -186,7 +186,7 @@ typedef struct
   gint timeout_seconds;
   guint timeout_id;
 
-  EosQuitFile *quit_file;
+  EuuQuitFile *quit_file;
   gint quit_file_timeout_seconds;
 } TimeoutData;
 
@@ -251,16 +251,16 @@ quit_file_name (void)
   return g_getenv ("EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE");
 }
 
-static EosQuitFileCheckResult
+static EuuQuitFileCheckResult
 check_and_quit (gpointer timeout_data_ptr)
 {
   TimeoutData *data = timeout_data_ptr;
 
   if (!no_requests_timeout (data->server, data->quit_file_timeout_seconds))
-    return EOS_QUIT_FILE_KEEP_CHECKING;
+    return EUU_QUIT_FILE_KEEP_CHECKING;
 
   g_main_loop_quit (data->loop);
-  return EOS_QUIT_FILE_QUIT;
+  return EUU_QUIT_FILE_QUIT;
 }
 
 static gboolean
@@ -268,7 +268,7 @@ timeout_data_maybe_setup_quit_file (TimeoutData *data,
                                     GError **error)
 {
   const gchar *filename = quit_file_name ();
-  g_autoptr(EosQuitFile) quit_file = NULL;
+  g_autoptr(EuuQuitFile) quit_file = NULL;
   guint timeout_seconds = 5;
 
   if (filename == NULL)
