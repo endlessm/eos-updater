@@ -42,17 +42,6 @@ object_array_new (void)
 typedef guint EosBusNameID;
 G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
 
-gboolean eos_updater_save_or_delete  (GBytes *contents,
-                                      GFile *dir,
-                                      const gchar *filename,
-                                      GCancellable *cancellable,
-                                      GError **error);
-
-guint eos_updater_queue_callback (GMainContext *context,
-                                  GSourceFunc function,
-                                  gpointer user_data,
-                                  const gchar *name);
-
 const gchar *eos_updater_get_envvar_or (const gchar *envvar,
                                         const gchar *default_value);
 
