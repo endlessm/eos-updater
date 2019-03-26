@@ -260,7 +260,7 @@ def command_server(server_command, quiet=False):
                 conf.load_from_file(path, GLib.KeyFileFlags.NONE)
                 download_order = conf.get_string_list('Download', 'Order')
                 break
-            except GLib.Error as exc:
+            except GLib.Error:
                 continue
 
         if 'main' not in download_order:
@@ -300,7 +300,7 @@ def command_server(server_command, quiet=False):
     try:
         os.makedirs(os.path.dirname(EOS_UPDATE_SERVER_CONFS[0]),
                     mode=0o755, exist_ok=True)
-    except:
+    except Exception:
         # Fall through and try to write the file anyway.
         pass
 
