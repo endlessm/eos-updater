@@ -30,7 +30,7 @@ CODE_COVERAGE_IGNORE_PATTERN = \
 	$(NULL)
 
 # FIXME: Ensure these tests can be run installed as well.
-uninstalled_test_programs = \
+uninstalled_test_extra_programs = \
 	test-update-from-main \
 	test-update-from-lan \
 	test-update-from-volume \
