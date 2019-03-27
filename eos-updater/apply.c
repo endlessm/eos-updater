@@ -59,18 +59,13 @@ apply_finished (GObject *object,
   EosUpdater *updater = EOS_UPDATER (object);
   GTask *task;
   GError *error = NULL;
-  gboolean bootver_changed = FALSE;
 
   if (!g_task_is_valid (res, object))
     goto invalid_task;
 
   task = G_TASK (res);
-  bootver_changed = g_task_propagate_boolean (task, &error);
 
-  if (!bootver_changed)
-    g_message ("System redeployed same boot version");
-
-  if (error)
+  if (!g_task_propagate_boolean (task, &error))
     {
       eos_updater_set_error (updater, error);
       g_clear_error (&error);
@@ -234,7 +229,6 @@ update_remote_branches (OstreeRepo   *repo,
 
 static gboolean
 apply_internal (ApplyData     *apply_data,
-                gboolean      *out_bootversion_changed,
                 GCancellable  *cancellable,
                 GError       **error)
 {
@@ -242,8 +236,6 @@ apply_internal (ApplyData     *apply_data,
   const gchar *update_id = apply_data->update_id;
   const gchar *update_refspec = apply_data->update_refspec;
   const gchar *orig_refspec = apply_data->orig_refspec;
-  gint bootversion = 0;
-  gint newbootver = 0;
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_autoptr(OstreeDeployment) new_deployment = NULL;
   g_autoptr(GKeyFile) origin = NULL;
@@ -261,11 +253,20 @@ apply_internal (ApplyData     *apply_data,
   if (!ostree_sysroot_load (sysroot, cancellable, error))
     return FALSE;
 
-  bootversion = ostree_sysroot_get_bootversion (sysroot);
   booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
                                                                              error);
   if (booted_deployment == NULL)
     return FALSE;
+
+  g_message ("Booted (old) deployment: index: %d, OS name: %s, deploy serial: %d, "
+             "checksum: %s, boot checksum: %s, boot serial: %d",
+             ostree_deployment_get_index (booted_deployment),
+             ostree_deployment_get_osname (booted_deployment),
+             ostree_deployment_get_deployserial (booted_deployment),
+             ostree_deployment_get_csum (booted_deployment),
+             ostree_deployment_get_bootcsum (booted_deployment),
+             ostree_deployment_get_bootserial (booted_deployment));
+
   origin = ostree_sysroot_origin_new_from_refspec (sysroot, update_refspec);
 
   if (!ostree_sysroot_deploy_tree (sysroot,
@@ -312,7 +313,14 @@ apply_internal (ApplyData     *apply_data,
                                                error))
     return FALSE;
 
-  newbootver = ostree_deployment_get_deployserial (new_deployment);
+  g_message ("New deployment: index: %d, OS name: %s, deploy serial: %d, "
+             "checksum: %s, boot checksum: %s, boot serial: %d",
+             ostree_deployment_get_index (new_deployment),
+             ostree_deployment_get_osname (new_deployment),
+             ostree_deployment_get_deployserial (new_deployment),
+             ostree_deployment_get_csum (new_deployment),
+             ostree_deployment_get_bootcsum (new_deployment),
+             ostree_deployment_get_bootserial (new_deployment));
 
   /* FIXME: Cleaning up after update should be non-fatal, since we've
    * already successfully deployed the new OS. This clearly is a
@@ -340,7 +348,6 @@ apply_internal (ApplyData     *apply_data,
                local_error->message);
   g_clear_error (&local_error);
 
-  *out_bootversion_changed = bootversion != newbootver;
   return TRUE;
 }
 
@@ -352,18 +359,16 @@ apply (GTask *task,
 {
   g_autoptr(GError) local_error = NULL;
   ApplyData *apply_data = task_data;
-  gboolean bootversion_changed;
   g_autoptr(GMainContext) task_context = g_main_context_new ();
 
   g_main_context_push_thread_default (task_context);
 
   if (!apply_internal (apply_data,
-                       &bootversion_changed,
                        cancellable,
                        &local_error))
     g_task_return_error (task, g_steal_pointer (&local_error));
   else
-    g_task_return_boolean (task, bootversion_changed);
+    g_task_return_boolean (task, TRUE);
 
   g_main_context_pop_thread_default (task_context);
 }
