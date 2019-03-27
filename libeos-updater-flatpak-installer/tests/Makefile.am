@@ -51,7 +51,7 @@ CODE_COVERAGE_IGNORE_PATTERN = \
 	gtypes.h \
 	$(NULL)
 
-test_programs = \
+test_extra_programs = \
 	installer \
 	$(NULL)
 

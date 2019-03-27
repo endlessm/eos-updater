@@ -181,6 +181,7 @@ etc_update_server (EtcData *data,
                                                      default_collection_ref);
 
   g_assert_nonnull (current_commit_info);
+  g_assert (current_commit_info != NULL);  /* shut up a GCC 8 -Wnull-dereference false positive) */
   g_assert_cmpint (current_commit_info->sequence_number, <, commit);
 
   /* We also need to insert commits for all parents, do that now */

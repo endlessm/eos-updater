@@ -28,7 +28,7 @@
 #include <string.h>
 
 /**
- * eos_sysroot_get_advertisable_commit:
+ * eos_updater_sysroot_get_advertisable_commit:
  * @sysroot: loaded OSTree sysroot to use
  * @commit_checksum: (out callee-allocates) (transfer full) (nullable) (optional):
  *    return location for the checksum of an advertisable commit
@@ -57,11 +57,11 @@
  * Returns: %TRUE on success, %FALSE on error
  */
 gboolean
-eos_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
-                                     gchar         **commit_checksum,
-                                     gchar         **commit_ostree_path,
-                                     guint64        *commit_timestamp,
-                                     GError        **error)
+eos_updater_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
+                                             gchar         **commit_checksum,
+                                             gchar         **commit_ostree_path,
+                                             guint64        *commit_timestamp,
+                                             GError        **error)
 {
   g_autoptr(OstreeRepo) repo = NULL;
   g_autoptr(GPtrArray/*<OstreeDeployment>*/) deployments = NULL;
@@ -171,8 +171,15 @@ eos_sysroot_get_advertisable_commit (OstreeSysroot  *sysroot,
   return TRUE;
 }
 
-/* Note: Returns the repository even on error, so that the repo path can be
- * extracted for error messages. */
+/**
+ * eos_updater_local_repo:
+ * @error:
+ *
+ * Note: Returns the repository even on error, so that the repo path can be
+ * extracted for error messages.
+ *
+ * Returns: (transfer full):
+ */
 OstreeRepo *
 eos_updater_local_repo (GError **error)
 {
@@ -214,6 +221,13 @@ get_fake_deployment (OstreeSysroot *sysroot,
   return g_object_ref (fake_booted_deployment);
 }
 
+/**
+ * eos_updater_get_booted_deployment_from_loaded_sysroot:
+ * @sysroot:
+ * @error:
+ *
+ * Returns: (transfer full):
+ */
 OstreeDeployment *
 eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
                                                        GError **error)
@@ -232,6 +246,12 @@ eos_updater_get_booted_deployment_from_loaded_sysroot (OstreeSysroot *sysroot,
   return NULL;
 }
 
+/**
+ * eos_updater_get_booted_deployment:
+ * @error:
+ *
+ * Returns: (transfer full):
+ */
 OstreeDeployment *
 eos_updater_get_booted_deployment (GError **error)
 {

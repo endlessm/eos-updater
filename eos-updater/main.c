@@ -41,7 +41,7 @@
 
 typedef struct
 {
-  EosQuitFile *quit_file;
+  EuuQuitFile *quit_file;
   GDBusObjectManagerServer *manager;
   EosUpdater *updater;
 
@@ -224,7 +224,7 @@ quit_file_name (void)
   return g_getenv ("EOS_UPDATER_TEST_UPDATER_QUIT_FILE");
 }
 
-static EosQuitFileCheckResult
+static EuuQuitFileCheckResult
 check_and_quit (gpointer local_data_ptr)
 {
   LocalData *local_data = local_data_ptr;
@@ -237,14 +237,14 @@ check_and_quit (gpointer local_data_ptr)
     case EOS_UPDATER_STATE_ERROR:
     case EOS_UPDATER_STATE_UPDATE_APPLIED:
       g_main_loop_quit (local_data->loop);
-      return EOS_QUIT_FILE_QUIT;
+      return EUU_QUIT_FILE_QUIT;
 
     case EOS_UPDATER_STATE_POLLING:
     case EOS_UPDATER_STATE_UPDATE_AVAILABLE:
     case EOS_UPDATER_STATE_FETCHING:
     case EOS_UPDATER_STATE_UPDATE_READY:
     case EOS_UPDATER_STATE_APPLYING_UPDATE:
-      return EOS_QUIT_FILE_KEEP_CHECKING;
+      return EUU_QUIT_FILE_KEEP_CHECKING;
 
     default:
       g_assert_not_reached ();
@@ -256,7 +256,7 @@ maybe_setup_quit_file (LocalData *local_data,
                        GError **error)
 {
   const gchar *filename = quit_file_name ();
-  g_autoptr(EosQuitFile) quit_file = NULL;
+  g_autoptr(EuuQuitFile) quit_file = NULL;
 
   if (filename == NULL)
     return TRUE;
@@ -361,7 +361,7 @@ main (gint argc, gchar *argv[])
   g_autoptr(GMainLoop) loop = NULL;
   g_autoptr(OstreeRepo) repo = NULL;
   g_auto(EosUpdaterData) data = EOS_UPDATER_DATA_CLEARED;
-  g_auto(EosBusNameID) id = 0;
+  g_auto(EuuBusNameID) id = 0;
   g_autoptr(GError) error = NULL;
   g_auto(LocalData) local_data = LOCAL_DATA_CLEARED;
   GBusType bus_type = G_BUS_TYPE_SYSTEM;

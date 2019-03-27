@@ -61,7 +61,9 @@ eos_updater_set_error (EosUpdater *updater,
              error_name, error->code, error->message);
 
   eos_updater_set_error_name (updater, error_name);
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
   eos_updater_set_error_code (updater, (guint) error->code);
+G_GNUC_END_IGNORE_DEPRECATIONS
   eos_updater_set_error_message (updater, error->message);
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
 }
@@ -77,14 +79,16 @@ void
 eos_updater_clear_error (EosUpdater *updater,
                          EosUpdaterState state)
 {
-  if (eos_updater_get_error_code (updater) != 0)
+  if (g_strcmp0 (eos_updater_get_error_name (updater), "") != 0)
     g_message ("Clearing error state and changing to state %s",
                eos_updater_state_to_string (state));
   else
     g_message ("Changing to state %s", eos_updater_state_to_string (state));
 
   eos_updater_set_error_name (updater, "");
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
   eos_updater_set_error_code (updater, 0);
+G_GNUC_END_IGNORE_DEPRECATIONS
   eos_updater_set_error_message (updater, "");
   eos_updater_set_state_changed (updater, state);
 }

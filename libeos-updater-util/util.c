@@ -29,161 +29,6 @@
 #include <errno.h>
 #include <string.h>
 
-static gboolean
-is_ancestor (GFile *dir,
-             GFile *file)
-{
-  g_autoptr(GFile) child = g_object_ref (file);
-
-  for (;;)
-    {
-      g_autoptr(GFile) parent = g_file_get_parent (child);
-
-      if (parent == NULL)
-        return FALSE;
-
-      if (g_file_equal (dir, parent))
-        break;
-
-      g_set_object (&child, parent);
-    }
-
-  return TRUE;
-}
-
-/* pass /a as the dir parameter and /a/b/c/d as the file parameter,
- * will delete the /a/b/c/d file then /a/b/c and /a/b directories if
- * empty.
- */
-static gboolean
-delete_files_and_empty_parents (GFile *dir,
-                                GFile *file,
-                                GCancellable *cancellable,
-                                GError **error)
-{
-  g_autoptr(GError) local_error = NULL;
-  g_autoptr(GFile) child = NULL;
-
-  if (!is_ancestor (dir, file))
-    {
-      g_autofree gchar *raw_dir_path = g_file_get_path (dir);
-      g_autofree gchar *raw_file_path = g_file_get_path (file);
-
-      g_warning ("%s is not an ancestor of %s, not deleting anything",
-                 raw_dir_path,
-                 raw_file_path);
-      return FALSE;
-    }
-
-  if (!g_file_delete (file, cancellable, &local_error))
-    {
-      if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
-        g_clear_error (&local_error);
-      else
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
-    }
-
-  child = g_object_ref (file);
-  for (;;)
-    {
-      g_autoptr(GFile) parent = g_file_get_parent (child);
-
-      if (g_file_equal (dir, parent))
-        break;
-
-      if (!g_file_delete (parent, cancellable, &local_error))
-        {
-          if (!(g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
-                g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_EMPTY)))
-            {
-              g_propagate_error (error, g_steal_pointer (&local_error));
-              return FALSE;
-            }
-
-          break;
-        }
-
-      g_set_object (&child, parent);
-    }
-
-  return TRUE;
-}
-
-static gboolean
-create_directories (GFile *directory,
-                    GCancellable *cancellable,
-                    GError **error)
-{
-  g_autoptr(GError) local_error = NULL;
-
-  if (g_file_make_directory_with_parents (directory, cancellable, &local_error))
-    return TRUE;
-
-  if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_EXISTS))
-    return TRUE;
-
-  g_propagate_error (error, g_steal_pointer (&local_error));
-  return FALSE;
-}
-
-static gboolean
-create_directories_and_file (GFile *target,
-                             GBytes *contents,
-                             GCancellable *cancellable,
-                             GError **error)
-{
-  g_autoptr(GFile) target_parent = g_file_get_parent (target);
-  gconstpointer raw;
-  gsize len;
-
-  if (!create_directories (target_parent, cancellable, error))
-    return FALSE;
-
-  raw = g_bytes_get_data (contents, &len);
-  return g_file_replace_contents (target,
-                                  raw,
-                                  len,
-                                  NULL,
-                                  FALSE,
-                                  G_FILE_CREATE_NONE,
-                                  NULL,
-                                  cancellable,
-                                  error);
-}
-
-gboolean
-eos_updater_save_or_delete  (GBytes *contents,
-                             GFile *dir,
-                             const gchar *filename,
-                             GCancellable *cancellable,
-                             GError **error)
-{
-  g_autoptr(GFile) target = g_file_get_child (dir, filename);
-
-  if (contents == NULL)
-    return delete_files_and_empty_parents (dir, target, cancellable, error);
-
-  return create_directories_and_file (target, contents, cancellable, error);
-}
-
-guint
-eos_updater_queue_callback (GMainContext *context,
-                            GSourceFunc function,
-                            gpointer user_data,
-                            const gchar *name)
-{
-  g_autoptr(GSource) source = g_idle_source_new ();
-
-  if (name != NULL)
-    g_source_set_name (source, name);
-  g_source_set_callback (source, function, user_data, NULL);
-
-  return g_source_attach (source, context);
-}
-
 const gchar *
 eos_updater_get_envvar_or (const gchar *envvar,
                            const gchar *default_value)
@@ -217,7 +62,7 @@ eos_updater_read_file_to_bytes (GFile *file,
   return TRUE;
 }
 
-struct _EosQuitFile
+struct _EuuQuitFile
 {
   GObject parent_instance;
 
@@ -225,13 +70,13 @@ struct _EosQuitFile
   gulong signal_id;
   guint timeout_seconds;
   guint timeout_id;
-  EosQuitFileCheckCallback callback;
+  EuuQuitFileCheckCallback callback;
   gpointer user_data;
   GDestroyNotify notify;
 };
 
 static void
-quit_clear_user_data (EosQuitFile *quit_file)
+quit_clear_user_data (EuuQuitFile *quit_file)
 {
   gpointer user_data = g_steal_pointer (&quit_file->user_data);
   GDestroyNotify notify = quit_file->notify;
@@ -242,7 +87,7 @@ quit_clear_user_data (EosQuitFile *quit_file)
 }
 
 static void
-quit_disconnect_monitor (EosQuitFile *quit_file)
+quit_disconnect_monitor (EuuQuitFile *quit_file)
 {
   gulong id = quit_file->signal_id;
 
@@ -252,7 +97,7 @@ quit_disconnect_monitor (EosQuitFile *quit_file)
 }
 
 static void
-quit_clear_source (EosQuitFile *quit_file)
+quit_clear_source (EuuQuitFile *quit_file)
 {
   guint id = quit_file->timeout_id;
 
@@ -262,7 +107,7 @@ quit_clear_source (EosQuitFile *quit_file)
 }
 
 static void
-eos_quit_file_dispose_impl (EosQuitFile *quit_file)
+euu_quit_file_dispose_impl (EuuQuitFile *quit_file)
 {
   quit_clear_user_data (quit_file);
   quit_clear_source (quit_file);
@@ -270,18 +115,18 @@ eos_quit_file_dispose_impl (EosQuitFile *quit_file)
   g_clear_object (&quit_file->monitor);
 }
 
-EOS_DEFINE_REFCOUNTED (EOS_QUIT_FILE,
-                       EosQuitFile,
-                       eos_quit_file,
-                       eos_quit_file_dispose_impl,
+EOS_DEFINE_REFCOUNTED (EUU_QUIT_FILE,
+                       EuuQuitFile,
+                       euu_quit_file,
+                       euu_quit_file_dispose_impl,
                        NULL)
 
 static gboolean
 quit_file_source_func (gpointer quit_file_ptr)
 {
-  EosQuitFile *quit_file = EOS_QUIT_FILE (quit_file_ptr);
+  EuuQuitFile *quit_file = EUU_QUIT_FILE (quit_file_ptr);
 
-  if (quit_file->callback (quit_file->user_data) == EOS_QUIT_FILE_KEEP_CHECKING)
+  if (quit_file->callback (quit_file->user_data) == EUU_QUIT_FILE_KEEP_CHECKING)
     return G_SOURCE_CONTINUE;
 
   quit_file->timeout_id = 0;
@@ -296,12 +141,12 @@ on_quit_file_changed (GFileMonitor *monitor,
                       GFileMonitorEvent event,
                       gpointer quit_file_ptr)
 {
-  EosQuitFile *quit_file = EOS_QUIT_FILE (quit_file_ptr);
+  EuuQuitFile *quit_file = EUU_QUIT_FILE (quit_file_ptr);
 
   if (event != G_FILE_MONITOR_EVENT_DELETED)
     return;
 
-  if (quit_file->callback (quit_file->user_data) == EOS_QUIT_FILE_KEEP_CHECKING)
+  if (quit_file->callback (quit_file->user_data) == EUU_QUIT_FILE_KEEP_CHECKING)
     quit_file->timeout_id = g_timeout_add_seconds (quit_file->timeout_seconds,
                                                    quit_file_source_func,
                                                    quit_file);
@@ -309,9 +154,20 @@ on_quit_file_changed (GFileMonitor *monitor,
   quit_file->signal_id = 0;
 }
 
-EosQuitFile *
+/**
+ * eos_updater_setup_quit_file: (skip)
+ * @path:
+ * @check_callback:
+ * @user_data:
+ * @notify:
+ * @timeout_seconds:
+ * @error:
+ *
+ * Returns:
+ */
+EuuQuitFile *
 eos_updater_setup_quit_file (const gchar *path,
-                             EosQuitFileCheckCallback check_callback,
+                             EuuQuitFileCheckCallback check_callback,
                              gpointer user_data,
                              GDestroyNotify notify,
                              guint timeout_seconds,
@@ -319,7 +175,7 @@ eos_updater_setup_quit_file (const gchar *path,
 {
   g_autoptr(GFile) file = NULL;
   g_autoptr(GFileMonitor) monitor = NULL;
-  g_autoptr(EosQuitFile) quit_file = NULL;
+  g_autoptr(EuuQuitFile) quit_file = NULL;
 
   file = g_file_new_for_path (path);
   monitor = g_file_monitor_file (file,
@@ -329,7 +185,7 @@ eos_updater_setup_quit_file (const gchar *path,
   if (monitor == NULL)
     return NULL;
 
-  quit_file = g_object_new (EOS_TYPE_QUIT_FILE, NULL);
+  quit_file = g_object_new (EUU_TYPE_QUIT_FILE, NULL);
   quit_file->monitor = g_steal_pointer (&monitor);
   quit_file->signal_id = g_signal_connect (quit_file->monitor,
                                            "changed",
@@ -462,6 +318,14 @@ rm_rf_internal (GFile                     *topdir,
   return TRUE;
 }
 
+/**
+ * eos_updater_remove_recursive:
+ * @topdir:
+ * @filter_func: (scope call):
+ * @error:
+ *
+ * Returns:
+ */
 gboolean
 eos_updater_remove_recursive (GFile                     *topdir,
                               EosUpdaterFileFilterFunc   filter_func,

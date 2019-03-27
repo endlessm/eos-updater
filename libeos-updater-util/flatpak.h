@@ -41,8 +41,8 @@ typedef enum {
 typedef struct {
   gint ref_count;
   FlatpakRef *ref;  /* (owned) (not nullable) */
-  const gchar *remote;  /* (not nullable) */
-  const gchar *collection_id;  /* (nullable) */
+  gchar *remote;  /* (owned) (not nullable) */
+  gchar *collection_id;  /* (owned) (nullable) */
 } EuuFlatpakLocationRef;
 
 #define EUU_TYPE_FLATPAK_LOCATION_REF (euu_flatpak_location_ref_get_type ())
@@ -141,8 +141,8 @@ GHashTable *euu_filter_for_new_flatpak_ref_actions (GHashTable *ref_actions,
                                                     GHashTable *progresses);
 GHashTable *euu_filter_for_existing_flatpak_ref_actions (GHashTable *ref_actions,
                                                          GHashTable *progresses);
-GHashTable *euu_squash_remote_ref_actions (GHashTable *ref_actions);
-GPtrArray *euu_flatten_flatpak_ref_actions_table (GHashTable *flatpak_ref_actions);
+GHashTable *euu_squash_remote_ref_actions (GHashTable *ref_actions_table);
+GPtrArray *euu_flatten_flatpak_ref_actions_table (GHashTable *ref_actions_table);
 GPtrArray * euu_add_dependency_ref_actions_for_installation (FlatpakInstallation  *installation,
                                                              GPtrArray            *ref_actions,
                                                              GCancellable         *cancellable,

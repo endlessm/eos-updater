@@ -39,19 +39,8 @@ object_array_new (void)
 }
 
 /* id returned by g_bus_own_name */
-typedef guint EosBusNameID;
-G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EosBusNameID, g_bus_unown_name, 0)
-
-gboolean eos_updater_save_or_delete  (GBytes *contents,
-                                      GFile *dir,
-                                      const gchar *filename,
-                                      GCancellable *cancellable,
-                                      GError **error);
-
-guint eos_updater_queue_callback (GMainContext *context,
-                                  GSourceFunc function,
-                                  gpointer user_data,
-                                  const gchar *name);
+typedef guint EuuBusNameID;
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(EuuBusNameID, g_bus_unown_name, 0)
 
 const gchar *eos_updater_get_envvar_or (const gchar *envvar,
                                         const gchar *default_value);
@@ -61,19 +50,19 @@ gboolean eos_updater_read_file_to_bytes (GFile *file,
                                          GBytes **out_bytes,
                                          GError **error);
 
-#define EOS_TYPE_QUIT_FILE eos_quit_file_get_type ()
-G_DECLARE_FINAL_TYPE (EosQuitFile, eos_quit_file, EOS, QUIT_FILE, GObject)
+#define EUU_TYPE_QUIT_FILE euu_quit_file_get_type ()
+G_DECLARE_FINAL_TYPE (EuuQuitFile, euu_quit_file, EUU, QUIT_FILE, GObject)
 
 typedef enum
 {
-  EOS_QUIT_FILE_QUIT,
-  EOS_QUIT_FILE_KEEP_CHECKING
-} EosQuitFileCheckResult;
+  EUU_QUIT_FILE_QUIT,
+  EUU_QUIT_FILE_KEEP_CHECKING
+} EuuQuitFileCheckResult;
 
-typedef EosQuitFileCheckResult (* EosQuitFileCheckCallback) (gpointer user_data);
+typedef EuuQuitFileCheckResult (* EuuQuitFileCheckCallback) (gpointer user_data);
 
-EosQuitFile *eos_updater_setup_quit_file (const gchar *path,
-                                          EosQuitFileCheckCallback check_callback,
+EuuQuitFile *eos_updater_setup_quit_file (const gchar *path,
+                                          EuuQuitFileCheckCallback check_callback,
                                           gpointer user_data,
                                           GDestroyNotify notify,
                                           guint timeout_seconds,

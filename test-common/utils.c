@@ -2403,7 +2403,7 @@ flatpak_install_info_free (FlatpakInstallInfo *info)
   g_clear_pointer (&info->runtime_branch, g_free);
   g_clear_pointer (&info->repo_name, g_free);
   g_clear_pointer (&info->extension_of_ref, g_free);
-  g_clear_pointer (&info->extension_infos, (GDestroyNotify) g_ptr_array_unref);
+  g_clear_pointer (&info->extension_infos, g_ptr_array_unref);
 
   g_free (info);
 }
@@ -2972,7 +2972,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                                                            "libeos-updater-util",
                                                                            ".libs",
                                                                            NULL);
-  gchar *ld_library_path = g_getenv ("LD_LIBRARY_PATH");
+  const gchar *ld_library_path = g_getenv ("LD_LIBRARY_PATH");
   g_autofree gchar *new_ld_library_path = NULL;
   if (ld_library_path == NULL || *ld_library_path == '\0')
     new_ld_library_path = g_strdup (libeos_updater_util_libs_path);

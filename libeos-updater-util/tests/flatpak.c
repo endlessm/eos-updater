@@ -213,7 +213,7 @@ test_compress_install_uninstall_as_uninstall (void)
                    EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
 }
 
-/* Test that no compresson occurrs if 'install' and 'uninstall' are on
+/* Test that no compresson occurs if 'install' and 'uninstall' are on
  * different branches */
 static void
 test_no_compress_install_uninstall_different_branches (void)
@@ -278,7 +278,7 @@ test_compress_update_update_as_update (void)
                    EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE);
 }
 
-/* Test that no compresson occurrs if 'update' and 'update' are on
+/* Test that no compresson occurs if 'update' and 'update' are on
  * different branches */
 static void
 test_no_compress_update_update_different_branches (void)
@@ -321,7 +321,7 @@ test_compress_install_install_as_install (void)
                    EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL);
 }
 
-/* Test that no compresson occurrs if 'install' and 'install' are on
+/* Test that no compresson occurs if 'install' and 'install' are on
  * different branches */
 static void
 test_no_compress_install_install_different_branches (void)

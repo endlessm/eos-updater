@@ -92,6 +92,9 @@ flatpak_install (GFile        *updater_dir,
       { NULL, "install" },
       { "user", NULL },
       { "assumeyes", NULL },
+      { "noninteractive", NULL },
+      { "verbose", NULL },
+      { "ostree-verbose", NULL },
       { NULL, remote },
       { NULL, app_id },
       { NULL, NULL }
@@ -146,6 +149,8 @@ flatpak_build_init (GFile        *updater_dir,
     {
       { NULL, FLATPAK_BINARY },
       { NULL, "build-init" },
+      { "verbose", NULL },
+      { "ostree-verbose", NULL },
       { NULL, bundle_path },
       { NULL, app_id },
       /* Once as the SDK, once as the Runtime */

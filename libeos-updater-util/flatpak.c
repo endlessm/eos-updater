@@ -1031,9 +1031,18 @@ read_flatpak_ref_actions_from_node (JsonNode      *node,
   return g_steal_pointer (&actions);
 }
 
+/**
+ * euu_flatpak_ref_actions_from_file:
+ * @file:
+ * @out_skipped_actions: (out) (element-type utf8) (transfer container) (optional):
+ * @cancellable:
+ * @error:
+ *
+ * Returns: (transfer container) (element-type EuuFlatpakRemoteRefAction):
+ */
 GPtrArray *
 euu_flatpak_ref_actions_from_file (GFile         *file,
-                                   GPtrArray    **out_skipped_actions  /* (element-type utf8) */,
+                                   GPtrArray    **out_skipped_actions,
                                    GCancellable  *cancellable,
                                    GError       **error)
 {
@@ -1055,13 +1064,25 @@ euu_flatpak_ref_actions_from_file (GFile         *file,
   return g_steal_pointer (&actions);
 }
 
-/* A version of euu_flatpak_ref_actions_from_file() which takes a
- * string constant to parse. Mostly used for the unit tests. */
+/**
+ * euu_flatpak_ref_actions_from_data:
+ * @data:
+ * @length:
+ * @path:
+ * @out_skipped_actions: (out) (element-type utf8) (transfer container) (optional):
+ * @cancellable:
+ * @error:
+ *
+ * A version of euu_flatpak_ref_actions_from_file() which takes a string
+ * constant to parse. Mostly used for the unit tests.
+ *
+ * Returns: (transfer container) (element-type EuuFlatpakRemoteRefAction):
+ */
 GPtrArray *
 euu_flatpak_ref_actions_from_data (const gchar   *data,
                                    gssize         length,
                                    const gchar   *path,
-                                   GPtrArray    **out_skipped_actions  /* (element-type utf8) */,
+                                   GPtrArray    **out_skipped_actions,
                                    GCancellable  *cancellable,
                                    GError       **error)
 {
@@ -1249,9 +1270,19 @@ euu_flatpak_ref_actions_append_from_directory (GFile         *directory,
   return TRUE;
 }
 
-/* Returns an associative map from action-ref list to a pointer array of
- * actions. The action-ref lists are considered to be append-only */
-GHashTable *  /* (element-type filename EuuFlatpakRemoteRefActionsFile) */
+/**
+ * euu_flatpak_ref_actions_from_directory:
+ * @directory:
+ * @priority:
+ * @cancellable:
+ * @error:
+ *
+ * Returns an associative map from action-ref list to a pointer array of
+ * actions. The action-ref lists are considered to be append-only.
+ *
+ * Returns: (element-type filename EuuFlatpakRemoteRefActionsFile) (transfer container):
+ */
+GHashTable *
 euu_flatpak_ref_actions_from_directory (GFile         *directory,
                                         gint           priority,
                                         GCancellable  *cancellable,
@@ -1358,14 +1389,21 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions  /* (element-type EuuFlatpa
   return g_steal_pointer (&squashed_ref_actions);
 }
 
-/* Given a hash table of filenames to #EuuFlatpakRemoteRefActionsFile, hoist
+/**
+ * euu_hoist_flatpak_remote_ref_actions:
+ * @ref_actions_file_table: (element-type filename EuuFlatpakRemoteRefActionsFile):
+ *
+ * Given a hash table of filenames to #EuuFlatpakRemoteRefActionsFile, hoist
  * the underlying pointer array of remote ref actions and make that the value
  * of the new hash table.
  *
  * This will make the hash table suitable for passing to
- * euu_squash_remote_ref_actions() */
-GHashTable *  /* (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) */
-euu_hoist_flatpak_remote_ref_actions (GHashTable *ref_actions_file_table  /* (element-type filename EuuFlatpakRemoteRefActionsFile) */)
+ * euu_squash_remote_ref_actions().
+ *
+ * Returns: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) (transfer container):
+ */
+GHashTable *
+euu_hoist_flatpak_remote_ref_actions (GHashTable *ref_actions_file_table)
 {
   g_autoptr(GHashTable) hoisted_ref_actions_table = g_hash_table_new_full (g_str_hash,
                                                                            g_str_equal,
@@ -1388,10 +1426,17 @@ euu_hoist_flatpak_remote_ref_actions (GHashTable *ref_actions_file_table  /* (el
   return g_steal_pointer (&hoisted_ref_actions_table);
 }
 
-/* Examine each of the remote ref action lists in @ref_action_table
+/**
+ * euu_squash_remote_ref_actions:
+ * @ref_actions_table:
+ *
+ * Examine each of the remote ref action lists in @ref_action_table
  * and squash them down into a list where only one action is applied for
- * each flatpak ref (the latest one) */
-GHashTable *  /* (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) */
+ * each flatpak ref (the latest one).
+ *
+ * Returns: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) (transfer container):
+ */
+GHashTable *
 euu_squash_remote_ref_actions (GHashTable *ref_actions_table)
 {
   gpointer key;
@@ -1543,9 +1588,17 @@ keep_only_existing_actions (const gchar  *table_name,
   return g_steal_pointer (&filtered_actions);
 }
 
-/* See documentation for keep_only_new_actions(). */
+/**
+ * euu_filter_for_new_flatpak_ref_actions:
+ * @ref_actions: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>):
+ * @progresses:
+ *
+ * See documentation for keep_only_new_actions().
+ *
+ * Returns: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) (transfer container):
+ */
 GHashTable *
-euu_filter_for_new_flatpak_ref_actions (GHashTable *ref_actions  /* (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) */,
+euu_filter_for_new_flatpak_ref_actions (GHashTable *ref_actions,
                                         GHashTable *progresses)
 {
   return filter_flatpak_ref_actions_table (ref_actions,
@@ -1553,7 +1606,15 @@ euu_filter_for_new_flatpak_ref_actions (GHashTable *ref_actions  /* (element-typ
                                            progresses);
 }
 
-/* See documentation for keep_only_existing_actions(). */
+/**
+ * euu_filter_for_existing_flatpak_ref_actions:
+ * @ref_actions: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>):
+ * @progresses:
+ *
+ * See documentation for keep_only_existing_actions().
+ *
+ * Returns: (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) (transfer container):
+ */
 GHashTable *
 euu_filter_for_existing_flatpak_ref_actions (GHashTable *ref_actions  /* (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>) */,
                                              GHashTable *progresses)
@@ -1687,7 +1748,7 @@ static void
 euu_flatpak_related_refs_for_remote_free (EuuFlatpakRelatedRefsForRemote *related_refs_for_remote)
 {
   g_clear_object (&related_refs_for_remote->remote);
-  g_clear_pointer (&related_refs_for_remote->related_refs, (GDestroyNotify) g_hash_table_unref);
+  g_clear_pointer (&related_refs_for_remote->related_refs, g_hash_table_unref);
 
   g_free (related_refs_for_remote);
 }
@@ -1916,7 +1977,7 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
 
       if (related_refs == NULL)
         {
-          /* If an error occurrs when searching a remote for dependencies,
+          /* If an error occurs when searching a remote for dependencies,
            * just report it and continue. We don't want a single broken
            * remote to break updates completely because we couldn't search
            * it for dependencies. If the broken remote means that the
@@ -1930,6 +1991,7 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
                      formatted_ref,
                      local_error->message);
           g_clear_error (&local_error);
+          continue;
         }
 
       for (gsize j = 0; j < related_refs->len; ++j)
@@ -2501,11 +2563,19 @@ euu_flatpak_autoinstall_override_paths (void)
                                     LOCALSTATEDIR "/lib/eos-application-tools/flatpak-autoinstall.d");
 }
 
-/* Load the progress information from euu_pending_flatpak_deployments_state_path()
+/**
+ * euu_flatpak_ref_action_application_progress_in_state_path:
+ * @cancellable:
+ * @error:
+ *
+ * Load the progress information from euu_pending_flatpak_deployments_state_path()
  * and return it in a hash table of filename → progress. Each progress value
  * is an integer which is the serial number of the last applied autoinstall
- * entry for that filename. */
-GHashTable *  /* (element-type filename gint32) */
+ * entry for that filename.
+ *
+ * Returns: (element-type filename gint32) (transfer container):
+ */
+GHashTable *
 euu_flatpak_ref_action_application_progress_in_state_path (GCancellable  *cancellable,
                                                            GError       **error)
 {
@@ -2661,6 +2731,13 @@ euu_format_all_flatpak_ref_actions (const gchar *title,
   return g_string_free (g_steal_pointer (&string), FALSE);
 }
 
+/**
+ * euu_format_flatpak_ref_actions_array:
+ * @title:
+ * @flatpak_ref_actions: (element-type EuuFlatpakRemoteRefAction):
+ *
+ * Returns: (transfer full):
+ */
 gchar *
 euu_format_flatpak_ref_actions_array (const gchar *title,
                                       GPtrArray   *flatpak_ref_actions)
@@ -2917,6 +2994,15 @@ inspect_directory_in_ostree_repo (OstreeRepo    *repo,
   return g_steal_pointer (&checkout_directory);
 }
 
+/**
+ * euu_flatpak_ref_actions_from_ostree_commit:
+ * @repo:
+ * @checksum:
+ * @cancellable:
+ * @error:
+ *
+ * Returns: (transfer container) (element-type filename GPtrArray<EuuFlatpakRemoteRefAction>):
+ */
 GHashTable *
 euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
                                             const gchar   *checksum,
@@ -2976,6 +3062,13 @@ euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
   return g_steal_pointer (&flatpak_ref_actions_table);
 }
 
+/**
+ * eos_updater_get_flatpak_installation:
+ * @cancellable:
+ * @error:
+ *
+ * Returns: (transfer full):
+ */
 FlatpakInstallation *
 eos_updater_get_flatpak_installation (GCancellable *cancellable, GError **error)
 {
