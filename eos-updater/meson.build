@@ -139,3 +139,5 @@ install_data(
 # Documentation
 install_man('docs/eos-updater.conf.5')
 install_man('docs/eos-updater.8')
+
+subdir('tests')
