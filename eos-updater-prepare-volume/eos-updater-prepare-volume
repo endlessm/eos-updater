@@ -80,10 +80,17 @@ class VolumePreparer:
             # case libflatpak changes it in future.
             return False
 
-    def _get_collection_id_for_remote(self, remote_name):
-        """Get the configured collection ID for the given remote, or None."""
+    def _get_collection_id_for_refspec(self, refspec):
+        """Get the collection ID from the commit metadata of the given refspec, or None."""
         _, repo = self.sysroot.get_repo()
-        return repo.get_remote_option(remote_name, 'collection-id', None)
+        _, rev = repo.resolve_rev(refspec, allow_noent=False)
+        _, commit, _ = repo.load_commit(rev)
+        metadata_dict = GLib.VariantDict.new(commit.get_child_value(0))
+        collection_binding = metadata_dict.lookup_value(OSTree.COMMIT_META_KEY_COLLECTION_BINDING, GLib.VariantType('s'))
+        if collection_binding is None:
+            return None
+        else:
+            return str(collection_binding)
 
     def _get_os_collection_ref_checksum(self):
         """Get the collection–ref and checksum 3-tuple for the booted OS, or None."""
@@ -114,10 +121,9 @@ class VolumePreparer:
         if not remote_name:
             return None
 
-        # Technically the collection ID configured for updates might not match
-        # the one of the booted OSTree, but we can't use the correct one here
-        # until https://github.com/ostreedev/ostree/issues/1487 is fixed
-        _, collection_id = self._get_collection_id_for_remote(remote_name)
+        # Use the collection ID from the commit metadata; the one configured on
+        # the remote might be different
+        collection_id = self._get_collection_id_for_refspec(refspec)
         if not collection_id:
             return None
 
