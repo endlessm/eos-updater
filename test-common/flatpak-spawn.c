@@ -242,6 +242,7 @@ flatpak_list (GFile      *updater_dir,
       { NULL, FLATPAK_BINARY },
       { NULL, "list" },
       { "user", NULL },
+      { "columns", "ref" },
       { NULL, NULL }
     };
   g_auto(GStrv) argv = build_cmd_args (args);
