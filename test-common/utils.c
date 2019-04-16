@@ -2231,12 +2231,15 @@ eos_test_get_installed_flatpaks (GFile   *updater_dir,
   g_auto(GStrv) keys = NULL;
 
   /* To match output like:
-   * Ref                                             Options
-   * org.gnome.Recipes/x86_64/master                 user,current
-   * org.gnome.Platform/x86_64/3.24                  user,runtime
+   * Ref
+   * org.gnome.Recipes/x86_64/master
+   * org.gnome.Platform/x86_64/3.24
    *
    * We use a regex here, rather than libflatpak, because the test library
    * explicitly does not depend on libflatpak to avoid tautologies.
+   *
+   * Note that `flatpak list` actually doesn’t output the ‘Ref’ column title
+   * when not printing to a terminal.
    */
   g_autoptr(GRegex) flatpak_id_regex = g_regex_new ("(.*?)/.*?/.*?", 0, 0, error);
 
