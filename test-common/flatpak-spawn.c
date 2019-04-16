@@ -39,6 +39,7 @@ test_spawn_flatpak_cmd_in_local_env (GFile                *updater_dir,
   g_autoptr(GFile) flatpak_user_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
   CmdEnvVar envv[] =
     {
+      /* All operations are done in the user repository, since it’s easy to override: */
       { "FLATPAK_USER_DIR", NULL, flatpak_user_dir },
       { "OSTREE_SYSROOT_DEBUG", "no-xattrs", NULL },
       { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
@@ -240,6 +241,7 @@ flatpak_list (GFile      *updater_dir,
     {
       { NULL, FLATPAK_BINARY },
       { NULL, "list" },
+      { "user", NULL },
       { NULL, NULL }
     };
   g_auto(GStrv) argv = build_cmd_args (args);
