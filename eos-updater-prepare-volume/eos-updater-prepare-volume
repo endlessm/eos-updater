@@ -90,7 +90,7 @@ class VolumePreparer:
         if collection_binding is None:
             return None
         else:
-            return str(collection_binding)
+            return collection_binding.get_string()
 
     def _get_os_collection_ref_checksum(self):
         """Get the collection–ref and checksum 3-tuple for the booted OS, or None."""
