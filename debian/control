@@ -5,7 +5,7 @@ Maintainer: John Hiesey <john@endlessm.com>
 Standards-Version: 3.9.6
 Build-Depends:
  autoconf-archive,
- debhelper (>= 9.20160114),
+ debhelper-compat (= 12),
  dh-autoreconf,
  dh-python,
  dh-systemd,
