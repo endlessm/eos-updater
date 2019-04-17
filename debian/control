@@ -8,7 +8,6 @@ Build-Depends:
  debhelper-compat (= 12),
  dh-autoreconf,
  dh-python,
- dh-systemd,
  eos-metrics-0-dev,
  flatpak (>= 0.11.6),
  gir1.2-flatpak-1.0,
