@@ -524,6 +524,13 @@ main (int   argc,
   g_setenv ("FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", TRUE);
   g_setenv ("GIO_USE_VFS", "local", TRUE);
 
+  /* FIXME: The tests should theoretically be run with a fake D-Bus system bus
+   * and a load of mock services. However, those mock services have not been
+   * written yet (see https://phabricator.endlessm.com/T25340). In the meantime,
+   * to avoid behaviour differences in the tests when running on OBS/Jenkins vs
+   * a local VM, disable the system bus for everyone: */
+  g_setenv ("DBUS_SYSTEM_BUS_ADDRESS", "unix:/dev/null", TRUE);
+
   g_test_add ("/flatpak/deploy-flatpak-files-as-expected",
               FlatpakDeploymentsFixture,
               NULL,
