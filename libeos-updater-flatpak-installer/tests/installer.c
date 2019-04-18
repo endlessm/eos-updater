@@ -516,7 +516,7 @@ main (int   argc,
 {
   setlocale (LC_ALL, "");
 
-  g_test_init (&argc, &argv, NULL);
+  g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
 
   /* Since we setup a flatpak repo with the architecture being overridden
    * as "arch", we need to override it here too */
