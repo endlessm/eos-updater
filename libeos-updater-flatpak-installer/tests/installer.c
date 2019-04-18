@@ -522,6 +522,7 @@ main (int   argc,
    * as "arch", we need to override it here too */
   g_setenv ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", FALSE);
   g_setenv ("FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", TRUE);
+  g_setenv ("GIO_USE_VFS", "local", TRUE);
 
   g_test_add ("/flatpak/deploy-flatpak-files-as-expected",
               FlatpakDeploymentsFixture,
