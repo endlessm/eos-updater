@@ -422,6 +422,11 @@ flatpak_populate_runtime (GFile        *updater_dir,
                                                 "usr",
                                                 NULL);
   g_autoptr(GFile) usr_dir_path = g_file_new_for_path (usr_dir);
+  g_autofree gchar *usr_runtime_content_path = g_build_filename (usr_dir,
+                                                                 "runtime-content",
+                                                                 NULL);
+  g_autofree gchar *usr_runtime_content = g_strdup_printf ("Dummy runtime contents for %s/%s",
+                                                           runtime_name, branch);
   g_autoptr(GKeyFile) metadata = g_key_file_new ();
 
   g_autoptr(GFile) repo_directory_path = g_file_new_for_path (repo_directory);
@@ -436,6 +441,9 @@ flatpak_populate_runtime (GFile        *updater_dir,
     return FALSE;
 
   if (!g_file_make_directory_with_parents (usr_dir_path, NULL, error))
+    return FALSE;
+
+  if (!g_file_set_contents (usr_runtime_content_path, usr_runtime_content, -1, error))
     return FALSE;
 
   if (!g_key_file_save_to_file (metadata, metadata_path, error))
