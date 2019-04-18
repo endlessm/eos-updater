@@ -131,7 +131,7 @@ main (int argc,
 {
   setlocale (LC_ALL, "");
 
-  g_test_init (&argc, &argv, NULL);
+  g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
   g_test_bug_base ("https://phabricator.endlessm.com/");
 
   eos_test_add ("/updater/update-cleanup-broken-delta", NULL, test_update_broken_delta);

@@ -436,7 +436,7 @@ main (int argc,
 {
   setlocale (LC_ALL, "");
 
-  g_test_init (&argc, &argv, NULL);
+  g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
 
   eos_test_add ("/updater/cancel-update", NULL, test_cancel_update);
   eos_test_add ("/updater/update-no-version", NULL, test_update_version);
