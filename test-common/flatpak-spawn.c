@@ -177,6 +177,7 @@ flatpak_build_export (GFile        *updater_dir,
                       const gchar  *repo_path,
                       const gchar  *branch,
                       const gchar  *collection_id,
+                      gboolean      is_runtime,
                       GFile        *gpg_homedir,
                       const gchar  *keyid,
                       GError      **error)
@@ -192,10 +193,25 @@ flatpak_build_export (GFile        *updater_dir,
       { NULL, branch },
       { "gpg-sign", keyid },
       { "gpg-homedir", gpg_homedir_path },
-      { (collection_id != NULL) ? "collection-id" : NULL, collection_id },
+      { NULL, NULL },  /* replaced with runtime below */
+      { NULL, NULL },  /* replaced with collection ID below */
       { NULL, NULL }
     };
-  g_auto(GStrv) argv = build_cmd_args (args);
+  g_auto(GStrv) argv = NULL;
+
+  gsize next_arg = G_N_ELEMENTS (args) - 3;
+  if (is_runtime)
+    {
+      args[next_arg].flag_name = "runtime";
+      args[next_arg++].value = NULL;
+    }
+  if (collection_id != NULL)
+    {
+      args[next_arg].flag_name = "collection-id";
+      args[next_arg++].value = collection_id;
+    }
+
+  argv = build_cmd_args (args);
 
   if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
                                             (const gchar * const *) argv,
@@ -366,6 +382,7 @@ flatpak_populate_app (GFile        *updater_dir,
                              repo_directory,
                              branch,
                              repo_collection_id,
+                             FALSE,
                              gpg_homedir,
                              keyid,
                              error))
@@ -438,6 +455,7 @@ flatpak_populate_runtime (GFile        *updater_dir,
                              repo_directory,
                              branch,
                              repo_collection_id,
+                             TRUE,
                              gpg_homedir,
                              keyid,
                              error))
@@ -494,6 +512,7 @@ flatpak_populate_extension (GFile        *updater_dir,
                              repo_directory,
                              branch,
                              repo_collection_id,
+                             TRUE,
                              gpg_homedir,
                              keyid,
                              error))

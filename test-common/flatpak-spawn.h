@@ -55,6 +55,7 @@ gboolean flatpak_build_export (GFile        *updater_dir,
                                const gchar  *repo_path,
                                const gchar  *branch,
                                const gchar  *collection_id,
+                               gboolean      is_runtime,
                                GFile        *gpg_home_dir,
                                const gchar  *key_id,
                                GError      **error);
