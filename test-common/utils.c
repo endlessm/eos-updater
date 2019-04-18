@@ -70,7 +70,7 @@ eos_updater_fixture_setup_full (EosUpdaterFixture *fixture,
 
 void
 eos_updater_fixture_setup (EosUpdaterFixture *fixture,
-                           gconstpointer user_data)
+                           gconstpointer user_data G_GNUC_UNUSED)
 {
   g_autofree gchar *top_srcdir = g_test_build_filename (G_TEST_DIST, "..", NULL);
   eos_updater_fixture_setup_full (fixture, top_srcdir);
@@ -78,7 +78,7 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
 
 void
 eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
-                              gconstpointer user_data)
+                              gconstpointer user_data G_GNUC_UNUSED)
 {
   g_autoptr (GError) error = NULL;
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
