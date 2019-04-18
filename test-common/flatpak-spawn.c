@@ -37,10 +37,14 @@ test_spawn_flatpak_cmd_in_local_env (GFile                *updater_dir,
                                      GError              **error)
 {
   g_autoptr(GFile) flatpak_user_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  g_autoptr(GFile) flatpak_system_dir = g_file_get_child (updater_dir, "flatpak-system");
+  g_autoptr(GFile) flatpak_system_cache_dir = g_file_get_child (updater_dir, "flatpak-system-cache");
   CmdEnvVar envv[] =
     {
       /* All operations are done in the user repository, since it’s easy to override: */
       { "FLATPAK_USER_DIR", NULL, flatpak_user_dir },
+      { "FLATPAK_SYSTEM_DIR", NULL, flatpak_system_dir },
+      { "FLATPAK_SYSTEM_CACHE_DIR", NULL, flatpak_system_cache_dir },
       { "OSTREE_SYSROOT_DEBUG", "no-xattrs", NULL },
       { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
