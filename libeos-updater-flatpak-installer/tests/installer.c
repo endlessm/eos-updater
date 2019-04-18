@@ -521,6 +521,7 @@ main (int   argc,
   /* Since we setup a flatpak repo with the architecture being overridden
    * as "arch", we need to override it here too */
   g_setenv ("EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", "arch", FALSE);
+  g_setenv ("FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", TRUE);
 
   g_test_add ("/flatpak/deploy-flatpak-files-as-expected",
               FlatpakDeploymentsFixture,
