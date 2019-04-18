@@ -1652,6 +1652,7 @@ spawn_updater (GFile *sysroot,
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "EOS_DISABLE_METRICS", "1", NULL },
+      { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
       { "G_DEBUG", fatal_warnings ? "gc-friendly,fatal-warnings" : "gc-friendly", NULL },
       { NULL, NULL, NULL }
     };
@@ -1996,6 +1997,7 @@ run_update_server (GFile *repo,
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "EOS_UPDATER_TEST_UPDATE_SERVER_QUIT_FILE", NULL, quit_file },
+      { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
       { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
@@ -2209,6 +2211,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
       { "EOS_UPDATER_TEST_OSTREE_DATADIR", NULL, datadir },
       { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", arch_override_name, NULL },
+      { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
       { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
@@ -2998,6 +3001,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
       { "GI_TYPELIB_PATH", libeos_updater_util_path, NULL },
       { "LD_LIBRARY_PATH", new_ld_library_path, NULL },
+      { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
       /* FIXME: Add back G_DEBUG=fatal-warnings after we can rely on
        * https://gitlab.gnome.org/GNOME/pygobject/commit/806c5059f989ed1b8bc62e6aa1ef55123ac110de */
       { "G_DEBUG", "gc-friendly", NULL },
@@ -3206,6 +3210,7 @@ spawn_autoupdater (GFile *stamps_dir,
       { "EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS", "yes", NULL },
       { "EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT", dbus_timeout_value, NULL },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
+      { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
       { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
