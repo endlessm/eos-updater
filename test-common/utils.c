@@ -48,8 +48,8 @@ const gchar *arch_override_name = "arch";
 const guint max_commit_number = 10;
 
 void
-eos_updater_fixture_setup (EosUpdaterFixture *fixture,
-                           gconstpointer user_data)
+eos_updater_fixture_setup_full (EosUpdaterFixture *fixture,
+                                const gchar       *top_srcdir)
 {
   g_autoptr(GError) error = NULL;
   g_autofree gchar *tmpdir_path = NULL;
@@ -64,8 +64,16 @@ eos_updater_fixture_setup (EosUpdaterFixture *fixture,
 
   g_test_message ("Using fixture directory ‘%s’", tmpdir_path);
 
-  source_gpg_home_path = g_test_build_filename (G_TEST_DIST, "gpghome", NULL);
+  source_gpg_home_path = g_build_filename (top_srcdir, "tests", "gpghome", NULL);
   fixture->gpg_home = create_gpg_keys_directory (fixture->tmpdir, source_gpg_home_path);
+}
+
+void
+eos_updater_fixture_setup (EosUpdaterFixture *fixture,
+                           gconstpointer user_data)
+{
+  g_autofree gchar *top_srcdir = g_test_build_filename (G_TEST_DIST, "..", NULL);
+  eos_updater_fixture_setup_full (fixture, top_srcdir);
 }
 
 void
