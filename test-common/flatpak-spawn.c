@@ -45,6 +45,7 @@ test_spawn_flatpak_cmd_in_local_env (GFile                *updater_dir,
       { "FLATPAK_USER_DIR", NULL, flatpak_user_dir },
       { "FLATPAK_SYSTEM_DIR", NULL, flatpak_system_dir },
       { "FLATPAK_SYSTEM_CACHE_DIR", NULL, flatpak_system_cache_dir },
+      { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
       { "OSTREE_SYSROOT_DEBUG", "no-xattrs", NULL },
       { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
