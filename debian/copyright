@@ -1,6 +1,6 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: eos-updater
-Upstream-Contact: John Hiesey <john@endlessm.com>
+Upstream-Contact: Philip Withnall <withnall@endlessm.com>
 Source: github.com/endlessm/eos-updater
 Disclaimer: Not part of the Debian distribution.
 Copyright: Copyright 2013-2017 Endless Mobile, Inc.

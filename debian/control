@@ -1,7 +1,7 @@
 Source: eos-updater
 Section: misc
 Priority: optional
-Maintainer: John Hiesey <john@endlessm.com>
+Maintainer: Philip Withnall <withnall@endlessm.com>
 Standards-Version: 3.9.6
 Build-Depends:
  autoconf-archive,
