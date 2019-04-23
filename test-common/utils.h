@@ -39,6 +39,8 @@ typedef struct
 
 void eos_updater_fixture_setup (EosUpdaterFixture *fixture,
                                 gconstpointer user_data);
+void eos_updater_fixture_setup_full (EosUpdaterFixture *fixture,
+                                     const gchar       *top_srcdir);
 
 void eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
                                    gconstpointer user_data);

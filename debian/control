@@ -1,7 +1,7 @@
 Source: eos-updater
 Section: misc
 Priority: optional
-Maintainer: John Hiesey <john@endlessm.com>
+Maintainer: Philip Withnall <withnall@endlessm.com>
 Standards-Version: 3.9.6
 Build-Depends:
  autoconf-archive,
@@ -9,7 +9,7 @@ Build-Depends:
  dh-autoreconf,
  dh-python,
  eos-metrics-0-dev,
- flatpak (>= 0.11.6),
+ flatpak (>= 1.1.2),
  gir1.2-flatpak-1.0,
  gir1.2-glib-2.0,
  gir1.2-ostree-1.0,
@@ -20,7 +20,7 @@ Build-Depends:
  libavahi-glib-dev (>= 0.6.31),
  libflatpak-dev (>= 0.11.6),
  libgirepository1.0-dev (>= 1.30.0),
- libglib2.0-dev (>= 2.54.0),
+ libglib2.0-dev (>= 2.60.0),
  libgsystem-dev,
  libjson-glib-dev (>= 1.2.6-1endless2),
  libmogwai-schedule-client-0-dev,

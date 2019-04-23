@@ -37,9 +37,15 @@ test_spawn_flatpak_cmd_in_local_env (GFile                *updater_dir,
                                      GError              **error)
 {
   g_autoptr(GFile) flatpak_user_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  g_autoptr(GFile) flatpak_system_dir = g_file_get_child (updater_dir, "flatpak-system");
+  g_autoptr(GFile) flatpak_system_cache_dir = g_file_get_child (updater_dir, "flatpak-system-cache");
   CmdEnvVar envv[] =
     {
+      /* All operations are done in the user repository, since it’s easy to override: */
       { "FLATPAK_USER_DIR", NULL, flatpak_user_dir },
+      { "FLATPAK_SYSTEM_DIR", NULL, flatpak_system_dir },
+      { "FLATPAK_SYSTEM_CACHE_DIR", NULL, flatpak_system_cache_dir },
+      { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
       { "OSTREE_SYSROOT_DEBUG", "no-xattrs", NULL },
       { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
@@ -176,6 +182,7 @@ flatpak_build_export (GFile        *updater_dir,
                       const gchar  *repo_path,
                       const gchar  *branch,
                       const gchar  *collection_id,
+                      gboolean      is_runtime,
                       GFile        *gpg_homedir,
                       const gchar  *keyid,
                       GError      **error)
@@ -191,10 +198,25 @@ flatpak_build_export (GFile        *updater_dir,
       { NULL, branch },
       { "gpg-sign", keyid },
       { "gpg-homedir", gpg_homedir_path },
-      { (collection_id != NULL) ? "collection-id" : NULL, collection_id },
+      { NULL, NULL },  /* replaced with runtime below */
+      { NULL, NULL },  /* replaced with collection ID below */
       { NULL, NULL }
     };
-  g_auto(GStrv) argv = build_cmd_args (args);
+  g_auto(GStrv) argv = NULL;
+
+  gsize next_arg = G_N_ELEMENTS (args) - 3;
+  if (is_runtime)
+    {
+      args[next_arg].flag_name = "runtime";
+      args[next_arg++].value = NULL;
+    }
+  if (collection_id != NULL)
+    {
+      args[next_arg].flag_name = "collection-id";
+      args[next_arg++].value = collection_id;
+    }
+
+  argv = build_cmd_args (args);
 
   if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
                                             (const gchar * const *) argv,
@@ -240,6 +262,8 @@ flatpak_list (GFile      *updater_dir,
     {
       { NULL, FLATPAK_BINARY },
       { NULL, "list" },
+      { "user", NULL },
+      { "columns", "ref" },
       { NULL, NULL }
     };
   g_auto(GStrv) argv = build_cmd_args (args);
@@ -363,6 +387,7 @@ flatpak_populate_app (GFile        *updater_dir,
                              repo_directory,
                              branch,
                              repo_collection_id,
+                             FALSE,
                              gpg_homedir,
                              keyid,
                              error))
@@ -398,6 +423,11 @@ flatpak_populate_runtime (GFile        *updater_dir,
                                                 "usr",
                                                 NULL);
   g_autoptr(GFile) usr_dir_path = g_file_new_for_path (usr_dir);
+  g_autofree gchar *usr_runtime_content_path = g_build_filename (usr_dir,
+                                                                 "runtime-content",
+                                                                 NULL);
+  g_autofree gchar *usr_runtime_content = g_strdup_printf ("Dummy runtime contents for %s/%s",
+                                                           runtime_name, branch);
   g_autoptr(GKeyFile) metadata = g_key_file_new ();
 
   g_autoptr(GFile) repo_directory_path = g_file_new_for_path (repo_directory);
@@ -412,6 +442,9 @@ flatpak_populate_runtime (GFile        *updater_dir,
     return FALSE;
 
   if (!g_file_make_directory_with_parents (usr_dir_path, NULL, error))
+    return FALSE;
+
+  if (!g_file_set_contents (usr_runtime_content_path, usr_runtime_content, -1, error))
     return FALSE;
 
   if (!g_key_file_save_to_file (metadata, metadata_path, error))
@@ -435,6 +468,7 @@ flatpak_populate_runtime (GFile        *updater_dir,
                              repo_directory,
                              branch,
                              repo_collection_id,
+                             TRUE,
                              gpg_homedir,
                              keyid,
                              error))
@@ -491,6 +525,7 @@ flatpak_populate_extension (GFile        *updater_dir,
                              repo_directory,
                              branch,
                              repo_collection_id,
+                             TRUE,
                              gpg_homedir,
                              keyid,
                              error))

@@ -2641,6 +2641,7 @@ test_update_flatpaks_updated_in_repo (EosUpdaterFixture *fixture,
                         flatpak_repo_path,
                         "stable",
                         "com.endlessm.TestInstallFlatpaksCollection",
+                        FALSE,
                         fixture->gpg_home,
                         keyid,
                         &error);
@@ -2807,6 +2808,7 @@ test_update_flatpaks_updated_in_repo_after_install (EosUpdaterFixture *fixture,
                         flatpak_repo_path,
                         "stable",
                         "com.endlessm.TestInstallFlatpaksCollection",
+                        FALSE,
                         fixture->gpg_home,
                         keyid,
                         &error);
@@ -2952,6 +2954,7 @@ test_update_flatpaks_updated_in_repo_on_subsequent_fetch (EosUpdaterFixture *fix
                         flatpak_repo_path,
                         "stable",
                         "com.endlessm.TestInstallFlatpaksCollection",
+                        FALSE,
                         fixture->gpg_home,
                         keyid,
                         &error);
@@ -5840,6 +5843,7 @@ test_updated_flatpak_is_installed (EosUpdaterFixture *fixture,
                         flatpak_repo_path,
                         "stable",
                         "com.endlessm.TestInstallFlatpaksCollection",
+                        FALSE,
                         fixture->gpg_home,
                         keyid,
                         &error);
@@ -5993,6 +5997,7 @@ test_updated_flatpak_is_installed_on_install_action (EosUpdaterFixture *fixture,
                         flatpak_repo_path,
                         "stable",
                         "com.endlessm.TestInstallFlatpaksCollection",
+                        FALSE,
                         fixture->gpg_home,
                         keyid,
                         &error);
@@ -6650,7 +6655,7 @@ main (int argc,
 {
   setlocale (LC_ALL, "");
 
-  g_test_init (&argc, &argv, NULL);
+  g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
   g_test_bug_base ("https://phabricator.endlessm.com/");
 
   eos_test_add ("/updater/install-no-flatpaks", NULL, test_update_install_no_flatpaks);

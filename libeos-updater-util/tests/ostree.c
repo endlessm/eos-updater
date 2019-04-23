@@ -153,7 +153,7 @@ main (int   argc,
 {
   setlocale (LC_ALL, "");
 
-  g_test_init (&argc, &argv, NULL);
+  g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
 
   g_test_add ("/ostree/no-deployments", Fixture, NULL, setup,
               test_ostree_no_deployments, teardown);

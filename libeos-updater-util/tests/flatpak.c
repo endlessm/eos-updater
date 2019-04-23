@@ -817,7 +817,7 @@ main (int   argc,
 {
   setlocale (LC_ALL, "");
 
-  g_test_init (&argc, &argv, NULL);
+  g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
   g_log_set_writer_func (log_writer_cb, NULL, NULL);
 
   g_test_add_func ("/flatpak/compress/install-update-as-install",
