@@ -7,10 +7,10 @@ lib/systemd/system/eos-updater.service
 lib/systemd/system/eos-update-server.service
 lib/systemd/system/eos-update-server.socket
 usr/bin/eos-updater
-usr/lib/*/eos-autoupdater
-usr/lib/*/eos-updater-avahi
-usr/lib/*/eos-updater-flatpak-installer
-usr/lib/*/eos-update-server
+usr/libexec/eos-autoupdater
+usr/libexec/eos-updater-avahi
+usr/libexec/eos-updater-flatpak-installer
+usr/libexec/eos-update-server
 usr/lib/*/libeos-updater-flatpak-installer-0.so.*
 usr/lib/*/libeos-updater-util-0.so.*
 usr/share/dbus-1/interfaces/com.endlessm.Updater.xml
