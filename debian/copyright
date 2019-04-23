@@ -3,7 +3,7 @@ Upstream-Name: eos-updater
 Upstream-Contact: Philip Withnall <withnall@endlessm.com>
 Source: github.com/endlessm/eos-updater
 Disclaimer: Not part of the Debian distribution.
-Copyright: Copyright 2013-2017 Endless Mobile, Inc.
+Copyright: Copyright 2013-2019 Endless Mobile, Inc.
 License: LGPL-2.1+
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
