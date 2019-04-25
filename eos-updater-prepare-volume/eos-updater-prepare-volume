@@ -80,20 +80,30 @@ class VolumePreparer:
             # case libflatpak changes it in future.
             return False
 
-    def _get_collection_id_for_refspec(self, refspec):
-        """Get the collection ID from the commit metadata of the given refspec, or None."""
+    def _get_collection_refs_for_commit(self, rev):
+        """Read the commit metadata and return (collection_id, ref, checksum) tuples, or None."""
         _, repo = self.sysroot.get_repo()
-        _, rev = repo.resolve_rev(refspec, allow_noent=False)
         _, commit, _ = repo.load_commit(rev)
         metadata_dict = GLib.VariantDict.new(commit.get_child_value(0))
+
+        # Use the collection-refs from the commit metadata; the ones configured on
+        # the remote might be different
         collection_binding = metadata_dict.lookup_value(OSTree.COMMIT_META_KEY_COLLECTION_BINDING, GLib.VariantType('s'))
         if collection_binding is None:
             return None
         else:
-            return collection_binding.get_string()
+            collection_id = collection_binding.get_string()
 
-    def _get_os_collection_ref_checksum(self):
-        """Get the collection–ref and checksum 3-tuple for the booted OS, or None."""
+        ref_binding = metadata_dict.lookup_value(OSTree.COMMIT_META_KEY_REF_BINDING, GLib.VariantType('as'))
+        if ref_binding is None:
+            return None
+        else:
+            refs = ref_binding.get_strv()
+
+        return [(collection_id, ref, rev) for ref in refs]
+
+    def _get_os_collection_ref_checksums(self):
+        """Get the set of collection–ref and checksum 3-tuples for the booted OS, or None."""
         deployment = self.sysroot.get_booted_deployment()
         if not deployment:
             if 'EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK' not in \
@@ -109,26 +119,10 @@ class VolumePreparer:
         if not booted_commit:
             return None
 
-        origin = deployment.get_origin()
-        if not origin:
-            return None
-
-        refspec = origin.get_string('origin', 'refspec')
-        if not refspec:
-            return None
-
-        _, remote_name, ref_name = OSTree.parse_refspec(refspec)
-        if not remote_name:
-            return None
-
-        # Use the collection ID from the commit metadata; the one configured on
-        # the remote might be different
-        collection_id = self._get_collection_id_for_refspec(refspec)
-        if not collection_id:
-            return None
-
-        # For example: ('com.endlessm.Os', 'os/eos/amd64/master', '470ab0359...')
-        return (collection_id, ref_name, booted_commit)
+        # The booted commit may have more than one associated ref; copy all of them
+        # For example: [('com.endlessm.Os', 'os/eos/amd64/eos3.5', '470ab0359...'),
+        #               ('com.endlessm.Os', 'os/eos/amd64/eos3a', '470ab0359...')]
+        return self._get_collection_refs_for_commit (booted_commit)
 
     def _get_autoinstall_flatpaks(self):
         """
@@ -182,8 +176,8 @@ class VolumePreparer:
                                'Failed to list autoinstall flatpaks to add to '
                                'the USB drive')
 
-        os_collection_ref = self._get_os_collection_ref_checksum()
-        if not os_collection_ref:
+        os_collection_refs = self._get_os_collection_ref_checksums()
+        if not os_collection_refs:
             return self.__fail(self.EXIT_FAILED,
                                'OSTree deployment ref could not be found; '
                                'are you on an OSTree system?')
@@ -198,9 +192,10 @@ class VolumePreparer:
         # Pass the heavy lifting off to `ostree create-usb` and `flatpak create-usb`
         _, repo = self.sysroot.get_repo()
         repo_path = os.path.realpath(repo.get_path().get_path())
-        self.__run(['ostree', 'create-usb', '--repo', repo_path,
-                    '--commit={}'.format(os_collection_ref[2]),
-                    self.volume_path, os_collection_ref[0], os_collection_ref[1]])
+        for os_collection_ref in os_collection_refs:
+            self.__run(['ostree', 'create-usb', '--repo', repo_path,
+                        '--commit={}'.format(os_collection_ref[2]),
+                        self.volume_path, os_collection_ref[0], os_collection_ref[1]])
         if len(all_flatpak_refs) > 0:
             self.__run(['flatpak', '--system', 'create-usb',
                         self.volume_path] + all_flatpak_refs)
