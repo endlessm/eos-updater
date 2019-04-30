@@ -213,11 +213,11 @@ def main():
                     'used to update other machines offline. The repository '
                     'copy will be put in the .ostree/repo directory on the '
                     'USB drive; other files will not be affected.')
-    parser.add_argument('volume_path', metavar='VOLUME-PATH', type=str,
-                        help='path to the USB drive to prepare')
     parser.add_argument('--quiet', action='store_const', const=True,
                         help='do not print anything; check exit status '
                              'for success')
+    parser.add_argument('volume_path', metavar='VOLUME-PATH', type=str,
+                        help='path to the USB drive to prepare')
     parser.add_argument('flatpak_refs', metavar='REF', nargs='*',
                         help='refs of flatpaks to put on the USB drive '
                              '(e.g. app/com.endlessm.wiki_art.en/x86_64/eos3)')
