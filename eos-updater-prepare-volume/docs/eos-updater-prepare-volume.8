@@ -43,6 +43,11 @@ copied onto a USB drive using this tool.
 .SH OPTIONS
 .IX Header "OPTIONS"
 .\"
+.IP "\fB\-\-preserve\-permissions\fP"
+Don't make \fBvolume-directory\fP world readable (by other user IDs) so it can
+be used on another computer even if it uses a filesystem like ext4 that
+preserves Linux permissions. You generally don't want to use this option.
+.\"
 .IP "\fB\-q\fP, \fB\-\-quiet\fP"
 Do not print informational output.
 .\"
