@@ -46,11 +46,13 @@ class VolumePreparer:
     EXIT_INVALID_ARGUMENTS = 2
     EXIT_RUN_AS_ROOT = 3
 
-    def __init__(self, volume_path, flatpak_refs, quiet=False, debug=False):
+    def __init__(self, volume_path, flatpak_refs, quiet=False, debug=False,
+                 preserve_permissions=False):
         self.volume_path = volume_path
         self.flatpak_refs = flatpak_refs
         self.quiet = quiet
         self.debug = debug
+        self.preserve_permissions = preserve_permissions
 
         self.sysroot = OSTree.Sysroot.new_default()
 
@@ -201,7 +203,8 @@ class VolumePreparer:
                         self.volume_path] + all_flatpak_refs)
         # Ensure that this USB drive can later be read by any user and the
         # .ostree directory can be written to by any user
-        self.__run(['chmod', '755', GLib.build_filenamev([self.volume_path])])
+        if not self.preserve_permissions:
+            self.__run(['chmod', '755', GLib.build_filenamev([self.volume_path])])
         self.__run(['chmod', '-R', '777', GLib.build_filenamev([self.volume_path, '.ostree'])])
 
 
@@ -213,11 +216,15 @@ def main():
                     'used to update other machines offline. The repository '
                     'copy will be put in the .ostree/repo directory on the '
                     'USB drive; other files will not be affected.')
-    parser.add_argument('volume_path', metavar='VOLUME-PATH', type=str,
-                        help='path to the USB drive to prepare')
     parser.add_argument('--quiet', action='store_const', const=True,
                         help='do not print anything; check exit status '
                              'for success')
+    parser.add_argument('--preserve-permissions', dest='preserve_permissions',
+                        action='store_const', const=True,
+                        help='don’t make the drive world readable (by '
+                             'other user IDs)')
+    parser.add_argument('volume_path', metavar='VOLUME-PATH', type=str,
+                        help='path to the USB drive to prepare')
     parser.add_argument('flatpak_refs', metavar='REF', nargs='*',
                         help='refs of flatpaks to put on the USB drive '
                              '(e.g. app/com.endlessm.wiki_art.en/x86_64/eos3)')
