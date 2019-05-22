@@ -3002,6 +3002,9 @@ eos_test_client_prepare_volume (EosTestClient *client,
       { "GI_TYPELIB_PATH", libeos_updater_util_path, NULL },
       { "LD_LIBRARY_PATH", new_ld_library_path, NULL },
       { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
+      /* Flatpak uses $XDG_CACHE_HOME and we need to set it explicitly since
+       * we're using G_TEST_OPTION_ISOLATE_DIRS */
+      { "XDG_CACHE_HOME", g_get_user_cache_dir (), NULL },
       { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
