@@ -3002,9 +3002,7 @@ eos_test_client_prepare_volume (EosTestClient *client,
       { "GI_TYPELIB_PATH", libeos_updater_util_path, NULL },
       { "LD_LIBRARY_PATH", new_ld_library_path, NULL },
       { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
-      /* FIXME: Add back G_DEBUG=fatal-warnings after we can rely on
-       * https://gitlab.gnome.org/GNOME/pygobject/commit/806c5059f989ed1b8bc62e6aa1ef55123ac110de */
-      { "G_DEBUG", "gc-friendly", NULL },
+      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
       { NULL, NULL, NULL }
     };
   g_autofree gchar *raw_volume_path = g_file_get_path (volume_path);
