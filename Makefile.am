@@ -631,6 +631,14 @@ test_common_libeos_updater_test_common_la_SOURCES = \
 	test-common/utils.h \
 	$(NULL)
 
+tests_services_in = \
+	tests/services/org.freedesktop.Flatpak.SystemHelper.service.in \
+	$(NULL)
+
+systemdsystemunit_DATA += $(tests_services_in:%.in=%)
+EXTRA_DIST += $(tests_services_in)
+CLEANFILES += $(tests_services_in:%.in=%)
+
 # Generic systemd rules
 edit = sed \
 	-e 's|[@]bindir[@]|$(bindir)|g' \
@@ -644,6 +652,7 @@ edit = sed \
 	$(NULL)
 
 %.service: %.service.in Makefile
+	mkdir -p `dirname $@`
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@
 %.socket: %.socket.in Makefile
 	$(AM_V_GEN)$(edit) $< > $@.tmp && mv $@.tmp $@

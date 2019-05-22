@@ -54,8 +54,11 @@ eos_updater_fixture_setup_full (EosUpdaterFixture *fixture,
   g_autoptr(GError) error = NULL;
   g_autofree gchar *tmpdir_path = NULL;
   g_autofree gchar *source_gpg_home_path = NULL;
+  g_autofree char *services_dir = NULL;
 
   fixture->dbus = g_test_dbus_new (G_TEST_DBUS_NONE);
+  services_dir = g_test_build_filename (G_TEST_BUILT, "services", NULL);
+  g_test_dbus_add_service_dir (fixture->dbus, services_dir);
   g_test_dbus_up (fixture->dbus);
 
   tmpdir_path = g_dir_make_tmp ("eos-updater-test-XXXXXX", &error);

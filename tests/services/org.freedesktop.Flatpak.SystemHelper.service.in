@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=org.freedesktop.Flatpak.SystemHelper
+Exec=@libexecdir@/flatpak-system-helper --session --no-idle-exit
+SystemdService=flatpak-system-helper.service
+User=root
