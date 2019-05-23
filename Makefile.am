@@ -27,6 +27,7 @@ sysconfexampledir = $(pkgdatadir)
 bin_PROGRAMS =
 libexec_PROGRAMS =
 noinst_LTLIBRARIES =
+noinst_DATA =
 lib_LTLIBRARIES =
 systemdsystemunit_DATA =
 dist_dbusconf_DATA =
@@ -635,7 +636,7 @@ tests_services_in = \
 	tests/services/org.freedesktop.Flatpak.SystemHelper.service.in \
 	$(NULL)
 
-systemdsystemunit_DATA += $(tests_services_in:%.in=%)
+noinst_DATA += $(tests_services_in:%.in=%)
 EXTRA_DIST += $(tests_services_in)
 CLEANFILES += $(tests_services_in:%.in=%)
 
