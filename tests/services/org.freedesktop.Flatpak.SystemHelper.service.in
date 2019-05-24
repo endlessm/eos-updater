@@ -1,0 +1,6 @@
+[D-BUS Service]
+Name=org.freedesktop.Flatpak.SystemHelper
+# The --session is there so this can be started on the mock session bus
+Exec=@libexecdir@/flatpak-system-helper --session --no-idle-exit
+SystemdService=flatpak-system-helper.service
+User=root
