@@ -1820,18 +1820,25 @@ fetch_runtime_ref_for_source_ref (FlatpakInstallation *installation,
 
   if (bytes == NULL)
     {
-      /* G_IO_ERROR_NOT_FOUND here means that either the remote did not have
-       * a summary cache or that the source ref was not found in the
-       * summary cache. In either case, we just treat that as a non-fatal
-       * error and continue. */
+      g_autofree gchar *formatted_source_ref = flatpak_ref_format_ref (source_ref);
+
+      /* Treat some innocuous errors as non-fatal and continue. */
       if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
-          g_autofree gchar *formatted_source_ref = flatpak_ref_format_ref (source_ref);
-          g_warning ("Remote %s did not have a summary cache "
-                     "or %s was not found in it, assuming that "
+          g_warning ("Remote %s did not have a summary cache, assuming that "
                      "%s does not have a runtime",
                      source_ref_remote_name,
+                     formatted_source_ref);
+
+          *out_runtime_ref = NULL;
+          return TRUE;
+        }
+      else if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_REF_NOT_FOUND))
+        {
+          g_warning ("Ref %s was not found in remote %s, assuming that "
+                     "%s does not have a runtime",
                      formatted_source_ref,
+                     source_ref_remote_name,
                      formatted_source_ref);
 
           *out_runtime_ref = NULL;
