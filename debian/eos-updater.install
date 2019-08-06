@@ -6,7 +6,7 @@ lib/systemd/system/eos-updater-flatpak-installer.service
 lib/systemd/system/eos-updater.service
 lib/systemd/system/eos-update-server.service
 lib/systemd/system/eos-update-server.socket
-usr/bin/eos-updater
+usr/libexec/eos-updater
 usr/libexec/eos-autoupdater
 usr/libexec/eos-updater-avahi
 usr/libexec/eos-updater-flatpak-installer
