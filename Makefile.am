@@ -221,7 +221,7 @@ eos_updater_libeos_updater_dbus_la_SOURCES = \
 	$(NULL)
 nodist_eos_updater_libeos_updater_dbus_la_SOURCES = $(eos_updater_codegen_sources)
 
-bin_PROGRAMS += eos-updater/eos-updater
+libexec_PROGRAMS += eos-updater/eos-updater
 
 eos_updater_eos_updater_CPPFLAGS = \
 	$(AM_CPPFLAGS) \

@@ -4,7 +4,7 @@ Documentation=man:eos-updater(8)
 After=network.target
 
 [Service]
-ExecStart=@bindir@/eos-updater
+ExecStart=@libexecdir@/eos-updater
 Type=dbus
 BusName=com.endlessm.Updater
 IOSchedulingClass=idle
