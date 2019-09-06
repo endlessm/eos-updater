@@ -1,14 +1,15 @@
 [Unit]
-Description=Endless OS Automatic Update Timer
+Description=Endless OS Automatic Update Timer (PAYG)
 Documentation=man:eos-autoupdater(8)
 ConditionKernelCommandLine=!endless.live_boot
 ConditionKernelCommandLine=ostree
-ConditionKernelCommandLine=!eospayg
+ConditionKernelCommandLine=eospayg
 
 [Timer]
-OnBootSec=15m
+OnBootSec=0m
 OnUnitInactiveSec=1h
 RandomizedDelaySec=30min
+Unit=eos-autoupdater.service
 
 [Install]
 WantedBy=multi-user.target

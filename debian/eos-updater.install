@@ -1,5 +1,6 @@
 lib/systemd/system/eos-autoupdater.service
 lib/systemd/system/eos-autoupdater.timer
+lib/systemd/system/eos-autoupdater-payg.timer
 lib/systemd/system/eos-updater-avahi.path
 lib/systemd/system/eos-updater-avahi.service
 lib/systemd/system/eos-updater-flatpak-installer.service

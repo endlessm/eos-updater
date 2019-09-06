@@ -166,6 +166,7 @@ nodist_eos_autoupdater_eos_autoupdater_SOURCES = \
 eos_autoupdater_in = \
 	eos-autoupdater/eos-autoupdater.service.in \
 	eos-autoupdater/eos-autoupdater.timer.in \
+	eos-autoupdater/eos-autoupdater-payg.timer.in \
 	$(NULL)
 
 systemdsystemunit_DATA += $(eos_autoupdater_in:%.in=%)
