@@ -710,35 +710,25 @@ invert_outvalue (gboolean *out_value)
   return TRUE;
 }
 
-static GStrv
-eos_updater_override_locales_list (void)
-{
-  const gchar *override_locales = eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_OVERRIDE_LOCALES", NULL);
-
-  if (override_locales != NULL)
-    return g_strsplit (override_locales, ";", -1);
-
-  /* Return an empty GStrv. */
-  return g_new0 (gchar*, 1);
-}
-
+/* An empty array returned in @out_strv means that all languages should be used. */
 static gboolean
 get_locales_list_from_flatpak_installation (GStrv  *out_strv,
                                             GError **error)
 {
   g_autoptr(FlatpakInstallation) installation = eos_updater_get_flatpak_installation (NULL, error);
+  const gchar *override_locales = eos_updater_get_envvar_or ("EOS_UPDATER_TEST_UPDATER_OVERRIDE_LOCALES", NULL);
+
   g_assert (out_strv != NULL);
 
   if (installation == NULL)
     return FALSE;
 
-  /* TODO: Right now this returns only the testing override or NULL,
-   * but we might want to do something a little more clever based on what is
-   * supported by Flatpak in future, see
-   * https://github.com/flatpak/flatpak/issues/1156 */
-  *out_strv = eos_updater_override_locales_list ();
+  if (override_locales != NULL)
+    *out_strv = g_strsplit (override_locales, ";", -1);
+  else
+    *out_strv = flatpak_installation_get_default_languages (installation, error);
 
-  return TRUE;
+  return (*out_strv != NULL);
 }
 
 /* Calculate whether this entry (@object) is filtered out of the list by the
