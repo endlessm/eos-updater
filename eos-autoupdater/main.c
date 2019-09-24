@@ -206,8 +206,9 @@ update_stamp_file (guint64 last_successful_update_secs,
   g_autofree gchar *stamp_path = NULL;
   g_autoptr(GFile) stamp_file = NULL;
   g_autoptr(GError) error = NULL;
-  GTimeVal mtime;
+  guint64 mtime;
   g_autofree gchar *next_update = NULL;
+  g_autoptr(GDateTime) mtime_dt = NULL;
   g_autoptr(GFileInfo) file_info = NULL;
 
   if (g_mkdir_with_parents (stamp_dir, 0755) != 0) {
@@ -220,10 +221,7 @@ update_stamp_file (guint64 last_successful_update_secs,
     return;
   }
 
-  /* This will be subject to year 2038 problems on 32-bit architectures.
-   * FIXME: Fix that by dropping use of #GTimeVal. */
-  mtime.tv_sec = (glong) last_successful_update_secs;
-  mtime.tv_usec = 0;
+  mtime = last_successful_update_secs;
 
   stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
   stamp_file = g_file_new_for_path (stamp_path);
@@ -254,10 +252,11 @@ update_stamp_file (guint64 last_successful_update_secs,
   if (randomized_delay_days > 0)
     {
       gint32 actual_delay_days = g_random_int_range (0, (gint32) randomized_delay_days + 1);
-      mtime.tv_sec += (glong) actual_delay_days * (glong) SEC_PER_DAY;
+      mtime += (guint64) actual_delay_days * (guint64) SEC_PER_DAY;
     }
 
-  g_file_info_set_modification_time (file_info, &mtime);
+  g_file_info_set_attribute_uint64 (file_info, G_FILE_ATTRIBUTE_TIME_MODIFIED, mtime);
+  g_file_info_set_attribute_uint32 (file_info, G_FILE_ATTRIBUTE_TIME_MODIFIED_USEC, 0);
 
   g_file_set_attributes_from_info (stamp_file, file_info,
                                    G_FILE_QUERY_INFO_NONE, NULL, &error);
@@ -270,8 +269,9 @@ update_stamp_file (guint64 last_successful_update_secs,
     }
 
   /* A little bit of help for debuggers. */
-  mtime.tv_sec += (glong) update_interval_days * (glong) SEC_PER_DAY;
-  next_update = g_time_val_to_iso8601 (&mtime);
+  mtime += (guint64) update_interval_days * (guint64) SEC_PER_DAY;
+  mtime_dt = g_date_time_new_from_unix_utc ((gint64) mtime);
+  next_update = g_date_time_format_iso8601 (mtime_dt);
   g_debug ("Wrote stamp file. Next update at %s", next_update);
 }
 
