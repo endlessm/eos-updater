@@ -20,7 +20,7 @@ installed_testdir = $(libexecdir)/installed-tests/eos-updater-@EU_API_VERSION@
 installed_test_metadir = $(datadir)/installed-tests/eos-updater-@EU_API_VERSION@
 
 @VALGRIND_CHECK_RULES@
-@CODE_COVERAGE_RULES@
+include $(top_srcdir)/aminclude_static.am
 CODE_COVERAGE_IGNORE_PATTERN = \
 	eos-updater/dbus.c \
 	"*-autocleanups.h" \
