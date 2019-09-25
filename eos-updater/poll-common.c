@@ -174,42 +174,75 @@ is_checksum_an_update (OstreeRepo *repo,
   return TRUE;
 }
 
-static void
-eos_metrics_info_finalize_impl (EosMetricsInfo *info)
-{
-  g_free (info->vendor);
-  g_free (info->product);
-  g_free (info->ref);
-}
-
-EOS_DEFINE_REFCOUNTED (EOS_METRICS_INFO,
-                       EosMetricsInfo,
-                       eos_metrics_info,
-                       NULL,
-                       eos_metrics_info_finalize_impl)
+G_DEFINE_TYPE (EosMetricsInfo, eos_metrics_info, G_TYPE_OBJECT)
 
 static void
-eos_update_info_dispose_impl (EosUpdateInfo *info)
+eos_metrics_info_finalize (GObject *object)
 {
-  g_clear_pointer (&info->commit, g_variant_unref);
+  EosMetricsInfo *self = EOS_METRICS_INFO (object);
+
+  g_free (self->vendor);
+  g_free (self->product);
+  g_free (self->ref);
+
+  G_OBJECT_CLASS (eos_metrics_info_parent_class)->finalize (object);
 }
 
 static void
-eos_update_info_finalize_impl (EosUpdateInfo *info)
+eos_metrics_info_class_init (EosMetricsInfoClass *self_class)
 {
-  g_free (info->checksum);
-  g_free (info->new_refspec);
-  g_free (info->old_refspec);
-  g_free (info->version);
-  g_strfreev (info->urls);
-  g_clear_pointer (&info->results, ostree_repo_finder_result_freev);
+  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+
+  object_class->finalize = eos_metrics_info_finalize;
 }
 
-EOS_DEFINE_REFCOUNTED (EOS_UPDATE_INFO,
-                       EosUpdateInfo,
-                       eos_update_info,
-                       eos_update_info_dispose_impl,
-                       eos_update_info_finalize_impl)
+static void
+eos_metrics_info_init (EosMetricsInfo *self)
+{
+  /* nothing here */
+}
+
+G_DEFINE_TYPE (EosUpdateInfo, eos_update_info, G_TYPE_OBJECT)
+
+static void
+eos_update_info_dispose (GObject *object)
+{
+  EosUpdateInfo *self = EOS_UPDATE_INFO (object);
+
+  g_clear_pointer (&self->commit, g_variant_unref);
+
+  G_OBJECT_CLASS (eos_update_info_parent_class)->dispose (object);
+}
+
+static void
+eos_update_info_finalize (GObject *object)
+{
+  EosUpdateInfo *self = EOS_UPDATE_INFO (object);
+
+  g_free (self->checksum);
+  g_free (self->new_refspec);
+  g_free (self->old_refspec);
+  g_free (self->version);
+  g_strfreev (self->urls);
+  g_clear_pointer (&self->results, ostree_repo_finder_result_freev);
+
+  G_OBJECT_CLASS (eos_update_info_parent_class)->finalize (object);
+}
+
+static void
+eos_update_info_class_init (EosUpdateInfoClass *self_class)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+
+  object_class->dispose = eos_update_info_dispose;
+  object_class->finalize = eos_update_info_finalize;
+}
+
+static void
+eos_update_info_init (EosUpdateInfo *self)
+{
+  /* nothing here */
+}
 
 /* Steals @results. */
 EosUpdateInfo *

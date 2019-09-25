@@ -42,7 +42,7 @@ LDADD = \
 	$(NULL)
 
 @VALGRIND_CHECK_RULES@
-@CODE_COVERAGE_RULES@
+include $(top_srcdir)/aminclude_static.am
 CODE_COVERAGE_DIRECTORY = $(top_builddir)/libeos-updater-flatpak-installer
 CODE_COVERAGE_IGNORE_PATTERN = \
 	"*-autocleanups.h" \

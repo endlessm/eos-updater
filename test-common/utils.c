@@ -99,32 +99,51 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
   g_object_unref (fixture->dbus);
 }
 
+G_DEFINE_TYPE (EosTestSubserver, eos_test_subserver, G_TYPE_OBJECT)
+
 static void
-eos_test_subserver_dispose_impl (EosTestSubserver *subserver)
+eos_test_subserver_dispose (GObject *object)
 {
-  g_clear_pointer (&subserver->commit_graph, g_hash_table_unref);
-  g_clear_pointer (&subserver->additional_files_for_commit, g_hash_table_unref);
-  g_clear_pointer (&subserver->additional_directories_for_commit, g_hash_table_unref);
-  g_clear_pointer (&subserver->additional_metadata_for_commit, g_hash_table_unref);
-  g_clear_object (&subserver->repo);
-  g_clear_object (&subserver->tree);
-  g_clear_object (&subserver->gpg_home);
+  EosTestSubserver *self = EOS_TEST_SUBSERVER (object);
+
+  g_clear_pointer (&self->commit_graph, g_hash_table_unref);
+  g_clear_pointer (&self->additional_files_for_commit, g_hash_table_unref);
+  g_clear_pointer (&self->additional_directories_for_commit, g_hash_table_unref);
+  g_clear_pointer (&self->additional_metadata_for_commit, g_hash_table_unref);
+  g_clear_object (&self->repo);
+  g_clear_object (&self->tree);
+  g_clear_object (&self->gpg_home);
+
+  G_OBJECT_CLASS (eos_test_subserver_parent_class)->dispose (object);
 }
 
 static void
-eos_test_subserver_finalize_impl (EosTestSubserver *subserver)
+eos_test_subserver_finalize (GObject *object)
 {
-  g_free (subserver->collection_id);
-  g_free (subserver->keyid);
-  g_free (subserver->ostree_path);
-  g_free (subserver->url);
+  EosTestSubserver *self = EOS_TEST_SUBSERVER (object);
+
+  g_free (self->collection_id);
+  g_free (self->keyid);
+  g_free (self->ostree_path);
+  g_free (self->url);
+
+  G_OBJECT_CLASS (eos_test_subserver_parent_class)->finalize (object);
 }
 
-EOS_DEFINE_REFCOUNTED (EOS_TEST_SUBSERVER,
-                       EosTestSubserver,
-                       eos_test_subserver,
-                       eos_test_subserver_dispose_impl,
-                       eos_test_subserver_finalize_impl)
+static void
+eos_test_subserver_class_init (EosTestSubserverClass *self_class)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+
+  object_class->dispose = eos_test_subserver_dispose;
+  object_class->finalize = eos_test_subserver_finalize;
+}
+
+static void
+eos_test_subserver_init (EosTestSubserver *self)
+{
+  /* nothing here */
+}
 
 EosTestSubserver *
 eos_test_subserver_new (const gchar *collection_id,
@@ -1000,19 +1019,6 @@ eos_test_subserver_update (EosTestSubserver *subserver,
   return update_commits (subserver, error);
 }
 
-static void
-eos_test_server_dispose_impl (EosTestServer *server)
-{
-  g_clear_object (&server->root);
-  g_clear_pointer (&server->subservers, g_ptr_array_unref);
-}
-
-static void
-eos_test_server_finalize_impl (EosTestServer *server)
-{
-  g_free (server->url);
-}
-
 /**
  * EosTestServer:
  *
@@ -1021,11 +1027,43 @@ eos_test_server_finalize_impl (EosTestServer *server)
  * the `main` directory of a given httpd root, or from ostree paths below the
  * root.
  */
-EOS_DEFINE_REFCOUNTED (EOS_TEST_SERVER,
-                       EosTestServer,
-                       eos_test_server,
-                       eos_test_server_dispose_impl,
-                       eos_test_server_finalize_impl)
+G_DEFINE_TYPE (EosTestServer, eos_test_server, G_TYPE_OBJECT)
+
+static void
+eos_test_server_dispose (GObject *object)
+{
+  EosTestServer *self = EOS_TEST_SERVER (object);
+
+  g_clear_object (&self->root);
+  g_clear_pointer (&self->subservers, g_ptr_array_unref);
+
+  G_OBJECT_CLASS (eos_test_server_parent_class)->dispose (object);
+}
+
+static void
+eos_test_server_finalize (GObject *object)
+{
+  EosTestServer *self = EOS_TEST_SERVER (object);
+
+  g_free (self->url);
+
+  G_OBJECT_CLASS (eos_test_server_parent_class)->finalize (object);
+}
+
+static void
+eos_test_server_class_init (EosTestServerClass *self_class)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+
+  object_class->dispose = eos_test_server_dispose;
+  object_class->finalize = eos_test_server_finalize;
+}
+
+static void
+eos_test_server_init (EosTestServer *self)
+{
+  /* nothing here */
+}
 
 static gboolean
 run_httpd (GFile *served_root,
@@ -1188,21 +1226,6 @@ eos_test_server_new_quick (GFile *server_root,
                               error);
 }
 
-static void
-eos_test_client_dispose_impl (EosTestClient *client)
-{
-  g_clear_object (&client->root);
-}
-
-static void
-eos_test_client_finalize_impl (EosTestClient *client)
-{
-  g_free (client->vendor);
-  g_free (client->product);
-  g_free (client->remote_name);
-  g_free (client->ostree_path);
-}
-
 /**
  * EosTestClient:
  *
@@ -1213,11 +1236,45 @@ eos_test_client_finalize_impl (EosTestClient *client)
  * The client sets up a sysroot which is an ostree pull and deploy of the
  * content from the given ref on the subserver.
  */
-EOS_DEFINE_REFCOUNTED (EOS_TEST_CLIENT,
-                       EosTestClient,
-                       eos_test_client,
-                       eos_test_client_dispose_impl,
-                       eos_test_client_finalize_impl)
+G_DEFINE_TYPE (EosTestClient, eos_test_client, G_TYPE_OBJECT)
+
+static void
+eos_test_client_dispose (GObject *object)
+{
+  EosTestClient *self = EOS_TEST_CLIENT (object);
+
+  g_clear_object (&self->root);
+
+  G_OBJECT_CLASS (eos_test_client_parent_class)->dispose (object);
+}
+
+static void
+eos_test_client_finalize (GObject *object)
+{
+  EosTestClient *self = EOS_TEST_CLIENT (object);
+
+  g_free (self->vendor);
+  g_free (self->product);
+  g_free (self->remote_name);
+  g_free (self->ostree_path);
+
+  G_OBJECT_CLASS (eos_test_client_parent_class)->finalize (object);
+}
+
+static void
+eos_test_client_class_init (EosTestClientClass *self_class)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+
+  object_class->dispose = eos_test_client_dispose;
+  object_class->finalize = eos_test_client_finalize;
+}
+
+static void
+eos_test_client_init (EosTestClient *self)
+{
+  /* nothing here */
+}
 
 static GFile *get_sysroot_for_client (GFile *client_root)
 {
@@ -3082,23 +3139,42 @@ eos_test_client_get_big_file_path (void)
   return "/for-all-commits/bigfile";
 }
 
+G_DEFINE_TYPE (EosTestAutoupdater, eos_test_autoupdater, G_TYPE_OBJECT)
+
 static void
-eos_test_autoupdater_dispose_impl (EosTestAutoupdater *autoupdater)
+eos_test_autoupdater_dispose (GObject *object)
 {
-  g_clear_object (&autoupdater->root);
+  EosTestAutoupdater *self = EOS_TEST_AUTOUPDATER (object);
+
+  g_clear_object (&self->root);
+
+  G_OBJECT_CLASS (eos_test_autoupdater_parent_class)->dispose (object);
 }
 
 static void
-eos_test_autoupdater_finalize_impl (EosTestAutoupdater *autoupdater)
+eos_test_autoupdater_finalize (GObject *object)
 {
-  cmd_result_free (autoupdater->cmd);
+  EosTestAutoupdater *self = EOS_TEST_AUTOUPDATER (object);
+
+  cmd_result_free (self->cmd);
+
+  G_OBJECT_CLASS (eos_test_autoupdater_parent_class)->finalize (object);
 }
 
-EOS_DEFINE_REFCOUNTED (EOS_TEST_AUTOUPDATER,
-                       EosTestAutoupdater,
-                       eos_test_autoupdater,
-                       eos_test_autoupdater_dispose_impl,
-                       eos_test_autoupdater_finalize_impl)
+static void
+eos_test_autoupdater_class_init (EosTestAutoupdaterClass *self_class)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+
+  object_class->dispose = eos_test_autoupdater_dispose;
+  object_class->finalize = eos_test_autoupdater_finalize;
+}
+
+static void
+eos_test_autoupdater_init (EosTestAutoupdater *self)
+{
+  /* nothing here */
+}
 
 static GKeyFile *
 get_autoupdater_config (UpdateStep step,

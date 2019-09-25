@@ -20,7 +20,7 @@ Build-Depends:
  libavahi-glib-dev (>= 0.6.31),
  libflatpak-dev (>= 0.11.6),
  libgirepository1.0-dev (>= 1.30.0),
- libglib2.0-dev (>= 2.60.0),
+ libglib2.0-dev (>= 2.62.0),
  libgsystem-dev,
  libjson-glib-dev (>= 1.2.6-1endless2),
  libmogwai-schedule-client-0-dev,

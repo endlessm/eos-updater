@@ -24,8 +24,6 @@
 
 #pragma once
 
-#include <libeos-updater-util/refcounted.h>
-
 #include <glib.h>
 #include <glib-object.h>
 #include <gio/gio.h>

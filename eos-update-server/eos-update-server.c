@@ -26,7 +26,6 @@
 #include <libeos-update-server/repo.h>
 #include <libeos-update-server/server.h>
 #include <libeos-updater-util/config.h>
-#include <libeos-updater-util/refcounted.h>
 #include <libeos-updater-util/util.h>
 
 #include <ostree.h>
