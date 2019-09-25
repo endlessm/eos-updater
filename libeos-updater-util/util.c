@@ -106,20 +106,34 @@ quit_clear_source (EuuQuitFile *quit_file)
     g_source_remove (id);
 }
 
+G_DEFINE_TYPE (EuuQuitFile, euu_quit_file, G_TYPE_OBJECT)
+
 static void
-euu_quit_file_dispose_impl (EuuQuitFile *quit_file)
+euu_quit_file_dispose (GObject *object)
 {
-  quit_clear_user_data (quit_file);
-  quit_clear_source (quit_file);
-  quit_disconnect_monitor (quit_file);
-  g_clear_object (&quit_file->monitor);
+  EuuQuitFile *self = EUU_QUIT_FILE (object);
+
+  quit_clear_user_data (self);
+  quit_clear_source (self);
+  quit_disconnect_monitor (self);
+  g_clear_object (&self->monitor);
+
+  G_OBJECT_CLASS (euu_quit_file_parent_class)->dispose (object);
 }
 
-EOS_DEFINE_REFCOUNTED (EUU_QUIT_FILE,
-                       EuuQuitFile,
-                       euu_quit_file,
-                       euu_quit_file_dispose_impl,
-                       NULL)
+static void
+euu_quit_file_class_init (EuuQuitFileClass *self_class)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+
+  object_class->dispose = euu_quit_file_dispose;
+}
+
+static void
+euu_quit_file_init (EuuQuitFile *self)
+{
+  /* nothing here */
+}
 
 static gboolean
 quit_file_source_func (gpointer quit_file_ptr)

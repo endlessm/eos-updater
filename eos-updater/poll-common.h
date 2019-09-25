@@ -25,7 +25,6 @@
 #include <eos-updater/data.h>
 #include <glib.h>
 #include <gio/gio.h>
-#include <libeos-updater-util/refcounted.h>
 #include <ostree.h>
 
 G_BEGIN_DECLS

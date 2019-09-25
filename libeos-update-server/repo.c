@@ -435,24 +435,43 @@ eos_filez_read_data_disconnect_and_clear_msg (EosFilezReadData *read_data)
   g_clear_object (&read_data->server_repo);
 }
 
+G_DEFINE_TYPE (EosFilezReadData, eos_filez_read_data, G_TYPE_OBJECT)
+
 static void
-eos_filez_read_data_dispose_impl (EosFilezReadData *read_data)
+eos_filez_read_data_dispose (GObject *object)
 {
-  eos_filez_read_data_disconnect_and_clear_msg (read_data);
+  EosFilezReadData *self = EOS_FILEZ_READ_DATA (object);
+
+  eos_filez_read_data_disconnect_and_clear_msg (self);
+
+  G_OBJECT_CLASS (eos_filez_read_data_parent_class)->dispose (object);
 }
 
 static void
-eos_filez_read_data_finalize_impl (EosFilezReadData *read_data)
+eos_filez_read_data_finalize (GObject *object)
 {
-  g_free (read_data->buffer);
-  g_free (read_data->filez_path);
+  EosFilezReadData *self = EOS_FILEZ_READ_DATA (object);
+
+  g_free (self->buffer);
+  g_free (self->filez_path);
+
+  G_OBJECT_CLASS (eos_filez_read_data_parent_class)->finalize (object);
 }
 
-EOS_DEFINE_REFCOUNTED (EOS_FILEZ_READ_DATA,
-                       EosFilezReadData,
-                       eos_filez_read_data,
-                       eos_filez_read_data_dispose_impl,
-                       eos_filez_read_data_finalize_impl)
+static void
+eos_filez_read_data_class_init (EosFilezReadDataClass *self_class)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+
+  object_class->dispose = eos_filez_read_data_dispose;
+  object_class->finalize = eos_filez_read_data_finalize;
+}
+
+static void
+eos_filez_read_data_init (EosFilezReadData *self)
+{
+  /* nothing here */
+}
 
 static void
 filez_read_data_finished_cb (SoupMessage *msg,

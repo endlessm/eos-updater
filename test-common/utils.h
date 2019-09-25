@@ -23,7 +23,6 @@
 #pragma once
 
 #include <gio/gio.h>
-#include <libeos-updater-util/refcounted.h>
 #include <ostree.h>
 
 #include "spawn-utils.h"
