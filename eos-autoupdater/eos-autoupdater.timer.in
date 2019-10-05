@@ -5,7 +5,9 @@ ConditionKernelCommandLine=!endless.live_boot
 ConditionKernelCommandLine=ostree
 
 [Timer]
-OnBootSec=15m
+# After 3 minutes the network connection has likely been set up, but we don't
+# have a hard requirement; offline updates need to work too
+OnActiveSec=3m
 OnUnitInactiveSec=1h
 RandomizedDelaySec=30min
 
