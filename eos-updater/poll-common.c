@@ -1237,6 +1237,7 @@ metadata_fetch_finished (GObject *object,
       eos_updater_set_update_label (updater, label ? label : "");
       eos_updater_set_update_message (updater, message ? message : "");
 
+#ifdef HAVE_OSTREE_REPO_GET_COMMIT_SIZES
       if (ostree_repo_get_commit_sizes (repo, info->checksum,
                                         &new_archived, &new_unpacked,
                                         NULL,
@@ -1252,6 +1253,7 @@ metadata_fetch_finished (GObject *object,
           eos_updater_set_downloaded_bytes (updater, 0);
         }
       else /* no size data available (may or may not be an error) */
+#endif
         {
           eos_updater_set_full_download_size (updater, -1);
           eos_updater_set_full_unpacked_size (updater, -1);

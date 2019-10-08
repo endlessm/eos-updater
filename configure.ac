@@ -97,6 +97,11 @@ PKG_CHECK_MODULES([JSON_GLIB],
 PKG_CHECK_MODULES([OSTREE],
                   [ostree-1 >= $OSTREE_REQUIRED_VERSION])
 
+ac_save_LIBS=$LIBS
+LIBS="$ac_save_LIBS $OSTREE_LIBS"
+AC_CHECK_FUNCS([ostree_repo_get_commit_sizes])
+LIBS=$ac_save_LIBS
+
 PKG_CHECK_MODULES([SOUP],
                   [libsoup-2.4])
 
