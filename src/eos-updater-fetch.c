@@ -670,6 +670,7 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
   g_autofree gchar *formatted_flatpak_ref_actions_this_commit_wants = NULL;
   g_autofree gchar *formatted_relevant_flatpak_ref_actions = NULL;
   g_autofree gchar *formatted_flatpak_ref_actions_progress = NULL;
+  g_autofree gchar *formatted_flatpak_ref_actions_with_deps = NULL;
 
   flatpak_ref_actions_this_commit_wants =
       euu_flatpak_ref_actions_from_ostree_commit (repo,
@@ -738,6 +739,11 @@ prepare_flatpaks_to_deploy (OstreeRepo    *repo,
 
   if (flatpaks_to_deploy_with_dependencies == NULL)
     return FALSE;
+
+  formatted_flatpak_ref_actions_with_deps =
+    euu_format_flatpak_ref_actions_array ("Flatpak ref actions needed including dependencies",
+                                          flatpaks_to_deploy_with_dependencies);
+  g_message ("%s", formatted_flatpak_ref_actions_with_deps);
 
   return pull_flatpaks (installation,
                         flatpaks_to_deploy_with_dependencies,
