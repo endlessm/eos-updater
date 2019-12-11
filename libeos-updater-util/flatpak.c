@@ -1330,6 +1330,16 @@ euu_flatpak_ref_equal (gconstpointer a,
           g_strcmp0 (flatpak_ref_get_branch (a_ref), flatpak_ref_get_branch (b_ref)) == 0);
 }
 
+/* A GEqualFunc which only looks at the ref, not the action type etc. */
+static gboolean
+euu_flatpak_remote_ref_action_equal_ref_only (gconstpointer a,
+                                              gconstpointer b)
+{
+  EuuFlatpakRemoteRefAction *a_action = (EuuFlatpakRemoteRefAction *)a;
+  EuuFlatpakRemoteRefAction *b_action = (EuuFlatpakRemoteRefAction *)b;
+  return euu_flatpak_ref_equal (a_action->ref->ref, b_action->ref->ref);
+}
+
 /* Squash actions on the same ref into the last action on that ref, returning
  * a pointer array of remote ref actions, ordered by the order key in each
  * remote ref action. */
@@ -1342,9 +1352,6 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions  /* (element-type EuuFlatpa
                                                             (GDestroyNotify) euu_flatpak_remote_ref_action_unref);
   g_autoptr(GPtrArray) squashed_ref_actions = NULL;
   gsize i;
-  gpointer key;
-  gpointer value;
-  GHashTableIter hash_iter;
 
   for (i = 0; i < ref_actions->len; ++i)
     {
@@ -1378,11 +1385,37 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions  /* (element-type EuuFlatpa
 
   squashed_ref_actions = g_ptr_array_new_full (g_hash_table_size (hash_table),
                                                (GDestroyNotify) euu_flatpak_remote_ref_action_unref);
-  g_hash_table_iter_init (&hash_iter, hash_table);
 
-  while (g_hash_table_iter_next (&hash_iter, &key, &value))
-    g_ptr_array_add (squashed_ref_actions,
-                     euu_flatpak_remote_ref_action_ref (value));
+  /* Now iterate over the original array so we maintain its order while adding
+   * to the squashed array
+   */
+  for (i = 0; i < ref_actions->len; ++i)
+    {
+      EuuFlatpakRemoteRefAction *action = g_ptr_array_index (ref_actions, i);
+      EuuFlatpakRemoteRefAction *squashed_action_for_ref = NULL;
+
+      squashed_action_for_ref = g_hash_table_lookup (hash_table, action->ref->ref);
+      g_assert (squashed_action_for_ref != NULL);
+
+      /* Check that the action matches so that e.g.
+       * [ install A, install B, uninstall A ] gets squashed into
+       * [ install B, uninstall A ] not [ uninstall A, install B ]
+       */
+      if (squashed_action_for_ref != action)
+        continue;
+
+      /* Ensure we're not adding a duplicate in case the input array has
+       * multiple actions of the same type on the same ref
+       */
+      if (g_ptr_array_find_with_equal_func (squashed_ref_actions,
+                                            action,
+                                            euu_flatpak_remote_ref_action_equal_ref_only,
+                                            NULL))
+        continue;
+
+      g_ptr_array_add (squashed_ref_actions,
+                       euu_flatpak_remote_ref_action_ref (squashed_action_for_ref));
+    }
 
   g_ptr_array_sort (squashed_ref_actions, sort_flatpak_remote_ref_actions);
 
@@ -1729,17 +1762,17 @@ list_all_remote_refs_in_flatpak_installation (FlatpakInstallation  *installation
 
 typedef struct {
   FlatpakRemote *remote;  /* (owned) */
-  GHashTable    *related_refs;  /* (element-type FlatpakRef %NULL) */
+  GPtrArray     *related_refs;  /* (element-type FlatpakRef) */
 } EuuFlatpakRelatedRefsForRemote;
 
 static EuuFlatpakRelatedRefsForRemote *
 euu_flatpak_related_refs_for_remote_new (FlatpakRemote *remote,
-                                         GHashTable    *related_refs)
+                                         GPtrArray     *related_refs)
 {
   EuuFlatpakRelatedRefsForRemote *related_refs_for_remote = g_new0 (EuuFlatpakRelatedRefsForRemote, 1);
 
   related_refs_for_remote->remote = g_object_ref (remote);
-  related_refs_for_remote->related_refs = g_hash_table_ref (related_refs);
+  related_refs_for_remote->related_refs = g_ptr_array_ref (related_refs);
 
   return related_refs_for_remote;
 }
@@ -1748,7 +1781,7 @@ static void
 euu_flatpak_related_refs_for_remote_free (EuuFlatpakRelatedRefsForRemote *related_refs_for_remote)
 {
   g_clear_object (&related_refs_for_remote->remote);
-  g_clear_pointer (&related_refs_for_remote->related_refs, g_hash_table_unref);
+  g_clear_pointer (&related_refs_for_remote->related_refs, g_ptr_array_unref);
 
   g_free (related_refs_for_remote);
 }
@@ -2006,13 +2039,18 @@ populate_related_refs_in_all_remotes (FlatpakInstallation  *installation,
           FlatpakRef *related_ref = g_ptr_array_index (related_refs, j);
 
           /* We can avoid a rather expensive recursive call here
-           * if we check now, so check before continuing */
-          if (g_hash_table_contains (related_refs_for_remote->related_refs, related_ref))
+           * if we check now, so check before continuing.  Note that if we had
+           * used a GHashTable this search could be O(1), but we need an
+           * ordered data structure because we need a runtime's extensions to
+           * be installed after the runtime (e.g.
+           * org.freedesktop.Platform.openh264 uses extra-data and therefore
+           * needs its runtime to be installed). */
+          if (g_ptr_array_find_with_equal_func (related_refs_for_remote->related_refs,
+                                                related_ref, euu_flatpak_ref_equal, NULL))
             continue;
 
-          g_hash_table_insert (related_refs_for_remote->related_refs,
-                               g_object_ref (related_ref),
-                               NULL);
+          g_ptr_array_add (related_refs_for_remote->related_refs,
+                           g_object_ref (related_ref));
 
           /* Also populate all related refs for this ref. Note that
            * runtimes and extensions cannot have runtimes, so we pass
@@ -2357,11 +2395,7 @@ initially_populate_remote_and_installed_related_refs (GPtrArray   *remotes,
           flatpak_remote_get_nodeps (remote))
         continue;
 
-      g_autoptr(GHashTable) refs_for_remote =
-        g_hash_table_new_full (euu_flatpak_ref_hash,
-                               euu_flatpak_ref_equal,
-                               g_object_unref,
-                               NULL);
+      g_autoptr(GPtrArray) refs_for_remote = g_ptr_array_new_full (1, g_object_unref);
 
       g_ptr_array_add (remote_related_refs,
                        euu_flatpak_related_refs_for_remote_new (remote, refs_for_remote));
@@ -2497,14 +2531,10 @@ euu_add_dependency_ref_actions_for_installation (FlatpakInstallation  *installat
       for (gsize j = 0; j < remote_related_refs->len; ++j)
         {
           EuuFlatpakRelatedRefsForRemote *related_refs_for_remote = g_ptr_array_index (remote_related_refs, j);
-          GHashTableIter iter;
-          gpointer key, value;
 
-          g_hash_table_iter_init (&iter, related_refs_for_remote->related_refs);
-
-          while (g_hash_table_iter_next (&iter, &key, &value))
+          for (gsize k = 0; k < related_refs_for_remote->related_refs->len; ++k)
             {
-              FlatpakRelatedRef *related_ref = FLATPAK_RELATED_REF (key);
+              FlatpakRelatedRef *related_ref = FLATPAK_RELATED_REF (g_ptr_array_index (related_refs_for_remote->related_refs, k));
               EuuFlatpakRemoteRefActionType action_type;
 
               /* Is there something to do with this related ref? */
