@@ -416,6 +416,33 @@ test_uninstall_dependency_action_ordered_before_source (void)
   assert_ref_name_in_remote_ref_action_array (flattened_actions_list, 1, entries[0].app_id);
 }
 
+/* Test that when 'install' is compressed into 'uninstall', the order of
+ * 'uninstall' is preserved, even with another 'uninstall' action on the same
+ * app in the input array. */
+static void
+test_compression_preserves_order (void)
+{
+  FlatpakToInstallEntry entries[] = {
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 2, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE, FLATPAK_REF_KIND_APP, "org.test.OtherApp", "stable", 3, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 4, 0 },
+    { EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 5, 0 }
+  };
+  FlatpakToInstallFile files[] = {
+    { "autoinstall", entries, G_N_ELEMENTS (entries) }
+  };
+  FlatpakToInstallDirectory directory = { files, G_N_ELEMENTS (files) };
+  g_autoptr(GHashTable) uncompressed_ref_actions_table = flatpak_to_install_directory_to_hash_table (&directory);
+  g_autoptr(GPtrArray) flattened_actions_list = euu_flatten_flatpak_ref_actions_table (uncompressed_ref_actions_table);
+
+  g_assert_cmpuint (flattened_actions_list->len, ==, 2);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 0))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE);
+  g_assert_cmpint (((EuuFlatpakRemoteRefAction *) g_ptr_array_index (flattened_actions_list, 1))->type, ==,
+                   EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL);
+}
+
 /* Test the autoinstall file parser handles various different constructs (valid
  * and erroneous) in the format, returning success or an error when appropriate. */
 static void
@@ -846,6 +873,8 @@ main (int   argc,
               test_update_dependency_action_ordered_before_source);
   g_test_add_func ("/flatpak/compress/uninstall-dependency-before-source",
               test_uninstall_dependency_action_ordered_before_source);
+  g_test_add_func ("/flatpak/compress/preserves-order",
+              test_compression_preserves_order);
   g_test_add_func ("/flatpak/parse-autoinstall-file",
                    test_parse_autoinstall_file);
   g_test_add_func ("/flatpak/parse-autoinstall-file/unsorted",
