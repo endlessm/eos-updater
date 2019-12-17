@@ -65,6 +65,12 @@ object with optional properties \fBarchitecture\fP, \fB~architecture\fP,
 \fBlocale\fP and \fB~locale\fP. Each filter property takes a JSON
 array of strings containing architectures or locales to apply to the filter.
 .IP
+A locale is as specified in \fBsetlocale\fP(3).
+.IP
+Note that the \fBlocale\fP and \fB~locale\fP filters cannot be used until after
+the next checkpoint after the EOS 3.3 checkpoint, as support for them was broken
+in versions of \fBeos\-updater\fP before then.
+.IP
 Where a filter is prefixed with a tilde (\fB~\fP), the action will not be applied
 if the system architecture or locales matches any entry in the array. Otherwise,
 the action will only be applied if the system architecture or locales matches
