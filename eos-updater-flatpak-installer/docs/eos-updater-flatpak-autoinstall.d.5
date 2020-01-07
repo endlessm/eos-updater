@@ -127,15 +127,15 @@ when the action is applied.
         "serial": 2017100100,
         "ref\-kind": "app",
         "name": "org.example.MyApp",
-        "collection\-id": "com.endlessm.Apps"
+        "collection\-id": "com.endlessm.Apps",
+        "remote": "eos\-apps"
     },
     {
         "action": "uninstall",
         "branch": "eos3",
         "serial": 2017100101,
         "ref\-kind": "app",
-        "name": "org.example.OutdatedApp",
-        "collection\-id": "com.endlessm.Apps"
+        "name": "org.example.OutdatedApp"
     },
     {
         "action": "install",
@@ -143,7 +143,8 @@ when the action is applied.
         "serial": 2017100500,
         "ref\-kind": "runtime",
         "name": "org.example.PreinstalledRuntime",
-        "remote": "eos\-runtimes"
+        "remote": "eos\-runtimes",
+        "collection\-id": "com.endlessm.Os"
     },
     {
         "action": "install",
@@ -151,7 +152,8 @@ when the action is applied.
         "serial": 2017110100,
         "ref\-kind": "runtime",
         "name": "org.example.NVidiaRuntime",
-        "collection\-id": "com.endlessm.Runtimes"
+        "collection\-id": "com.endlessm.Os",
+        "remote": "eos\-runtimes"
     },
     {
         "action": "install",
@@ -159,6 +161,8 @@ when the action is applied.
         "serial": 2017110200,
         "ref\-kind": "app",
         "name": "org.example.IndonesiaNonArmGame",
+        "collection\-id": "com.endlessm.Apps",
+        "remote": "eos\-apps",
         "filters": {
             "locale": ["id_ID"],
             "~architecture": ["armhf"]
