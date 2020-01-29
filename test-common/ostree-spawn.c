@@ -207,6 +207,7 @@ ostree_commit (GFile *repo,
       { "gpg-sign", keyid },
       { "gpg-homedir", gpg_home_path },
       { "timestamp", formatted_timestamp },
+      { "generate-sizes", NULL },
       { NULL, raw_tree_path },
     };
   CmdArg empty = { NULL, NULL };
