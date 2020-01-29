@@ -430,6 +430,97 @@ test_update_when_none_available (EosUpdaterFixture *fixture,
   g_assert_cmpuint (eos_updater_get_state (updater), !=, EOS_UPDATER_STATE_ERROR);
 }
 
+/* Tests getting the various Size properties */
+static void
+test_update_sizes (EosUpdaterFixture *fixture,
+                   gconstpointer user_data)
+{
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(EosUpdater) updater = NULL;
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
+  DownloadSource main_source = DOWNLOAD_MAIN;
+
+  if (eos_test_skip_chroot ())
+    return;
+
+  setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
+  g_assert_no_error (error);
+
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (default_collection_ref),
+                       GUINT_TO_POINTER (1));
+
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
+  eos_test_subserver_update (subserver, &error);
+  g_assert_no_error (error);
+
+  eos_test_client_run_updater (client,
+                               &main_source,
+                               1,
+                               NULL,
+                               NULL,
+                               &error);
+  g_assert_no_error (error);
+
+  updater = eos_updater_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+                                                G_DBUS_PROXY_FLAGS_NONE,
+                                                "com.endlessm.Updater",
+                                                "/com/endlessm/Updater",
+                                                NULL,
+                                                &error);
+  g_assert_no_error (error);
+
+  EosUpdaterState state = EOS_UPDATER_STATE_POLLING;
+  g_signal_connect (updater, "notify::state",
+                    G_CALLBACK (update_with_loop_state_changed_cb),
+                    &state);
+
+  /* start the state changes */
+  eos_updater_call_poll_sync (updater, NULL, &error);
+  g_assert_no_error (error);
+
+  gboolean timed_out = FALSE;
+  guint timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT_SECS, timeout_cb, &timed_out);
+
+  while (state == EOS_UPDATER_STATE_POLLING && !timed_out)
+    g_main_context_iteration (NULL, TRUE);
+
+  g_source_remove (timeout_id);
+
+  g_assert_false (timed_out);
+
+  g_assert_cmpuint (eos_updater_get_state (updater), ==, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
+
+  gint64 expected_download;
+  gint64 expected_unpacked;
+  gint64 expected_full_download;
+  gint64 expected_full_unpacked;
+#ifdef HAVE_OSTREE_REPO_GET_COMMIT_SIZES
+  expected_download = 11635;
+  expected_unpacked = 10487043;
+  expected_full_download = 12696;
+  expected_full_unpacked = 10487887;
+#else
+  expected_download = -1;
+  expected_unpacked = -1;
+  expected_full_download = -1;
+  expected_full_unpacked = -1;
+#endif
+  g_assert_cmpint (eos_updater_get_download_size (updater), ==,
+                   expected_download);
+  g_assert_cmpint (eos_updater_get_unpacked_size (updater), ==,
+                   expected_unpacked);
+  g_assert_cmpint (eos_updater_get_full_download_size (updater), ==,
+                   expected_full_download);
+  g_assert_cmpint (eos_updater_get_full_unpacked_size (updater), ==,
+                   expected_full_unpacked);
+}
+
 int
 main (int argc,
       char **argv)
@@ -442,6 +533,7 @@ main (int argc,
   eos_test_add ("/updater/update-no-version", NULL, test_update_version);
   eos_test_add ("/updater/update-version", "1.2.3", test_update_version);
   eos_test_add ("/updater/update-not-available", NULL, test_update_when_none_available);
+  eos_test_add ("/updater/commit-sizes", NULL, test_update_sizes);
 
   return g_test_run ();
 }
