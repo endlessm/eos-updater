@@ -1186,6 +1186,86 @@ string_to_download_source (const gchar *str,
   return TRUE;
 }
 
+/* Macros for handling saturated incrementing and clamping */
+#define SATURATED_INCREMENT_GUINT64(a, b)       \
+  G_STMT_START {                                \
+    if ((a) < G_MAXUINT64 - (b))                \
+      (a) += (b);                               \
+    else                                        \
+      (a) = G_MAXUINT64;                        \
+  } G_STMT_END
+#define CLAMP_GUINT64_TO_GINT64(a) \
+  G_STMT_START {                   \
+    if ((a) > G_MAXINT64)          \
+      (a) = G_MAXINT64;            \
+  } G_STMT_END
+
+static gboolean
+get_commit_sizes (OstreeRepo    *repo,
+                  const gchar   *checksum,
+                  guint64       *new_archived,
+                  guint64       *new_unpacked,
+                  guint64       *archived,
+                  guint64       *unpacked,
+                  GCancellable  *cancellable,
+                  GError       **error)
+{
+  g_return_val_if_fail (new_archived != NULL, FALSE);
+  g_return_val_if_fail (new_unpacked != NULL, FALSE);
+  g_return_val_if_fail (archived != NULL, FALSE);
+  g_return_val_if_fail (unpacked != NULL, FALSE);
+
+#ifdef HAVE_OSTREE_COMMIT_GET_OBJECT_SIZES
+  g_autoptr(GVariant) commit = NULL;
+  if (!ostree_repo_load_variant (repo, OSTREE_OBJECT_TYPE_COMMIT, checksum,
+                                 &commit, error))
+    {
+      g_prefix_error (error, "Failed to read commit: ");
+      return FALSE;
+    }
+
+  g_autoptr(GPtrArray) sizes = NULL;
+  if (!ostree_commit_get_object_sizes (commit, &sizes, error))
+    return FALSE;
+
+  for (guint i = 0; i < sizes->len; i++)
+    {
+      OstreeCommitSizesEntry *entry = sizes->pdata[i];
+      gboolean exists;
+
+      SATURATED_INCREMENT_GUINT64 (*archived, entry->archived);
+      SATURATED_INCREMENT_GUINT64 (*unpacked, entry->unpacked);
+
+      if (!ostree_repo_has_object (repo, entry->objtype, entry->checksum,
+                                   &exists, cancellable, error))
+        return FALSE;
+
+      if (!exists)
+        {
+          /* Object not in local repo */
+          SATURATED_INCREMENT_GUINT64 (*new_archived, entry->archived);
+          SATURATED_INCREMENT_GUINT64 (*new_unpacked, entry->unpacked);
+        }
+    }
+
+  return TRUE;
+#elif defined (HAVE_OSTREE_REPO_GET_COMMIT_SIZES)
+  return ostree_repo_get_commit_sizes (repo, checksum,
+                                       (gint64 *) new_archived,
+                                       (gint64 *) new_unpacked,
+                                       NULL,
+                                       (gint64 *) archived,
+                                       (gint64 *) unpacked,
+                                       NULL,
+                                       cancellable, error);
+#else
+  /* Neither API available, just pretend as if sizes could not be found */
+  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                       "OSTree does not support parsing ostree.sizes metadata");
+  return FALSE;
+#endif
+}
+
 void
 metadata_fetch_finished (GObject *object,
                          GAsyncResult *res,
@@ -1207,10 +1287,10 @@ metadata_fetch_finished (GObject *object,
 
   if (info != NULL)
     {
-      gint64 archived = -1;
-      gint64 unpacked = -1;
-      gint64 new_archived = 0;
-      gint64 new_unpacked = 0;
+      guint64 archived = 0;
+      guint64 unpacked = 0;
+      guint64 new_archived = 0;
+      guint64 new_unpacked = 0;
       const gchar *label;
       const gchar *message;
 
@@ -1237,24 +1317,26 @@ metadata_fetch_finished (GObject *object,
       eos_updater_set_update_label (updater, label ? label : "");
       eos_updater_set_update_message (updater, message ? message : "");
 
-#ifdef HAVE_OSTREE_REPO_GET_COMMIT_SIZES
-      if (ostree_repo_get_commit_sizes (repo, info->checksum,
-                                        &new_archived, &new_unpacked,
-                                        NULL,
-                                        &archived, &unpacked,
-                                        NULL,
-                                        g_task_get_cancellable (task),
-                                        &error))
+      if (get_commit_sizes (repo, info->checksum,
+                            &new_archived, &new_unpacked,
+                            &archived, &unpacked,
+                            g_task_get_cancellable (task),
+                            &error))
         {
-          eos_updater_set_full_download_size (updater, archived);
-          eos_updater_set_full_unpacked_size (updater, unpacked);
-          eos_updater_set_download_size (updater, new_archived);
-          eos_updater_set_unpacked_size (updater, new_unpacked);
+          /* Clamp to signed 64 bit max */
+          CLAMP_GUINT64_TO_GINT64 (archived);
+          CLAMP_GUINT64_TO_GINT64 (unpacked);
+          CLAMP_GUINT64_TO_GINT64 (new_archived);
+          CLAMP_GUINT64_TO_GINT64 (new_unpacked);
+          eos_updater_set_full_download_size (updater, (gint64) archived);
+          eos_updater_set_full_unpacked_size (updater, (gint64) unpacked);
+          eos_updater_set_download_size (updater, (gint64) new_archived);
+          eos_updater_set_unpacked_size (updater, (gint64) new_unpacked);
           eos_updater_set_downloaded_bytes (updater, 0);
         }
-      else /* no size data available (may or may not be an error) */
-#endif
+      else if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
+          /* no size data available or no size parsing API available */
           eos_updater_set_full_download_size (updater, -1);
           eos_updater_set_full_unpacked_size (updater, -1);
           eos_updater_set_download_size (updater, -1);
@@ -1265,11 +1347,8 @@ metadata_fetch_finished (GObject *object,
            * as the branch itself is resolvable in the next step,
            * but log it anyway.
            */
-          if (error)
-            {
-              g_message ("No size summary data: %s", error->message);
-              g_clear_error (&error);
-            }
+          g_message ("No size summary data: %s", error->message);
+          g_clear_error (&error);
         }
     }
   else /* info == NULL means OnHold=true, nothing to do here */
