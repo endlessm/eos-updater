@@ -1249,17 +1249,8 @@ get_commit_sizes (OstreeRepo    *repo,
     }
 
   return TRUE;
-#elif defined (HAVE_OSTREE_REPO_GET_COMMIT_SIZES)
-  return ostree_repo_get_commit_sizes (repo, checksum,
-                                       (gint64 *) new_archived,
-                                       (gint64 *) new_unpacked,
-                                       NULL,
-                                       (gint64 *) archived,
-                                       (gint64 *) unpacked,
-                                       NULL,
-                                       cancellable, error);
 #else
-  /* Neither API available, just pretend as if sizes could not be found */
+  /* API not available, just pretend as if sizes could not be found */
   g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
                        "OSTree does not support parsing ostree.sizes metadata");
   return FALSE;
