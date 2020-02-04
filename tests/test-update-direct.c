@@ -500,7 +500,7 @@ test_update_sizes (EosUpdaterFixture *fixture,
   gint64 expected_unpacked;
   gint64 expected_full_download;
   gint64 expected_full_unpacked;
-#if defined (HAVE_OSTREE_COMMIT_GET_OBJECT_SIZES) || defined (HAVE_OSTREE_REPO_GET_COMMIT_SIZES)
+#if defined (HAVE_OSTREE_COMMIT_GET_OBJECT_SIZES)
   expected_download = 11635;
   expected_unpacked = 10487043;
   expected_full_download = 12696;
