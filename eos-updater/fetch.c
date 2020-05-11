@@ -73,13 +73,21 @@ typedef struct {
 } ScheduledEntryCancellableHelper;
 
 static void
-scheduled_entry_cancellable_helper_free (ScheduledEntryCancellableHelper *helper)
+scheduled_entry_cancellable_helper_disconnect (ScheduledEntryCancellableHelper *helper)
 {
   if (helper->download_now_handler_id > 0)
     g_signal_handler_disconnect (helper->scheduled_entry, helper->download_now_handler_id);
+  helper->download_now_handler_id = 0;
 
   if (helper->invalidated_handler_id > 0)
     g_signal_handler_disconnect (helper->scheduled_entry, helper->invalidated_handler_id);
+  helper->invalidated_handler_id = 0;
+}
+
+static void
+scheduled_entry_cancellable_helper_free (ScheduledEntryCancellableHelper *helper)
+{
+  scheduled_entry_cancellable_helper_disconnect (helper);
 
   if (helper->cancellables_bind_handler_id > 0)
     g_cancellable_disconnect (helper->general_cancellable, helper->cancellables_bind_handler_id);
@@ -1189,6 +1197,18 @@ content_fetch (FetchData     *fetch_data,
     {
       g_message ("Fetch: failed to pull necessary new flatpaks for update: %s", local_error->message);
       goto error;
+    }
+
+  /* No longer need to worry about invalidation. Remove it now before it
+   * conflicts with removing the scheduler entry. */
+  if (cancellable_helper != NULL)
+    scheduled_entry_cancellable_helper_disconnect (cancellable_helper);
+
+  /* After all downloads are complete, remove the scheduler entry. */
+  if (!unschedule_download (fetch_data, context, cancellable, &local_error))
+    {
+      g_warning ("Fetch: failed to remove download schedule entry: %s", local_error->message);
+      g_clear_error (&local_error);
     }
 
   return TRUE;
