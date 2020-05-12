@@ -117,9 +117,6 @@ log_with_msgid (const gchar *msgid,
                 const gchar *format,
                 va_list args)
 {
-  G_STATIC_ASSERT (G_LOG_DOMAIN != NULL);
-  G_STATIC_ASSERT (G_LOG_DOMAIN[0] != '\0');
-
   g_autofree gchar *message = NULL;
   /* Apparently the version of GCC in Endless ignores the
    * G_GNUC_PRINTF annotation that has a zero as the second parameter,
