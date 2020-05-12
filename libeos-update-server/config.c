@@ -48,9 +48,9 @@
  */
 
 /* Paths for the configuration file. */
-static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-update-server.conf";
-static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-update-server.conf";
-static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-update-server.conf";
+static const char *CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater/eos-update-server.conf";
+static const char *STATIC_CONFIG_FILE_PATH = DATADIR "/eos-updater/eos-update-server.conf";
+static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/eos-updater/eos-update-server.conf";
 
 /* Configuration file keys. */
 static const char *LOCAL_NETWORK_UPDATES_GROUP = "Local Network Updates";

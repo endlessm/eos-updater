@@ -23,7 +23,7 @@ PathChanged=/ostree/repo/refs/heads/ostree/1/1/1
 
 # Configuration files
 PathChanged=@sysconfdir@/eos-updater/eos-update-server.conf
-PathChanged=@pkgdatadir@/eos-update-server.conf
+PathChanged=@datadir@/eos-updater/eos-update-server.conf
 PathChanged=@prefix@/local/share/eos-updater/eos-update-server.conf
 
 [Install]

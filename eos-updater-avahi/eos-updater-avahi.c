@@ -449,7 +449,7 @@ main (int    argc,
       { "config-file", 'c',
         G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &config_file,
         "Configuration file to use (default: "
-        SYSCONFDIR "/" PACKAGE "/eos-update-server.conf" ")", "PATH" },
+        SYSCONFDIR "/eos-updater/eos-update-server.conf" ")", "PATH" },
       { "quiet", 'q', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &quiet,
         "Do not print anything; check exit status for success", NULL },
       { NULL }

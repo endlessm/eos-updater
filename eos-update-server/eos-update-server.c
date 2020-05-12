@@ -136,7 +136,7 @@ options_init (Options *options,
     { "config-file", 'c',
       G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &options->config_file,
       "Configuration file to use (default: "
-      SYSCONFDIR "/" PACKAGE "/eos-update-server.conf" ")", "PATH" },
+      SYSCONFDIR "/eos-updater/eos-update-server.conf" ")", "PATH" },
     { NULL }
   };
 

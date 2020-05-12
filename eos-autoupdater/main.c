@@ -64,10 +64,10 @@ typedef enum {
 static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/lib/eos-updater";
 static const char *UPDATE_STAMP_NAME = "eos-updater-stamp";
 
-static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-autoupdater.conf";
+static const char *CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater/eos-autoupdater.conf";
 static const char *OLD_CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater.conf";
-static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-autoupdater.conf";
-static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-autoupdater.conf";
+static const char *STATIC_CONFIG_FILE_PATH = DATADIR "/eos-updater/eos-autoupdater.conf";
+static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/eos-updater/eos-autoupdater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
