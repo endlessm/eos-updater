@@ -912,12 +912,14 @@ get_hw_descriptors (void)
   return hw_descriptors;
 }
 
+#ifdef HAS_EOSMETRICS_0
 static gboolean
 get_metrics_enabled (void)
 {
   const gchar *disable_metrics = g_getenv ("EOS_DISABLE_METRICS");
   return (disable_metrics == NULL || !g_str_equal (disable_metrics, "1"));
 }
+#endif
 
 static void
 maybe_send_metric (EosMetricsInfo *metrics)
