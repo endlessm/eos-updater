@@ -1,0 +1,18 @@
+option(
+  'installed_tests',
+  type: 'boolean',
+  value: false,
+  description: 'enable installed tests'
+)
+option(
+  'metrics',
+  type: 'feature',
+  value: 'enabled',
+  description: 'enable metrics support'
+)
+option(
+  'server_port',
+  type: 'integer',
+  value: 43381,
+  description: 'port number for the update server',
+)
