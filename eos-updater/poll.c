@@ -27,8 +27,8 @@
 #include <eos-updater/poll-common.h>
 #include <eos-updater/poll.h>
 #include <eos-updater/resources.h>
-#include <libeos-updater-util/config.h>
-#include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/config-util.h>
+#include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
 
 static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-updater.conf";

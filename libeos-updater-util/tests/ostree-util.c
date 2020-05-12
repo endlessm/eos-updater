@@ -22,7 +22,7 @@
 
 #include <gio/gio.h>
 #include <glib.h>
-#include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/ostree-util.h>
 #include <locale.h>
 #include <ostree.h>
 

@@ -70,7 +70,7 @@ AM_CPPFLAGS = \
 lib_LTLIBRARIES += libeos-updater-util/libeos-updater-util-@EUU_API_VERSION@.la
 
 enum_header_files = \
-	$(top_srcdir)/libeos-updater-util/flatpak.h \
+	$(top_srcdir)/libeos-updater-util/flatpak-util.h \
 	$(top_srcdir)/libeos-updater-util/types.h \
 	$(NULL)
 
@@ -113,14 +113,14 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_LIBADD = \
 libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/avahi-service-file.c \
 	libeos-updater-util/avahi-service-file.h \
-	libeos-updater-util/config.c \
-	libeos-updater-util/config.h \
-	libeos-updater-util/flatpak.c \
-	libeos-updater-util/flatpak.h \
+	libeos-updater-util/config-util.c \
+	libeos-updater-util/config-util.h \
+	libeos-updater-util/flatpak-util.c \
+	libeos-updater-util/flatpak-util.h \
 	libeos-updater-util/ostree-bloom-private.h \
 	libeos-updater-util/ostree-bloom.c \
-	libeos-updater-util/ostree.c \
-	libeos-updater-util/ostree.h \
+	libeos-updater-util/ostree-util.c \
+	libeos-updater-util/ostree-util.h \
 	libeos-updater-util/types.c \
 	libeos-updater-util/types.h \
 	libeos-updater-util/util.c \

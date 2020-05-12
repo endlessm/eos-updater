@@ -27,7 +27,7 @@
 #include <glib-object.h>
 #include <libeos-update-server/config.h>
 #include <libeos-update-server/resources.h>
-#include <libeos-updater-util/config.h>
+#include <libeos-updater-util/config-util.h>
 #include <libeos-updater-util/util.h>
 #include <string.h>
 

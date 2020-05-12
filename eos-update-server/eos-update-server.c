@@ -25,7 +25,7 @@
 #include <libeos-update-server/config.h>
 #include <libeos-update-server/repo.h>
 #include <libeos-update-server/server.h>
-#include <libeos-updater-util/config.h>
+#include <libeos-updater-util/config-util.h>
 #include <libeos-updater-util/util.h>
 
 #include <ostree.h>

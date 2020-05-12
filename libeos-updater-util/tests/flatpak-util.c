@@ -23,7 +23,7 @@
 
 #include <flatpak.h>
 #include <glib.h>
-#include <libeos-updater-util/flatpak.h>
+#include <libeos-updater-util/flatpak-util.h>
 #include <libeos-updater-util/types.h>
 #include <locale.h>
 

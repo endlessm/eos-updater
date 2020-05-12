@@ -22,7 +22,7 @@
 
 #include <glib.h>
 #include <glib/gstdio.h>
-#include <libeos-updater-util/config.h>
+#include <libeos-updater-util/config-util.h>
 #include <libeos-updater-util/tests/resources.h>
 #include <locale.h>
 #include <string.h>

@@ -24,7 +24,7 @@
 #include <glib.h>
 #include <libeos-update-server/config.h>
 #include <libeos-updater-util/avahi-service-file.h>
-#include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
 #include <locale.h>
 #include <ostree.h>

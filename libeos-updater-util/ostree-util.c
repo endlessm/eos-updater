@@ -21,7 +21,7 @@
  */
 
 #include <glib.h>
-#include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
 #include <libsoup/soup.h>
 #include <ostree.h>

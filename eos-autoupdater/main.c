@@ -19,7 +19,7 @@
 
 #include <eos-updater/dbus.h>
 #include <eos-updater/resources.h>
-#include <libeos-updater-util/config.h>
+#include <libeos-updater-util/config-util.h>
 #include <libeos-updater-util/types.h>
 #include <libeos-updater-util/util.h>
 

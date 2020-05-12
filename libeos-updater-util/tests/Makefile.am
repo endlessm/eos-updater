@@ -51,16 +51,16 @@ CODE_COVERAGE_IGNORE_PATTERN = \
 
 test_programs = \
 	avahi-service-file \
-	config \
-	flatpak \
-	ostree \
+	config-util \
+	flatpak-util \
+	ostree-util \
 	$(NULL)
 
 avahi_service_file_SOURCES = avahi-service-file.c
-config_SOURCES = config.c
-nodist_config_SOURCES = $(config_resource_sources)
-ostree_SOURCES = ostree.c
-flatpak_SOURCES = flatpak.c
+config_util_SOURCES = config-util.c
+nodist_config_util_SOURCES = $(config_resource_sources)
+ostree_util_SOURCES = ostree-util.c
+flatpak_util_SOURCES = flatpak-util.c
 
 # Resources for the config test.
 config_resource_sources = \
