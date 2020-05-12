@@ -4,9 +4,7 @@ Priority: optional
 Maintainer: Philip Withnall <withnall@endlessm.com>
 Standards-Version: 3.9.6
 Build-Depends:
- autoconf-archive,
  debhelper-compat (= 12),
- dh-autoreconf,
  dh-python,
  eos-metrics-0-dev,
  flatpak (>= 1.3.3+dev37.20fb7d1-0),
@@ -28,6 +26,7 @@ Build-Depends:
  libostree-dev (>= 2017.12),
  libsoup2.4-dev,
  libsystemd-dev,
+ meson (>= 0.50.0),
  ostree (>= 2017.12),
  ostree-tests (>= 2017.6),
  python3-flake8,
