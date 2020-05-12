@@ -22,6 +22,8 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
+#include "config.h"
+
 #include <eos-updater/object.h>
 #include <eos-updater/poll-common.h>
 #include <libeos-updater-util/ostree-util.h>
