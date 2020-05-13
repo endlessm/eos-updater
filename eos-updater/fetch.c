@@ -73,7 +73,7 @@ typedef struct {
 } ScheduledEntryCancellableHelper;
 
 static void
-schedule_entry_cancellable_helper_free (ScheduledEntryCancellableHelper *helper)
+scheduled_entry_cancellable_helper_free (ScheduledEntryCancellableHelper *helper)
 {
   if (helper->download_now_handler_id > 0)
     g_signal_handler_disconnect (helper->scheduled_entry, helper->download_now_handler_id);
@@ -90,7 +90,7 @@ schedule_entry_cancellable_helper_free (ScheduledEntryCancellableHelper *helper)
   g_free (helper);
 }
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (ScheduledEntryCancellableHelper, schedule_entry_cancellable_helper_free)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (ScheduledEntryCancellableHelper, scheduled_entry_cancellable_helper_free)
 
 static void
 content_fetch_finished (GObject *object,
