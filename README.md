@@ -20,15 +20,15 @@ which coordinate to advertise OSTree updates to computers on the local network.
 
 For documentation about the updater, see the man pages for each program and
 for the various configuration files it uses:
- • eos-autoupdater(8)
- • eos-update-server(8)
- • eos-updater(8)
- • eos-updater-avahi(8)
- • eos-updater-ctl(8)
- • eos-updater-prepare-volume(8)
- • eos-autoupdater.conf(5)
- • eos-update-server.conf(5)
- • eos-updater.conf(5)
+ - eos-autoupdater(8)
+ - eos-update-server(8)
+ - eos-updater(8)
+ - eos-updater-avahi(8)
+ - eos-updater-ctl(8)
+ - eos-updater-prepare-volume(8)
+ - eos-autoupdater.conf(5)
+ - eos-update-server.conf(5)
+ - eos-updater.conf(5)
 
 Licensing
 ---------
