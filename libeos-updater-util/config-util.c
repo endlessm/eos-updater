@@ -27,7 +27,7 @@
 #include <gio/gio.h>
 #include <glib.h>
 #include <glib-object.h>
-#include <libeos-updater-util/config.h>
+#include <libeos-updater-util/config-util.h>
 #include <stdlib.h>
 #include <string.h>
 

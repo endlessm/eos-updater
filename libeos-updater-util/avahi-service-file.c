@@ -22,6 +22,8 @@
  *  - Philip Withnall <withnall@endlessm.com>
  */
 
+#include "config.h"
+
 #include <gio/gio.h>
 #include <glib.h>
 #include <libeos-updater-util/avahi-service-file.h>

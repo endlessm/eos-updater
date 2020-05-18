@@ -39,8 +39,8 @@ Testing
 -------
 
 eos-updater comes with a number of unit and integration tests which can be run
-using `make check`; and some installed-only tests which can be run using
-`gnome-desktop-testing-runner libeos-updater-util-0` and
+using `meson test`; and some installed-only tests which can be run using
+`gnome-desktop-testing-runner libeos-updater-util-0 libeos-updater-flatpak-installer-0` and
 `sudo gnome-desktop-testing-runner eos-updater-0` in your installation prefix
 _after_ installing eos-updater.
 

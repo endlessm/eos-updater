@@ -19,7 +19,7 @@
 
 #include <eos-updater/dbus.h>
 #include <eos-updater/resources.h>
-#include <libeos-updater-util/config.h>
+#include <libeos-updater-util/config-util.h>
 #include <libeos-updater-util/types.h>
 #include <libeos-updater-util/util.h>
 
@@ -64,10 +64,10 @@ typedef enum {
 static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/lib/eos-updater";
 static const char *UPDATE_STAMP_NAME = "eos-updater-stamp";
 
-static const char *CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-autoupdater.conf";
+static const char *CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater/eos-autoupdater.conf";
 static const char *OLD_CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater.conf";
-static const char *STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-autoupdater.conf";
-static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-autoupdater.conf";
+static const char *STATIC_CONFIG_FILE_PATH = DATADIR "/eos-updater/eos-autoupdater.conf";
+static const char *LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/eos-updater/eos-autoupdater.conf";
 static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
@@ -117,9 +117,6 @@ log_with_msgid (const gchar *msgid,
                 const gchar *format,
                 va_list args)
 {
-  G_STATIC_ASSERT (G_LOG_DOMAIN != NULL);
-  G_STATIC_ASSERT (G_LOG_DOMAIN[0] != '\0');
-
   g_autofree gchar *message = NULL;
   /* Apparently the version of GCC in Endless ignores the
    * G_GNUC_PRINTF annotation that has a zero as the second parameter,

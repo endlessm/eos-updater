@@ -76,27 +76,30 @@ class VolumePreparer:
         try:
             Flatpak.Ref.parse(flatpak_ref)
             return True
-        except GLib.Error as e:
+        except GLib.Error:
             # This could be IOError.NOT_FOUND or IOError.FAILED. Since the
             # latter is generic, don’t try and match a specific error code in
             # case libflatpak changes it in future.
             return False
 
     def _get_collection_refs_for_commit(self, rev):
-        """Read the commit metadata and return (collection_id, ref, checksum) tuples, or None."""
+        """Read the commit metadata and return (collection_id, ref, checksum)
+        tuples, or None."""
         _, repo = self.sysroot.get_repo()
         _, commit, _ = repo.load_commit(rev)
         metadata_dict = GLib.VariantDict.new(commit.get_child_value(0))
 
-        # Use the collection-refs from the commit metadata; the ones configured on
-        # the remote might be different
-        collection_binding = metadata_dict.lookup_value(OSTree.COMMIT_META_KEY_COLLECTION_BINDING, GLib.VariantType('s'))
+        # Use the collection-refs from the commit metadata; the ones
+        # configured on the remote might be different
+        collection_binding = metadata_dict.lookup_value(
+            OSTree.COMMIT_META_KEY_COLLECTION_BINDING, GLib.VariantType('s'))
         if collection_binding is None:
             return None
         else:
             collection_id = collection_binding.get_string()
 
-        ref_binding = metadata_dict.lookup_value(OSTree.COMMIT_META_KEY_REF_BINDING, GLib.VariantType('as'))
+        ref_binding = metadata_dict.lookup_value(
+            OSTree.COMMIT_META_KEY_REF_BINDING, GLib.VariantType('as'))
         if ref_binding is None:
             return None
         else:
@@ -105,7 +108,8 @@ class VolumePreparer:
         return [(collection_id, ref, rev) for ref in refs]
 
     def _get_os_collection_ref_checksums(self):
-        """Get the set of collection–ref and checksum 3-tuples for the booted OS, or None."""
+        """Get the set of collection–ref and checksum 3-tuples for the booted
+        OS, or None."""
         deployment = self.sysroot.get_booted_deployment()
         if not deployment:
             if 'EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK' not in \
@@ -121,10 +125,13 @@ class VolumePreparer:
         if not booted_commit:
             return None
 
-        # The booted commit may have more than one associated ref; copy all of them
-        # For example: [('com.endlessm.Os', 'os/eos/amd64/eos3.5', '470ab0359...'),
-        #               ('com.endlessm.Os', 'os/eos/amd64/eos3a', '470ab0359...')]
-        return self._get_collection_refs_for_commit (booted_commit)
+        # The booted commit may have more than one associated ref; copy all
+        # of them
+        # For example: [('com.endlessm.Os', 'os/eos/amd64/eos3.5',
+        #                '470ab0359...'),
+        #               ('com.endlessm.Os', 'os/eos/amd64/eos3a',
+        #                '470ab0359...')]
+        return self._get_collection_refs_for_commit(booted_commit)
 
     def _get_autoinstall_flatpaks(self):
         """
@@ -136,7 +143,8 @@ class VolumePreparer:
         """
         autoinstalls = set()
 
-        applied_actions = EosUpdaterUtil.flattened_flatpak_ref_actions_from_paths(None)
+        applied_actions = \
+            EosUpdaterUtil.flattened_flatpak_ref_actions_from_paths(None)
 
         for action in applied_actions:
             if action.type != \
@@ -155,7 +163,7 @@ class VolumePreparer:
         # Set up.
         try:
             self.sysroot.load()
-        except GLib.Error as e:
+        except GLib.Error:
             return self.__fail(self.EXIT_FAILED,
                                'OSTree sysroot could not be loaded; '
                                'are you on an OSTree system?')
@@ -173,7 +181,7 @@ class VolumePreparer:
         # eos-updater-flatpak-installer.
         try:
             autoinstall_flatpaks = self._get_autoinstall_flatpaks()
-        except GLib.Error as e:
+        except GLib.Error:
             return self.__fail(self.EXIT_FAILED,
                                'Failed to list autoinstall flatpaks to add to '
                                'the USB drive')
@@ -191,21 +199,25 @@ class VolumePreparer:
         # Eliminate duplicates.
         all_flatpak_refs = list(set(all_flatpak_refs))
 
-        # Pass the heavy lifting off to `ostree create-usb` and `flatpak create-usb`
+        # Pass the heavy lifting off to `ostree create-usb` and
+        # `flatpak create-usb`
         _, repo = self.sysroot.get_repo()
         repo_path = os.path.realpath(repo.get_path().get_path())
         for os_collection_ref in os_collection_refs:
             self.__run(['ostree', 'create-usb', '--repo', repo_path,
                         '--commit={}'.format(os_collection_ref[2]),
-                        self.volume_path, os_collection_ref[0], os_collection_ref[1]])
+                        self.volume_path, os_collection_ref[0],
+                        os_collection_ref[1]])
         if len(all_flatpak_refs) > 0:
             self.__run(['flatpak', '--system', 'create-usb',
                         self.volume_path] + all_flatpak_refs)
         # Ensure that this USB drive can later be read by any user and the
         # .ostree directory can be written to by any user
         if not self.preserve_permissions:
-            self.__run(['chmod', '755', GLib.build_filenamev([self.volume_path])])
-        self.__run(['chmod', '-R', '777', GLib.build_filenamev([self.volume_path, '.ostree'])])
+            self.__run(['chmod', '755',
+                        GLib.build_filenamev([self.volume_path])])
+        self.__run(['chmod', '-R', '777',
+                    GLib.build_filenamev([self.volume_path, '.ostree'])])
 
 
 def main():

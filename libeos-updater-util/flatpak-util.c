@@ -27,7 +27,7 @@
 #include <glib-object.h>
 #include <json-glib/json-glib.h>
 #include <libeos-updater-util/enums.h>
-#include <libeos-updater-util/flatpak.h>
+#include <libeos-updater-util/flatpak-util.h>
 #include <libeos-updater-util/types.h>
 #include <libeos-updater-util/util.h>
 #include <ostree.h>

@@ -23,7 +23,7 @@
 
 #include <flatpak.h>
 #include <glib.h>
-#include <libeos-updater-util/flatpak.h>
+#include <libeos-updater-util/flatpak-util.h>
 #include <libeos-updater-util/types.h>
 #include <locale.h>
 
@@ -759,7 +759,7 @@ test_autoinstall_file_filters (void)
       gsize expected_n_skipped_actions;
     } vectors[] =
     {
-      { "", "", "", 1 },
+      { "", "", "", 1, 0 },
 
       { "'architecture': []", "", "", 0, 0 },
       { "'architecture': ['arch1']", "arch1", "", 1, 0 },

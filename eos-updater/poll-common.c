@@ -22,9 +22,11 @@
  *  - Krzesimir Nowak <krzesimir@kinvolk.io>
  */
 
+#include "config.h"
+
 #include <eos-updater/object.h>
 #include <eos-updater/poll-common.h>
-#include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
 #include <libsoup/soup.h>
 #include <ostree.h>
@@ -910,12 +912,14 @@ get_hw_descriptors (void)
   return hw_descriptors;
 }
 
+#ifdef HAS_EOSMETRICS_0
 static gboolean
 get_metrics_enabled (void)
 {
   const gchar *disable_metrics = g_getenv ("EOS_DISABLE_METRICS");
   return (disable_metrics == NULL || !g_str_equal (disable_metrics, "1"));
 }
+#endif
 
 static void
 maybe_send_metric (EosMetricsInfo *metrics)

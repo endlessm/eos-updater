@@ -97,7 +97,7 @@ generate_faked_config (OstreeRepo *repo,
   if (parent_mode != OSTREE_REPO_MODE_BARE || parent_repo_version != 1)
     {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-                   "Repository is in the wrong mode (%u) or version (%u).",
+                   "Repository is in the wrong mode (%u) or version (%d).",
                    parent_mode, parent_repo_version);
       return FALSE;
     }

@@ -22,7 +22,7 @@
 
 #include <glib.h>
 #include <flatpak.h>
-#include <libeos-updater-util/flatpak.h>
+#include <libeos-updater-util/flatpak-util.h>
 #include <libeos-updater-util/util.h>
 #include <libeos-updater-flatpak-installer/installer.h>
 #include <test-common/gpg.h>

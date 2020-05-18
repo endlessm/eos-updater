@@ -25,7 +25,7 @@
 #include <libeos-update-server/config.h>
 #include <libeos-update-server/repo.h>
 #include <libeos-update-server/server.h>
-#include <libeos-updater-util/config.h>
+#include <libeos-updater-util/config-util.h>
 #include <libeos-updater-util/util.h>
 
 #include <ostree.h>
@@ -136,7 +136,7 @@ options_init (Options *options,
     { "config-file", 'c',
       G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &options->config_file,
       "Configuration file to use (default: "
-      SYSCONFDIR "/" PACKAGE "/eos-update-server.conf" ")", "PATH" },
+      SYSCONFDIR "/eos-updater/eos-update-server.conf" ")", "PATH" },
     { NULL }
   };
 

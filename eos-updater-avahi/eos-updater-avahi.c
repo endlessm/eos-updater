@@ -24,7 +24,7 @@
 #include <glib.h>
 #include <libeos-update-server/config.h>
 #include <libeos-updater-util/avahi-service-file.h>
-#include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
 #include <locale.h>
 #include <ostree.h>
@@ -449,7 +449,7 @@ main (int    argc,
       { "config-file", 'c',
         G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &config_file,
         "Configuration file to use (default: "
-        SYSCONFDIR "/" PACKAGE "/eos-update-server.conf" ")", "PATH" },
+        SYSCONFDIR "/eos-updater/eos-update-server.conf" ")", "PATH" },
       { "quiet", 'q', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &quiet,
         "Do not print anything; check exit status for success", NULL },
       { NULL }

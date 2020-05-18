@@ -1584,12 +1584,7 @@ get_bash_script_contents (const gchar * const *argv,
   const gchar *tmpl_prolog =
     "#!/usr/bin/bash\n"
     "\n"
-    "set -e\n"
-    "GDB_PATH=$(which gdb)\n"
-    "if [[ -f ./libtool ]] && [[ -x ./libtool ]]; then :; else\n"
-    "    echo 'the script must be executed in the directory where the libtool script is located (usually toplevel build directory)'\n"
-    "    exit 1\n"
-    "fi\n";
+    "set -e\n";
   g_autofree gchar *gdb_r_command = get_gdb_r_command (argv);
   g_autofree gchar *quoted_binary = g_shell_quote (argv[0]);
   g_autoptr(GString) contents = g_string_new (NULL);
@@ -1609,7 +1604,7 @@ get_bash_script_contents (const gchar * const *argv,
     }
 
   g_string_append_printf (contents,
-                          "./libtool --mode=execute \"${GDB_PATH}\" -ex \"break main\" -ex %s %s\n",
+                          "gdb -ex \"break main\" -ex %s %s\n",
                           gdb_r_command,
                           quoted_binary);
 
@@ -3041,17 +3036,12 @@ eos_test_client_prepare_volume (EosTestClient *client,
                                                                       "..",
                                                                       "libeos-updater-util",
                                                                       NULL);
-  g_autofree gchar *libeos_updater_util_libs_path = g_test_build_filename (G_TEST_BUILT,
-                                                                           "..",
-                                                                           "libeos-updater-util",
-                                                                           ".libs",
-                                                                           NULL);
   const gchar *ld_library_path = g_getenv ("LD_LIBRARY_PATH");
   g_autofree gchar *new_ld_library_path = NULL;
   if (ld_library_path == NULL || *ld_library_path == '\0')
-    new_ld_library_path = g_strdup (libeos_updater_util_libs_path);
+    new_ld_library_path = g_strdup (libeos_updater_util_path);
   else
-    new_ld_library_path = g_strdup_printf ("%s:%s", libeos_updater_util_libs_path, ld_library_path);
+    new_ld_library_path = g_strdup_printf ("%s:%s", libeos_updater_util_path, ld_library_path);
 
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
   CmdEnvVar envv[] =

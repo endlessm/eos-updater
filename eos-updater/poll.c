@@ -27,13 +27,13 @@
 #include <eos-updater/poll-common.h>
 #include <eos-updater/poll.h>
 #include <eos-updater/resources.h>
-#include <libeos-updater-util/config.h>
-#include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/config-util.h>
+#include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
 
-static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/" PACKAGE "/eos-updater.conf";
-static const gchar *const LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/" PACKAGE "/eos-updater.conf";
-static const gchar *const STATIC_CONFIG_FILE_PATH = PKGDATADIR "/eos-updater.conf";
+static const gchar *const CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater/eos-updater.conf";
+static const gchar *const LOCAL_CONFIG_FILE_PATH = PREFIX "/local/share/eos-updater/eos-updater.conf";
+static const gchar *const STATIC_CONFIG_FILE_PATH = DATADIR "/eos-updater/eos-updater.conf";
 static const gchar *const DOWNLOAD_GROUP = "Download";
 static const gchar *const ORDER_KEY = "Order";
 

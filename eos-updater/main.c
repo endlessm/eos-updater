@@ -28,7 +28,7 @@
 #include <eos-updater/live-boot.h>
 #include <eos-updater/object.h>
 #include <eos-updater/poll.h>
-#include <libeos-updater-util/ostree.h>
+#include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
 
 #include <errno.h>

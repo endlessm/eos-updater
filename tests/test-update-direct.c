@@ -20,6 +20,8 @@
  *  - Joaquim Rocha <jrocha@endlessm.com>
  */
 
+#include "config.h"
+
 #include <eos-updater/dbus.h>
 #include <test-common/gpg.h>
 #include <test-common/misc-utils.h>
