@@ -41,6 +41,8 @@ class TestEosUpdateServer(unittest.TestCase):
     def setUp(self):
         self.timeout_seconds = 10  # seconds per test
         self.__config_file = '/etc/eos-updater/eos-update-server.conf'
+        self.__eos_update_server = \
+            os.path.join('/', 'usr', 'libexec', 'eos-update-server')
 
     def tearDown(self):
         try:
@@ -71,7 +73,7 @@ class TestEosUpdateServer(unittest.TestCase):
         # than expecting a socket from systemd.
         port_file = tempfile.NamedTemporaryFile(
             prefix='eos-update-server-test')
-        status = subprocess.call(['/lib/x86_64-linux-gnu/eos-update-server',
+        status = subprocess.call([self.__eos_update_server,
                                   '--port-file=' + port_file.name,
                                   '--timeout=1'])
         self.assertEqual(status, 0)
@@ -88,7 +90,7 @@ class TestEosUpdateServer(unittest.TestCase):
                 'AdvertiseUpdates=false\n'
             )
 
-        status = subprocess.call(['/lib/x86_64-linux-gnu/eos-update-server',
+        status = subprocess.call([self.__eos_update_server,
                                   '--timeout=1'])
         self.assertEqual(status, 4)  # EXIT_DISABLED
 
@@ -113,7 +115,7 @@ class TestEosUpdateServer(unittest.TestCase):
         # than expecting a socket from systemd.
         port_file = tempfile.NamedTemporaryFile(
             prefix='eos-update-server-test')
-        proc = subprocess.Popen(['/lib/x86_64-linux-gnu/eos-update-server',
+        proc = subprocess.Popen([self.__eos_update_server,
                                  '--port-file=' + port_file.name,
                                  '--timeout=' + str(self.timeout_seconds)])
 
