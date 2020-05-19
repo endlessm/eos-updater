@@ -49,6 +49,10 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         self.__new_service_file = '/etc/avahi/services/eos-ostree-updater-0.service'
         self.__config_file = '/etc/eos-updater/eos-update-server.conf'
 
+        # Explicitly start the service since it’s disabled by default.
+        subprocess.call(['systemctl', 'start', '--quiet',
+                         'eos-updater-avahi.path'])
+
     def tearDown(self):
         self.assertFalse(self._main_context.iteration(False))
         self._main_context = None
@@ -70,6 +74,8 @@ class TestEosUpdaterAvahi(unittest.TestCase):
         # starts, which could confuse things.
         subprocess.call(['systemctl', 'stop', '--quiet',
                          'eos-updater-avahi.service'])
+        subprocess.call(['systemctl', 'stop', '--quiet',
+                         'eos-updater-avahi.path'])
 
         # And wait for a second to avoid triggering systemd’s rate limiting
         # for start requests.
@@ -201,14 +207,17 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             lambda s: get_mtime_if_exists(self.__new_service_file) > before)
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
-    def test_services_enabled_by_default(self):
+    def test_services_disabled_by_default(self):
         """Test the Avahi systemd units are enabled by default."""
-        self.assertTrue(self._is_service_enabled('eos-update-server.service',
-                                                 indirect_ok=True))
-        self.assertTrue(self._is_service_enabled('eos-update-server.socket'))
-        self.assertTrue(self._is_service_enabled('eos-updater-avahi.service',
-                                                 indirect_ok=True))
-        self.assertTrue(self._is_service_enabled('eos-updater-avahi.path'))
+        # See https://phabricator.endlessm.com/T18824
+        self.assertFalse(self._is_service_enabled('eos-update-server.service',
+                                                  indirect_ok=True))
+        self.assertFalse(self._is_service_enabled('eos-update-server.socket'))
+        self.assertFalse(self._is_service_enabled('eos-updater-avahi.service',
+                                                  indirect_ok=True))
+        self.assertFalse(self._is_service_enabled('eos-updater-avahi.path'))
+
+        # Avahi itself should be enabled though.
         self.assertTrue(self._is_service_enabled('avahi-daemon.service'))
 
 
