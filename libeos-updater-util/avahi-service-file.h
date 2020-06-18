@@ -123,7 +123,7 @@ const gchar *eos_avahi_service_file_get_directory (void);
  * implicitly for the size of the record (you can think about the
  * record as a pascal string). 2 bytes go for the name of the TXT
  * record (it is "rb" from "refs bloom"). 1 byte go for the equal
- * sign. 1 byte goes for the bloom k paramater and 1 byte goes for the
+ * sign. 1 byte goes for the bloom k parameter and 1 byte goes for the
  * bloom hashing function ID. That gives us 250 bytes max.
  *
  * Default value of this option (if not overridden) is 250.
