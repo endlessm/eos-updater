@@ -230,7 +230,7 @@
       ErrorCode:
 
       Error code of the current error, or `0` if no error has been reported.
-      This is in an unspecified error doman, and hence is useless.
+      This is in an unspecified error domain, and hence is useless.
 
       Deprecated: Use `ErrorName` instead.
     -->

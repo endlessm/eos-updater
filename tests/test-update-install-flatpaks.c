@@ -4984,7 +4984,7 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
   g_assert_error (error, G_SPAWN_EXIT_ERROR, EUFI_EXIT_CODE_APPLY_FAILED);
   g_clear_error (&error);
 
-  /* Assert that our frist flatpak was installed, but the second
+  /* Assert that our first flatpak was installed, but the second
    * one was not */
   deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
   g_assert_no_error (error);
@@ -5000,7 +5000,7 @@ test_update_deploy_flatpaks_on_reboot_partially_on_failure (EosUpdaterFixture *f
  *
  * In this scenario, we attempt to install two flatpaks, but the second one
  * will fail to install due to a file being in the way. We then fix
- * the probelm by removing the file that's in the way and run
+ * the problem by removing the file that's in the way and run
  * the installer again. Verify that although an error was set the first
  * time, the second time around the installer successfully completes
  * and both flatpaks are installed. */
@@ -5123,7 +5123,7 @@ test_update_deploy_flatpaks_on_reboot_resume_on_failure_resolved (EosUpdaterFixt
                                   &error);
   g_assert_no_error (error);
 
-  /* Assert that our frist flatpak was installed, but the second
+  /* Assert that our first flatpak was installed, but the second
    * one was not */
   deployed_flatpaks = eos_test_get_installed_flatpaks (updater_directory, &error);
   g_assert_no_error (error);

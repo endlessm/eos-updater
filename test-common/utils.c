@@ -2298,7 +2298,7 @@ eos_test_get_installed_flatpaks (GFile   *updater_dir,
 
   /* To match output like:
    * Ref
-   * org.gnome.Recipes/x86_64/master
+   * org.gnome.Recipes/x86_64/stable
    * org.gnome.Platform/x86_64/3.24
    *
    * We use a regex here, rather than libflatpak, because the test library

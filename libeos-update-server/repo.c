@@ -866,8 +866,8 @@ handle_refs_heads (EusRepo     *self,
   /* If not, this is probably a request for a head which is only available on
    * the server — and hence available in our repository as a remote ref.
    * Transparently redirect to /refs/remotes/$remote_name. For example, map
-   * /refs/heads/os/eos/amd64/master to
-   * /refs/remotes/eos/os/eos/amd64/master. */
+   * /refs/heads/os/eos/amd64/stable to
+   * /refs/remotes/eos/os/eos/amd64/stable. */
   head = requested_path + prefix_len; /* e.g eos2/i386 */
   g_clear_pointer (&raw_path, g_free);
   raw_path = g_build_filename (self->cached_repo_root,
@@ -1093,7 +1093,7 @@ eus_repo_new (OstreeRepo    *repo,
  *
  * To stop handling requests, call eus_repo_disconnect(). It is an error to
  * call eus_repo_connect() twice in a row without calling eus_repo_disconnect()
- * inbetween.
+ * between.
  *
  * Since: UNRELEASED
  */
