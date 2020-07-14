@@ -1366,7 +1366,7 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions  /* (element-type EuuFlatpa
        *     since "install" means "install or update" and "uninstall"
        *     means "unconditionally remove".
        * (2) "update" does not take priority over "install" or "uninstall",
-       *     since the former would subsumes it anyway and the latter would
+       *     since the former would subsume it anyway and the latter would
        *     make the app no longer be installed in that run of the flatpak
        *     installer.
        */
