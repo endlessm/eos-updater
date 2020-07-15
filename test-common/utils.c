@@ -1709,6 +1709,9 @@ spawn_updater (GFile *sysroot,
       { "EOS_DISABLE_METRICS", "1", NULL },
       { "FLATPAK_SYSTEM_HELPER_ON_SESSION", "1", NULL },
       { "G_DEBUG", fatal_warnings ? "gc-friendly,fatal-warnings" : "gc-friendly", NULL },
+      /* Flatpak uses $XDG_CACHE_HOME and we need to set it explicitly since
+       * we're using G_TEST_OPTION_ISOLATE_DIRS */
+      { "XDG_CACHE_HOME", g_get_user_cache_dir (), NULL },
       { NULL, NULL, NULL }
     };
   const gchar *argv[] =
