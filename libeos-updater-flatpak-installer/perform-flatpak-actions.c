@@ -37,45 +37,22 @@ try_update_application (FlatpakInstallation       *installation,
                         EosUpdaterInstallerFlags   flags,
                         GError                   **error)
 {
-  FlatpakRefKind kind = flatpak_ref_get_kind (ref);
-  const gchar *name = flatpak_ref_get_name (ref);
-  const gchar *arch = flatpak_ref_get_arch (ref);
-  const gchar *branch = flatpak_ref_get_branch (ref);
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autoptr(GError) local_error = NULL;
-  g_autoptr(FlatpakInstalledRef) updated_ref = NULL;
 
   g_message ("Attempting to update %s", formatted_ref);
 
-  /* Installation may have failed because we can just update instead,
-   * try that. */
-  updated_ref = flatpak_installation_update (installation,
-                                             FLATPAK_UPDATE_FLAGS_NO_PRUNE |
-                                             FLATPAK_UPDATE_FLAGS_NO_PULL,
-                                             kind,
-                                             name,
-                                             arch,
-                                             branch,
-                                             NULL,
-                                             NULL,
-                                             NULL,
-                                             &local_error);
-
-  if (updated_ref == NULL)
+  if (!euu_flatpak_transaction_update (installation,
+                                       formatted_ref,
+                                       FALSE, /* no_deploy */
+                                       TRUE, /* no_pull */
+                                       TRUE, /* no_prune */
+                                       NULL, /* cancellable */
+                                       &local_error))
     {
       if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
         {
           g_message ("%s is not installed, so not updating", formatted_ref);
-          g_clear_error (&local_error);
-          return TRUE;
-        }
-
-     /* We also have to check for FLATPAK_ERROR_ALREADY_INSTALLED since this
-      * is thrown if there are no updates to complete. Arguably a design flaw
-      * in Flatpak itself. */
-     if (g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
-        {
-          g_message ("%s is already up to date, so not updating", formatted_ref);
           g_clear_error (&local_error);
           return TRUE;
         }
@@ -96,15 +73,11 @@ try_install_application (FlatpakInstallation       *installation,
                          EosUpdaterInstallerFlags   flags,
                          GError                   **error)
 {
-  FlatpakRefKind kind = flatpak_ref_get_kind (ref);
-  const gchar *name = flatpak_ref_get_name (ref);
-  const gchar *arch = flatpak_ref_get_arch (ref);
-  const gchar *branch = flatpak_ref_get_branch (ref);
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autofree gchar *candidate_remote_name = NULL;
   const gchar *remote_name = in_remote_name;
+  gboolean no_pull = !(flags & EU_INSTALLER_FLAGS_ALSO_PULL);
   g_autoptr(GError) local_error = NULL;
-  g_autoptr(FlatpakInstalledRef) installed_ref = NULL;
 
   g_assert (in_remote_name != NULL);
 
@@ -136,22 +109,13 @@ try_install_application (FlatpakInstallation       *installation,
 
   g_message ("Attempting to install %s:%s", remote_name, formatted_ref);
 
-  /* Installation may have failed because we can just update instead,
-   * try that. */
-  installed_ref = flatpak_installation_install_full (installation,
-                                                     !(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_INSTALL_FLAGS_NO_PULL : 0,
-                                                     remote_name,
-                                                     kind,
-                                                     name,
-                                                     arch,
-                                                     branch,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL,
-                                                     &local_error);
-
-  if (installed_ref == NULL)
+  if (!euu_flatpak_transaction_install (installation,
+                                        remote_name,
+                                        formatted_ref,
+                                        FALSE, /* no_deploy */
+                                        no_pull,
+                                        NULL, /* cancellable */
+                                        &local_error))
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
         {
@@ -164,29 +128,14 @@ try_install_application (FlatpakInstallation       *installation,
       g_message ("%s:%s already installed, updating", remote_name, formatted_ref);
       g_clear_error (&local_error);
 
-      installed_ref = flatpak_installation_update (installation,
-                                                   FLATPAK_UPDATE_FLAGS_NO_PRUNE |
-                                                   (!(flags & EU_INSTALLER_FLAGS_ALSO_PULL) ? FLATPAK_UPDATE_FLAGS_NO_PULL : 0),
-                                                   kind,
-                                                   name,
-                                                   arch,
-                                                   branch,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL,
-                                                   &local_error);
-
-      if (installed_ref == NULL)
-        {
-          if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_ALREADY_INSTALLED))
-            {
-              g_message ("Failed to update %s:%s", remote_name, formatted_ref);
-              g_propagate_error (error, g_steal_pointer (&local_error));
-              return FALSE;
-            }
-
-          g_clear_error (&local_error);
-        }
+      if (!euu_flatpak_transaction_update (installation,
+                                           formatted_ref,
+                                           FALSE, /* no_deploy */
+                                           no_pull,
+                                           TRUE, /* no_prune */
+                                           NULL, /* cancellable */
+                                           error))
+        return FALSE;
     }
 
   g_message ("Successfully installed or updated %s:%s", remote_name, formatted_ref);
@@ -198,25 +147,16 @@ try_uninstall_application (FlatpakInstallation  *installation,
                            FlatpakRef           *ref,
                            GError              **error)
 {
-  FlatpakRefKind kind = flatpak_ref_get_kind (ref);
-  const gchar *name = flatpak_ref_get_name (ref);
-  const gchar *arch = flatpak_ref_get_arch (ref);
-  const gchar *branch = flatpak_ref_get_branch (ref);
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
   g_autoptr(GError) local_error = NULL;
 
   g_message ("Attempting to uninstall %s", formatted_ref);
 
-  if (!flatpak_installation_uninstall_full (installation,
-                                            FLATPAK_UNINSTALL_FLAGS_NO_PRUNE,
-                                            kind,
-                                            name,
-                                            arch,
-                                            branch,
-                                            NULL,
-                                            NULL,
-                                            NULL,
-                                            &local_error))
+  if (!euu_flatpak_transaction_uninstall (installation,
+                                          formatted_ref,
+                                          TRUE, /* no_prune */
+                                          NULL, /* cancellable */
+                                          &local_error))
     {
       if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
         {

@@ -291,7 +291,7 @@ test_deploy_failure_previous_flatpaks_stay_deployed (FlatpakDeploymentsFixture *
                                   EU_INSTALLER_MODE_PERFORM,
                                   TRUE,
                                   &error);
-  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
+  g_assert_error (error, FLATPAK_ERROR, FLATPAK_ERROR_ABORTED);
 
   g_assert (g_file_test (directory_expected_to_exist_path, G_FILE_TEST_EXISTS));
 }
@@ -332,7 +332,7 @@ test_deploy_failure_counter_state_updated (FlatpakDeploymentsFixture *fixture,
                                   EU_INSTALLER_MODE_PERFORM,
                                   TRUE,
                                   &error);
-  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
+  g_assert_error (error, FLATPAK_ERROR, FLATPAK_ERROR_ABORTED);
 
   g_clear_error (&error);
   g_key_file_load_from_file (counter_key_file,
@@ -381,7 +381,7 @@ test_deploy_failure_resume_from_latest (FlatpakDeploymentsFixture *fixture,
                                   EU_INSTALLER_MODE_PERFORM,
                                   TRUE,
                                   &error);
-  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
+  g_assert_error (error, FLATPAK_ERROR, FLATPAK_ERROR_ABORTED);
 
   g_clear_error (&error);
   g_file_delete (directory_expected_to_fail_dir, NULL, &error);

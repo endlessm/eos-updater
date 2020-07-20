@@ -2507,3 +2507,98 @@ eos_updater_get_flatpak_installation (GCancellable *cancellable, GError **error)
 
   return flatpak_installation_new_system (cancellable, error);
 }
+
+gboolean
+euu_flatpak_transaction_install (FlatpakInstallation *installation,
+                                 const gchar         *remote,
+                                 const gchar         *formatted_ref,
+                                 gboolean             no_deploy,
+                                 gboolean             no_pull,
+                                 GCancellable        *cancellable,
+                                 GError              **error)
+{
+  g_autoptr(FlatpakTransaction) transaction = NULL;
+
+  g_return_val_if_fail (FLATPAK_IS_INSTALLATION (installation), FALSE);
+  g_return_val_if_fail (formatted_ref != NULL, FALSE);
+  g_return_val_if_fail (!(no_deploy && no_pull), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  transaction = flatpak_transaction_new_for_installation (installation, cancellable, error);
+  if (transaction == NULL)
+    return FALSE;
+
+  flatpak_transaction_set_no_deploy (transaction, no_deploy);
+  flatpak_transaction_set_no_pull (transaction, no_pull);
+
+  if (!flatpak_transaction_add_install (transaction,
+                                        remote,
+                                        formatted_ref,
+                                        NULL, /* subpaths */
+                                        error))
+    return FALSE;
+
+  return flatpak_transaction_run (transaction, cancellable, error);
+}
+
+gboolean
+euu_flatpak_transaction_update (FlatpakInstallation *installation,
+                                const gchar         *formatted_ref,
+                                gboolean             no_deploy,
+                                gboolean             no_pull,
+                                gboolean             no_prune,
+                                GCancellable        *cancellable,
+                                GError              **error)
+{
+  g_autoptr(FlatpakTransaction) transaction = NULL;
+
+  g_return_val_if_fail (FLATPAK_IS_INSTALLATION (installation), FALSE);
+  g_return_val_if_fail (formatted_ref != NULL, FALSE);
+  g_return_val_if_fail (!(no_deploy && no_pull), FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  transaction = flatpak_transaction_new_for_installation (installation, cancellable, error);
+  if (transaction == NULL)
+    return FALSE;
+
+  flatpak_transaction_set_no_deploy (transaction, no_deploy);
+  flatpak_transaction_set_no_pull (transaction, no_pull);
+  flatpak_transaction_set_disable_prune (transaction, no_prune);
+
+  if (!flatpak_transaction_add_update (transaction,
+                                       formatted_ref,
+                                       NULL, /* subpaths */
+                                       NULL, /* commit */
+                                       error))
+    return FALSE;
+
+  return flatpak_transaction_run (transaction, cancellable, error);
+}
+
+gboolean
+euu_flatpak_transaction_uninstall (FlatpakInstallation *installation,
+                                   const gchar         *formatted_ref,
+                                   gboolean             no_prune,
+                                   GCancellable        *cancellable,
+                                   GError              **error)
+{
+  g_autoptr(FlatpakTransaction) transaction = NULL;
+
+  g_return_val_if_fail (FLATPAK_IS_INSTALLATION (installation), FALSE);
+  g_return_val_if_fail (formatted_ref != NULL, FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  transaction = flatpak_transaction_new_for_installation (installation, cancellable, error);
+  if (transaction == NULL)
+    return FALSE;
+
+  flatpak_transaction_set_disable_prune (transaction, no_prune);
+
+  if (!flatpak_transaction_add_uninstall (transaction, formatted_ref, error))
+    return FALSE;
+
+  return flatpak_transaction_run (transaction, cancellable, error);
+}
