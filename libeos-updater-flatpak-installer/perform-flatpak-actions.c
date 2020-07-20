@@ -38,6 +38,7 @@ try_update_application (FlatpakInstallation       *installation,
                         GError                   **error)
 {
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
+  gboolean no_pull = !(flags & EU_INSTALLER_FLAGS_ALSO_PULL);
   g_autoptr(GError) local_error = NULL;
 
   g_message ("Attempting to update %s", formatted_ref);
@@ -45,7 +46,7 @@ try_update_application (FlatpakInstallation       *installation,
   if (!euu_flatpak_transaction_update (installation,
                                        formatted_ref,
                                        FALSE, /* no_deploy */
-                                       TRUE, /* no_pull */
+                                       no_pull,
                                        TRUE, /* no_prune */
                                        NULL, /* cancellable */
                                        &local_error))
