@@ -82,10 +82,9 @@ cmd_result_ensure_ok_verbose (CmdResult *cmd)
 gboolean
 cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
 {
-  guint idx;
   gboolean ok = TRUE;
 
-  for (idx = 0; idx < cmds->len; ++idx)
+  for (guint idx = 0; idx < cmds->len; ++idx)
     {
       CmdResult *cmd = g_ptr_array_index (cmds, idx);
 
@@ -94,6 +93,18 @@ cmd_result_ensure_all_ok_verbose (GPtrArray *cmds)
     }
 
   return ok;
+}
+
+void
+cmd_results_allow_failure_verbose (GPtrArray *cmds)
+{
+  for (guint idx = 0; idx < cmds->len; ++idx)
+    {
+      CmdResult *cmd = g_ptr_array_index (cmds, idx);
+      g_autofree gchar *dump = cmd_result_dump (cmd);
+
+      g_test_message ("%s", dump);
+    }
 }
 
 gchar *

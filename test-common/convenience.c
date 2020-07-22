@@ -209,9 +209,10 @@ etc_update_server (EtcData *data,
 
 /* Pulls the updates from the server using eos-updater and autoupdater.
  */
-void
-etc_update_client_with_warnings (EtcData     *data,
-                                 const gchar *expected_updater_warnings)
+static void
+_etc_update_client_with_warnings (EtcData     *data,
+                                  const gchar *expected_updater_warnings,
+                                  gboolean     expect_failure)
 {
   DownloadSource main_source = DOWNLOAD_MAIN;
   g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
@@ -261,21 +262,43 @@ etc_update_client_with_warnings (EtcData     *data,
   cmds = g_ptr_array_sized_new (2);
   g_ptr_array_add (cmds, &reaped_updater);
   g_ptr_array_add (cmds, autoupdater->cmd);
-  g_assert_true (cmd_result_ensure_all_ok_verbose (cmds));
 
-  eos_test_client_has_commit (data->client,
-                              default_remote_name,
-                              1,
-                              &has_commit,
-                              &error);
-  g_assert_no_error (error);
-  g_assert_true (has_commit);
+  if (!expect_failure)
+    {
+      g_assert_true (cmd_result_ensure_all_ok_verbose (cmds));
+
+      eos_test_client_has_commit (data->client,
+                                  default_remote_name,
+                                  1,
+                                  &has_commit,
+                                  &error);
+      g_assert_no_error (error);
+      g_assert_true (has_commit);
+    }
+  else
+    {
+      cmd_results_allow_failure_verbose (cmds);
+      g_assert_false (g_spawn_check_exit_status (autoupdater->cmd->exit_status, NULL));
+    }
 }
 
 void
 etc_update_client (EtcData *data)
 {
-  etc_update_client_with_warnings (data, NULL);
+  _etc_update_client_with_warnings (data, NULL, FALSE);
+}
+
+void
+etc_update_client_expect_failure (EtcData *data)
+{
+  _etc_update_client_with_warnings (data, NULL, TRUE);
+}
+
+void
+etc_update_client_with_warnings (EtcData     *data,
+                                 const gchar *expected_updater_warnings)
+{
+  _etc_update_client_with_warnings (data, expected_updater_warnings, FALSE);
 }
 
 /* Deletes an object from a repositories' objects directory. The repo

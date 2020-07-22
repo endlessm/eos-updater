@@ -49,6 +49,8 @@ gboolean cmd_result_ensure_ok_verbose (CmdResult *cmd);
 
 gboolean cmd_result_ensure_all_ok_verbose (GPtrArray *cmds);
 
+void cmd_results_allow_failure_verbose (GPtrArray *cmds);
+
 gchar *cmd_result_dump (CmdResult *cmd);
 
 typedef struct

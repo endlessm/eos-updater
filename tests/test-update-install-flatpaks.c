@@ -1032,7 +1032,6 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
-  DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
     { "install", NULL, "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
@@ -1043,10 +1042,6 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
-  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
-  g_autoptr(GFile) autoupdater_root = NULL;
-  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
-  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
@@ -1096,29 +1091,7 @@ test_update_install_flatpaks_in_repo_error_using_remote_name (EosUpdaterFixture 
    * point, two deployments - old one pointing to commit 0 and a new
    * one pointing to commit 1.
    */
-  eos_test_client_run_updater (data->client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
-  g_assert_no_error (error);
-
-  /* Trigger update */
-  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
-  autoupdater = eos_test_autoupdater_new (autoupdater_root,
-                                          UPDATE_STEP_APPLY,
-                                          1,  /* interval (days) */
-                                          TRUE,  /* force update */
-                                          &error);
-  g_assert_no_error (error);
-
-  /* Done with update, reap updater server */
-  eos_test_client_reap_updater (data->client,
-                                &updater_cmd,
-                                &reaped_updater,
-                                &error);
-  g_assert_no_error (error);
+  etc_update_client_expect_failure (data);
 
   /* Assert that our flatpaks were not pulled into the local repo */
   flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
@@ -1136,7 +1109,6 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
-  DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
     { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", NULL, "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
@@ -1147,10 +1119,6 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
-  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
-  g_autoptr(GFile) autoupdater_root = NULL;
-  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
-  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
@@ -1200,29 +1168,7 @@ test_update_install_flatpaks_in_repo_error_no_branch_name (EosUpdaterFixture *fi
    * point, two deployments - old one pointing to commit 0 and a new
    * one pointing to commit 1.
    */
-  eos_test_client_run_updater (data->client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
-  g_assert_no_error (error);
-
-  /* Trigger update */
-  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
-  autoupdater = eos_test_autoupdater_new (autoupdater_root,
-                                          UPDATE_STEP_APPLY,
-                                          1,  /* interval (days) */
-                                          TRUE,  /* force update */
-                                          &error);
-  g_assert_no_error (error);
-
-  /* Done with update, reap updater server */
-  eos_test_client_reap_updater (data->client,
-                                &updater_cmd,
-                                &reaped_updater,
-                                &error);
-  g_assert_no_error (error);
+  etc_update_client_expect_failure (data);
 
   /* Assert that our flatpaks were not pulled into the local repo */
   flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
@@ -1242,7 +1188,6 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
-  DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
     { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
@@ -1253,10 +1198,6 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
-  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
-  g_autoptr(GFile) autoupdater_root = NULL;
-  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
-  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
@@ -1302,34 +1243,11 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
   /* Update the server, so it has a new commit (1).
    */
   etc_update_server (data, 1);
-
   /* Update the client, so it also has a new commit (1); and, at this
    * point, two deployments - old one pointing to commit 0 and a new
    * one pointing to commit 1.
    */
-  eos_test_client_run_updater (data->client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
-  g_assert_no_error (error);
-
-  /* Trigger update */
-  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
-  autoupdater = eos_test_autoupdater_new (autoupdater_root,
-                                          UPDATE_STEP_APPLY,
-                                          1,  /* interval (days) */
-                                          TRUE,  /* force update */
-                                          &error);
-  g_assert_no_error (error);
-
-  /* Done with update, reap updater server */
-  eos_test_client_reap_updater (data->client,
-                                &updater_cmd,
-                                &reaped_updater,
-                                &error);
-  g_assert_no_error (error);
+  etc_update_client_expect_failure (data);
 
   /* Assert that our flatpaks were not pulled into the local repo */
   flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
@@ -1348,7 +1266,6 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
-  DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
     { "install", NULL, NULL, "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
@@ -1359,10 +1276,6 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
-  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
-  g_autoptr(GFile) autoupdater_root = NULL;
-  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
-  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
@@ -1412,29 +1325,7 @@ test_update_install_flatpaks_no_location_error (EosUpdaterFixture *fixture,
    * point, two deployments - old one pointing to commit 0 and a new
    * one pointing to commit 1.
    */
-  eos_test_client_run_updater (data->client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
-  g_assert_no_error (error);
-
-  /* Trigger update */
-  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
-  autoupdater = eos_test_autoupdater_new (autoupdater_root,
-                                          UPDATE_STEP_APPLY,
-                                          1,  /* interval (days) */
-                                          TRUE,  /* force update */
-                                          &error);
-  g_assert_no_error (error);
-
-  /* Done with update, reap updater server */
-  eos_test_client_reap_updater (data->client,
-                                &updater_cmd,
-                                &reaped_updater,
-                                &error);
-  g_assert_no_error (error);
+  etc_update_client_expect_failure (data);
 
   /* Assert that our flatpaks were not pulled into the local repo */
   flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
@@ -1455,7 +1346,6 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
-  DownloadSource main_source = DOWNLOAD_MAIN;
   FlatpakToInstall flatpaks_to_install[] = {
     { "install", "com.endlessm.TestInstallFlatpaksCollection", "other-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
@@ -1466,10 +1356,6 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
   g_auto(GStrv) flatpaks_in_repo = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
-  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
-  g_autoptr(GFile) autoupdater_root = NULL;
-  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
-  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
   g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
@@ -1519,33 +1405,7 @@ test_update_install_flatpaks_conflicting_location_error (EosUpdaterFixture *fixt
    * point, two deployments - old one pointing to commit 0 and a new
    * one pointing to commit 1.
    */
-  eos_test_client_run_updater (data->client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
-  g_assert_no_error (error);
-
-  /* Trigger update */
-  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
-  autoupdater = eos_test_autoupdater_new (autoupdater_root,
-                                          UPDATE_STEP_APPLY,
-                                          1,  /* interval (days) */
-                                          TRUE,  /* force update */
-                                          &error);
-  g_assert_no_error (error);
-
-  /* Done with update, reap updater server */
-  eos_test_client_reap_updater (data->client,
-                                &updater_cmd,
-                                &reaped_updater,
-                                &error);
-  g_assert_no_error (error);
-
-  /* Should have been an error on the autoupdater, since the update would
-   * have failed. */
-  g_assert_false (g_spawn_check_exit_status (autoupdater->cmd->exit_status, NULL));
+  etc_update_client_expect_failure (data);
 
   /* Assert that our flatpaks were not pulled into the local repo */
   flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
@@ -1732,6 +1592,7 @@ test_update_install_flatpaks_in_repo_also_pull_runtimes_different_remote (EosUpd
   /* Create and set up the server with the commit 0.
    */
   etc_set_up_server (data);
+
   /* Create and set up the client, that pulls the update from the
    * server, so it should have also a commit 0 and a deployment based
    * on this commit.
@@ -1859,6 +1720,7 @@ test_update_install_flatpaks_in_repo_also_pull_runtimes_ignore_broken_remote (Eo
   /* Create and set up the server with the commit 0.
    */
   etc_set_up_server (data);
+
   /* Create and set up the client, that pulls the update from the
    * server, so it should have also a commit 0 and a deployment based
    * on this commit.
@@ -3308,9 +3170,6 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
-  DownloadSource main_source = DOWNLOAD_MAIN;
-  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
-  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   FlatpakToInstall flatpaks_to_install[] = {
     { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
@@ -3330,8 +3189,6 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   g_autoptr(GFile) expected_directory = NULL;
   g_autoptr(GFile) expected_directory_child = NULL;
   g_autofree gchar *expected_directory_child_str = NULL;
-  g_autoptr(GFile) autoupdater_root = NULL;
-  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autofree gchar *deployment_csum = NULL;
   g_autofree gchar *deployment_id = NULL;
   g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
@@ -3417,34 +3274,8 @@ test_update_deploy_fail_flatpaks_stay_in_repo (EosUpdaterFixture *fixture,
   g_file_set_contents (expected_directory_child_str, "", -1, &error);
   g_assert_no_error (error);
 
-  /* Attempt to update client - run updater daemon */
-  eos_test_client_run_updater (data->client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
-  g_assert_no_error (error);
-
-  /* Trigger update */
-  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
-  autoupdater = eos_test_autoupdater_new (autoupdater_root,
-                                          UPDATE_STEP_APPLY,
-                                          1,  /* interval (days) */
-                                          TRUE,  /* force update */
-                                          &error);
-  g_assert_no_error (error);
-
-  /* Done with update, reap updater server */
-  eos_test_client_reap_updater (data->client,
-                                &updater_cmd,
-                                &reaped_updater,
-                                &error);
-  g_assert_no_error (error);
-
-  /* Should have been an error on the autoupdater, since the update would
-   * have failed. */
-  g_assert_false (g_spawn_check_exit_status (autoupdater->cmd->exit_status, NULL));
+  /* Attempt to update client */
+  etc_update_client_expect_failure (data);
 
   /* Assert that our flatpaks are in the installation repo */
   flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
@@ -3463,9 +3294,6 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
-  DownloadSource main_source = DOWNLOAD_MAIN;
-  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
-  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   FlatpakToInstall flatpaks_to_install[] = {
     { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
@@ -3485,8 +3313,6 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_autoptr(GFile) expected_directory = NULL;
   g_autoptr(GFile) expected_directory_child = NULL;
   g_autofree gchar *expected_directory_child_str = NULL;
-  g_autoptr(GFile) autoupdater_root = NULL;
-  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
   g_autofree gchar *deployment_csum = NULL;
   g_autofree gchar *anticipated_deployment_csum = NULL;
@@ -3576,30 +3402,8 @@ test_update_deploy_fail_flatpaks_not_deployed (EosUpdaterFixture *fixture,
   g_file_set_contents (expected_directory_child_str, "", -1, &error);
   g_assert_no_error (error);
 
-  /* Attempt to update client - run updater daemon */
-  eos_test_client_run_updater (data->client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
-  g_assert_no_error (error);
-
-  /* Trigger update */
-  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
-  autoupdater = eos_test_autoupdater_new (autoupdater_root,
-                                          UPDATE_STEP_APPLY,
-                                          1,  /* interval (days) */
-                                          TRUE,  /* force update */
-                                          &error);
-  g_assert_no_error (error);
-
-  /* Done with update, reap updater server */
-  eos_test_client_reap_updater (data->client,
-                                &updater_cmd,
-                                &reaped_updater,
-                                &error);
-  g_assert_no_error (error);
+  /* Attempt to update client */
+  etc_update_client_expect_failure (data);
 
   /* Now simulate a reboot by running eos-updater-flatpak-installer */
   deployment_repo_dir = g_file_get_child (data->client->root,
@@ -3630,9 +3434,6 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
 {
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
-  DownloadSource main_source = DOWNLOAD_MAIN;
-  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
-  g_auto(CmdResult) reaped_updater = CMD_RESULT_CLEARED;
   FlatpakToInstall flatpaks_to_install[] = {
     { "install", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
   };
@@ -3645,8 +3446,6 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   g_autofree gchar *expected_directory_relative_path = NULL;
   g_autoptr(GFile) expected_directory = NULL;
   g_autoptr(GFile) expected_directory_child = NULL;
-  g_autoptr(GFile) autoupdater_root = NULL;
-  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_auto(GStrv) initial_deployment_ids = NULL;
   g_autofree gchar *deployment_id = NULL;
   g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
@@ -3711,26 +3510,8 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   eos_updater_remove_recursive (flatpak_remote_dir, NULL, &error);
   g_assert_no_error (error);
 
-  /* Attempt to update client - run updater daemon */
-  eos_test_client_run_updater (data->client,
-                               &main_source,
-                               1,
-                               NULL,
-                               &updater_cmd,
-                               &error);
-  g_assert_no_error (error);
-
-  /* Trigger update */
-  autoupdater_root = g_file_get_child (data->fixture->tmpdir, "autoupdater");
-  autoupdater = eos_test_autoupdater_new (autoupdater_root,
-                                          UPDATE_STEP_APPLY,
-                                          1,  /* interval (days) */
-                                          TRUE,  /* force update */
-                                          &error);
-  g_assert_no_error (error);
-
-  /* Update should have failed */
-  g_assert_false (g_spawn_check_exit_status (autoupdater->cmd->exit_status, NULL));
+  /* Attempt to update client */
+  etc_update_client_expect_failure (data);
 
   /* Assert that the deployment checksum is the same as earlier */
   eos_test_client_get_deployments (data->client,
