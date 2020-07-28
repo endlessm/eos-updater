@@ -1831,8 +1831,12 @@ test_update_install_flatpaks_in_repo_also_pull_runtimes_prioritize_source_remote
                                              "test-repo",
                                              FALSE));
 
-  /* Priority order has other-repo first, but we should still
-   * take the runtime from test-repo */
+  /* When searching remotes for a runtime, Flatpak sorts them by priority, then
+   * using strcmp() within a priority level, but with an app's origin ahead of
+   * others at the same priority level. Check that other-repo would come first
+   * in strcmp() order. Later we will check that test-repo is used instead. */
+  g_assert_true (strcmp ("other-repo", "test-repo") < 0);
+
   g_hash_table_insert (flatpak_repo_infos,
                        g_strdup ("other-repo"),
                        flatpak_repo_info_new ("other-repo",
@@ -1964,8 +1968,12 @@ test_update_install_flatpaks_in_repo_also_pull_runtimes_first_dep_remote_wins (E
                                              "other-repo",
                                              FALSE));
 
-  /* Priority order has other-repo first, but we should still
-   * take the runtime from test-repo */
+  /* When searching remotes for a runtime, Flatpak sorts them by priority, then
+   * using strcmp() within a priority level, but with an app's origin ahead of
+   * others at the same priority level. Check that other-repo would come first
+   * in strcmp() order. Later we will check that test-repo is used instead. */
+  g_assert_true (strcmp ("other-repo", "test-repo") < 0);
+
   g_hash_table_insert (flatpak_repo_infos,
                        g_strdup ("other-repo"),
                        flatpak_repo_info_new ("other-repo",
