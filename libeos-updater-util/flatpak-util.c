@@ -1828,6 +1828,8 @@ find_related_refs_for_action (FlatpakInstallation       *installation,
   if (transaction == NULL)
     return FALSE;
 
+  flatpak_transaction_set_no_interaction (transaction, TRUE);
+
   switch (resolved_action_type)
     {
       case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
@@ -2529,6 +2531,7 @@ euu_flatpak_transaction_install (FlatpakInstallation *installation,
   if (transaction == NULL)
     return FALSE;
 
+  flatpak_transaction_set_no_interaction (transaction, TRUE);
   flatpak_transaction_set_no_deploy (transaction, no_deploy);
   flatpak_transaction_set_no_pull (transaction, no_pull);
 
@@ -2563,6 +2566,7 @@ euu_flatpak_transaction_update (FlatpakInstallation *installation,
   if (transaction == NULL)
     return FALSE;
 
+  flatpak_transaction_set_no_interaction (transaction, TRUE);
   flatpak_transaction_set_no_deploy (transaction, no_deploy);
   flatpak_transaction_set_no_pull (transaction, no_pull);
   flatpak_transaction_set_disable_prune (transaction, no_prune);
@@ -2595,6 +2599,7 @@ euu_flatpak_transaction_uninstall (FlatpakInstallation *installation,
   if (transaction == NULL)
     return FALSE;
 
+  flatpak_transaction_set_no_interaction (transaction, TRUE);
   flatpak_transaction_set_disable_prune (transaction, no_prune);
 
   if (!flatpak_transaction_add_uninstall (transaction, formatted_ref, error))
