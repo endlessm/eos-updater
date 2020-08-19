@@ -80,9 +80,22 @@ def dump_daemon_properties(proxy):
     print("{:>{}}: {}".format("State", width, UPDATER_STATES[s]))
 
     for x in proxy.get_cached_property_names():
-        if x != "State":
-            value = proxy.get_cached_property(x)
-            print("{:>{}}: {}".format(x, width, value))
+        if x == "State":  # Handled above
+            continue
+
+        value = proxy.get_cached_property(x)
+        if x in (
+            "DownloadSize",
+            "DownloadedBytes",
+            "FullDownloadSize",
+            "FullUnpackedSize",
+            "UnpackedSize",
+        ):
+            value = GLib.format_size_full(
+                value.get_int64(), GLib.FormatSizeFlags.LONG_FORMAT
+            )
+
+        print("{:>{}}: {}".format(x, width, value))
 
     print("")
 

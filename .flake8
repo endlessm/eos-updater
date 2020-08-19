@@ -1,0 +1,5 @@
+[flake8]
+# The default is 79 characters. Black, a popular auto-formatter, defaults to 88
+# based on empirical research.
+# https://black.readthedocs.io/en/stable/the_black_code_style.html#line-length
+max-line-length = 88
