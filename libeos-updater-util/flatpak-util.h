@@ -176,4 +176,26 @@ FlatpakInstallation *eos_updater_get_flatpak_installation (GCancellable  *cancel
 guint euu_flatpak_ref_hash (gconstpointer ref);
 gboolean euu_flatpak_ref_equal (gconstpointer a, gconstpointer b);
 
+gboolean euu_flatpak_transaction_install (FlatpakInstallation *installation,
+                                          const gchar         *remote,
+                                          const gchar         *formatted_ref,
+                                          gboolean             no_deploy,
+                                          gboolean             no_pull,
+                                          GCancellable        *cancellable,
+                                          GError              **error);
+
+gboolean euu_flatpak_transaction_update (FlatpakInstallation *installation,
+                                         const gchar         *formatted_ref,
+                                         gboolean             no_deploy,
+                                         gboolean             no_pull,
+                                         gboolean             no_prune,
+                                         GCancellable        *cancellable,
+                                         GError              **error);
+
+gboolean euu_flatpak_transaction_uninstall (FlatpakInstallation *installation,
+                                            const gchar         *formatted_ref,
+                                            gboolean             no_prune,
+                                            GCancellable        *cancellable,
+                                            GError              **error);
+
 G_END_DECLS
