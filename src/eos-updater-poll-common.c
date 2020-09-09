@@ -25,6 +25,7 @@
 #include "eos-updater-object.h"
 #include "eos-updater-poll-common.h"
 
+#include <libeos-updater-util/metrics-private.h>
 #include <libeos-updater-util/util.h>
 
 #ifdef HAS_EOSMETRICS_0
@@ -66,15 +67,6 @@ static const gchar *const order_key_str[] = {
 };
 
 G_STATIC_ASSERT (G_N_ELEMENTS (order_key_str) == EOS_UPDATER_DOWNLOAD_LAST + 1);
-
-#ifdef HAS_EOSMETRICS_0
-/*
- * Records which branch will be used by the updater. The payload is a 4-tuple
- * of 3 strings and boolean: vendor name, product ID, selected OStree ref, and
- * whether the machine is on hold
- */
-static const gchar *const EOS_UPDATER_BRANCH_SELECTED = "99f48aac-b5a0-426d-95f4-18af7d081c4e";
-#endif
 
 static gboolean
 status_of_current_and_remote_commit (OstreeRepo   *repo,
@@ -768,13 +760,6 @@ get_hw_descriptors (void)
   return hw_descriptors;
 }
 
-static gboolean
-get_metrics_enabled (void)
-{
-  const gchar *disable_metrics = g_getenv ("EOS_DISABLE_METRICS");
-  return (disable_metrics == NULL || !g_str_equal (disable_metrics, "1"));
-}
-
 static void
 maybe_send_metric (EosMetricsInfo *metrics)
 {
@@ -784,13 +769,13 @@ maybe_send_metric (EosMetricsInfo *metrics)
   if (metric_sent)
     return;
 
-  if (get_metrics_enabled ())
+  if (euu_get_metrics_enabled ())
     {
       g_message ("Recording metric event %s: (%s, %s, %s)",
-                 EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
+                 EOS_UPDATER_METRIC_BRANCH_SELECTED, metrics->vendor, metrics->product,
                  metrics->ref);
       emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
-                                             EOS_UPDATER_BRANCH_SELECTED,
+                                             EOS_UPDATER_METRIC_BRANCH_SELECTED,
                                              g_variant_new ("(sssb)", metrics->vendor,
                                                             metrics->product,
                                                             metrics->ref,
@@ -799,7 +784,7 @@ maybe_send_metric (EosMetricsInfo *metrics)
   else
     {
       g_debug ("Skipping metric event %s: (%s, %s, %s) (metrics disabled)",
-               EOS_UPDATER_BRANCH_SELECTED, metrics->vendor, metrics->product,
+               EOS_UPDATER_METRIC_BRANCH_SELECTED, metrics->vendor, metrics->product,
                metrics->ref);
     }
 

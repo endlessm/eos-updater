@@ -108,6 +108,7 @@ libeos_updater_util_libeos_updater_util_@EUU_API_VERSION@_la_SOURCES = \
 	libeos-updater-util/config.h \
 	libeos-updater-util/flatpak.c \
 	libeos-updater-util/flatpak.h \
+	libeos-updater-util/metrics-private.h \
 	libeos-updater-util/ostree-bloom-private.h \
 	libeos-updater-util/ostree-bloom.c \
 	libeos-updater-util/ostree.c \
