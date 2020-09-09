@@ -716,14 +716,14 @@ serve_file_if_exists (SoupMessage *msg,
     file_bytes = g_mapped_file_get_bytes (mapping);
   else
     {
-      g_autofree guint8 *contents = NULL;
+      g_autofree gchar *contents = NULL;
       gsize contents_len = 0;
 
       /* mmap() can legitimately fail if the underlying file system doesn’t
        * support it, which can happen if we’re using an overlayfs. Fall back to
        * reading in the file. */
       g_clear_error (&error);
-      if (!g_file_get_contents (raw_path, (gchar **) &contents, &contents_len, &error))
+      if (!g_file_get_contents (raw_path, &contents, &contents_len, &error))
         {
           g_warning ("Failed to load ‘%s’: %s", raw_path, error->message);
           soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
