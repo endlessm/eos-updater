@@ -24,12 +24,19 @@
  *  - Philip Withnall <withnall@endlessm.com>
  */
 
+#include "config.h"
+
 #include <glib.h>
 
 #include <libeos-updater-util/types.h>
+#include <libeos-updater-util/metrics-private.h>
 
 #include "eos-updater-generated.h"
 #include "eos-updater-object.h"
+
+#ifdef HAS_EOSMETRICS_0
+#include <eosmetrics/eosmetrics.h>
+#endif /* HAS_EOSMETRICS_0 */
 
 static void
 eos_updater_set_state_changed (EosUpdater *updater, EosUpdaterState state)
@@ -66,6 +73,21 @@ eos_updater_set_error (EosUpdater *updater,
   eos_updater_set_error_code (updater, (guint) error->code);
   eos_updater_set_error_message (updater, error->message);
   eos_updater_set_state_changed (updater, EOS_UPDATER_STATE_ERROR);
+
+  /* Report a metric. */
+#ifdef HAS_EOSMETRICS_0
+  if (euu_get_metrics_enabled () &&
+      !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED) &&
+      !g_error_matches (error, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_LIVE_BOOT) &&
+      !g_error_matches (error, EOS_UPDATER_ERROR, EOS_UPDATER_ERROR_NOT_OSTREE_SYSTEM))
+    {
+      emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
+                                             EOS_UPDATER_METRIC_FAILURE,
+                                             g_variant_new ("(ss)",
+                                                            "eos-updater",
+                                                            formatted_message));
+    }
+#endif
 }
 
 /* This must only be called from the main thread. All mutual exclusion of access
