@@ -30,6 +30,12 @@
 G_BEGIN_DECLS
 
 /*
+ * Records a failure in the updater. The payload is an `(ss)` of the updater
+ * component, and the error message.
+ */
+static const gchar *const EOS_UPDATER_METRIC_FAILURE = "927d0f61-4890-4912-a513-b2cb0205908f";
+
+/*
  * Records which branch will be used by the updater. The payload is a 4-tuple
  * of 3 strings and boolean: vendor name, product ID, selected OStree ref, and
  * whether the machine is on hold
