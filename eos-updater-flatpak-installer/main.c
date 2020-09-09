@@ -20,10 +20,13 @@
  *  - Sam Spilsbury <sam@endlessm.com>
  */
 
+#include "config.h"
+
 #include <flatpak.h>
 #include <glib.h>
 #include <libeos-updater-util/enums.h>
 #include <libeos-updater-util/flatpak-util.h>
+#include <libeos-updater-util/metrics-private.h>
 #include <libeos-updater-util/types.h>
 #include <libeos-updater-util/util.h>
 #include <libeos-updater-flatpak-installer/installer.h>
@@ -32,6 +35,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+
+#ifdef HAS_EOSMETRICS_0
+#include <eosmetrics/eosmetrics.h>
+#endif /* HAS_EOSMETRICS_0 */
 
 /* main() exit codes. */
 enum
@@ -113,6 +120,18 @@ fail (int          exit_status,
 
   /* Include the usage. */
   g_printerr ("%s: %s\n", g_get_prgname (), formatted_message);
+
+  /* Report a metric. */
+#ifdef HAS_EOSMETRICS_0
+  if (euu_get_metrics_enabled ())
+    {
+      emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
+                                             EOS_UPDATER_METRIC_FAILURE,
+                                             g_variant_new ("(ss)",
+                                                            "eos-updater-flatpak-installer",
+                                                            formatted_message));
+    }
+#endif
 
   return exit_status;
 }

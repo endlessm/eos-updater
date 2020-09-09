@@ -2,6 +2,7 @@ eos_update_flatpak_installer_sources = [
   'main.c',
 ]
 
+eosmetrics_dep = dependency('eosmetrics-0', required: get_option('metrics'))
 eos_update_flatpak_installer_deps = [
   dependency('flatpak', version: '>= 1.1.2'),
   dependency('gio-2.0', version: '>= 2.62'),
@@ -11,11 +12,16 @@ eos_update_flatpak_installer_deps = [
   dependency('ostree-1', version: '>= 2018.6'),
   libeos_updater_flatpak_installer_dep,
   libeos_updater_util_dep,
+  eosmetrics_dep,
 ]
 
 eos_update_flatpak_installer_cppflags = [
   '-DG_LOG_DOMAIN="eos-updater-flatpak-installer"',
 ]
+
+if eosmetrics_dep.found()
+  eos_update_flatpak_installer_cppflags += ['-DHAS_EOSMETRICS_0']
+endif
 
 executable('eos-updater-flatpak-installer',
   eos_update_flatpak_installer_sources,
