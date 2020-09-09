@@ -296,12 +296,12 @@ static void
 purge_old_config_file (const gchar *etc_path,
                        const gchar *checksum_to_delete)
 {
-  g_autofree guint8 *etc_contents = NULL;
+  g_autofree gchar *etc_contents = NULL;
   gsize etc_length;
   g_autoptr(GChecksum) checksum = NULL;
   g_autoptr(GError) error = NULL;
 
-  g_file_get_contents (etc_path, (gchar **) &etc_contents, &etc_length, &error);
+  g_file_get_contents (etc_path, &etc_contents, &etc_length, &error);
   if (g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
     {
       return;
@@ -316,7 +316,7 @@ purge_old_config_file (const gchar *etc_path,
   /* Work out its checksum. The @etc_length cast might truncate the file,
    * but that would only result in it being kept slightly-unnecessarily. */
   checksum = g_checksum_new (G_CHECKSUM_MD5);
-  g_checksum_update (checksum, etc_contents, (gssize) etc_length);
+  g_checksum_update (checksum, (const guchar *) etc_contents, (gssize) etc_length);
 
   /* If the files are the same, delete the @etc_path. */
   if (g_strcmp0 (g_checksum_get_string (checksum), checksum_to_delete) == 0)

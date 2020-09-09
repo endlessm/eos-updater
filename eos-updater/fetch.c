@@ -399,6 +399,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
     {
       EuuFlatpakRemoteRefAction *action = g_ptr_array_index (pending_flatpak_ref_actions, i);
       EuuFlatpakLocationRef *to_install = action->ref;
+      gpointer candidate_remote_name_ptr = NULL;
       const gchar *candidate_remote_name = NULL;
       g_autoptr(GError) local_error = NULL;
 
@@ -418,7 +419,7 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
       if (to_install->collection_id != NULL &&
           !g_hash_table_lookup_extended (collection_ids_to_remote_names,
                                          to_install->collection_id,
-                                         NULL, (gpointer *) &candidate_remote_name))
+                                         NULL, &candidate_remote_name_ptr))
         {
           g_autofree gchar *found_remote_name = NULL;
 
@@ -454,6 +455,8 @@ transition_pending_ref_action_collection_ids_to_remote_names (FlatpakInstallatio
                                g_strdup (to_install->collection_id),
                                g_steal_pointer (&found_remote_name));
         }
+      else
+        candidate_remote_name = candidate_remote_name_ptr;
 
       /* Cross check the remote name from before with the one we have now */
       if (candidate_remote_name != NULL &&
