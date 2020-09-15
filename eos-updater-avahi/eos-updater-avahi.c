@@ -38,8 +38,7 @@ get_refs (OstreeRepo            *repo,
 {
   g_autoptr(GHashTable) refs = NULL;
   GHashTableIter iter;
-  OstreeCollectionRef *key;
-  gchar *value;
+  gpointer key, value;
   g_autoptr(GPtrArray) refs_array = NULL;
 
   if (!ostree_repo_list_collection_refs (repo,
@@ -58,11 +57,13 @@ get_refs (OstreeRepo            *repo,
     }
   refs_array = g_ptr_array_new_full (g_hash_table_size (refs) + 1, (GDestroyNotify)ostree_collection_ref_free);
   g_hash_table_iter_init (&iter, refs);
-  while (g_hash_table_iter_next (&iter, (gpointer *)&key, (gpointer *)&value))
+  while (g_hash_table_iter_next (&iter, &key, &value))
     {
+      g_autoptr(OstreeCollectionRef) ref = key;
+      g_autofree gchar *checksum = value;
+
       g_hash_table_iter_steal (&iter);
-      g_free (g_steal_pointer (&value));
-      g_ptr_array_add (refs_array, g_steal_pointer (&key));
+      g_ptr_array_add (refs_array, g_steal_pointer (&ref));
     }
   g_ptr_array_add (refs_array, NULL);
 

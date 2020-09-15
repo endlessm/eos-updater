@@ -1854,6 +1854,7 @@ find_related_refs_for_action (FlatpakInstallation       *installation,
   euu_transaction_data.remotes = remotes;
 
   g_signal_connect (transaction, "ready", G_CALLBACK (transaction_ready), &euu_transaction_data);
+  /* no need to connect to operation-error since we abort the transaction */
 
   flatpak_transaction_run (transaction, cancellable, &local_error);
   g_assert (local_error != NULL);
@@ -2510,6 +2511,89 @@ eos_updater_get_flatpak_installation (GCancellable *cancellable, GError **error)
   return flatpak_installation_new_system (cancellable, error);
 }
 
+static const gchar *
+op_type_to_string (FlatpakTransactionOperationType operation_type)
+{
+  switch (operation_type)
+    {
+    case FLATPAK_TRANSACTION_OPERATION_INSTALL:
+      return "install";
+    case FLATPAK_TRANSACTION_OPERATION_UPDATE:
+      return "update";
+    case FLATPAK_TRANSACTION_OPERATION_INSTALL_BUNDLE:
+      return "install bundle";
+    case FLATPAK_TRANSACTION_OPERATION_UNINSTALL:
+      return "uninstall";
+    case FLATPAK_TRANSACTION_OPERATION_LAST_TYPE:
+    default:
+      return "Unknown type"; /* Should not happen */
+    }
+}
+
+static gboolean
+transaction_operation_error (FlatpakTransaction             *object,
+                             FlatpakTransactionOperation    *operation,
+                             const GError                   *error,
+                             FlatpakTransactionErrorDetails  details,
+                             gpointer                        user_data)
+{
+  gboolean non_fatal = (details & FLATPAK_TRANSACTION_ERROR_DETAILS_NON_FATAL) != 0;
+  FlatpakTransactionOperationType op_type = flatpak_transaction_operation_get_operation_type (operation);
+  const char *ref = flatpak_transaction_operation_get_ref (operation);
+  g_autoptr(FlatpakRef) rref = flatpak_ref_parse (ref, NULL);
+  GError **caller_error = user_data;
+
+  if (g_error_matches (error, FLATPAK_ERROR, FLATPAK_ERROR_SKIPPED))
+    {
+      g_debug ("Skipped %s", flatpak_ref_get_name (rref));
+      return TRUE;  /* continue */
+    }
+
+  /* If non-fatal, log the error and continue */
+  if (non_fatal)
+    {
+      g_debug ("Non-fatal failure to %s %s: %s",
+               op_type_to_string (op_type),
+               flatpak_ref_get_name (rref),
+               error->message);
+      return TRUE;  /* continue */
+    }
+
+  /* Propagate the first error. */
+  if (*caller_error == NULL)
+    *caller_error = g_error_copy (error);
+
+  /* Abort the transaction. */
+  return FALSE;
+}
+
+/* Run a transaction which contains a single op, and report the most specific
+ * error possible on failure. */
+static gboolean
+transaction_run_single_op (FlatpakTransaction  *transaction,
+                           GCancellable        *cancellable,
+                           GError             **error)
+{
+  g_autoptr(GError) operation_error = NULL;
+  g_autoptr(GError) transaction_error = NULL;
+  gboolean success;
+  gulong id;
+
+  id = g_signal_connect (transaction, "operation-error",
+                         G_CALLBACK (transaction_operation_error), &operation_error);
+  success = flatpak_transaction_run (transaction, cancellable, &transaction_error);
+  g_signal_handler_disconnect (transaction, id);
+
+  /* Always prefer to report the operation error, as it’s always more specific
+   * than the transaction error (which is always %FLATPAK_ERROR_ABORTED). */
+  if (!success && operation_error != NULL)
+    g_propagate_error (error, g_steal_pointer (&operation_error));
+  else if (!success)
+    g_propagate_error (error, g_steal_pointer (&transaction_error));
+
+  return success;
+}
+
 gboolean
 euu_flatpak_transaction_install (FlatpakInstallation *installation,
                                  const gchar         *remote,
@@ -2542,7 +2626,7 @@ euu_flatpak_transaction_install (FlatpakInstallation *installation,
                                         error))
     return FALSE;
 
-  return flatpak_transaction_run (transaction, cancellable, error);
+  return transaction_run_single_op (transaction, cancellable, error);
 }
 
 gboolean
@@ -2578,7 +2662,7 @@ euu_flatpak_transaction_update (FlatpakInstallation *installation,
                                        error))
     return FALSE;
 
-  return flatpak_transaction_run (transaction, cancellable, error);
+  return transaction_run_single_op (transaction, cancellable, error);
 }
 
 gboolean
@@ -2605,5 +2689,5 @@ euu_flatpak_transaction_uninstall (FlatpakInstallation *installation,
   if (!flatpak_transaction_add_uninstall (transaction, formatted_ref, error))
     return FALSE;
 
-  return flatpak_transaction_run (transaction, cancellable, error);
+  return transaction_run_single_op (transaction, cancellable, error);
 }

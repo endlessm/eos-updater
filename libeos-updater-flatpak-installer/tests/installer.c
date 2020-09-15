@@ -186,6 +186,42 @@ test_deploy_flatpak_files_as_expected (FlatpakDeploymentsFixture *fixture,
   g_assert (g_file_test (directory_expected_to_exist_path, G_FILE_TEST_EXISTS));
 }
 
+/* Deploy a flatpak ref twice and check that it silently succeeds the second
+ * time, without failing because it’s already installed */
+static void
+test_already_installed_flatpak_files (FlatpakDeploymentsFixture *fixture,
+                                      gconstpointer              user G_GNUC_UNUSED)
+{
+  g_autoptr(GError) error = NULL;
+  const gchar *flatpaks_to_install[] = { "org.test.Test", NULL };
+  g_autoptr(GPtrArray) actions = sample_flatpak_ref_actions ("autoinstall", flatpaks_to_install);
+  g_autofree gchar *state_counter_path = g_file_get_path (fixture->counter_file);
+  g_autofree gchar *state_counter_path2 = g_strconcat (state_counter_path, "2", NULL);
+  g_autoptr(FlatpakInstallation) installation = flatpak_installation_new_for_path (fixture->flatpak_installation_directory,
+                                                                                   TRUE,
+                                                                                   NULL,
+                                                                                   &error);
+  g_assert_no_error (error);
+
+  /* Install the first time. */
+  eufi_apply_flatpak_ref_actions (installation,
+                                  state_counter_path,
+                                  actions,
+                                  EU_INSTALLER_MODE_PERFORM,
+                                  TRUE,
+                                  &error);
+  g_assert_no_error (error);
+
+  /* And again (with a different counter). */
+  eufi_apply_flatpak_ref_actions (installation,
+                                  state_counter_path2,
+                                  actions,
+                                  EU_INSTALLER_MODE_PERFORM,
+                                  TRUE,
+                                  &error);
+  g_assert_no_error (error);
+}
+
 static void
 test_stamp_no_deploy_flatpaks (FlatpakDeploymentsFixture *fixture,
                                gconstpointer              user G_GNUC_UNUSED)
@@ -291,7 +327,7 @@ test_deploy_failure_previous_flatpaks_stay_deployed (FlatpakDeploymentsFixture *
                                   EU_INSTALLER_MODE_PERFORM,
                                   TRUE,
                                   &error);
-  g_assert_error (error, FLATPAK_ERROR, FLATPAK_ERROR_ABORTED);
+  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
 
   g_assert (g_file_test (directory_expected_to_exist_path, G_FILE_TEST_EXISTS));
 }
@@ -332,7 +368,7 @@ test_deploy_failure_counter_state_updated (FlatpakDeploymentsFixture *fixture,
                                   EU_INSTALLER_MODE_PERFORM,
                                   TRUE,
                                   &error);
-  g_assert_error (error, FLATPAK_ERROR, FLATPAK_ERROR_ABORTED);
+  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
 
   g_clear_error (&error);
   g_key_file_load_from_file (counter_key_file,
@@ -381,7 +417,7 @@ test_deploy_failure_resume_from_latest (FlatpakDeploymentsFixture *fixture,
                                   EU_INSTALLER_MODE_PERFORM,
                                   TRUE,
                                   &error);
-  g_assert_error (error, FLATPAK_ERROR, FLATPAK_ERROR_ABORTED);
+  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY);
 
   g_clear_error (&error);
   g_file_delete (directory_expected_to_fail_dir, NULL, &error);
@@ -536,6 +572,12 @@ main (int   argc,
               NULL,
               flatpak_deployments_fixture_setup,
               test_deploy_flatpak_files_as_expected,
+              flatpak_deployments_fixture_teardown);
+  g_test_add ("/flatpak/already-installed-flatpak-files",
+              FlatpakDeploymentsFixture,
+              NULL,
+              flatpak_deployments_fixture_setup,
+              test_already_installed_flatpak_files,
               flatpak_deployments_fixture_teardown);
   g_test_add ("/flatpak/stamp-does-not-deploy-flatpaks",
               FlatpakDeploymentsFixture,
