@@ -34,8 +34,5 @@ override_dh_installsystemd:
 		eos-updater-avahi.path \
 		$(NULL)
 
-override_dh_missing:
-	dh_missing --fail-missing
-
 %:
 	dh $@ --with gir,python3
