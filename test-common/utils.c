@@ -2264,6 +2264,7 @@ eos_test_run_flatpak_installer (GFile        *client_root,
   };
   CmdEnvVar envv[] =
     {
+      { "EOS_DISABLE_METRICS", "1", NULL },
       { "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR", NULL, flatpak_installation_dir },
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_UPGRADE_STATE_DIR", NULL, flatpak_upgrade_state_dir },
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },

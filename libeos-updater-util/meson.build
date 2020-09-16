@@ -21,6 +21,7 @@ libeos_updater_util_headers = [
 ]
 
 libeos_updater_util_private_headers = [
+  'metrics-private.h',
   'ostree-bloom-private.h',
 ]
 
