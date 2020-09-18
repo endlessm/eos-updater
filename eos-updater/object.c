@@ -86,7 +86,7 @@ G_GNUC_END_IGNORE_DEPRECATIONS
                                              EOS_UPDATER_METRIC_FAILURE,
                                              g_variant_new ("(ss)",
                                                             "eos-updater",
-                                                            formatted_message));
+                                                            error->message));
     }
 #endif
 }
