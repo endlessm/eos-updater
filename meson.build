@@ -31,12 +31,15 @@ dbussystemservicedir = dbus.get_pkgconfig_variable('system_bus_services_dir',
 dbusinterfacesdir = dbus.get_pkgconfig_variable('interfaces_dir',
   define_variable: ['datadir', datadir])
 
+eosmetrics_dep = dependency('eosmetrics-0', required: get_option('metrics'))
+
 config_h = configuration_data()
 config_h.set('EOS_AVAHI_PORT', get_option('server_port'))
 config_h.set_quoted('GETTEXT_PACKAGE', 'eos-updater')
 config_h.set_quoted('PACKAGE_LOCALE_DIR', join_paths(get_option('prefix'), get_option('localedir')))
 config_h.set_quoted('VERSION', meson.project_version())
 config_h.set('HAVE_OSTREE_COMMIT_GET_OBJECT_SIZES', cc.has_function('ostree_commit_get_object_sizes', dependencies: [dependency('ostree-1')]))
+config_h.set('HAS_EOSMETRICS_0', eosmetrics_dep.found())
 configure_file(
   output: 'config.h',
   configuration: config_h,
