@@ -19,7 +19,6 @@ libeos_updater_dbus_cppflags = [
   '-DG_LOG_DOMAIN="eos-updater-dbus"',
 ]
 
-eosmetrics_dep = dependency('eosmetrics-0', required: get_option('metrics'))
 libeos_updater_dbus_deps = [
   dependency('avahi-client', version: '>= 0.6.31'),
   dependency('avahi-glib', version: '>= 0.6.31'),
@@ -80,9 +79,6 @@ eos_updater_deps = libeos_updater_dbus_deps + [libeos_updater_dbus_dep]
 eos_updater_cppflags = [
   '-DG_LOG_DOMAIN="eos-updater"',
 ]
-if eosmetrics_dep.found()
-  eos_updater_cppflags += ['-DHAS_EOSMETRICS_0']
-endif
 
 executable('eos-updater',
   eos_updater_sources,
