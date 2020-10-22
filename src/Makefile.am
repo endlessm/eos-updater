@@ -37,9 +37,12 @@ libeos_updater_dbus_la_CFLAGS = \
 	$(STD_CFLAGS) \
 	$(CODE_COVERAGE_CFLAGS) \
 	$(WARN_CFLAGS) \
-	$(GIO_CFLAGS) \
+	$(EOS_UPDATER_DBUS_CFLAGS) \
 	$(NULL)
-libeos_updater_dbus_la_LIBADD = $(CODE_COVERAGE_LIBS) $(GIO_LIBS)
+libeos_updater_dbus_la_LIBADD = \
+	$(CODE_COVERAGE_LIBS) \
+	$(EOS_UPDATER_DBUS_LIBS) \
+	$(NULL)
 libeos_updater_dbus_la_SOURCES = \
 	eos-updater-object.c \
 	eos-updater-object.h \
