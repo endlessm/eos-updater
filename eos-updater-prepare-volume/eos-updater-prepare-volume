@@ -56,11 +56,17 @@ class VolumePreparer:
 
         self.sysroot = OSTree.Sysroot.new_default()
 
-    def __run(self, cmd):
+    def __run(self, cmd, fatal_error=True):
         """Run cmd locally."""
         print('# {}'.format(cmd))
 
-        subprocess.check_call(cmd)
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            if fatal_error:
+                raise
+            else:
+                sys.stderr.write('Warning: command failed: {}\n'.format(cmd))
 
     def __fail(self, exit_status, message):
         """Print an error to stderr and exit with the given error status."""
@@ -192,13 +198,6 @@ class VolumePreparer:
                                'OSTree deployment ref could not be found; '
                                'are you on an OSTree system?')
 
-        all_flatpak_refs = \
-            list(self.flatpak_refs) + \
-            list(autoinstall_flatpaks)
-
-        # Eliminate duplicates.
-        all_flatpak_refs = list(set(all_flatpak_refs))
-
         # Pass the heavy lifting off to `ostree create-usb` and
         # `flatpak create-usb`
         _, repo = self.sysroot.get_repo()
@@ -208,9 +207,18 @@ class VolumePreparer:
                         '--commit={}'.format(os_collection_ref[2]),
                         self.volume_path, os_collection_ref[0],
                         os_collection_ref[1]])
-        if len(all_flatpak_refs) > 0:
+        # For specified flatpaks, an error is fatal
+        for flatpak_ref in self.flatpak_refs:
             self.__run(['flatpak', '--system', 'create-usb',
-                        self.volume_path] + all_flatpak_refs)
+                        self.volume_path, flatpak_ref],
+                       fatal_error=True)
+        # For autoinstall flatpaks, an error is a warning. Some may have been
+        # manually or automatically uninstalled, and the drive can still be
+        # used to update some OS versions.
+        for flatpak_ref in autoinstall_flatpaks:
+            self.__run(['flatpak', '--system', 'create-usb',
+                        self.volume_path, flatpak_ref],
+                       fatal_error=False)
         # Ensure that this USB drive can later be read by any user and the
         # .ostree directory can be written to by any user
         if not self.preserve_permissions:
