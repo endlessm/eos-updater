@@ -156,6 +156,8 @@ class VolumePreparer:
             if action.type != \
                EosUpdaterUtil.FlatpakRemoteRefActionType.UNINSTALL:
                 autoinstalls.add(action.ref.ref.format_ref())
+            else:
+                autoinstalls.discard(action.ref.ref.format_ref())
 
         return autoinstalls
 
@@ -213,8 +215,8 @@ class VolumePreparer:
                         self.volume_path, flatpak_ref],
                        fatal_error=True)
         # For autoinstall flatpaks, an error is a warning. Some may have been
-        # manually or automatically uninstalled, and the drive can still be
-        # used to update some OS versions.
+        # manually uninstalled, and the drive can still be used to update some
+        # OS versions.
         for flatpak_ref in autoinstall_flatpaks:
             self.__run(['flatpak', '--system', 'create-usb',
                         self.volume_path, flatpak_ref],
