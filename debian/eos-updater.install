@@ -3,6 +3,8 @@ lib/systemd/system/eos-autoupdater.timer
 lib/systemd/system/eos-updater-avahi.path
 lib/systemd/system/eos-updater-avahi.service
 lib/systemd/system/eos-updater-flatpak-installer.service
+lib/systemd/system/eos-updater-flatpak-installer-fallback.service
+lib/systemd/system/eos-updater-flatpak-installer-fallback.timer
 lib/systemd/system/eos-updater.service
 lib/systemd/system/eos-update-server.service
 lib/systemd/system/eos-update-server.socket

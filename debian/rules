@@ -27,11 +27,13 @@ override_dh_installsystemd:
 		eos-autoupdater.service \
 		eos-update-server.service \
 		eos-updater-flatpak-installer.service \
+		eos-updater-flatpak-installer-fallback.service \
 		$(NULL)
 	dh_installsystemd -peos-updater \
 		eos-autoupdater.timer \
 		eos-update-server.socket \
 		eos-updater-avahi.path \
+		eos-updater-flatpak-installer-fallback.timer \
 		$(NULL)
 
 %:

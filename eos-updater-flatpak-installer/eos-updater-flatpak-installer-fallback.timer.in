@@ -1,0 +1,15 @@
+[Unit]
+Description=Endless OS Fallback Flatpak Installer Timer
+Documentation=man:eos-updater-flatpak-installer(8)
+ConditionKernelCommandLine=!endless.live_boot
+ConditionKernelCommandLine=!eos-updater-disable
+
+[Timer]
+# After 5 minutes the network connection has likely been set up, but we don't
+# have a hard requirement
+OnActiveSec=5m
+OnUnitInactiveSec=1day
+RandomizedDelaySec=30min
+
+[Install]
+WantedBy=multi-user.target

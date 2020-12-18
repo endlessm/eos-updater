@@ -1,0 +1,59 @@
+[Unit]
+Description=Endless OS Fallback Flatpak Installer
+Documentation=man:eos-updater-flatpak-installer(8)
+# /home is a symlink to /var/home; /var/home is a symlink to /sysroot/home. The
+# second symlink is created by systemd-tmpfiles. Since we use ProtectHome=yes,
+# we must explicitly order this unit after tmpfiles are created.
+Requires=local-fs.target eos-extra-settled.target systemd-tmpfiles-setup.service
+After=local-fs.target eos-extra-settled.target systemd-tmpfiles-setup.service
+ConditionKernelCommandLine=!eos-updater-disable
+DefaultDependencies=no
+Conflicts=shutdown.target
+
+# Unlike eos-updater-flatpak-installer.service, this service can run outside
+# of the normal update process.
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=@libexecdir@/eos-updater-flatpak-installer --pull --mode=perform
+Restart=no
+
+# Flatpak checks parental controls at deploy time. In order to do this, it
+# needs to talk to accountsservice on the system bus, neither of which are
+# running when this job runs.
+Environment=FLATPAK_SKIP_PARENTAL_CONTROLS_NO_SYSTEM_BUS=1
+
+# Sandboxing
+# flatpak triggers use bwrap which requires net/sys admin and chroot
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_ADMIN CAP_SYS_CHROOT
+Environment=GIO_USE_VFS=local
+Environment=GVFS_DISABLE_FUSE=1
+Environment=GVFS_REMOTE_VOLUME_MONITOR_IGNORE=1
+Environment=GSETTINGS_BACKEND=memory
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+# This differs from eos-updater-flatpak-installer.service, as the fallback needs to be able to --pull
+PrivateNetwork=no
+PrivateTmp=yes
+PrivateUsers=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+# bwrap also mounts /proc
+ProtectKernelTunables=no
+ProtectSystem=no
+# This differs from eos-updater-flatpak-installer.service, as the fallback needs to be able to --pull
+RestrictAddressFamilies=
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+# @network-io is required for logging to the journal to work
+# @privileged and @chown are required for certain ostree operations
+# @mount is required for bwrap
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io @resources
+
+[Install]
+Also=eos-updater-flatpak-installer-fallback.timer
+WantedBy=multi-user.target
