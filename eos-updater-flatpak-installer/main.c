@@ -255,10 +255,11 @@ main (int    argc,
 
           if (also_pull)
             {
-              /* We can only add the dependencies when also pulling (which only
-               * happens when e-u-f-i is run manually). When not pulling, the
-               * dependencies should have been pulled and deployed before
-               * reboot already. */
+              /* We can only add the dependencies when also pulling (which
+               * happens when e-u-f-i is run manually or via
+               * `eos-updater-flatpak-installer-fallback.timer`). When not
+               * pulling, the dependencies should have been pulled and deployed
+               * before reboot already. */
               squashed_ref_actions_to_apply_with_dependencies =
                   euu_add_dependency_ref_actions_for_installation (installation,
                                                                    squashed_ref_actions_to_apply,
