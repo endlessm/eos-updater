@@ -39,6 +39,20 @@ configure_file(
   configuration: config,
 )
 
+configure_file(
+  input: 'eos-updater-flatpak-installer-fallback.service.in',
+  output: 'eos-updater-flatpak-installer-fallback.service',
+  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  configuration: config,
+)
+
+configure_file(
+  input: 'eos-updater-flatpak-installer-fallback.timer.in',
+  output: 'eos-updater-flatpak-installer-fallback.timer',
+  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  configuration: config,
+)
+
 # JSON Schema file
 install_data(
   files('eos-updater-autoinstall.schema.json'),

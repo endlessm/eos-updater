@@ -1,6 +1,6 @@
 .\" Manpage for eos-updater-flatpak-installer.
 .\" Documentation is under the same licence as the eos-updater package.
-.TH man 8 "10 Nov 2017" "1.0" "eos\-updater\-flatpak\-installer man page"
+.TH man 8 "18 Dec 2020" "1.1" "eos\-updater\-flatpak\-installer man page"
 .\"
 .SH NAME
 .IX Header "NAME"
@@ -21,6 +21,11 @@ updates upon booting into the new OS deployment. It is the part of the system th
 ensures that when new flatpaks are installed on OS updates, they are
 only made available when rebooting into the new OS deployment and not while
 the old OS deployment is still running.
+.PP
+It is normally run by \fBeos\-updater\-flatpak\-installer.service\fP on the
+first boot after an OS upgrade. It is also run periodically during normal
+computer use by \fBeos\-updater\-flatpak\-installer\-fallback\fP as a fallback
+in case flatpak download or installation during OS upgrade fails.
 .PP
 .SH OPTIONS
 .IX Header "OPTIONS"
