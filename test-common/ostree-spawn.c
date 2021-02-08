@@ -28,6 +28,10 @@
 #error OSTREE_BINARY is not defined
 #endif
 
+#ifndef OSTREE_TRIVIAL_HTTPD_BINARY
+#error OSTREE_TRIVIAL_HTTPD_BINARY is not defined
+#endif
+
 static void
 copy_strv_to_ptr_array (const gchar * const *strv,
                         GPtrArray *array)
@@ -624,8 +628,7 @@ ostree_httpd (GFile *served_dir,
   g_autofree gchar *raw_served_dir = g_file_get_path (served_dir);
   CmdArg args[] =
     {
-      { NULL, OSTREE_BINARY },
-      { NULL, "trivial-httpd" },
+      { NULL, OSTREE_TRIVIAL_HTTPD_BINARY },
       { "autoexit", NULL },
       { "daemonize", NULL },
       { "port-file", raw_port_file },
