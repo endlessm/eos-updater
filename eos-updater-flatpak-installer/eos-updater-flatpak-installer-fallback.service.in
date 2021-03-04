@@ -15,7 +15,6 @@ Conflicts=shutdown.target
 
 [Service]
 Type=oneshot
-RemainAfterExit=true
 ExecStart=@libexecdir@/eos-updater-flatpak-installer --pull --mode=perform
 Restart=no
 
