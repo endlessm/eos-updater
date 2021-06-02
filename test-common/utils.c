@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <ostree.h>
 #include <string.h>
+#include <sys/utsname.h>
 
 #ifndef GPG_BINARY
 #error "GPG_BINARY is not defined"
@@ -1257,6 +1258,9 @@ eos_test_client_finalize (GObject *object)
   g_free (self->product);
   g_free (self->remote_name);
   g_free (self->ostree_path);
+  g_free (self->cpuinfo);
+  g_free (self->cmdline);
+  g_free (self->uname_machine);
 
   G_OBJECT_CLASS (eos_test_client_parent_class)->finalize (object);
 }
@@ -1522,6 +1526,18 @@ updater_hw_file (GFile *updater_dir)
   return g_file_get_child (updater_dir, "hw");
 }
 
+static GFile *
+updater_cpuinfo_file (GFile *updater_dir)
+{
+  return g_file_get_child (updater_dir, "cpuinfo");
+}
+
+static GFile *
+updater_cmdline_file (GFile *updater_dir)
+{
+  return g_file_get_child (updater_dir, "cmdline");
+}
+
 GFile *
 get_flatpak_upgrade_state_dir_for_updater_dir (GFile *updater_dir)
 {
@@ -1544,11 +1560,15 @@ static gboolean
 prepare_updater_dir (GFile *updater_dir,
                      GKeyFile *config_file,
                      GKeyFile *hw_file,
+                     const gchar *cpuinfo,
+                     const gchar *cmdline,
                      GError **error)
 {
   g_autoptr(GFile) quit_file_path = NULL;
   g_autoptr(GFile) config_file_path = NULL;
   g_autoptr(GFile) hw_file_path = NULL;
+  g_autoptr(GFile) cpuinfo_file_path = NULL;
+  g_autoptr(GFile) cmdline_file_path = NULL;
 
   if (!create_directory (updater_dir, error))
     return FALSE;
@@ -1563,6 +1583,16 @@ prepare_updater_dir (GFile *updater_dir,
 
   hw_file_path = updater_hw_file (updater_dir);
   if (!save_key_file (hw_file_path, hw_file, error))
+    return FALSE;
+
+  cpuinfo_file_path = updater_cpuinfo_file (updater_dir);
+  if (!g_file_replace_contents (cpuinfo_file_path, cpuinfo, strlen (cpuinfo),
+                                NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL, error))
+    return FALSE;
+
+  cmdline_file_path = updater_cmdline_file (updater_dir);
+  if (!g_file_replace_contents (cmdline_file_path, cmdline, strlen (cmdline),
+                                NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL, error))
     return FALSE;
 
   return TRUE;
@@ -1680,8 +1710,13 @@ spawn_updater (GFile *sysroot,
                GFile *flatpak_upgrade_state_dir,
                GFile *flatpak_installation_dir,
                GFile *flatpak_autoinstall_override_dir,
+               GFile *cpuinfo_file,
+               GFile *cmdline_file,
                const gchar *osname,
                gboolean fatal_warnings,
+               const gchar *uname_machine,
+               gboolean is_split_disk,
+               gboolean force_follow_checkpoint,
                CmdAsyncResult *cmd,
                GError **error)
 {
@@ -1703,6 +1738,11 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
       { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", arch_override_name, NULL },
       { "EOS_UPDATER_TEST_UPDATER_OVERRIDE_LOCALES", "locale", NULL },
+      { "EOS_UPDATER_TEST_IS_SPLIT_DISK", is_split_disk ? "1" : "", NULL },
+      { "EOS_UPDATER_TEST_UNAME_MACHINE", uname_machine, NULL },
+      { "EOS_UPDATER_TEST_CPUINFO_PATH", NULL, cpuinfo_file },
+      { "EOS_UPDATER_TEST_CMDLINE_PATH", NULL, cmdline_file },
+      { "EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT", force_follow_checkpoint ? "1" : "", NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
@@ -1758,11 +1798,16 @@ spawn_updater_simple (GFile *sysroot,
                       GFile *updater_dir,
                       const gchar *osname,
                       gboolean fatal_warnings,
+                      const gchar *uname_machine,
+                      gboolean is_split_disk,
+                      gboolean force_follow_checkpoint,
                       CmdAsyncResult *cmd,
                       GError **error)
 {
   g_autoptr(GFile) config_file_path = updater_config_file (updater_dir);
   g_autoptr(GFile) hw_file_path = updater_hw_file (updater_dir);
+  g_autoptr(GFile) cpuinfo_file = updater_cpuinfo_file (updater_dir);
+  g_autoptr(GFile) cmdline_file = updater_cmdline_file (updater_dir);
   g_autoptr(GFile) quit_file_path = updater_quit_file (updater_dir);
   g_autoptr(GFile) flatpak_upgrade_state_dir_path = get_flatpak_upgrade_state_dir_for_updater_dir (updater_dir);
   g_autoptr(GFile) flatpak_installation_dir_path = get_flatpak_user_dir_for_updater_dir (updater_dir);
@@ -1776,8 +1821,13 @@ spawn_updater_simple (GFile *sysroot,
                         flatpak_upgrade_state_dir_path,
                         flatpak_installation_dir_path,
                         flatpak_autoinstall_override_dir,
+                        cpuinfo_file,
+                        cmdline_file,
                         osname,
                         fatal_warnings,
+                        uname_machine,
+                        is_split_disk,
+                        force_follow_checkpoint,
                         cmd,
                         error);
 }
@@ -1787,10 +1837,15 @@ run_updater (GFile *client_root,
              DownloadSource *order,
              gsize n_sources,
              GPtrArray *override_uris,
+             const gchar *cpuinfo_file_override,
+             const gchar *cmdline_file_override,
              const gchar *vendor,
              const gchar *product,
              const gchar *remote_name,
              gboolean fatal_warnings,
+             const gchar *uname_machine_override,
+             gboolean is_split_disk,
+             gboolean force_follow_checkpoint,
              CmdAsyncResult *updater_cmd,
              GError **error)
 {
@@ -1799,6 +1854,20 @@ run_updater (GFile *client_root,
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client_root);
+  g_autofree gchar *cpuinfo_file_override_allocated = NULL;
+
+  if (cpuinfo_file_override == NULL &&
+      g_file_get_contents ("/proc/cpuinfo", &cpuinfo_file_override_allocated, NULL, NULL))
+    cpuinfo_file_override = cpuinfo_file_override_allocated;
+  if (cmdline_file_override == NULL)
+    /* arbitrary default */
+    cmdline_file_override = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0";
+  if (uname_machine_override == NULL)
+    {
+      struct utsname buf;
+      if (uname (&buf) == 0)
+        uname_machine_override = buf.machine;
+    }
 
   updater_config = get_updater_config (order,
                                        n_sources,
@@ -1807,6 +1876,8 @@ run_updater (GFile *client_root,
   if (!prepare_updater_dir (updater_dir,
                             updater_config,
                             hw_config,
+                            cpuinfo_file_override,
+                            cmdline_file_override,
                             error))
     return FALSE;
   if (!spawn_updater_simple (sysroot,
@@ -1814,6 +1885,9 @@ run_updater (GFile *client_root,
                              updater_dir,
                              remote_name,
                              fatal_warnings,
+                             uname_machine_override,
+                             is_split_disk,
+                             force_follow_checkpoint,
                              updater_cmd,
                              error))
     return FALSE;
@@ -1897,6 +1971,44 @@ eos_test_client_new (GFile *client_root,
   return g_steal_pointer (&client);
 }
 
+void
+eos_test_client_set_is_split_disk (EosTestClient *client,
+                                   gboolean       is_split_disk)
+{
+  client->is_split_disk = is_split_disk;
+}
+
+void
+eos_test_client_set_uname_machine (EosTestClient *client,
+                                   const gchar   *uname_machine)
+{
+  g_free (client->uname_machine);
+  client->uname_machine = g_strdup (uname_machine);
+}
+
+void
+eos_test_client_set_cpuinfo (EosTestClient *client,
+                             const gchar   *cpuinfo)
+{
+  g_free (client->cpuinfo);
+  client->cpuinfo = g_strdup (cpuinfo);
+}
+
+void
+eos_test_client_set_cmdline (EosTestClient *client,
+                             const gchar   *cmdline)
+{
+  g_free (client->cmdline);
+  client->cmdline = g_strdup (cmdline);
+}
+
+void
+eos_test_client_set_force_follow_checkpoint (EosTestClient *client,
+                                             gboolean       force_follow_checkpoint)
+{
+  client->force_follow_checkpoint = force_follow_checkpoint;
+}
+
 gboolean
 eos_test_client_run_updater (EosTestClient *client,
                              DownloadSource *order,
@@ -1909,10 +2021,15 @@ eos_test_client_run_updater (EosTestClient *client,
                     order,
                     n_sources,
                     override_uris,
+                    client->cpuinfo,
+                    client->cmdline,
                     client->vendor,
                     client->product,
                     client->remote_name,
                     TRUE,  /* fatal-warnings */
+                    client->uname_machine,
+                    client->is_split_disk,
+                    client->force_follow_checkpoint,
                     cmd,
                     error))
     return FALSE;
@@ -1932,10 +2049,15 @@ eos_test_client_run_updater_ignore_warnings (EosTestClient   *client,
                     order,
                     n_sources,
                     override_uris,
+                    client->cpuinfo,
+                    client->cmdline,
                     client->vendor,
                     client->product,
                     client->remote_name,
                     FALSE,  /* not fatal-warnings */
+                    client->uname_machine,
+                    client->is_split_disk,
+                    client->force_follow_checkpoint,
                     cmd,
                     error))
     return FALSE;
