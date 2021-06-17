@@ -33,6 +33,7 @@
 #include <flatpak.h>
 #include <json-glib/json-glib.h>
 
+#include <glib/gstdio.h>
 #include <gio/gio.h>
 #include <locale.h>
 #include <string.h>
@@ -1193,6 +1194,9 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
   };
   g_autofree gchar *flatpak_user_installation = NULL;
   g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_autofree gchar *flatpak_repo_path = NULL;
+  g_autofree gchar *flatpak_summary_index_path = NULL;
+  g_autofree gchar *flatpak_summary_path = NULL;
   g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
                                                                     G_N_ELEMENTS (flatpaks_to_install));
   g_auto(GStrv) flatpaks_in_repo = NULL;
@@ -1239,6 +1243,31 @@ test_update_install_flatpaks_in_repo_error_if_collection_invalid (EosUpdaterFixt
                                       keyid,
                                       &error);
   g_assert_no_error (error);
+
+  /* With newer flatpak, an indexed summary will be generated in the
+   * remote flatpak repo, but flatpak doesn't assert a missing
+   * collection ID in that case. Since the Endless servers aren't
+   * producing indexed summaries yet, remove the summary index if it
+   * exists and ensure the full summary exists for this test.
+   */
+  flatpak_repo_path = g_build_filename (updater_directory_str,
+                                        "flatpak",
+                                        "repos",
+                                        "test-repo",
+                                        NULL);
+  flatpak_summary_index_path = g_build_filename (flatpak_repo_path,
+                                                 "summary.idx",
+                                                 NULL);
+  flatpak_summary_path = g_build_filename (flatpak_repo_path,
+                                           "summary",
+                                           NULL);
+  if (g_file_test (flatpak_summary_index_path, G_FILE_TEST_EXISTS))
+    {
+      g_test_message ("Deleting flatpak summary index %s",
+                      flatpak_summary_index_path);
+      g_assert_cmpint (g_unlink (flatpak_summary_index_path), ==, 0);
+    }
+  g_assert_true (g_file_test (flatpak_summary_path, G_FILE_TEST_EXISTS));
 
   /* Update the server, so it has a new commit (1).
    */
