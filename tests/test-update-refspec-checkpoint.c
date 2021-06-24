@@ -27,6 +27,7 @@
 
 #include <gio/gio.h>
 #include <locale.h>
+#include <sys/utsname.h>
 
 const gchar *next_ref = "REFv2";
 const OstreeCollectionRef _next_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) "REFv2" };
@@ -1402,6 +1403,8 @@ static void
 test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
                                            gconstpointer      user_data)
 {
+  struct utsname uts;
+  gboolean host_is_aarch64;
   const gchar *cpuinfo_i8565u =
       "processor	: 0\n"
       "vendor_id	: GenuineIntel\n"
@@ -1475,6 +1478,12 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
 
   if (eos_test_skip_chroot ())
     return;
+
+  /* If the host running the tests is actually aarch64, it will refuse to
+   * follow the checkpoint unless @force_follow_checkpoint is set (or there are
+   * bugs), so the test has to adapt. */
+  g_assert (uname (&uts) == 0);
+  host_is_aarch64 = (g_strcmp0 (uts.machine, "aarch64") == 0);
 
   for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
     {
@@ -1586,7 +1595,10 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
                                   &error);
       g_assert_no_error (error);
 
-      if (tests[i].expect_checkpoint_followed)
+      if (tests[i].expect_checkpoint_followed &&
+          (!host_is_aarch64 ||
+           tests[i].force_follow_checkpoint ||
+           tests[i].uname_machine != NULL))
         g_assert_true (has_commit);
       else
         g_assert_false (has_commit);
