@@ -91,9 +91,12 @@ def dump_daemon_properties(proxy):
             "FullUnpackedSize",
             "UnpackedSize",
         ):
-            value = GLib.format_size_full(
-                value.get_int64(), GLib.FormatSizeFlags.LONG_FORMAT
-            )
+            if value.get_int64() >= 0:
+                value = GLib.format_size_full(
+                    value.get_int64(), GLib.FormatSizeFlags.LONG_FORMAT
+                )
+            else:
+                value = "Unknown"
 
         print("{:>{}}: {}".format(x, width, value))
 
