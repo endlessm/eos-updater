@@ -222,6 +222,11 @@ struct _EosTestClient
   gchar *product;
   gchar *remote_name;
   gchar *ostree_path;
+  gchar *cpuinfo;
+  gchar *cmdline;
+  gchar *uname_machine;
+  gboolean is_split_disk;
+  gboolean force_follow_checkpoint;
 };
 
 typedef enum
@@ -238,6 +243,18 @@ EosTestClient *eos_test_client_new (GFile *client_root,
                                     const gchar *vendor,
                                     const gchar *product,
                                     GError **error);
+
+
+void eos_test_client_set_is_split_disk (EosTestClient *client,
+                                        gboolean       is_split_disk);
+void eos_test_client_set_uname_machine (EosTestClient *client,
+                                        const gchar   *uname_machine);
+void eos_test_client_set_cpuinfo (EosTestClient *client,
+                                  const gchar   *cpuinfo);
+void eos_test_client_set_cmdline (EosTestClient *client,
+                                  const gchar   *cmdline);
+void eos_test_client_set_force_follow_checkpoint (EosTestClient *client,
+                                                  gboolean       force_follow_checkpoint);
 
 gboolean eos_test_client_run_updater (EosTestClient *client,
                                       DownloadSource *order,

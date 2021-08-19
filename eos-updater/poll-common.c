@@ -26,12 +26,16 @@
 
 #include <eos-updater/object.h>
 #include <eos-updater/poll-common.h>
+#include <gio/gunixmounts.h>
+#include <glib.h>
+#include <glib/gi18n.h>
 #include <libeos-updater-util/metrics-private.h>
 #include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
 #include <libsoup/soup.h>
 #include <ostree.h>
 #include <string.h>
+#include <sys/utsname.h>
 
 #ifdef HAS_EOSMETRICS_0
 #include <eosmetrics/eosmetrics.h>
@@ -383,9 +387,205 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
   return TRUE;
 }
 
+/* On split-disk systems, an additional (bigger, slower) disk is mounted at
+ * /var/endless-extra, and the system flatpak repo is configured to be at
+ * /var/endless-extra/flatpak rather than /var/lib/flatpak/repo. */
+static gboolean
+booted_system_is_split_disk (OstreeRepo *os_repo)
+{
+  g_autoptr(GUnixMountEntry) extra_mount = NULL;
+
+  extra_mount = g_unix_mount_at ("/var/endless-extra", NULL);
+
+  if (g_strcmp0 (g_getenv ("EOS_UPDATER_TEST_IS_SPLIT_DISK"), "1") == 0)
+    return TRUE;
+
+  return (extra_mount != NULL);
+}
+
+/* Allow overriding various things for the tests. */
+static const gchar *
+allow_env_override (const gchar *default_value,
+                    const gchar *env_key)
+{
+  const gchar *env_value = g_getenv (env_key);
+
+  if (env_value != NULL && g_strcmp0 (env_value, "") != 0)
+    return env_value;
+  else
+    return default_value;
+}
+
+/* ARM64 systems have their architecture listed as `aarch64` on Linux. On other
+ * OSs, such as Darwin, it’s listed as `arm64`. */
+static gboolean
+booted_system_is_arm64 (void)
+{
+  struct utsname buf;
+  const gchar *uname_machine;
+
+  if (uname (&buf) != 0)
+    return FALSE;
+
+  uname_machine = allow_env_override (buf.machine, "EOS_UPDATER_TEST_UNAME_MACHINE");
+
+  return (g_strcmp0 (uname_machine, "aarch64") == 0);
+}
+
+/* Check for an Intel i-8565U CPU using the info from /proc/cpuinfo. If the
+ * system has multiple CPUs, this will match any of them. */
+static gboolean
+booted_system_has_i8565u_cpu (void)
+{
+  const gchar *cpuinfo_path;
+  g_autofree gchar *cpuinfo = NULL;
+
+  cpuinfo_path = allow_env_override ("/proc/cpuinfo", "EOS_UPDATER_TEST_CPUINFO_PATH");
+
+  if (!g_file_get_contents (cpuinfo_path, &cpuinfo, NULL, NULL))
+    return FALSE;
+
+  return g_regex_match_simple ("^model name\\s*:\\s*Intel\\(R\\) Core\\(TM\\) i7-8565U CPU @ 1.80GHz$", cpuinfo,
+                               G_REGEX_MULTILINE, 0);
+}
+
+/* Check @sys_vendor/@product_name against a list of systems which are no longer
+ * supported. */
+static gboolean
+booted_system_is_unsupported_by_eos4_kernel (const gchar *sys_vendor,
+                                             const gchar *product_name)
+{
+  const struct
+    {
+      const gchar *sys_vendor;
+      const gchar *product_name;
+    }
+  no_upgrade_systems[] =
+    {
+      { "Acer", "Aspire ES1-533" },
+      { "Acer", "Aspire ES1-732" },
+      { "Acer", "Veriton Z4660G" },
+      { "Acer", "Veriton Z4860G" },
+      { "Acer", "Veriton Z6860G" },
+      { "ASUSTeK COMPUTER INC.", "Z550MA" },
+      { "Endless", "ELT-JWM" },
+    };
+
+  for (gsize i = 0; i < G_N_ELEMENTS (no_upgrade_systems); i++)
+    {
+      if (g_str_equal (sys_vendor, no_upgrade_systems[i].sys_vendor) &&
+          g_str_equal (product_name, no_upgrade_systems[i].product_name))
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
+/* Check if /proc/cmdline contains the given @needle, surrounded by word boundaries. */
+static gboolean
+boot_args_contain (const gchar *needle)
+{
+  const gchar *cmdline_path;
+  g_autofree gchar *cmdline = NULL;
+  g_autofree gchar *regex = NULL;
+
+  cmdline_path = allow_env_override ("/proc/cmdline", "EOS_UPDATER_TEST_CMDLINE_PATH");
+
+  if (!g_file_get_contents (cmdline_path, &cmdline, NULL, NULL))
+    return FALSE;
+
+  regex = g_strconcat ("\\b", needle, "\\b", NULL);
+  return g_regex_match_simple (regex, cmdline, 0, 0);
+}
+
+/* Whether the upgrade should follow the given checkpoint and move to the given
+ * @target_ref for the upgrade deployment. The default for this is %TRUE, but
+ * there are various systems for which support has been withdrawn, which need
+ * to stay on old branches. In those cases, this function will return %FALSE
+ * and will set a human-readable reason for this in @out_reason. */
+static gboolean
+should_follow_checkpoint (OstreeSysroot     *sysroot,
+                          OstreeRepo        *repo,
+                          OstreeDeployment  *booted_deployment,
+                          const gchar       *booted_ref,
+                          const gchar       *target_ref,
+                          gchar            **out_reason)
+{
+  g_autoptr(GHashTable) hw_descriptors = NULL;
+  const gchar *sys_vendor, *product_name;
+  gboolean is_eos3a_to_eos4 = (g_str_equal (booted_ref, "eos3a") &&
+                               g_str_equal (target_ref, "eos4"));
+
+  /* Simplifies the code below. */
+  g_assert (out_reason != NULL);
+
+  /* Allow an override in case the logic below is incorrect or doesn’t age well. */
+  if (g_strcmp0 (g_getenv ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT"), "1") == 0)
+    {
+      g_message ("Forcing checkpoint target ‘%s’ to be used as EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT is set",
+                  target_ref);
+      return TRUE;
+    }
+
+  /* https://phabricator.endlessm.com/T30922 */
+  if (is_eos3a_to_eos4 &&
+      booted_system_is_split_disk (repo))
+    {
+      *out_reason = g_strdup (_("Split disk systems are not supported in EOS 4."));
+      return FALSE;
+    }
+
+  /* https://phabricator.endlessm.com/T31726 */
+  if (is_eos3a_to_eos4 &&
+      booted_system_is_arm64 ())
+    {
+      *out_reason = g_strdup (_("ARM64 system upgrades are not supported in EOS 4. Please reinstall."));
+      return FALSE;
+    }
+
+  /* These support being overridden by tests inside get_hw_descriptors(). */
+  hw_descriptors = get_hw_descriptors ();
+  sys_vendor = g_hash_table_lookup (hw_descriptors, VENDOR_KEY);
+  product_name = g_hash_table_lookup (hw_descriptors, PRODUCT_KEY);
+
+  /* https://phabricator.endlessm.com/T31777 */
+  if (is_eos3a_to_eos4 &&
+      g_strcmp0 (sys_vendor, "Asus") == 0 &&
+      booted_system_has_i8565u_cpu ())
+    {
+      /* Translators: The first placeholder is a system vendor name (such as
+       * Acer). The second placeholder is a computer model (such as
+       * Aspire ES1-533). */
+      *out_reason = g_strdup_printf (_("%s %s systems are not supported in EOS 4."), "Asus", "i-8565U");
+      return FALSE;
+    }
+
+  /* https://phabricator.endlessm.com/T31772 */
+  if (is_eos3a_to_eos4 &&
+      sys_vendor != NULL && product_name != NULL &&
+      booted_system_is_unsupported_by_eos4_kernel (sys_vendor, product_name))
+    {
+      *out_reason = g_strdup_printf (_("%s %s systems are not supported in EOS 4."), sys_vendor, product_name);
+      return FALSE;
+    }
+
+  /* https://phabricator.endlessm.com/T31776 */
+  if (is_eos3a_to_eos4 &&
+      boot_args_contain ("ro"))
+    {
+      *out_reason = g_strdup (_("Read-only systems are not supported in EOS 4."));
+      return FALSE;
+    }
+
+  /* Checkpoint can be followed. */
+  g_assert (*out_reason == NULL);
+  return TRUE;
+}
+
 static gboolean
 get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
                                        OstreeDeployment  *booted_deployment,
+                                       const gchar       *booted_ref,
                                        gchar            **out_ref_to_upgrade_from_deployment,
                                        GError           **error)
 {
@@ -398,6 +598,7 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
   g_autofree gchar *ref = NULL;
   g_autoptr(OstreeRepo) repo = NULL;
   g_autoptr(GError) local_error = NULL;
+  g_autofree gchar *reason = NULL;
 
   g_return_val_if_fail (out_ref_to_upgrade_from_deployment != NULL, FALSE);
 
@@ -447,6 +648,16 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
     g_warning ("Ignoring remote '%s' in eos.checkpoint-target metadata '%s'",
                remote, refspec_for_deployment);
 
+  /* Should we take this checkpoint? */
+  if (!should_follow_checkpoint (sysroot, repo, booted_deployment, booted_ref, ref, &reason))
+    {
+      g_message ("Ignoring eos.checkpoint-target metadata ‘%s’ as following "
+                 "the checkpoint is disabled for this system: %s",
+                 refspec_for_deployment, reason);
+      *out_ref_to_upgrade_from_deployment = NULL;
+      return TRUE;
+    }
+
   *out_ref_to_upgrade_from_deployment = g_steal_pointer (&ref);
   return TRUE;
 }
@@ -486,6 +697,7 @@ get_refspec_to_upgrade_on (gchar               **refspec_to_upgrade_on,
 
   if (!get_ref_to_upgrade_on_from_deployment (sysroot,
                                               booted_deployment,
+                                              booted_ref,
                                               &checkpoint_ref_for_deployment,
                                               error))
     return FALSE;
