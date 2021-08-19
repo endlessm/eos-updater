@@ -1427,6 +1427,8 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
   const struct
     {
       /* Setup */
+      const gchar *src_ref;  /* (nullable) for default */
+      const gchar *tgt_ref;  /* (nullable) for default */
       const gchar *sys_vendor;  /* (nullable) for default */
       const gchar *product_name;  /* (nullable) for default */
       gboolean is_split_disk;
@@ -1441,39 +1443,53 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
   tests[] =
     {
       /* Normal system */
-      { NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, TRUE, TRUE },
 
       /* Split disk */
-      { NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, TRUE, NULL, NULL, NULL, TRUE, TRUE },
+      { NULL, NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, NULL, NULL, TRUE, NULL, NULL, NULL, TRUE, TRUE },
+
+      /* Ref matching. When the ref does not match the expected "eos3a" and
+       * "eos4" patterns, the checkpoint is followed. Since that would be
+       * indistinguishable from a normal system with matching refs, split disk
+       * is set to TRUE. The result being that the checkpoint is skipped for
+       * ref matches and followed for ref mismatches. */
+      { "eos3", NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, TRUE },
+      { "eos3a2", NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, TRUE },
+      { NULL, "eos3b", NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, TRUE },
+      { NULL, "eos4a", NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, TRUE },
+      { "os/eos/amd64/eos3a", NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, "os/eos/amd64/eos4", NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
+      { "os/eos/amd64/eos3a", "os/eos/amd64/eos4", NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
+      { "os/eos/amd64/eos3a", "os/eos/amd64/eos4", NULL, NULL, TRUE, NULL, NULL, NULL, TRUE, TRUE },
 
       /* aarch64 */
-      { NULL, NULL, FALSE, "x86_64", NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, "x86_64", NULL, NULL, FALSE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
 
       /* Asus with i-8565U CPU */
-      { NULL, NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, TRUE },
-      { "Asus", NULL, FALSE, NULL, cpuinfo_not_i8565u, NULL, FALSE, TRUE },
-      { "Asus", NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, FALSE },
-      { "Asus", NULL, FALSE, NULL, cpuinfo_i8565u, NULL, TRUE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, TRUE },
+      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_not_i8565u, NULL, FALSE, TRUE },
+      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, FALSE },
+      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_i8565u, NULL, TRUE, TRUE },
 
       /* Various systems unsupported by the new kernel */
-      { "Acer", "Aspire ES1-533", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { "Acer", "Aspire ES1-732", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { "Acer", "Veriton Z4660G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { "Acer", "Veriton Z4860G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { "Acer", "Veriton Z6860G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { "ASUSTeK COMPUTER INC.", "Z550MA", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      { NULL, NULL, "Acer", "Aspire ES1-533", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Acer", "Aspire ES1-732", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Acer", "Veriton Z4660G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Acer", "Veriton Z4860G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Acer", "Veriton Z6860G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "ASUSTeK COMPUTER INC.", "Z550MA", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, TRUE, TRUE },
 
       /* Read-only in kernel command line args */
-      { NULL, NULL, FALSE, NULL, NULL, cmdline_not_ro, FALSE, TRUE },
-      { NULL, NULL, FALSE, NULL, NULL, cmdline_ro_end, FALSE, FALSE },
-      { NULL, NULL, FALSE, NULL, NULL, cmdline_ro_middle, FALSE, FALSE },
-      { NULL, NULL, FALSE, NULL, NULL, cmdline_ro_end, TRUE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_not_ro, FALSE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_end, FALSE, FALSE },
+      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_middle, FALSE, FALSE },
+      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_end, TRUE, TRUE },
     };
 
   if (eos_test_skip_chroot ())
@@ -1487,10 +1503,12 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
 
   for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
     {
-      const OstreeCollectionRef _eos3a_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) "eos3a" };
-      const OstreeCollectionRef *eos3a_collection_ref = &_eos3a_collection_ref;
-      const OstreeCollectionRef _eos4_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) "eos4" };
-      const OstreeCollectionRef *eos4_collection_ref = &_eos4_collection_ref;
+      const gchar *src_ref = tests[i].src_ref ? tests[i].src_ref : "eos3a";
+      const OstreeCollectionRef _src_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) src_ref };
+      const OstreeCollectionRef *src_collection_ref = &_src_collection_ref;
+      const gchar *tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "eos4";
+      const OstreeCollectionRef _tgt_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) tgt_ref };
+      const OstreeCollectionRef *tgt_collection_ref = &_tgt_collection_ref;
       g_autoptr(GFile) server_root = NULL;
       g_autoptr(EosTestServer) server = NULL;
       g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
@@ -1507,14 +1525,14 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
 
       /* Create the checkpoint */
       insert_update_refspec_metadata_for_commit (1,
-                                                 "eos4",
+                                                 tgt_ref,
                                                  &additional_metadata_for_commit);
 
       server_root = g_file_get_child (fixture->tmpdir, "main");
       server = eos_test_server_new_quick (server_root,
                                           default_vendor,
                                           default_product,
-                                          eos3a_collection_ref,
+                                          src_collection_ref,
                                           0,
                                           fixture->gpg_home,
                                           keyid,
@@ -1531,7 +1549,7 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
       client = eos_test_client_new (client_root,
                                     default_remote_name,
                                     subserver,
-                                    eos3a_collection_ref,
+                                    src_collection_ref,
                                     tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor,
                                     tests[i].product_name ? tests[i].product_name : default_product,
                                     &error);
@@ -1546,13 +1564,13 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
       eos_test_client_set_force_follow_checkpoint (client, tests[i].force_follow_checkpoint);
 
       g_hash_table_insert (leaf_commit_nodes,
-                           ostree_collection_ref_dup (eos3a_collection_ref),
+                           ostree_collection_ref_dup (src_collection_ref),
                            GUINT_TO_POINTER (1));
 
-      /* Also insert a commit (2) for the refspec "REMOTE:eos4". The first time we
-       * update, we should only update to commit 1 */
+      /* Also insert a commit (2) for the refspec "REMOTE:TGT_REF". The first
+       * time we update, we should only update to commit 1 */
       g_hash_table_insert (leaf_commit_nodes,
-                           ostree_collection_ref_dup (eos4_collection_ref),
+                           ostree_collection_ref_dup (tgt_collection_ref),
                            GUINT_TO_POINTER (2));
       eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
                                                                 leaf_commit_nodes);
