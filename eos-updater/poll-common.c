@@ -513,8 +513,9 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
 {
   g_autoptr(GHashTable) hw_descriptors = NULL;
   const gchar *sys_vendor, *product_name;
-  gboolean is_eos3a_to_eos4 = (g_str_equal (booted_ref, "eos3a") &&
-                               g_str_equal (target_ref, "eos4"));
+  gboolean is_eos3a_to_eos4 =
+    ((g_str_equal (booted_ref, "eos3a") || g_str_has_suffix (booted_ref, "/eos3a")) &&
+     (g_str_equal (target_ref, "eos4") || g_str_has_suffix (target_ref, "/eos4")));
 
   /* Simplifies the code below. */
   g_assert (out_reason != NULL);
