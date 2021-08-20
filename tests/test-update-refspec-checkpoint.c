@@ -1450,24 +1450,25 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
       { NULL, NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
       { NULL, NULL, NULL, NULL, TRUE, NULL, NULL, NULL, TRUE, TRUE },
 
-      /* Ref matching. When the ref does not match the expected "eos3a" and
-       * "eos4" patterns, the checkpoint is followed. Since that would be
-       * indistinguishable from a normal system with matching refs, split disk
-       * is set to TRUE. The result being that the checkpoint is skipped for
-       * ref matches and followed for ref mismatches. */
-      { "eos3", NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, TRUE },
-      { "eos3a2", NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, TRUE },
-      { NULL, "eos3b", NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, TRUE },
-      { NULL, "eos4a", NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, TRUE },
-      { "os/eos/amd64/eos3a", NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, "os/eos/amd64/eos4", NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
-      { "os/eos/amd64/eos3a", "os/eos/amd64/eos4", NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
-      { "os/eos/amd64/eos3a", "os/eos/amd64/eos4", NULL, NULL, TRUE, NULL, NULL, NULL, TRUE, TRUE },
-
       /* aarch64 */
       { NULL, NULL, NULL, NULL, FALSE, "x86_64", NULL, NULL, FALSE, TRUE },
       { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
+
+      /* Ref matching. When the ref does not match the expected "eos3a"
+       * and "eos4" patterns, the checkpoint is followed. Since that
+       * would be indistinguishable from a normal system with matching
+       * refs, the machine is set to aarch64. The result being that the
+       * checkpoint is skipped for ref matches and followed for ref
+       * mismatches. */
+      { "eos3", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      { "eos3a2", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      { NULL, "eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      { NULL, "eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      { "os/eos/arm64/eos3a", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { NULL, "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
 
       /* Asus with i-8565U CPU */
       { NULL, NULL, NULL, NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, TRUE },
