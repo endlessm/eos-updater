@@ -1463,11 +1463,12 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
        * mismatches. */
       { "eos3", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
       { "eos3a2", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { NULL, "eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { NULL, "eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      { NULL, "eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { NULL, "eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { "os/eos/arm64/eos3a", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { NULL, "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { "os/eos/arm64/eos3a", "os/eos/arm64/latest1", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
 
       /* Asus with i-8565U CPU */
