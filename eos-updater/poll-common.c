@@ -513,9 +513,11 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
 {
   g_autoptr(GHashTable) hw_descriptors = NULL;
   const gchar *sys_vendor, *product_name;
-  /* https://phabricator.endlessm.com/T32552 */
+  /* https://phabricator.endlessm.com/T32542, https://phabricator.endlessm.com/T32552 */
   gboolean is_conditional_upgrade_path =
-    (g_str_equal (booted_ref, "eos3a") || g_str_has_suffix (booted_ref, "/eos3a"));
+    (g_str_equal (booted_ref, "eos3a") ||
+     g_str_has_suffix (booted_ref, "/eos3a") ||
+     g_str_has_suffix (booted_ref, "nexthw/eos3.9"));
 
   /* Simplifies the code below. */
   g_assert (out_reason != NULL);
