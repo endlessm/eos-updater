@@ -1463,12 +1463,18 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
        * mismatches. */
       { "eos3", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
       { "eos3a2", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { NULL, "eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { NULL, "eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      { NULL, "eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { NULL, "eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { "os/eos/arm64/eos3a", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { NULL, "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { "os/eos/arm64/eos3a", "os/eos/arm64/latest1", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
+
+      /* Ref matching. When the ref matches the "nexthw/eos3.9", the checkpoint
+       * is followed. It should allow updating to "eos4" directly.
+       * https://phabricator.endlessm.com/T32542 */
+      { "nexthw/eos3.9", NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
 
       /* Asus with i-8565U CPU */
       { NULL, NULL, NULL, NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, TRUE },
