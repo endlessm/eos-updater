@@ -58,7 +58,6 @@ libeos_updater_test_common = static_library('eos-updater-test-common',
   dependencies: libeos_updater_test_common_deps,
   include_directories: root_inc,
   install: false,
-  version: meson.project_version(),
 )
 libeos_updater_test_common_dep = declare_dependency(
   link_with: libeos_updater_test_common,
