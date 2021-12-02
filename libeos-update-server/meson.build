@@ -40,7 +40,6 @@ libeos_update_server = static_library('eos-update-server-' + eus_api_version,
   dependencies: libeos_update_server_deps,
   include_directories: root_inc,
   install: false,
-  version: meson.project_version(),
 )
 libeos_update_server_dep = declare_dependency(
   link_with: libeos_update_server,

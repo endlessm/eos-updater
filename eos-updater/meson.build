@@ -40,7 +40,6 @@ libeos_updater_dbus = static_library('eos-updater-dbus',
   dependencies: libeos_updater_dbus_deps,
   include_directories: root_inc,
   install: false,
-  version: meson.project_version(),
 )
 libeos_updater_dbus_dep = declare_dependency(
   link_with: libeos_updater_dbus,
