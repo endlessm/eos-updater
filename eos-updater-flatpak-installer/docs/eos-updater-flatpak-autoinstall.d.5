@@ -52,11 +52,11 @@ increasing counter within the domain of that filename.
 .IX Item "Flatpak Ref Action"
 A JSON object containing, at minimum, properties \fBaction\fP,
 \fBserial\fP, \fBbranch\fP and optionally \fBfilters\fP. Valid values for
-\fBaction\fP are \fBinstall\fP, \fBupdate\fP and \fBuninstall\fP,
-each having their own required properties as explained below. The only valid
-type for \fBserial\fP, is an integer, which must be monotonically
-increasing as new entries are appended to the file. \fBbranch\fP must refer
-to a valid branch for the given flatpak.
+\fBaction\fP are \fBinstall\fP, \fBupdate\fP, \fBuninstall\fP and
+\fBprune\-ref\fP, each having their own required properties as explained
+below. The only valid type for \fBserial\fP, is an integer, which must be
+monotonically increasing as new entries are appended to the file.
+\fBbranch\fP must refer to a valid branch for the given flatpak.
 .\"
 .IP "\fIThe \fBfilters\fP entry\fP"
 .IX Item "The filters entry"
@@ -117,6 +117,19 @@ introduced. The entry must have the additional properties \fBname\fP,
 \fBref\-kind\fP. It is not an error if the flatpak is already uninstalled
 when the action is applied.
 \."
+.IP "\fI\fBprune\-ref\fP actions\fP"
+.IX Item "prune\-ref actions"
+Where the \fBaction\fP property of a \fIFlatpak Ref Action\fP entry is
+\fBprune\-ref\fP, the action will describe a flatpak whose ref should be
+removed if it is no longer installed. This will happen upon the next boot of
+the deployment in which the action was introduced. The entry must have the
+additional properties \fBname\fP, \fBref\-kind\fP and both
+\fBcollection\-id\fP and \fBremote\fP, which describe the flatpak app ID,
+whether the flatpak is a runtime or an app and either the \fBostree\fP(1)
+collection ID or remote to install the app from. It is not an error if the
+flatpak is installed or the ref is already removed when the action is
+applied.
+\."
 .SH "EXAMPLES"
 .IX Header "EXAMPLES"
 .\"
@@ -167,6 +180,15 @@ when the action is applied.
             "locale": ["id_ID"],
             "~architecture": ["armhf"]
         }
+    },
+    {
+        "action": "prune-ref",
+        "branch": "stable",
+        "serial": 2017100300,
+        "ref\-kind": "app",
+        "name": "org.example.UninstalledApp",
+        "collection\-id": "org.example.Apps",
+        "remote": "example\-apps"
     }
 ]
 \."

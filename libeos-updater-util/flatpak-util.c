@@ -402,6 +402,44 @@ flatpak_remote_ref_from_update_action_entry (JsonObject  *entry,
   return euu_flatpak_location_ref_new (ref, NULL, NULL);
 }
 
+/* Parse an @entry of type %EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF to a
+ * #EuuFlatpakLocationRef. See flatpak_remote_ref_from_action_entry(). */
+static EuuFlatpakLocationRef *
+flatpak_remote_ref_from_prune_ref_action_entry (JsonObject  *entry,
+                                                GError     **error)
+{
+  const gchar *name = NULL;
+  const gchar *branch = NULL;
+  FlatpakRefKind kind;
+  const gchar *collection_id = NULL;
+  const gchar *remote = NULL;
+  g_autoptr(FlatpakRef) ref = NULL;
+
+  if (!parse_flatpak_ref_from_entry (entry, &name, &branch, &kind, error))
+    return NULL;
+
+  collection_id = maybe_get_json_object_string_member (entry, "collection-id", error);
+
+  if (collection_id == NULL)
+    return FALSE;
+
+  remote = maybe_get_json_object_string_member (entry, "remote", error);
+
+  if (remote == NULL)
+    return FALSE;
+
+  /* Invariant from this point onwards is that we have both a remote
+   * and a collection-id */
+  ref = g_object_new (FLATPAK_TYPE_REF,
+                      "kind", kind,
+                      "name", name,
+                      "arch", euu_get_system_architecture_string (),
+                      "branch", branch,
+                      NULL);
+
+  return euu_flatpak_location_ref_new (ref, remote, collection_id);
+}
+
 /* Parse the bits of @entry which are specific to the @action_type. */
 static EuuFlatpakLocationRef *
 flatpak_remote_ref_from_action_entry (EuuFlatpakRemoteRefActionType   action_type,
@@ -416,6 +454,8 @@ flatpak_remote_ref_from_action_entry (EuuFlatpakRemoteRefActionType   action_typ
         return flatpak_remote_ref_from_uninstall_action_entry (entry, error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
         return flatpak_remote_ref_from_update_action_entry (entry, error);
+      case EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF:
+        return flatpak_remote_ref_from_prune_ref_action_entry (entry, error);
       default:
         g_assert_not_reached ();
     }
@@ -531,6 +571,12 @@ sort_flatpak_remote_ref_actions (gconstpointer a, gconstpointer b)
       gboolean action_b_is_update_or_install =
         action_b->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL ||
         action_b->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE;
+      gboolean action_a_is_uninstall_or_prune_ref =
+        action_a->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL ||
+        action_a->type == EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF;
+      gboolean action_b_is_uninstall_or_prune_ref =
+        action_b->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL ||
+        action_b->type == EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF;
       gboolean action_a_is_dependency =
         (action_a->flags & EUU_FLATPAK_REMOTE_REF_ACTION_FLAG_IS_DEPENDENCY) != 0;
       gboolean action_b_is_dependency =
@@ -543,8 +589,7 @@ sort_flatpak_remote_ref_actions (gconstpointer a, gconstpointer b)
           else if (!action_a_is_dependency && action_b_is_dependency)
             return 1;
         }
-      else if (action_a->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL &&
-               action_b->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL)
+      else if (action_a_is_uninstall_or_prune_ref && action_b_is_uninstall_or_prune_ref)
         {
           if (action_a_is_dependency && !action_b_is_dependency)
             return 1;
@@ -1340,6 +1385,35 @@ euu_flatpak_remote_ref_action_equal_ref_only (gconstpointer a,
   return euu_flatpak_ref_equal (a_action->ref->ref, b_action->ref->ref);
 }
 
+static gint
+ref_action_type_priority (EuuFlatpakRemoteRefActionType action_type)
+{
+  /* A little trickier than just blindly replacing, there are special
+   * rules regarding "update" since it only updates an existing installed
+   * flatpak, as opposed to installing it.
+   *
+   * (1) "install" and "uninstall" always take priority over "update"
+   *     since "install" means "install or update" and "uninstall"
+   *     means "unconditionally remove".
+   * (2) "update" does not take priority over "install" or "uninstall",
+   *     since the former would subsume it anyway and the latter would
+   *     make the app no longer be installed in that run of the flatpak
+   *     installer.
+   */
+   switch (action_type)
+    {
+      case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
+        return 2;
+      case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
+        return 1;
+      case EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF:
+        return 0;
+      default:
+        g_assert_not_reached ();
+    }
+}
+
 /* Squash actions on the same ref into the last action on that ref, returning
  * a pointer array of remote ref actions, ordered by the order key in each
  * remote ref action. */
@@ -1356,26 +1430,12 @@ squash_ref_actions_ptr_array (GPtrArray *ref_actions  /* (element-type EuuFlatpa
   for (i = 0; i < ref_actions->len; ++i)
     {
       EuuFlatpakRemoteRefAction *action = g_ptr_array_index (ref_actions, i);
-      EuuFlatpakRemoteRefAction *existing_action_for_ref = NULL;
+      EuuFlatpakRemoteRefAction *existing_action_for_ref =
+        g_hash_table_lookup (hash_table, action->ref->ref);
 
-      /* A little trickier than just blindly replacing, there are special
-       * rules regarding "update" since it only updates an existing installed
-       * flatpak, as opposed to installing it.
-       *
-       * (1) "install" and "uninstall" always take priority over "update"
-       *     since "install" means "install or update" and "uninstall"
-       *     means "unconditionally remove".
-       * (2) "update" does not take priority over "install" or "uninstall",
-       *     since the former would subsume it anyway and the latter would
-       *     make the app no longer be installed in that run of the flatpak
-       *     installer.
-       */
-      existing_action_for_ref = g_hash_table_lookup (hash_table, action->ref->ref);
-
-      if (action->type == EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL ||
-          action->type == EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL ||
-          existing_action_for_ref == NULL ||
-          existing_action_for_ref->type == EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE)
+      if (existing_action_for_ref == NULL ||
+          (ref_action_type_priority (action->type) >=
+           ref_action_type_priority (existing_action_for_ref->type)))
         {
           g_hash_table_replace (hash_table,
                                 g_object_ref (action->ref->ref),
@@ -1807,8 +1867,10 @@ find_related_refs_for_action (FlatpakInstallation       *installation,
             else
               resolved_action_type = EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE;
             break;
+          case EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF:
           default:
-              g_assert_not_reached ();
+            /* prune-ref actions should not reach here. */
+            g_assert_not_reached ();
         }
 
       g_clear_error (&local_error);
@@ -1843,6 +1905,8 @@ find_related_refs_for_action (FlatpakInstallation       *installation,
       case EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE:
         if (!flatpak_transaction_add_update (transaction, ref_action_ref, NULL, NULL, error))
           return FALSE;
+        break;
+      case EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF:
         break;
       default:
           g_assert_not_reached ();
@@ -1915,8 +1979,17 @@ euu_add_dependency_ref_actions_for_installation (FlatpakInstallation  *installat
   for (gsize i = 0; i < ref_actions->len; ++i)
     {
       EuuFlatpakRemoteRefAction *ref_action = g_ptr_array_index (ref_actions, i);
-      g_autoptr(GPtrArray) related_ref_actions =
-        g_ptr_array_new_with_free_func ((GDestroyNotify) euu_flatpak_remote_ref_action_unref);
+      g_autoptr(GPtrArray) related_ref_actions = NULL;
+
+      /* There are no dependencies for prune-ref actions. */
+      if (ref_action->type == EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF)
+        {
+          g_ptr_array_add (dependency_ref_actions,
+                           euu_flatpak_remote_ref_action_ref (ref_action));
+          continue;
+        }
+
+      related_ref_actions = g_ptr_array_new_with_free_func ((GDestroyNotify) euu_flatpak_remote_ref_action_unref);
 
       if (!find_related_refs_for_action (installation,
                                          ref_action,
@@ -2670,4 +2743,65 @@ euu_flatpak_transaction_uninstall (FlatpakInstallation *installation,
     return FALSE;
 
   return transaction_run_single_op (transaction, cancellable, error);
+}
+
+
+gboolean
+euu_flatpak_transaction_prune_ref (FlatpakInstallation  *installation,
+                                   const gchar          *remote,
+                                   const gchar          *formatted_ref,
+                                   gboolean              no_prune,
+                                   GCancellable         *cancellable,
+                                   GError              **error)
+{
+  g_autoptr(FlatpakRef) flatpak_ref = NULL;
+  g_autoptr(FlatpakInstalledRef) inst_ref = NULL;
+  g_autoptr(GError) local_error = NULL;
+
+  g_return_val_if_fail (FLATPAK_IS_INSTALLATION (installation), FALSE);
+  g_return_val_if_fail (remote != NULL, FALSE);
+  g_return_val_if_fail (formatted_ref != NULL, FALSE);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  flatpak_ref = flatpak_ref_parse (formatted_ref, error);
+  if (flatpak_ref == NULL)
+    return FALSE;
+
+  inst_ref = flatpak_installation_get_installed_ref (installation,
+                                                     flatpak_ref_get_kind (flatpak_ref),
+                                                     flatpak_ref_get_name (flatpak_ref),
+                                                     flatpak_ref_get_arch (flatpak_ref),
+                                                     flatpak_ref_get_branch (flatpak_ref),
+                                                     cancellable,
+                                                     &local_error);
+  if (inst_ref == NULL)
+    {
+      if (!g_error_matches (local_error, FLATPAK_ERROR, FLATPAK_ERROR_NOT_INSTALLED))
+        {
+          g_message ("Could not get installed ref %s", formatted_ref);
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+    }
+  else
+    {
+      if (g_strcmp0 (flatpak_installed_ref_get_origin (inst_ref), remote) == 0)
+        return TRUE;
+    }
+
+  if (!flatpak_installation_remove_local_ref_sync (installation,
+                                                   remote,
+                                                   formatted_ref,
+                                                   cancellable,
+                                                   error))
+    return FALSE;
+
+  if (!no_prune)
+    {
+      if (!flatpak_installation_prune_local_repo (installation, cancellable, error))
+        return FALSE;
+    }
+
+  return TRUE;
 }

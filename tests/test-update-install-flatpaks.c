@@ -120,6 +120,35 @@ update_json_detail (const FlatpakToInstall *flatpak_to_install,
 }
 
 static void
+prune_ref_json_detail (const FlatpakToInstall *flatpak_to_install,
+                       JsonBuilder            *builder)
+{
+  json_builder_set_member_name (builder, "ref-kind");
+  json_builder_add_string_value (builder, flatpak_to_install->ref_kind);
+
+  if (flatpak_to_install->collection_id)
+    {
+      json_builder_set_member_name (builder, "collection-id");
+      json_builder_add_string_value (builder, flatpak_to_install->collection_id);
+    }
+
+  if (flatpak_to_install->remote)
+    {
+      json_builder_set_member_name (builder, "remote");
+      json_builder_add_string_value (builder, flatpak_to_install->remote);
+    }
+
+  if (flatpak_to_install->branch)
+    {
+      json_builder_set_member_name (builder, "branch");
+      json_builder_add_string_value (builder, flatpak_to_install->branch);
+    }
+
+  json_builder_set_member_name (builder, "name");
+  json_builder_add_string_value (builder, flatpak_to_install->app_id);
+}
+
+static void
 add_detail_for_action_type (const FlatpakToInstall *flatpak_to_install,
                             JsonBuilder            *builder)
 {
@@ -129,6 +158,8 @@ add_detail_for_action_type (const FlatpakToInstall *flatpak_to_install,
     uninstall_json_detail (flatpak_to_install, builder);
   else if (g_strcmp0 (flatpak_to_install->action, "update") == 0)
     update_json_detail (flatpak_to_install, builder);
+  else if (g_strcmp0 (flatpak_to_install->action, "prune-ref") == 0)
+    prune_ref_json_detail (flatpak_to_install, builder);
   else
     g_assert_not_reached ();
 }
@@ -549,6 +580,17 @@ ostree_refspecs_in_installation_repo (GFile   *flatpak_installation_dir,
     return FALSE;
 
   return drop_empty_lines (cmd.standard_output, error);
+}
+
+static gboolean
+ostree_pull_in_installation_repo (GFile        *flatpak_installation_dir,
+                                  const gchar  *remote_name,
+                                  const gchar  *ref,
+                                  GError      **error)
+{
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+  g_autoptr(GFile) flatpak_repo = g_file_get_child (flatpak_installation_dir, "repo");
+  return ostree_pull (flatpak_repo, remote_name, ref, &cmd, error);
 }
 
 static gchar *
@@ -6467,6 +6509,112 @@ test_update_install_through_squashed_list (EosUpdaterFixture *fixture,
   g_assert_true (g_strv_contains ((const gchar * const *) deployed_flatpaks, flatpaks_to_install[2][2].app_id));
 }
 
+static void
+test_prune_ref_not_installed (EosUpdaterFixture *fixture,
+                              gconstpointer      user_data)
+{
+  g_auto(EtcData) real_data = { NULL, };
+  EtcData *data = &real_data;
+  FlatpakToInstall flatpaks_to_install[] = {
+    { "prune-ref", "com.endlessm.TestInstallFlatpaksCollection", "test-repo", "org.test.Test", "stable", "app", FLATPAK_TO_INSTALL_FLAGS_NONE }
+  };
+  g_autofree gchar *flatpak_user_installation = NULL;
+  g_autoptr(GFile) flatpak_user_installation_dir = NULL;
+  g_auto(GStrv) wanted_flatpaks = flatpaks_to_install_app_ids_strv (flatpaks_to_install,
+                                                                    G_N_ELEMENTS (flatpaks_to_install));
+  g_autofree gchar *deployment_repo_relative_path = g_build_filename ("sysroot", "ostree", "repo", NULL);
+  g_autoptr(GFile) deployment_repo_dir = NULL;
+  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
+  g_autofree gchar *deployment_csum = NULL;
+  g_auto(GStrv) flatpaks_in_repo = NULL;
+  g_autoptr(GFile) updater_directory = NULL;
+  g_autofree gchar *updater_directory_str = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
+  g_autoptr(GError) error = NULL;
+
+
+  etc_data_init (data, fixture);
+
+  /* Commit number 1 will install some flatpaks
+   */
+  autoinstall_flatpaks_files (1,
+                              flatpaks_to_install,
+                              G_N_ELEMENTS (flatpaks_to_install),
+                              &data->additional_directories_for_commit,
+                              &data->additional_files_for_commit);
+
+  /* Create and set up the server with the commit 0.
+   */
+  etc_set_up_server (data);
+  /* Create and set up the client, that pulls the update from the
+   * server, so it should have also a commit 0 and a deployment based
+   * on this commit.
+   */
+  etc_set_up_client_synced_to_server (data);
+
+  updater_directory = g_file_get_child (data->client->root, "updater");
+  updater_directory_str = g_file_get_path (updater_directory);
+  flatpak_user_installation = g_build_filename (updater_directory_str,
+                                                "flatpak-user",
+                                                NULL);
+  flatpak_user_installation_dir = g_file_new_for_path (flatpak_user_installation);
+  eos_test_setup_flatpak_repo_simple (updater_directory,
+                                      "stable",
+                                      "test-repo",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      "com.endlessm.TestInstallFlatpaksCollection",
+                                      (const gchar **) wanted_flatpaks,
+                                      gpg_key_file,
+                                      keyid,
+                                      &error);
+  g_assert_no_error (error);
+
+  /* Delete the flatpak */
+  ostree_pull_in_installation_repo (flatpak_user_installation_dir,
+                                    "test-repo",
+                                    "app/org.test.Test/arch/stable",
+                                    &error);
+  g_assert_no_error (error);
+
+  /* Assert that our flatpaks were pulled into the local repo */
+  flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
+                                                    &error);
+  g_assert_no_error (error);
+
+  g_assert_true (g_strv_contains ((const gchar * const *) flatpaks_in_repo, flatpaks_to_install[0].app_id));
+
+  /* Update the server, so it has a new commit (1).
+   */
+  etc_update_server (data, 1);
+  /* Update the client, so it also has a new commit (1); and, at this
+   * point, two deployments - old one pointing to commit 0 and a new
+   * one pointing to commit 1.
+   */
+  etc_update_client (data);
+
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
+  deployment_repo_dir = g_file_get_child (data->client->root,
+                                          deployment_repo_relative_path);
+  deployment_csum = get_checksum_for_deploy_repo_dir (deployment_repo_dir,
+                                                      refspec,
+                                                      &error);
+  g_assert_no_error (error);
+
+  eos_test_run_flatpak_installer (data->client->root,
+                                  deployment_csum,
+                                  default_remote_name,
+                                  &error);
+  g_assert_no_error (error);
+
+  /* Assert that our flatpaks were pulled into the local repo */
+  flatpaks_in_repo = flatpaks_in_installation_repo (flatpak_user_installation_dir,
+                                                    &error);
+  g_assert_no_error (error);
+
+  g_assert_false (g_strv_contains ((const gchar * const *) flatpaks_in_repo, flatpaks_to_install[0].app_id));
+}
+
 int
 main (int argc,
       char **argv)
@@ -6528,6 +6676,7 @@ main (int argc,
   eos_test_add ("/updater/update-deploy-fail-flatpaks-not-deployed", NULL, test_update_deploy_fail_flatpaks_not_deployed);
   eos_test_add ("/updater/update-flatpaks-pull-fail-system-not-deployed", NULL, test_update_flatpak_pull_fail_system_not_deployed);
   eos_test_add ("/updater/update-install-through-squashed-list", NULL, test_update_install_through_squashed_list);
+  eos_test_add ("/updater/prune-ref-not-installed", NULL, test_prune_ref_not_installed);
 
   return g_test_run ();
 }

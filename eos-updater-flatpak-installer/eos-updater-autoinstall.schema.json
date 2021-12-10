@@ -88,6 +88,38 @@
                 }
             },
             "required": ["ref-kind", "name", "branch"]
+        },
+        {
+            "properties": {
+                "action": {
+                    "const": "prune-ref",
+                    "description": "The machine-readable type of event",
+                    "type": "string"
+                },
+                "serial": {
+                    "$ref": "#/definitions/serial"
+                },
+                "filters": {
+                    "$ref": "#/definitions/filters"
+                },
+                "ref-kind": {
+                    "$ref": "#/definitions/ref-kind"
+                },
+                "name": {
+                    "description": "The app-id to be pruned",
+                    "$ref": "#/definitions/name"
+                },
+                "branch": {
+                    "$ref": "#/definitions/branch"
+                },
+                "collection-id": {
+                    "$ref": "#/definitions/collection-id"
+                },
+                "remote": {
+                    "$ref": "#/definitions/remote"
+                }
+            },
+            "required": ["ref-kind", "name", "branch", "collection-id", "remote"]
         }
     ],
     "required": ["action", "serial"],
