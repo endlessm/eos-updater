@@ -328,7 +328,7 @@ test_no_compress_install_install_different_branches (void)
 {
   FlatpakToInstallEntry entries[] = {
     { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "stable", 1, 0 },
-    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Runtime", "stable", 1, 0 }
+    { EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL, FLATPAK_REF_KIND_APP, "org.test.Test", "other", 1, 0 }
   };
   FlatpakToInstallFile files[] = {
     { "autoinstall", entries, G_N_ELEMENTS (entries) }
