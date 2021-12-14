@@ -163,6 +163,7 @@ gboolean ostree_list_refs_in_repo (GFile      *repo,
  * g_spawn_sync becomes stuck on reading pipes. */
 gboolean ostree_httpd (GFile *served_dir,
                        GFile *port_file,
+                       GFile *log_file,
                        CmdResult *cmd,
                        GError **error);
 
