@@ -2372,54 +2372,24 @@ euu_flattened_flatpak_ref_actions_from_paths (GStrv    directories_to_search,
   return euu_flatten_flatpak_ref_actions_table (ref_actions);
 }
 
-static GFile *
-get_temporary_directory_to_check_out_in (GError **error)
-{
-  g_autofree gchar *temp_dir = g_dir_make_tmp ("ostree-checkout-XXXXXX", error);
-  g_autofree gchar *path = NULL;
-
-  if (temp_dir == NULL)
-    return NULL;
-
-  path = g_build_filename (temp_dir, "checkout", NULL);
-  return g_file_new_for_path (path);
-}
-
-static GFile *
+static gboolean
 inspect_directory_in_ostree_repo (OstreeRepo    *repo,
                                   const gchar   *checksum,
                                   const gchar   *subpath,
+                                  const gchar   *checkout_path,
                                   GCancellable  *cancellable,
                                   GError       **error)
 {
-  g_autofree gchar *checkout_directory_path = NULL;
-  g_autoptr(GFile) checkout_directory = NULL;
   OstreeRepoCheckoutAtOptions options = { 0, };
-
-  checkout_directory = get_temporary_directory_to_check_out_in (error);
-
-  if (!checkout_directory)
-    return NULL;
-
-  checkout_directory_path = g_file_get_path (checkout_directory);
-
-  /* Now that we have a temporary directory, checkout the OSTree in it
-   * at the nominated path */
   options.subpath = subpath;
 
-  if (!ostree_repo_checkout_at (repo,
-                                &options,
-                                -1,
-                                checkout_directory_path,
-                                checksum,
-                                cancellable,
-                                error))
-    {
-      eos_updater_remove_recursive (checkout_directory, NULL, NULL);
-      return NULL;
-    }
-
-  return g_steal_pointer (&checkout_directory);
+  return ostree_repo_checkout_at (repo,
+                                  &options,
+                                  -1,
+                                  checkout_path,
+                                  checksum,
+                                  cancellable,
+                                  error);
 }
 
 /**
@@ -2437,7 +2407,8 @@ euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
                                             GCancellable  *cancellable,
                                             GError       **error)
 {
-  g_autoptr(GFile) checkout_directory = NULL;
+  g_autofree gchar *temp_dir_path = NULL;
+  g_autofree gchar *checkout_path = NULL;
   const gchar *path_relative_to_deployment = "usr/share/eos-application-tools/flatpak-autoinstall.d";
   g_autoptr(GHashTable) flatpak_ref_actions_table = NULL;
   const gchar *override_paths = euu_flatpak_autoinstall_override_paths ();
@@ -2445,23 +2416,26 @@ euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
   g_autofree gchar *allocated_paths_to_search_string = NULL;
   g_auto(GStrv) paths_to_search = NULL;
   g_autoptr(GError) local_error = NULL;
+  GHashTable *ret_actions_table = NULL;
+
+  temp_dir_path = g_dir_make_tmp ("ostree-checkout-XXXXXX", error);
+  if (temp_dir_path == NULL)
+    goto out;
 
   /* Now that we have a temporary directory, checkout the OSTree in it
    * at the /usr/share/eos-application-tools path. If it fails, there’s nothing to
    * read, otherwise we can read in the list of flatpaks to be auto-installed
    * for this commit. */
-  checkout_directory = inspect_directory_in_ostree_repo (repo,
-                                                         checksum,
-                                                         path_relative_to_deployment,
-                                                         cancellable,
-                                                         &local_error);
-
-  if (checkout_directory != NULL)
+  checkout_path = g_build_filename (temp_dir_path, "checkout", NULL);
+  if (inspect_directory_in_ostree_repo (repo,
+                                        checksum,
+                                        path_relative_to_deployment,
+                                        checkout_path,
+                                        cancellable,
+                                        &local_error))
     {
-      g_autofree gchar *checkout_directory_path = g_file_get_path (checkout_directory);
-
       /* Checkout directory has the lowest priority, if it is specified */
-      allocated_paths_to_search_string = g_strjoin (";", override_paths, checkout_directory_path, NULL);
+      allocated_paths_to_search_string = g_strjoin (";", override_paths, checkout_path, NULL);
       paths_to_search_string = allocated_paths_to_search_string;
     }
   else
@@ -2469,7 +2443,7 @@ euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
       if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
           g_propagate_error (error, g_steal_pointer (&local_error));
-          return NULL;
+          goto out;
         }
 
       paths_to_search_string = override_paths;
@@ -2479,15 +2453,21 @@ euu_flatpak_ref_actions_from_ostree_commit (OstreeRepo    *repo,
   flatpak_ref_actions_table = euu_flatpak_ref_actions_from_paths (paths_to_search,
                                                                   error);
 
+  ret_actions_table = g_steal_pointer (&flatpak_ref_actions_table);
+
+ out:
   /* Regardless of whether there was an error, we always want to remove
-   * the checkout directory at this point and garbage-collect on the
+   * the temporary directory at this point and garbage-collect on the
    * OstreeRepo. Note that these operations may fail, but we don’t
    * really care. */
-  if (checkout_directory != NULL)
-    eos_updater_remove_recursive (checkout_directory, NULL, NULL);
+  if (temp_dir_path != NULL)
+    {
+      g_autoptr(GFile) temp_dir = g_file_new_for_path (temp_dir_path);
+      eos_updater_remove_recursive (temp_dir, NULL, NULL);
+    }
   ostree_repo_checkout_gc (repo, cancellable, NULL);
 
-  return g_steal_pointer (&flatpak_ref_actions_table);
+  return ret_actions_table;
 }
 
 /**
