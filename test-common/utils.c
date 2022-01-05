@@ -1074,10 +1074,12 @@ run_httpd (GFile *served_root,
 {
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GFile) port_file = g_file_get_child (httpd_dir, "port-file");
+  g_autoptr(GFile) log_file = g_file_get_child (httpd_dir, "httpd-log");
   guint16 port;
 
   if (!ostree_httpd (served_root,
                      port_file,
+                     log_file,
                      &cmd,
                      error))
     return FALSE;

@@ -241,6 +241,10 @@ ostree_summary (GFile *repo,
                 GError **error)
 {
   g_autofree gchar *gpg_home_path = g_file_get_path (gpg_home);
+  g_autoptr(GFile) summary_sig_file = NULL;
+  g_autoptr(GFileInfo) summary_sig_info = NULL;
+  g_autoptr(GDateTime) summary_sig_mtime = NULL;
+  g_autoptr(GDateTime) now = NULL;
   CmdArg args[] =
     {
       { NULL, "summary" },
@@ -250,10 +254,39 @@ ostree_summary (GFile *repo,
       { NULL, NULL }
     };
 
-  return spawn_ostree_in_repo_args (repo,
-                                    args,
-                                    cmd,
-                                    error);
+  if (!spawn_ostree_in_repo_args (repo,
+                                  args,
+                                  cmd,
+                                  error))
+    return FALSE;
+
+  /* To try to avoid downloading the summary file when it already has the
+   * current version, the ostree client requests the summary and signature with
+   * an If-Modified-Since HTTP header (when it can't use the preferable
+   * If-None-Match header). The HTTP header only has second precision, so it
+   * may not receive an updated summary if the request is sent within the same
+   * second the summary is updated.
+   *
+   * To ensure the client will always receive the updated summary, sleep until
+   * the next second if necessary. Note that only the signature file is checked
+   * since it's always created after the summary.
+   */
+  summary_sig_file = g_file_get_child (repo, "summary.sig");
+  summary_sig_info = g_file_query_info (summary_sig_file,
+                                        G_FILE_ATTRIBUTE_TIME_MODIFIED ","
+                                        G_FILE_ATTRIBUTE_TIME_MODIFIED_USEC,
+                                        G_FILE_QUERY_INFO_NONE,
+                                        NULL,
+                                        error);
+  if (summary_sig_info == NULL)
+    return FALSE;
+  summary_sig_mtime = g_file_info_get_modification_date_time (summary_sig_info);
+  now = g_date_time_new_now_utc ();
+  if ((g_date_time_difference (now, summary_sig_mtime) < G_USEC_PER_SEC) &&
+      (g_date_time_get_second (now) == g_date_time_get_second (summary_sig_mtime)))
+    g_usleep (G_USEC_PER_SEC - (gulong) g_date_time_get_microsecond (now));
+
+  return TRUE;
 }
 
 gboolean
@@ -621,17 +654,20 @@ ostree_list_refs_in_repo (GFile      *repo,
 gboolean
 ostree_httpd (GFile *served_dir,
               GFile *port_file,
+              GFile *log_file,
               CmdResult *cmd,
               GError **error)
 {
   g_autofree gchar *raw_port_file = g_file_get_path (port_file);
   g_autofree gchar *raw_served_dir = g_file_get_path (served_dir);
+  g_autofree gchar *raw_log_file = g_file_get_path (log_file);
   CmdArg args[] =
     {
       { NULL, OSTREE_TRIVIAL_HTTPD_BINARY },
       { "autoexit", NULL },
       { "daemonize", NULL },
       { "port-file", raw_port_file },
+      { "log-file", raw_log_file },
       { NULL, raw_served_dir },
       { NULL, NULL }
     };
