@@ -106,7 +106,7 @@ foreach test_name, extra_args : test_programs
     exe,
     env: envs,
     suite: ['eos-updater'] + extra_args.get('suite', []),
-    timeout: extra_args.get('slow', false) ? 360 : 60,
+    timeout: extra_args.get('slow', false) ? 600 : 60,
     is_parallel: extra_args.get('parallel', true),
   )
 endforeach
