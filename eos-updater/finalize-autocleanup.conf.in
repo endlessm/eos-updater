@@ -1,0 +1,9 @@
+# This is a drop-in file for ostree-finalize-staged.service.
+#
+# FIXME: Drop this when https://github.com/ostreedev/ostree/issues/2510
+# is resolved.
+
+[Service]
+# After finalizing the staged deployment, touch the .cleanup file so
+# that the cleanup can be completed on the next boot.
+ExecStop=-/bin/touch /sysroot/.cleanup

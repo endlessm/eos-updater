@@ -349,7 +349,14 @@ apply_internal (ApplyData     *apply_data,
   /* FIXME: Cleaning up after update should be non-fatal, since we've
    * already successfully deployed the new OS. This clearly is a
    * workaround for a more serious issue, likely related to concurrent
-   * prunes (https://phabricator.endlessm.com/T16736). */
+   * prunes (https://phabricator.endlessm.com/T16736).
+   *
+   * TODO: When using staged deployments, there's likely nothing to
+   * prune since the old rollback deployment isn't removed until the
+   * staged deployment is finalized during system shutdown. Pruning
+   * happens during the subsequent boot, so this cleanup could be
+   * skipped for staged deploys.
+   */
   if (!ostree_sysroot_cleanup (sysroot, cancellable, &local_error))
     g_warning ("Failed to clean up the sysroot after successful deployment: %s",
                local_error->message);

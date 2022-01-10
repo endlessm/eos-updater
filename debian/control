@@ -39,6 +39,7 @@ Multi-arch: no
 Depends:
  gir1.2-glib-2.0,
  mogwai-scheduled,
+ ostree,
  python3-gi,
  systemd (>= 200),
  ${misc:Depends},
