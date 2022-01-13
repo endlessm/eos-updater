@@ -1,0 +1,37 @@
+[Unit]
+Description=Automatically cleanup after staged Endless OS Updater deployment
+Documentation=man:ostree-admin-cleanup(1) man:eos-updater(8)
+
+# Run ostree admin cleanup only if /sysroot/.cleanup is present and then
+# delete it when cleanup is successful.
+#
+# FIXME: Drop this when https://github.com/ostreedev/ostree/issues/2510
+# is resolved.
+ConditionPathExists=/sysroot/.cleanup
+
+# We want this to be triggered by multi-user.target but not block it via
+# the default After added to target units since pruning the repo can be
+# slow. See the Default Dependencies sections in systemd.service(5) and
+# systemd.target(5).
+DefaultDependencies=no
+Requires=sysinit.target
+After=sysinit.target basic.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@ostree@ admin cleanup
+ExecStart=/bin/rm -f /sysroot/.cleanup
+
+# Only /sysroot and /boot need to be written to.
+ProtectSystem=strict
+ReadWritePaths=/sysroot /boot
+
+# This will be allowed to run in the background, so try to make it less
+# disruptive while it prunes the repo.
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

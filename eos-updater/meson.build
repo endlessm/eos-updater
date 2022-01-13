@@ -105,11 +105,26 @@ install_data(
 # systemd files
 config = configuration_data()
 config.set('libexecdir', join_paths(get_option('prefix'), get_option('libexecdir')))
+config.set('ostree', find_program('ostree').path())
 
 configure_file(
   input: 'eos-updater.service.in',
   output: 'eos-updater.service',
   install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  configuration: config,
+)
+
+configure_file(
+  input: 'eos-updater-autocleanup.service.in',
+  output: 'eos-updater-autocleanup.service',
+  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  configuration: config,
+)
+
+configure_file(
+  input: 'finalize-autocleanup.conf.in',
+  output: 'autocleanup.conf',
+  install_dir: join_paths(dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'), 'ostree-finalize-staged.service.d'),
   configuration: config,
 )
 
