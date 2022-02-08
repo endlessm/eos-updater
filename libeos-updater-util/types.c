@@ -47,12 +47,12 @@ G_STATIC_ASSERT (G_N_ELEMENTS (eos_updater_error_entries) == EOS_UPDATER_ERROR_L
 GQuark
 eos_updater_error_quark (void)
 {
-  static volatile gsize quark_volatile = 0;
+  static gsize quark = 0;
   g_dbus_error_register_error_domain ("eos-updater-error-quark",
-                                      &quark_volatile,
+                                      &quark,
                                       eos_updater_error_entries,
                                       G_N_ELEMENTS (eos_updater_error_entries));
-  return (GQuark) quark_volatile;
+  return (GQuark) quark;
 }
 
 static const gchar * state_str[] = {
