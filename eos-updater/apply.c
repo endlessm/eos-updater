@@ -270,11 +270,13 @@ apply_internal (ApplyData     *apply_data,
 
   origin = ostree_sysroot_origin_new_from_refspec (sysroot, update_refspec);
 
-  /* When booted into an OSTree system, stage the deployment so that the
-   * /etc merge happens during shutdown. Otherwise (primarily the test
-   * suite), deploy the finalized tree immediately.
+  /* When booted into an OSTree system without an automount /boot, stage the
+   * deployment so that the /etc merge happens during shutdown. Otherwise
+   * (primarily sd-boot and the test suite), deploy the finalized tree
+   * immediately.
    */
-  staged_deploy = ostree_sysroot_is_booted (sysroot);
+  staged_deploy = ostree_sysroot_is_booted (sysroot) &&
+    !eos_updater_sysroot_boot_is_automount (sysroot, NULL);
   if (staged_deploy)
     {
       g_message ("Creating staged deployment for revision %s", update_id);
