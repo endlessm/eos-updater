@@ -47,4 +47,7 @@ gboolean eos_updater_get_ostree_path (OstreeRepo *repo,
                                       gchar **ostree_path,
                                       GError **error);
 
+gboolean eos_updater_sysroot_boot_is_automount (OstreeSysroot *sysroot,
+                                                const gchar   *mountinfo);
+
 G_END_DECLS
