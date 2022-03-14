@@ -241,6 +241,7 @@ apply_internal (ApplyData     *apply_data,
   g_autoptr(GKeyFile) origin = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
   const gchar *osname = get_test_osname ();
+  gboolean staged_deploy;
   g_autoptr(GError) local_error = NULL;
 
   sysroot = ostree_sysroot_new_default ();
@@ -269,21 +270,64 @@ apply_internal (ApplyData     *apply_data,
 
   origin = ostree_sysroot_origin_new_from_refspec (sysroot, update_refspec);
 
-  if (!ostree_sysroot_deploy_tree (sysroot,
-                                   osname,
-                                   update_id,
-                                   origin,
-                                   booted_deployment,
-                                   NULL,
-                                   &new_deployment,
-                                   cancellable,
-                                   error))
-    return FALSE;
+  /* When booted into an OSTree system without an automount /boot, stage the
+   * deployment so that the /etc merge happens during shutdown. Otherwise
+   * (primarily sd-boot and the test suite), deploy the finalized tree
+   * immediately.
+   */
+  staged_deploy = ostree_sysroot_is_booted (sysroot) &&
+    !eos_updater_sysroot_boot_is_automount (sysroot, NULL);
+  if (staged_deploy)
+    {
+      g_message ("Creating staged deployment for revision %s", update_id);
+      if (!ostree_sysroot_stage_tree (sysroot,
+                                      osname,
+                                      update_id,
+                                      origin,
+                                      booted_deployment,
+                                      NULL,
+                                      &new_deployment,
+                                      cancellable,
+                                      error))
+        return FALSE;
+    }
+  else
+    {
+      g_message ("Creating finalized deployment for revision %s", update_id);
+      if (!ostree_sysroot_deploy_tree (sysroot,
+                                       osname,
+                                       update_id,
+                                       origin,
+                                       booted_deployment,
+                                       NULL,
+                                       &new_deployment,
+                                       cancellable,
+                                       error))
+        return FALSE;
+
+      if (!ostree_sysroot_simple_write_deployment (sysroot,
+                                                   osname,
+                                                   new_deployment,
+                                                   booted_deployment,
+                                                   OSTREE_SYSROOT_SIMPLE_WRITE_DEPLOYMENT_FLAGS_NO_CLEAN,
+                                                   cancellable,
+                                                   error))
+        return FALSE;
+    }
+
+  g_message ("New deployment: index: %d, OS name: %s, deploy serial: %d, "
+             "checksum: %s, boot checksum: %s, boot serial: %d",
+             ostree_deployment_get_index (new_deployment),
+             ostree_deployment_get_osname (new_deployment),
+             ostree_deployment_get_deployserial (new_deployment),
+             ostree_deployment_get_csum (new_deployment),
+             ostree_deployment_get_bootcsum (new_deployment),
+             ostree_deployment_get_bootserial (new_deployment));
 
   /* If the original refspec is not the update refspec, then we may have
    * a ref to a no longer needed tree. Delete that remote ref so the
-   * cleanup done in simple_write_deployment() really removes that tree
-   * if no deployments point to it anymore.
+   * sysroot cleanup below really removes that tree if no deployments
+   * point to it anymore.
    */
   if (g_strcmp0 (update_refspec, orig_refspec) != 0)
     {
@@ -303,24 +347,6 @@ apply_internal (ApplyData     *apply_data,
             return FALSE;
         }
     }
-
-  if (!ostree_sysroot_simple_write_deployment (sysroot,
-                                               osname,
-                                               new_deployment,
-                                               booted_deployment,
-                                               OSTREE_SYSROOT_SIMPLE_WRITE_DEPLOYMENT_FLAGS_NO_CLEAN,
-                                               cancellable,
-                                               error))
-    return FALSE;
-
-  g_message ("New deployment: index: %d, OS name: %s, deploy serial: %d, "
-             "checksum: %s, boot checksum: %s, boot serial: %d",
-             ostree_deployment_get_index (new_deployment),
-             ostree_deployment_get_osname (new_deployment),
-             ostree_deployment_get_deployserial (new_deployment),
-             ostree_deployment_get_csum (new_deployment),
-             ostree_deployment_get_bootcsum (new_deployment),
-             ostree_deployment_get_bootserial (new_deployment));
 
   /* FIXME: Cleaning up after update should be non-fatal, since we've
    * already successfully deployed the new OS. This clearly is a
