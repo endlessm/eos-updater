@@ -47,6 +47,9 @@ objects describing a ‘flatpak ref action’, as described below in
 \fIFlatpak Ref Action\fP. These files are intended to be append\-only
 and the \fBserial\fP property in each object must be a monotonically
 increasing counter within the domain of that filename.
+.PP
+As a special case, an empty file is treated as a file containing an empty
+JSON array.
 .\"
 .IP "\fIFlatpak Ref Action\fP"
 .IX Item "Flatpak Ref Action"
