@@ -450,7 +450,7 @@ booted_system_has_i8565u_cpu (void)
 }
 
 /* Check @sys_vendor/@product_name against a list of systems which are no longer
- * supported. */
+ * supported since EOS 4. */
 static gboolean
 booted_system_is_unsupported_by_eos4_kernel (const gchar *sys_vendor,
                                              const gchar *product_name)
@@ -469,6 +469,33 @@ booted_system_is_unsupported_by_eos4_kernel (const gchar *sys_vendor,
       { "Acer", "Veriton Z6860G" },
       { "ASUSTeK COMPUTER INC.", "Z550MA" },
       { "Endless", "ELT-JWM" },
+      { "Endless", "EE-200" },
+    };
+
+  for (gsize i = 0; i < G_N_ELEMENTS (no_upgrade_systems); i++)
+    {
+      if (g_str_equal (sys_vendor, no_upgrade_systems[i].sys_vendor) &&
+          g_str_equal (product_name, no_upgrade_systems[i].product_name))
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
+/* Check @sys_vendor/@product_name against a list of systems which are no longer
+ * supported since EOS 5. */
+static gboolean
+booted_system_is_unsupported_by_eos5_kernel (const gchar *sys_vendor,
+                                             const gchar *product_name)
+{
+  const struct
+    {
+      const gchar *sys_vendor;
+      const gchar *product_name;
+    }
+  no_upgrade_systems[] =
+    {
+      { "Endless", "EE-200" },
     };
 
   for (gsize i = 0; i < G_N_ELEMENTS (no_upgrade_systems); i++)
@@ -513,11 +540,14 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
 {
   g_autoptr(GHashTable) hw_descriptors = NULL;
   const gchar *sys_vendor, *product_name;
-  /* https://phabricator.endlessm.com/T32542, https://phabricator.endlessm.com/T32552 */
+  /* https://phabricator.endlessm.com/T32542,
+   * https://phabricator.endlessm.com/T32552,
+   * https://phabricator.endlessm.com/T33311 */
   gboolean is_conditional_upgrade_path =
     (g_str_equal (booted_ref, "eos3a") ||
      g_str_has_suffix (booted_ref, "/eos3a") ||
-     g_str_has_suffix (booted_ref, "nexthw/eos3.9"));
+     g_str_has_suffix (booted_ref, "nexthw/eos3.9") ||
+     g_str_has_suffix (booted_ref, "/latest1"));
 
   /* Simplifies the code below. */
   g_assert (out_reason != NULL);
@@ -577,6 +607,15 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
       boot_args_contain ("ro"))
     {
       *out_reason = g_strdup (_("Read-only systems are not supported in EOS 4."));
+      return FALSE;
+    }
+
+  /* https://phabricator.endlessm.com/T33311 */
+  if (is_conditional_upgrade_path &&
+      sys_vendor != NULL && product_name != NULL &&
+      booted_system_is_unsupported_by_eos5_kernel (sys_vendor, product_name))
+    {
+      *out_reason = g_strdup_printf (_("%s %s systems are not supported in EOS 5."), sys_vendor, product_name);
       return FALSE;
     }
 
