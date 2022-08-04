@@ -1491,6 +1491,8 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
       { NULL, NULL, "ASUSTeK COMPUTER INC.", "Z550MA", FALSE, NULL, NULL, NULL, FALSE, FALSE },
       { NULL, NULL, "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, FALSE, FALSE },
       { NULL, NULL, "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      { "os/eos/amd64/latest1", NULL, "Endless", "EE-200", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { "os/eos/amd64/latest1", NULL, "Endless", "EE-200", FALSE, NULL, NULL, NULL, TRUE, TRUE },
 
       /* Read-only in kernel command line args */
       { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_not_ro, FALSE, TRUE },
