@@ -469,7 +469,6 @@ booted_system_is_unsupported_by_eos4_kernel (const gchar *sys_vendor,
       { "Acer", "Veriton Z6860G" },
       { "ASUSTeK COMPUTER INC.", "Z550MA" },
       { "Endless", "ELT-JWM" },
-      { "Endless", "EE-200" },
     };
 
   for (gsize i = 0; i < G_N_ELEMENTS (no_upgrade_systems); i++)
