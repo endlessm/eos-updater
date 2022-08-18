@@ -495,6 +495,8 @@ booted_system_is_unsupported_by_eos5_kernel (const gchar *sys_vendor,
   no_upgrade_systems[] =
     {
       { "Endless", "EE-200" },
+      { "Standard", "EF20" },
+      { "Standard", "EF20EA" },
     };
 
   for (gsize i = 0; i < G_N_ELEMENTS (no_upgrade_systems); i++)
@@ -540,13 +542,13 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
   g_autoptr(GHashTable) hw_descriptors = NULL;
   const gchar *sys_vendor, *product_name;
   /* https://phabricator.endlessm.com/T32542,
-   * https://phabricator.endlessm.com/T32552,
-   * https://phabricator.endlessm.com/T33311 */
-  gboolean is_conditional_upgrade_path =
+   * https://phabricator.endlessm.com/T32552 */
+  gboolean is_eos3_conditional_upgrade_path =
     (g_str_equal (booted_ref, "eos3a") ||
      g_str_has_suffix (booted_ref, "/eos3a") ||
-     g_str_has_suffix (booted_ref, "nexthw/eos3.9") ||
-     g_str_has_suffix (booted_ref, "/latest1"));
+     g_str_has_suffix (booted_ref, "nexthw/eos3.9"));
+  /* https://phabricator.endlessm.com/T33311 */
+  gboolean is_eos4_conditional_upgrade_path = g_str_has_suffix (booted_ref, "/latest1");
 
   /* Simplifies the code below. */
   g_assert (out_reason != NULL);
@@ -560,7 +562,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
     }
 
   /* https://phabricator.endlessm.com/T30922 */
-  if (is_conditional_upgrade_path &&
+  if (is_eos3_conditional_upgrade_path &&
       booted_system_is_split_disk (repo))
     {
       *out_reason = g_strdup (_("Split disk systems are not supported in EOS 4."));
@@ -568,7 +570,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
     }
 
   /* https://phabricator.endlessm.com/T31726 */
-  if (is_conditional_upgrade_path &&
+  if (is_eos3_conditional_upgrade_path &&
       booted_system_is_arm64 ())
     {
       *out_reason = g_strdup (_("ARM64 system upgrades are not supported in EOS 4. Please reinstall."));
@@ -581,7 +583,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
   product_name = g_hash_table_lookup (hw_descriptors, PRODUCT_KEY);
 
   /* https://phabricator.endlessm.com/T31777 */
-  if (is_conditional_upgrade_path &&
+  if (is_eos3_conditional_upgrade_path &&
       g_strcmp0 (sys_vendor, "Asus") == 0 &&
       booted_system_has_i8565u_cpu ())
     {
@@ -593,7 +595,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
     }
 
   /* https://phabricator.endlessm.com/T31772 */
-  if (is_conditional_upgrade_path &&
+  if (is_eos3_conditional_upgrade_path &&
       sys_vendor != NULL && product_name != NULL &&
       booted_system_is_unsupported_by_eos4_kernel (sys_vendor, product_name))
     {
@@ -602,7 +604,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
     }
 
   /* https://phabricator.endlessm.com/T31776 */
-  if (is_conditional_upgrade_path &&
+  if (is_eos3_conditional_upgrade_path &&
       boot_args_contain ("ro"))
     {
       *out_reason = g_strdup (_("Read-only systems are not supported in EOS 4."));
@@ -610,7 +612,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
     }
 
   /* https://phabricator.endlessm.com/T33311 */
-  if (is_conditional_upgrade_path &&
+  if (is_eos4_conditional_upgrade_path &&
       sys_vendor != NULL && product_name != NULL &&
       booted_system_is_unsupported_by_eos5_kernel (sys_vendor, product_name))
     {

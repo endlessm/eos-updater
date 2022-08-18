@@ -1393,10 +1393,10 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
 typedef struct
 {
   /* Setup */
-  const gchar *src_ref;  /* (nullable) for default */
-  const gchar *tgt_ref;  /* (nullable) for default */
-  const gchar *sys_vendor;  /* (nullable) for default */
-  const gchar *product_name;  /* (nullable) for default */
+  const gchar *src_ref;
+  const gchar *tgt_ref;
+  const gchar *sys_vendor;
+  const gchar *product_name;
   gboolean is_split_disk;
   const gchar *uname_machine;  /* (nullable) for default */
   const gchar *cpuinfo;  /* (nullable) for default */
@@ -1405,13 +1405,13 @@ typedef struct
 
   /* Results */
   gboolean expect_checkpoint_followed;
-} MachineCheckRes;
+} CheckpointTestData;
 
 static void
-do_update_refspec_checkpoint (EosUpdaterFixture *fixture,
-                              gconstpointer      user_data,
-                              MachineCheckRes   *test_machine,
-                              gboolean           host_is_aarch64)
+do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
+                              gconstpointer       user_data,
+                              CheckpointTestData *test_machine,
+                              gboolean            host_is_aarch64)
 {
   const gchar *src_ref = test_machine->src_ref;
   const OstreeCollectionRef _src_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) src_ref };
@@ -1568,7 +1568,7 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
   const gchar *cmdline_ro_middle = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet ro loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0";
   const gchar *cmdline_not_ro = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0";
 
-  MachineCheckRes tests[] =
+  CheckpointTestData tests[] =
     {
       /* Normal system */
       { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
@@ -1648,6 +1648,61 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
     }
 }
 
+/* Specifically test the checkpoint at the upgrade from the latest1 branch
+ * (EOS 4) to the latest2 branch (EOS 5). With the release of EOS 5, various
+ * features and systems are no longer supported, so we need to make sure they
+ * *don’t* get migrated to the latest2 branch.
+ *
+ * Conversely, test that machines which don’t match any of the
+ * no-longer-supported machines *do* get migrated to the eos4 branch.
+ *
+ * https://phabricator.endlessm.com/T33311 */
+static void
+test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
+                                                gconstpointer      user_data)
+{
+  struct utsname uts;
+  gboolean host_is_aarch64;
+  CheckpointTestData tests[] =
+    {
+      /* Normal system */
+      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, TRUE, TRUE },
+
+      /* Platforms: x86_64 and aarch64 */
+      { NULL, NULL, NULL, NULL, FALSE, "x86_64", NULL, NULL, FALSE, TRUE },
+      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+
+      /* Various systems unsupported by the new kernel */
+      { NULL, NULL, "Endless", "EE-200", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Endless", "EE-200", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      { NULL, NULL, "Standard", "EF20", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Standard", "EF20", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      { NULL, NULL, "Standard", "EF20EA", FALSE, NULL, NULL, NULL, FALSE, FALSE },
+      { NULL, NULL, "Standard", "EF20EA", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+    };
+
+  if (eos_test_skip_chroot ())
+    return;
+
+  /* If the host running the tests is actually aarch64, it will refuse to
+   * follow the checkpoint unless @force_follow_checkpoint is set (or there are
+   * bugs), so the test has to adapt. */
+  g_assert (uname (&uts) == 0);
+  host_is_aarch64 = (g_strcmp0 (uts.machine, "aarch64") == 0);
+
+  for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
+    {
+      g_test_message ("Test eos4 to eos5 %" G_GSIZE_FORMAT, i);
+
+      tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "os/eos/amd64/latest1";
+      tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "os/eos/amd64/latest2";
+      tests[i].sys_vendor = tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor;
+      tests[i].product_name = tests[i].product_name ? tests[i].product_name : default_product;
+      do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
+    }
+}
+
 int
 main (int argc,
       char **argv)
@@ -1689,6 +1744,9 @@ main (int argc,
   eos_test_add ("/updater/update-refspec-checkpoint-eos3a-eos4",
                 NULL,
                 test_update_refspec_checkpoint_eos3a_eos4);
+  eos_test_add ("/updater/update-refspec-checkpoint-latest1-latest2",
+                NULL,
+                test_update_refspec_checkpoint_latest1_latest2);
 
   return g_test_run ();
 }
