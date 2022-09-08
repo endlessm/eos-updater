@@ -22,7 +22,6 @@ Build-Depends:
  libgsystem-dev,
  libjson-glib-dev (>= 1.2.6-1endless2),
  libmogwai-schedule-client-0-dev,
- libmount-dev (>= 2.24),
  libnm-dev (>= 1.2.0),
  libostree-dev (>= 2017.12),
  libsoup2.4-dev,
