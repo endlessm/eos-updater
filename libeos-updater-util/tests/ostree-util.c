@@ -147,85 +147,6 @@ test_ostree_no_deployments (Fixture       *fixture,
   g_assert_cmpuint (commit_timestamp, ==, 0);
 }
 
-static void
-test_ostree_sysroot_boot_automount (Fixture       *fixture,
-                                    gconstpointer  user_data G_GNUC_UNUSED)
-{
-  g_autoptr(GError) error = NULL;
-  gboolean retval;
-  GFile *sysroot_file = ostree_sysroot_get_path (fixture->sysroot);
-  g_autofree gchar *sysroot_path = g_file_get_path (sysroot_file);
-  g_autoptr(GFile) boot_file = g_file_get_child (sysroot_file, "boot");
-  g_autofree gchar *boot_path = g_file_get_path (boot_file);
-  g_autoptr(GFile) mountinfo_file = g_file_get_child (fixture->tmp_dir,
-                                                      "mountinfo");
-  g_autofree gchar *mountinfo_path = g_file_get_path (mountinfo_file);
-  g_autofree gchar *mountinfo_contents = NULL;
-
-  retval = g_file_make_directory (boot_file, NULL, &error);
-  g_assert_no_error (error);
-  g_assert_true (retval);
-
-  /* No separate /boot mount */
-  g_clear_pointer (&mountinfo_contents, g_free);
-  mountinfo_contents =
-    g_strdup_printf ("1 1 1:1 / %s rw - ext4 /dev/sda1 rw\n", sysroot_path);
-  g_test_message ("boot %s, mountinfo:\n%s", boot_path, mountinfo_contents);
-  retval = g_file_replace_contents (mountinfo_file, mountinfo_contents,
-                                    strlen (mountinfo_contents), NULL, FALSE,
-                                    G_FILE_CREATE_NONE, NULL, NULL, &error);
-  g_assert_no_error (error);
-  g_assert_true (retval);
-  retval = eos_updater_sysroot_boot_is_automount (fixture->sysroot, mountinfo_path);
-  g_assert_false (retval);
-
-  /* Non-automount /boot */
-  g_clear_pointer (&mountinfo_contents, g_free);
-  mountinfo_contents =
-    g_strdup_printf ("1 1 1:2 / %s rw - ext4 /dev/sda2 rw\n"
-                     "2 1 1:1 / %s rw - ext4 /dev/sda1 rw\n",
-                     sysroot_path, boot_path);
-  g_test_message ("boot %s, mountinfo:\n%s", boot_path, mountinfo_contents);
-  retval = g_file_replace_contents (mountinfo_file, mountinfo_contents,
-                                    strlen (mountinfo_contents), NULL, FALSE,
-                                    G_FILE_CREATE_NONE, NULL, NULL, &error);
-  g_assert_no_error (error);
-  g_assert_true (retval);
-  retval = eos_updater_sysroot_boot_is_automount (fixture->sysroot, mountinfo_path);
-  g_assert_false (retval);
-
-  /* Automount /boot without target mount */
-  g_clear_pointer (&mountinfo_contents, g_free);
-  mountinfo_contents =
-    g_strdup_printf ("1 1 1:2 / %s rw - ext4 /dev/sda2 rw\n"
-                     "2 1 0:1 / %s rw - autofs systemd-1 rw\n",
-                     sysroot_path, boot_path);
-  g_test_message ("boot %s, mountinfo:\n%s", boot_path, mountinfo_contents);
-  retval = g_file_replace_contents (mountinfo_file, mountinfo_contents,
-                                    strlen (mountinfo_contents), NULL, FALSE,
-                                    G_FILE_CREATE_NONE, NULL, NULL, &error);
-  g_assert_no_error (error);
-  g_assert_true (retval);
-  retval = eos_updater_sysroot_boot_is_automount (fixture->sysroot, mountinfo_path);
-  g_assert_true (retval);
-
-  /* Automount /boot with target mount */
-  g_clear_pointer (&mountinfo_contents, g_free);
-  mountinfo_contents =
-    g_strdup_printf ("1 1 1:2 / %s rw - ext4 /dev/sda2 rw\n"
-                     "2 1 0:1 / %s rw - autofs systemd-1 rw\n"
-                     "3 2 1:1 / %s rw - vfat /dev/sda1 rw\n",
-                     sysroot_path, boot_path, boot_path);
-  g_test_message ("boot %s, mountinfo:\n%s", boot_path, mountinfo_contents);
-  retval = g_file_replace_contents (mountinfo_file, mountinfo_contents,
-                                    strlen (mountinfo_contents), NULL, FALSE,
-                                    G_FILE_CREATE_NONE, NULL, NULL, &error);
-  g_assert_no_error (error);
-  g_assert_true (retval);
-  retval = eos_updater_sysroot_boot_is_automount (fixture->sysroot, mountinfo_path);
-  g_assert_true (retval);
-}
-
 int
 main (int   argc,
       char *argv[])
@@ -236,8 +157,6 @@ main (int   argc,
 
   g_test_add ("/ostree/no-deployments", Fixture, NULL, setup,
               test_ostree_no_deployments, teardown);
-  g_test_add ("/ostree/sysroot-boot-automount", Fixture, NULL, setup,
-              test_ostree_sysroot_boot_automount, teardown);
   /* TODO: More */
 
   return g_test_run ();

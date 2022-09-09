@@ -36,7 +36,6 @@ libeos_updater_util_deps = [
   dependency('gobject-2.0', version: '>= 2.62'),
   dependency('json-glib-1.0', version: '>= 1.2.6'),
   dependency('libsoup-2.4'),
-  dependency('mount', version: '>= 2.24'),
   dependency('ostree-1', version: '>= 2018.6'),
 ]
 

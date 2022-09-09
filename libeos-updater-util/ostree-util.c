@@ -23,7 +23,6 @@
 #include <glib.h>
 #include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
-#include <libmount.h>
 #include <libsoup/soup.h>
 #include <ostree.h>
 #include <string.h>
@@ -311,80 +310,4 @@ eos_updater_get_ostree_path (OstreeRepo *repo,
     memmove (path, path + to_move, strlen (path) - to_move + 1);
   *ostree_path = g_steal_pointer (&path);
   return TRUE;
-}
-
-/**
- * eos_updater_sysroot_boot_is_automount:
- * @sysroot: loaded OSTree sysroot to use
- * @mountinfo: (nullable): path to mountinfo file
- *
- * Find if the boot directory in @sysroot is an automount mount. The first
- * mountpoint for the boot directory in @mountinfo is found. If the filesystem
- * type for the mountpoint is autofs, then the boot directory is automounted.
- *
- * If @mountinfo is %NULL, /proc/self/mountinfo is used.
- *
- * Returns: %TRUE if boot is an automount
- */
-gboolean
-eos_updater_sysroot_boot_is_automount (OstreeSysroot *sysroot,
-                                       const gchar   *mountinfo)
-{
-  GFile *sysroot_file;
-  g_autoptr(GFile) boot_file = NULL;
-  g_autofree gchar *boot_path = NULL;
-  gboolean ret = FALSE;
-  struct libmnt_table *tb = NULL;
-  struct libmnt_cache *cache;
-  struct libmnt_fs *fs;
-
-  sysroot_file = ostree_sysroot_get_path (sysroot);
-  boot_file = g_file_get_child (sysroot_file, "boot");
-  boot_path = g_file_get_path (boot_file);
-  if (boot_path == NULL)
-    {
-      g_autofree gchar *sysroot_path = g_file_get_path (sysroot_file);
-      g_warning ("No boot directory in sysroot %s", sysroot_path);
-      goto out;
-    }
-
-  if (mountinfo == NULL)
-    mountinfo = "/proc/self/mountinfo";
-  tb = mnt_new_table_from_file (mountinfo);
-  if (tb == NULL)
-    {
-      g_warning ("Failed to parse %s: %s", mountinfo, g_strerror (errno));
-      goto out;
-    }
-
-  cache = mnt_new_cache ();
-  if (cache == NULL)
-    {
-      g_warning ("Failed to create libmount cache: %s", g_strerror (errno));
-      goto out;
-    }
-  mnt_table_set_cache (tb, cache);
-  mnt_unref_cache (cache);
-
-  /* Find the /boot mountpoint iterating forward so that the autofs mount is
-   * found and not the automount target filesystem, as the autofs mount is
-   * listed first in mountinfo.
-   */
-  fs = mnt_table_find_mountpoint (tb, boot_path, MNT_ITER_FORWARD);
-  if (fs == NULL)
-    {
-      g_warning ("Failed to find mountpoint for %s: %s", boot_path,
-                 g_strerror (errno));
-      goto out;
-    }
-
-  ret = g_strcmp0 (mnt_fs_get_fstype (fs), "autofs") == 0;
-  g_debug ("Boot directory %s is%s on an autofs filesystem",
-           boot_path, ret ? "" : " not");
-
- out:
-  if (tb != NULL)
-    mnt_unref_table (tb);
-
-  return ret;
 }
