@@ -1390,6 +1390,149 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
   g_assert_true (has_commit);
 }
 
+typedef struct
+{
+  /* Setup */
+  const gchar *src_ref;  /* (nullable) for default */
+  const gchar *tgt_ref;  /* (nullable) for default */
+  const gchar *sys_vendor;  /* (nullable) for default */
+  const gchar *product_name;  /* (nullable) for default */
+  gboolean is_split_disk;
+  const gchar *uname_machine;  /* (nullable) for default */
+  const gchar *cpuinfo;  /* (nullable) for default */
+  const gchar *cmdline;  /* (nullable) for default */
+  gboolean force_follow_checkpoint;
+
+  /* Results */
+  gboolean expect_checkpoint_followed;
+} MachineCheckRes;
+
+static void
+do_update_refspec_checkpoint (EosUpdaterFixture *fixture,
+                              gconstpointer      user_data,
+                              MachineCheckRes   *test_machine,
+                              gboolean           host_is_aarch64)
+{
+  const gchar *src_ref = test_machine->src_ref;
+  const OstreeCollectionRef _src_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) src_ref };
+  const OstreeCollectionRef *src_collection_ref = &_src_collection_ref;
+  const gchar *tgt_ref = test_machine->tgt_ref;
+  const OstreeCollectionRef _tgt_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) tgt_ref };
+  const OstreeCollectionRef *tgt_collection_ref = &_tgt_collection_ref;
+  g_autoptr(GFile) server_root = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(GFile) client_root = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
+  g_autoptr(GHashTable) leaf_commit_nodes = eos_test_subserver_ref_to_commit_new ();
+  gboolean has_commit;
+
+  /* Create the checkpoint */
+  insert_update_refspec_metadata_for_commit (1,
+                                             tgt_ref,
+                                             &additional_metadata_for_commit);
+
+  server_root = g_file_get_child (fixture->tmpdir, "main");
+  server = eos_test_server_new_quick (server_root,
+                                      default_vendor,
+                                      default_product,
+                                      src_collection_ref,
+                                      0,
+                                      fixture->gpg_home,
+                                      keyid,
+                                      default_ostree_path,
+                                      NULL,
+                                      NULL,
+                                      additional_metadata_for_commit,
+                                      &error);
+  g_assert_no_error (error);
+  g_assert_cmpuint (server->subservers->len, ==, 1u);
+
+  subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
+  client_root = g_file_get_child (fixture->tmpdir, "client");
+  client = eos_test_client_new (client_root,
+                                default_remote_name,
+                                subserver,
+                                src_collection_ref,
+                                test_machine->sys_vendor,
+                                test_machine->product_name,
+                                &error);
+  g_assert_no_error (error);
+
+  /* Set the client to imitate a machine which may or may not follow the
+   * checkpoint. */
+  eos_test_client_set_is_split_disk (client, test_machine->is_split_disk);
+  eos_test_client_set_uname_machine (client, test_machine->uname_machine);
+  eos_test_client_set_cpuinfo (client, test_machine->cpuinfo);
+  eos_test_client_set_cmdline (client, test_machine->cmdline);
+  eos_test_client_set_force_follow_checkpoint (client, test_machine->force_follow_checkpoint);
+
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (src_collection_ref),
+                       GUINT_TO_POINTER (1));
+
+  /* Also insert a commit (2) for the refspec "REMOTE:TGT_REF". The first
+   * time we update, we should only update to commit 1 */
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (tgt_collection_ref),
+                       GUINT_TO_POINTER (2));
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
+  eos_test_subserver_update (subserver,
+                             &error);
+  g_assert_no_error (error);
+
+  /* Now update the client. We stopped making commits on this
+   * ref, so it is effectively a "checkpoint" and we should only have
+   * the first commit. */
+  update_client (fixture, client, NULL);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              1,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_true (has_commit);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              2,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  g_assert_false (has_commit);
+
+  /* Update the client again. Because we had deployed the
+   * checkpoint, *if the machine is going to cross the checkpoint*, we
+   * should now have the new ref to update on and should
+   * have pulled the new commit (we can't assert on anything here, but
+   * we can do the next step to figure out what branch we're on). */
+  update_client (fixture, client, NULL);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              2,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+
+  if (test_machine->expect_checkpoint_followed &&
+      (!host_is_aarch64 ||
+       test_machine->force_follow_checkpoint ||
+       test_machine->uname_machine != NULL))
+    g_assert_true (has_commit);
+  else
+    g_assert_false (has_commit);
+
+  /* Prepare for the next iteration */
+  eos_updater_fixture_teardown (fixture, user_data);
+  eos_updater_fixture_setup (fixture, user_data);
+}
+
 /* Specifically test the checkpoint at the upgrade from the eos3a branch (EOS 3.9)
  * to the eos4 branch (EOS 4). With the release of EOS 4, various features and
  * systems are no longer supported, so we need to make sure they *don’t* get
@@ -1424,23 +1567,8 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
   const gchar *cmdline_ro_end = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0 ro";
   const gchar *cmdline_ro_middle = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet ro loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0";
   const gchar *cmdline_not_ro = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0";
-  const struct
-    {
-      /* Setup */
-      const gchar *src_ref;  /* (nullable) for default */
-      const gchar *tgt_ref;  /* (nullable) for default */
-      const gchar *sys_vendor;  /* (nullable) for default */
-      const gchar *product_name;  /* (nullable) for default */
-      gboolean is_split_disk;
-      const gchar *uname_machine;  /* (nullable) for default */
-      const gchar *cpuinfo;  /* (nullable) for default */
-      const gchar *cmdline;  /* (nullable) for default */
-      gboolean force_follow_checkpoint;
 
-      /* Results */
-      gboolean expect_checkpoint_followed;
-    }
-  tests[] =
+  MachineCheckRes tests[] =
     {
       /* Normal system */
       { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
@@ -1510,127 +1638,13 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
 
   for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
     {
-      const gchar *src_ref = tests[i].src_ref ? tests[i].src_ref : "eos3a";
-      const OstreeCollectionRef _src_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) src_ref };
-      const OstreeCollectionRef *src_collection_ref = &_src_collection_ref;
-      const gchar *tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "eos4";
-      const OstreeCollectionRef _tgt_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) tgt_ref };
-      const OstreeCollectionRef *tgt_collection_ref = &_tgt_collection_ref;
-      g_autoptr(GFile) server_root = NULL;
-      g_autoptr(EosTestServer) server = NULL;
-      g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
-      g_autoptr(GError) error = NULL;
-      g_autoptr(EosTestSubserver) subserver = NULL;
-      g_autoptr(GFile) client_root = NULL;
-      g_autoptr(EosTestClient) client = NULL;
-      g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
-      g_autoptr(GHashTable) leaf_commit_nodes =
-        eos_test_subserver_ref_to_commit_new ();
-      gboolean has_commit;
+      g_test_message ("Test eos3a to eos4 %" G_GSIZE_FORMAT, i);
 
-      g_test_message ("Test %" G_GSIZE_FORMAT, i);
-
-      /* Create the checkpoint */
-      insert_update_refspec_metadata_for_commit (1,
-                                                 tgt_ref,
-                                                 &additional_metadata_for_commit);
-
-      server_root = g_file_get_child (fixture->tmpdir, "main");
-      server = eos_test_server_new_quick (server_root,
-                                          default_vendor,
-                                          default_product,
-                                          src_collection_ref,
-                                          0,
-                                          fixture->gpg_home,
-                                          keyid,
-                                          default_ostree_path,
-                                          NULL,
-                                          NULL,
-                                          additional_metadata_for_commit,
-                                          &error);
-      g_assert_no_error (error);
-      g_assert_cmpuint (server->subservers->len, ==, 1u);
-
-      subserver = g_object_ref (EOS_TEST_SUBSERVER (g_ptr_array_index (server->subservers, 0)));
-      client_root = g_file_get_child (fixture->tmpdir, "client");
-      client = eos_test_client_new (client_root,
-                                    default_remote_name,
-                                    subserver,
-                                    src_collection_ref,
-                                    tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor,
-                                    tests[i].product_name ? tests[i].product_name : default_product,
-                                    &error);
-      g_assert_no_error (error);
-
-      /* Set the client to imitate a machine which may or may not follow the
-       * checkpoint. */
-      eos_test_client_set_is_split_disk (client, tests[i].is_split_disk);
-      eos_test_client_set_uname_machine (client, tests[i].uname_machine);
-      eos_test_client_set_cpuinfo (client, tests[i].cpuinfo);
-      eos_test_client_set_cmdline (client, tests[i].cmdline);
-      eos_test_client_set_force_follow_checkpoint (client, tests[i].force_follow_checkpoint);
-
-      g_hash_table_insert (leaf_commit_nodes,
-                           ostree_collection_ref_dup (src_collection_ref),
-                           GUINT_TO_POINTER (1));
-
-      /* Also insert a commit (2) for the refspec "REMOTE:TGT_REF". The first
-       * time we update, we should only update to commit 1 */
-      g_hash_table_insert (leaf_commit_nodes,
-                           ostree_collection_ref_dup (tgt_collection_ref),
-                           GUINT_TO_POINTER (2));
-      eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
-                                                                leaf_commit_nodes);
-      eos_test_subserver_update (subserver,
-                                 &error);
-      g_assert_no_error (error);
-
-      /* Now update the client. We stopped making commits on this
-       * ref, so it is effectively a "checkpoint" and we should only have
-       * the first commit. */
-      update_client (fixture, client, NULL);
-
-      eos_test_client_has_commit (client,
-                                  default_remote_name,
-                                  1,
-                                  &has_commit,
-                                  &error);
-      g_assert_no_error (error);
-      g_assert_true (has_commit);
-
-      eos_test_client_has_commit (client,
-                                  default_remote_name,
-                                  2,
-                                  &has_commit,
-                                  &error);
-      g_assert_no_error (error);
-      g_assert_false (has_commit);
-
-      /* Update the client again. Because we had deployed the
-       * checkpoint, *if the machine is going to cross the checkpoint*, we
-       * should now have the new ref to update on and should
-       * have pulled the new commit (we can't assert on anything here, but
-       * we can do the next step to figure out what branch we're on). */
-      update_client (fixture, client, NULL);
-
-      eos_test_client_has_commit (client,
-                                  default_remote_name,
-                                  2,
-                                  &has_commit,
-                                  &error);
-      g_assert_no_error (error);
-
-      if (tests[i].expect_checkpoint_followed &&
-          (!host_is_aarch64 ||
-           tests[i].force_follow_checkpoint ||
-           tests[i].uname_machine != NULL))
-        g_assert_true (has_commit);
-      else
-        g_assert_false (has_commit);
-
-      /* Prepare for the next iteration */
-      eos_updater_fixture_teardown (fixture, user_data);
-      eos_updater_fixture_setup (fixture, user_data);
+      tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "eos3a";
+      tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "eos4";
+      tests[i].sys_vendor = tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor;
+      tests[i].product_name = tests[i].product_name ? tests[i].product_name : default_product;
+      do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
     }
 }
 
