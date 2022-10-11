@@ -1661,7 +1661,6 @@ static void
 test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
                                                 gconstpointer      user_data)
 {
-  struct utsname uts;
   gboolean host_is_aarch64;
   CheckpointTestData tests[] =
     {
@@ -1685,11 +1684,11 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
   if (eos_test_skip_chroot ())
     return;
 
-  /* If the host running the tests is actually aarch64, it will refuse to
-   * follow the checkpoint unless @force_follow_checkpoint is set (or there are
-   * bugs), so the test has to adapt. */
-  g_assert (uname (&uts) == 0);
-  host_is_aarch64 = (g_strcmp0 (uts.machine, "aarch64") == 0);
+  /* The aarch64 platforms can update from EOS 4 to EOS 5. So, let aarch64
+   * platforms follow the normal update checkpoint procedure.
+   *
+   * https://phabricator.endlessm.com/T33759 */
+  host_is_aarch64 = FALSE;
 
   for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
     {
