@@ -1393,10 +1393,10 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
 typedef struct
 {
   /* Setup */
-  const gchar *src_ref;
-  const gchar *tgt_ref;
-  const gchar *sys_vendor;
-  const gchar *product_name;
+  const gchar *src_ref;  /* (nullable) for default */
+  const gchar *tgt_ref;  /* (nullable) for default */
+  const gchar *sys_vendor;  /* (nullable) for default */
+  const gchar *product_name;  /* (nullable) for default */
   gboolean is_split_disk;
   const gchar *uname_machine;  /* (nullable) for default */
   const gchar *cpuinfo;  /* (nullable) for default */
