@@ -34,13 +34,13 @@ config.set('sysconfdir', join_paths(get_option('prefix'), get_option('sysconfdir
 configure_file(
   input: 'eos-updater-avahi.path.in',
   output: 'eos-updater-avahi.path',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 configure_file(
   input: 'eos-updater-avahi.service.in',
   output: 'eos-updater-avahi.service',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 

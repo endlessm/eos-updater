@@ -22,7 +22,6 @@ config_resources = gnome.compile_resources(
   'resources',
   'config.gresource.xml',
   c_name: 'euu_tests_resources',
-  source_dir: meson.source_root(),
 )
 
 test_programs = {

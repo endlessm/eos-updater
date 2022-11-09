@@ -5,7 +5,6 @@ resources = gnome.compile_resources(
   'resources',
   'libeos-update-server.gresource.xml',
   c_name: 'eus_resources',
-  source_dir: meson.source_root(),
 )
 
 libeos_update_server_sources = [

@@ -35,18 +35,18 @@ ostree_trivial_httpd = find_program(
 )
 
 libeos_updater_test_common_cppflags = [
-  '-DFLATPAK_BINARY="@0@"'.format(find_program('flatpak').path()),
+  '-DFLATPAK_BINARY="@0@"'.format(find_program('flatpak').full_path()),
   '-DG_LOG_DOMAIN="eos-updater-test-common"',
-  '-DGPG_BINARY="@0@"'.format(find_program('gpg').path()),
-  '-DOSTREE_BINARY="@0@"'.format(find_program('ostree').path()),
-  '-DOSTREE_TRIVIAL_HTTPD_BINARY="@0@"'.format(ostree_trivial_httpd.path()),
+  '-DGPG_BINARY="@0@"'.format(find_program('gpg').full_path()),
+  '-DOSTREE_BINARY="@0@"'.format(find_program('ostree').full_path()),
+  '-DOSTREE_TRIVIAL_HTTPD_BINARY="@0@"'.format(ostree_trivial_httpd.full_path()),
   '-DOSTREE_WITH_AUTOCLEANUPS',
 ]
 
 libeos_updater_test_common_deps = [
   dependency('gio-2.0', version: '>= 2.62'),
   dependency('gio-unix-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
+  dependency('glib-2.0', version: '>= 2.70'),
   dependency('gobject-2.0', version: '>= 2.62'),
   dependency('ostree-1', version: '>= 2018.6'),
   libeos_updater_util_dep,

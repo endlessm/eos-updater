@@ -34,7 +34,7 @@ cmd_result_clear (CmdResult *cmd)
   g_clear_pointer (&cmd->cmdline, g_free);
   g_clear_pointer (&cmd->standard_output, g_free);
   g_clear_pointer (&cmd->standard_error, g_free);
-  cmd->exit_status = 0;
+  cmd->wait_status = 0;
 }
 
 void
@@ -52,7 +52,7 @@ cmd_result_ensure_ok (CmdResult *cmd,
   g_autofree gchar *dump = cmd_result_dump (cmd);
 
   g_test_message ("%s", dump);
-  if (!g_spawn_check_exit_status (cmd->exit_status, &local_error))
+  if (!g_spawn_check_wait_status (cmd->wait_status, &local_error))
     {
       g_autofree gchar *msg = local_error->message;
 
@@ -110,9 +110,9 @@ cmd_results_allow_failure_verbose (GPtrArray *cmds)
 gchar *
 cmd_result_dump (CmdResult *cmd)
 {
-  return g_strdup_printf ("Output from %s (exit status: %d):\nstdout:\n\n%s\n\nstderr:\n\n%s\n\n",
+  return g_strdup_printf ("Output from %s (wait status: %d):\nstdout:\n\n%s\n\nstderr:\n\n%s\n\n",
                           cmd->cmdline,
-                          cmd->exit_status,
+                          cmd->wait_status,
                           cmd->standard_output,
                           cmd->standard_error);
 }
@@ -253,7 +253,7 @@ test_spawn_cwd_full (const gchar *cwd,
 
   if (cmd != NULL)
     {
-      status = &cmd->exit_status;
+      status = &cmd->wait_status;
       cmd->cmdline = g_strjoinv (" ", (gchar **) argv);
     }
 
@@ -382,7 +382,7 @@ collect_output (GPid pid,
   ReapData *reap_data = reap_data_ptr;
 
   g_main_loop_quit (reap_data->loop);
-  reap_data->cmd->exit_status = status;
+  reap_data->cmd->wait_status = status;
   if (!input_stream_to_string (reap_data->async_cmd->out_stream,
                                &reap_data->cmd->standard_output,
                                reap_data->error))
