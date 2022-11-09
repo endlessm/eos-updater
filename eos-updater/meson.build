@@ -104,7 +104,7 @@ install_data(
 # systemd files
 config = configuration_data()
 config.set('libexecdir', join_paths(get_option('prefix'), get_option('libexecdir')))
-config.set('ostree', find_program('ostree').path())
+config.set('ostree', find_program('ostree').full_path())
 
 configure_file(
   input: 'eos-updater.service.in',
