@@ -31,7 +31,7 @@ typedef struct
   gchar *cmdline;
   gchar *standard_output;
   gchar *standard_error;
-  gint exit_status;
+  gint wait_status;
 } CmdResult;
 
 #define CMD_RESULT_CLEARED { NULL, NULL, NULL, 0 }

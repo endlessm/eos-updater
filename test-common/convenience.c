@@ -278,7 +278,7 @@ _etc_update_client_with_warnings (EtcData     *data,
   else
     {
       cmd_results_allow_failure_verbose (cmds);
-      g_assert_false (g_spawn_check_exit_status (autoupdater->cmd->exit_status, NULL));
+      g_assert_false (g_spawn_check_wait_status (autoupdater->cmd->wait_status, NULL));
     }
 }
 
