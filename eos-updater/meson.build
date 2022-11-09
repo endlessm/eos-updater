@@ -54,7 +54,6 @@ eos_updater_resources = gnome.compile_resources(
   'resources',
   'eos-updater.gresource.xml',
   c_name: 'eos_updater_resources',
-  source_dir: meson.source_root(),
 )
 
 eos_updater_sources = [
