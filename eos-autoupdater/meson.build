@@ -31,13 +31,13 @@ config.set('libexecdir', join_paths(get_option('prefix'), get_option('libexecdir
 configure_file(
   input: 'eos-autoupdater.service.in',
   output: 'eos-autoupdater.service',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 configure_file(
   input: 'eos-autoupdater.timer.in',
   output: 'eos-autoupdater.timer',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 

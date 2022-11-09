@@ -1,6 +1,6 @@
 project('eos-updater', 'c',
   version : '1.0.0',
-  meson_version : '>= 0.50.0',
+  meson_version : '>= 0.58.0',
   license: ['LGPL-2.1-or-later'],
   default_options : [
     'buildtype=debugoptimized',
@@ -26,10 +26,10 @@ sysconfexampledir = join_paths(prefix, get_option('datadir'), 'eos-updater')
 
 dbus = dependency('dbus-1')
 dbusconfdir = join_paths(datadir, 'dbus-1', 'system.d')
-dbussystemservicedir = dbus.get_pkgconfig_variable('system_bus_services_dir',
-  define_variable: ['datadir', datadir])
-dbusinterfacesdir = dbus.get_pkgconfig_variable('interfaces_dir',
-  define_variable: ['datadir', datadir])
+dbussystemservicedir = dbus.get_variable('system_bus_services_dir',
+  pkgconfig_define: ['datadir', datadir])
+dbusinterfacesdir = dbus.get_variable('interfaces_dir',
+  pkgconfig_define: ['datadir', datadir])
 
 eosmetrics_dep = dependency('eosmetrics-0', required: get_option('metrics'))
 

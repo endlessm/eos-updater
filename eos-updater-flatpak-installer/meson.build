@@ -35,21 +35,21 @@ config.set('libexecdir', join_paths(get_option('prefix'), get_option('libexecdir
 configure_file(
   input: 'eos-updater-flatpak-installer.service.in',
   output: 'eos-updater-flatpak-installer.service',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 
 configure_file(
   input: 'eos-updater-flatpak-installer-fallback.service.in',
   output: 'eos-updater-flatpak-installer-fallback.service',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 
 configure_file(
   input: 'eos-updater-flatpak-installer-fallback.timer.in',
   output: 'eos-updater-flatpak-installer-fallback.timer',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 

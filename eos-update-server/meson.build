@@ -35,13 +35,13 @@ config.set('sysconfdir', join_paths(get_option('prefix'), get_option('sysconfdir
 configure_file(
   input: 'eos-update-server.service.in',
   output: 'eos-update-server.service',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 configure_file(
   input: 'eos-update-server.socket.in',
   output: 'eos-update-server.socket',
-  install_dir: dependency('systemd').get_pkgconfig_variable('systemdsystemunitdir'),
+  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 
