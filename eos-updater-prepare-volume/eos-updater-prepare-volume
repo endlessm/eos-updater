@@ -70,7 +70,7 @@ class VolumePreparer:
 
     def __fail(self, exit_status, message):
         """Print an error to stderr and exit with the given error status."""
-        assert(exit_status > 0)
+        assert exit_status > 0
 
         if not self.quiet:
             sys.stderr.write('%s: %s\n' % (sys.argv[0], message))
