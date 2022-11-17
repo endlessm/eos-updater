@@ -29,6 +29,8 @@
 #include <locale.h>
 #include <sys/utsname.h>
 
+const gchar *default_src_ref = "os/eos/amd64/eos3a";
+const gchar *default_tgt_ref = "os/eos/amd64/eos4";
 const gchar *next_ref = "REFv2";
 const OstreeCollectionRef _next_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) "REFv2" };
 const OstreeCollectionRef *next_collection_ref = &_next_collection_ref;
@@ -1413,10 +1415,10 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                               CheckpointTestData *test_machine,
                               gboolean            host_is_aarch64)
 {
-  const gchar *src_ref = test_machine->src_ref;
+  const gchar *src_ref = test_machine->src_ref ? test_machine->src_ref : default_src_ref;
   const OstreeCollectionRef _src_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) src_ref };
   const OstreeCollectionRef *src_collection_ref = &_src_collection_ref;
-  const gchar *tgt_ref = test_machine->tgt_ref;
+  const gchar *tgt_ref = test_machine->tgt_ref ? test_machine->tgt_ref : default_tgt_ref;
   const OstreeCollectionRef _tgt_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) tgt_ref };
   const OstreeCollectionRef *tgt_collection_ref = &_tgt_collection_ref;
   g_autoptr(GFile) server_root = NULL;
@@ -1457,8 +1459,8 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                                 default_remote_name,
                                 subserver,
                                 src_collection_ref,
-                                test_machine->sys_vendor,
-                                test_machine->product_name,
+                                test_machine->sys_vendor ? test_machine->sys_vendor : default_vendor,
+                                test_machine->product_name ? test_machine->product_name : default_product,
                                 &error);
   g_assert_no_error (error);
 
@@ -1640,10 +1642,6 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
     {
       g_test_message ("Test eos3a to eos4 %" G_GSIZE_FORMAT, i);
 
-      tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "os/eos/amd64/eos3a";
-      tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "os/eos/amd64/eos4";
-      tests[i].sys_vendor = tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor;
-      tests[i].product_name = tests[i].product_name ? tests[i].product_name : default_product;
       do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
     }
 }
@@ -1696,8 +1694,6 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
 
       tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "os/eos/amd64/latest1";
       tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "os/eos/amd64/latest2";
-      tests[i].sys_vendor = tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor;
-      tests[i].product_name = tests[i].product_name ? tests[i].product_name : default_product;
       do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
     }
 }
