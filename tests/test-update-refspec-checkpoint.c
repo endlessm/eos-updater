@@ -1589,10 +1589,10 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
        * refs, the machine is set to aarch64. The result being that the
        * checkpoint is skipped for ref matches and followed for ref
        * mismatches. */
-      { "eos3", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { "eos3a2", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { NULL, "eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { NULL, "eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { "os/eos/arm64/eos3", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      { "os/eos/arm64/eos3a2", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      { NULL, "os/eos/arm64/eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
+      { NULL, "os/eos/arm64/eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { "os/eos/arm64/eos3a", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { NULL, "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
       { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
@@ -1602,7 +1602,7 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
       /* Ref matching. When the ref matches the "nexthw/eos3.9", the checkpoint
        * is followed. It should allow updating to "eos4" directly.
        * https://phabricator.endlessm.com/T32542 */
-      { "nexthw/eos3.9", NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
+      { "os/eos/nexthw/eos3.9", NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
 
       /* Asus with i-8565U CPU */
       { NULL, NULL, NULL, NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, TRUE },
@@ -1640,8 +1640,8 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
     {
       g_test_message ("Test eos3a to eos4 %" G_GSIZE_FORMAT, i);
 
-      tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "eos3a";
-      tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "eos4";
+      tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "os/eos/amd64/eos3a";
+      tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "os/eos/amd64/eos4";
       tests[i].sys_vendor = tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor;
       tests[i].product_name = tests[i].product_name ? tests[i].product_name : default_product;
       do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);

@@ -544,8 +544,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
   /* https://phabricator.endlessm.com/T32542,
    * https://phabricator.endlessm.com/T32552 */
   gboolean is_eos3_conditional_upgrade_path =
-    (g_str_equal (booted_ref, "eos3a") ||
-     g_str_has_suffix (booted_ref, "/eos3a") ||
+    (g_str_has_suffix (booted_ref, "/eos3a") ||
      g_str_has_suffix (booted_ref, "nexthw/eos3.9"));
   /* https://phabricator.endlessm.com/T33311 */
   gboolean is_eos4_conditional_upgrade_path = g_str_has_suffix (booted_ref, "/latest1");
