@@ -1,3 +1,4 @@
+# Copyright 2020 Endless OS Foundation, LLC
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Service file used for some tests
