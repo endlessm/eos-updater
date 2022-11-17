@@ -3,3 +3,13 @@
 # based on empirical research.
 # https://black.readthedocs.io/en/stable/the_black_code_style.html#line-length
 max-line-length = 88
+
+# Check python scripts without a .py suffix.
+filename =
+    *.py,
+    ./eos-updater-ctl/eos-updater-ctl,
+    ./eos-updater-prepare-volume/eos-updater-prepare-volume
+
+# Ignore vendored scripts.
+extend-exclude =
+    ./tests/taptestrunner.py
