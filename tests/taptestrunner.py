@@ -3,6 +3,7 @@
 
 # Copyright (c) 2015 Remko Tronçon (https://el-tramo.be)
 # Copied from https://github.com/remko/pycotap/
+# SPDX-License-Identifier: MIT
 #
 # Released under the MIT license
 #

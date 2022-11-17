@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # Test helper library
 libeos_updater_test_common_sources = [
   'convenience.c',

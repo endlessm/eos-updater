@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # Flatpak installer utility library
 eufi_api_version = '0'
 

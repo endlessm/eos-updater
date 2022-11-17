@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <gresources>
   <gresource prefix="/com/endlessm/Updater/config">
     <file alias="eos-update-server.conf">../eos-update-server/eos-update-server.conf</file>

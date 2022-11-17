@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 [D-BUS Service]
 Name=org.freedesktop.Flatpak.SystemHelper
 # The --session is there so this can be started on the mock session bus

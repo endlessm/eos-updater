@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 [Test]
 Type=session
 Exec=@env@@installed_tests_dir@/@program@

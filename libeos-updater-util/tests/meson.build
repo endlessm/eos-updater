@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 deps = [
   dependency('flatpak', version: '>= 1.1.2'),
   dependency('gio-2.0', version: '>= 2.60.1'),

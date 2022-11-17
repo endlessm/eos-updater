@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 eos_updater_avahi_sources = [
   'eos-updater-avahi.c',
 ]

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 eos_autoupdater_sources = [
   'main.c',
 ] + eos_updater_resources

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 eos_update_server_sources = [
   'eos-update-server.c',
 ]
