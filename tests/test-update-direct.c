@@ -503,10 +503,10 @@ test_update_sizes (EosUpdaterFixture *fixture,
   gint64 expected_full_download;
   gint64 expected_full_unpacked;
 #if defined (HAVE_OSTREE_COMMIT_GET_OBJECT_SIZES)
-  expected_download = 11635;
+  expected_download = 11855;
   expected_unpacked = 10487043;
-  expected_full_download = 12696;
-  expected_full_unpacked = 10487887;
+  expected_full_download = 13356;
+  expected_full_unpacked = 10487942;
 #else
   expected_download = -1;
   expected_unpacked = -1;
