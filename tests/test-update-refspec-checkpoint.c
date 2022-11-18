@@ -1409,6 +1409,38 @@ typedef struct
   gboolean expect_checkpoint_followed;
 } CheckpointTestData;
 
+static gchar *
+checkpoint_test_data_description (CheckpointTestData *data)
+{
+  g_autoptr(GPtrArray) fields =  g_ptr_array_new_with_free_func (g_free);
+
+  if (data->src_ref)
+    g_ptr_array_add (fields, g_strdup_printf ("src_ref=%s", data->src_ref));
+  if (data->tgt_ref)
+    g_ptr_array_add (fields, g_strdup_printf ("tgt_ref=%s", data->tgt_ref));
+  if (data->sys_vendor)
+    g_ptr_array_add (fields, g_strdup_printf ("sys_vendor=%s", data->sys_vendor));
+  if (data->product_name)
+    g_ptr_array_add (fields, g_strdup_printf ("product_name=%s", data->product_name));
+  if (data->is_split_disk)
+    g_ptr_array_add (fields, g_strdup ("is_split_disk=TRUE"));
+  if (data->uname_machine)
+    g_ptr_array_add (fields, g_strdup_printf ("uname_machine=%s", data->uname_machine));
+  if (data->cpuinfo)
+    g_ptr_array_add (fields, g_strdup_printf ("cpuinfo=%s", data->cpuinfo));
+  if (data->cmdline)
+    g_ptr_array_add (fields, g_strdup_printf ("cmdline=%s", data->cmdline));
+  if (data->force_follow_checkpoint)
+    g_ptr_array_add (fields, g_strdup ("force_follow_checkpoint=TRUE"));
+
+  g_ptr_array_add (fields, g_strdup_printf ("expect_checkpoint_followed=%s",
+                                            data->expect_checkpoint_followed ? "TRUE" : "FALSE"));
+
+  /* NULL terminate */
+  g_ptr_array_add (fields, NULL);
+  return g_strjoinv(", ", (gchar **)fields->pdata);
+}
+
 static void
 do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                               gconstpointer       user_data,
@@ -1767,8 +1799,9 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
 
   for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
     {
-      g_test_message ("Test eos3a to eos4 %" G_GSIZE_FORMAT, i);
+      g_autofree gchar *description = checkpoint_test_data_description (&tests[i]);
 
+      g_test_message ("Test eos3a to eos4 %" G_GSIZE_FORMAT ": %s", i, description);
       do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
     }
 }
@@ -1855,10 +1888,12 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
 
   for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
     {
-      g_test_message ("Test eos4 to eos5 %" G_GSIZE_FORMAT, i);
+      g_autofree gchar *description = NULL;
 
       tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "os/eos/amd64/latest1";
       tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "os/eos/amd64/latest2";
+      description = checkpoint_test_data_description (&tests[i]);
+      g_test_message ("Test eos4 to eos5 %" G_GSIZE_FORMAT ": %s", i, description);
       do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
     }
 }
