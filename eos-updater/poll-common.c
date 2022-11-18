@@ -29,6 +29,7 @@
 #include <gio/gunixmounts.h>
 #include <glib.h>
 #include <glib/gi18n.h>
+#include <libeos-updater-util/enums.h>
 #include <libeos-updater-util/metrics-private.h>
 #include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
@@ -249,6 +250,7 @@ eos_update_info_new (const gchar *checksum,
                      const gchar *new_refspec,
                      const gchar *old_refspec,
                      const gchar *version,
+                     EuUpdateFlags update_flags,
                      const gchar * const *urls,
                      gboolean offline_results_only,
                      OstreeRepoFinderResult **results)
@@ -266,6 +268,7 @@ eos_update_info_new (const gchar *checksum,
   info->new_refspec = g_strdup (new_refspec);
   info->old_refspec = g_strdup (old_refspec);
   info->version = g_strdup (version);
+  info->update_flags = update_flags;
   info->urls = g_strdupv ((gchar **) urls);
   info->offline_results_only = offline_results_only;
   info->results = g_steal_pointer (&results);
@@ -816,6 +819,7 @@ fetch_latest_commit (OstreeRepo *repo,
                      gchar **out_checksum,
                      gchar **out_new_refspec,
                      gchar **out_version,
+                     EuUpdateFlags *out_update_flags,
                      GError **error)
 {
   g_autofree gchar *checksum = NULL;
@@ -828,6 +832,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autofree gchar *upgrade_refspec = NULL;
   g_autofree gchar *new_refspec = NULL;
   g_autofree gchar *version = NULL;
+  EuUpdateFlags update_flags = EU_UPDATE_FLAGS_NONE;
   gboolean redirect_followed = FALSE;
   g_auto(OstreeRepoFinderResultv) results = NULL;
   g_autoptr(OstreeCollectionRef) upgrade_collection_ref = NULL;
@@ -839,6 +844,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_return_val_if_fail (out_checksum != NULL, FALSE);
   g_return_val_if_fail (out_new_refspec != NULL, FALSE);
   g_return_val_if_fail (out_version != NULL, FALSE);
+  g_return_val_if_fail (out_update_flags != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (finders != NULL && collection_ref == NULL)
@@ -920,6 +926,7 @@ fetch_latest_commit (OstreeRepo *repo,
 
       g_clear_pointer (&checksum, g_free);
       g_clear_pointer (&version, g_free);
+      update_flags = EU_UPDATE_FLAGS_NONE;
       g_clear_pointer (&new_refspec, g_free);
       g_clear_pointer (&new_collection_ref, ostree_collection_ref_free);
 
@@ -927,7 +934,7 @@ fetch_latest_commit (OstreeRepo *repo,
       if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed,
                                 &checksum, &new_refspec,
                                 finders == NULL ? NULL : &new_collection_ref,
-                                &version, cancellable, error))
+                                &version, &update_flags, cancellable, error))
         return FALSE;
 
       if (new_refspec != NULL)
@@ -944,6 +951,7 @@ fetch_latest_commit (OstreeRepo *repo,
   while (redirect_followed);
 
   *out_version = g_steal_pointer (&version);
+  *out_update_flags = update_flags;
   *out_checksum = g_steal_pointer (&checksum);
   if (new_refspec != NULL)
     *out_new_refspec = g_steal_pointer (&new_refspec);
@@ -966,6 +974,7 @@ parse_latest_commit (OstreeRepo           *repo,
                      gchar               **out_new_refspec,
                      OstreeCollectionRef **out_new_collection_ref,
                      gchar               **out_version,
+                     EuUpdateFlags        *out_update_flags,
                      GCancellable         *cancellable,
                      GError              **error)
 {
@@ -975,6 +984,7 @@ parse_latest_commit (OstreeRepo           *repo,
   g_autoptr(GVariant) commit = NULL;
   g_autoptr(GVariant) rebase = NULL;
   g_autoptr(GVariant) version = NULL;
+  g_autoptr(GVariant) update_flags = NULL;
   g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *collection_id = NULL;
   g_autoptr(GError) local_error = NULL;
@@ -986,6 +996,7 @@ parse_latest_commit (OstreeRepo           *repo,
   g_return_val_if_fail (out_checksum != NULL, FALSE);
   g_return_val_if_fail (out_new_refspec != NULL, FALSE);
   g_return_val_if_fail (out_version != NULL, FALSE);
+  g_return_val_if_fail (out_update_flags != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
@@ -1035,6 +1046,13 @@ parse_latest_commit (OstreeRepo           *repo,
     *out_version = NULL;
   else
     *out_version = g_variant_dup_string (version, NULL);
+
+  if (metadata != NULL)
+    update_flags = g_variant_lookup_value (metadata, "eos-updater.update-flags", G_VARIANT_TYPE_UINT64);
+  if (update_flags == NULL)
+    *out_update_flags = EU_UPDATE_FLAGS_NONE;
+  else
+    *out_update_flags = g_variant_get_uint64 (update_flags);
 
   *out_checksum = g_steal_pointer (&checksum);
   *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
@@ -1219,6 +1237,7 @@ eos_update_info_to_string (EosUpdateInfo *update)
   g_autoptr(GString) results_string = NULL;
   g_autofree gchar *results = NULL;
   const gchar *version = update->version;
+  g_autofree gchar *update_flags_str = NULL;
   gsize i;
 
   if (update->urls != NULL)
@@ -1247,11 +1266,14 @@ eos_update_info_to_string (EosUpdateInfo *update)
   if (version == NULL)
     version = "(no version information)";
 
-  return g_strdup_printf ("%s, %s, %s, %s, %s\n   %s%s",
+  update_flags_str = g_flags_to_string (EU_TYPE_UPDATE_FLAGS, update->update_flags);
+
+  return g_strdup_printf ("%s, %s, %s, %s, %s, %s\n   %s%s",
                           update->checksum,
                           update->new_refspec,
                           update->old_refspec,
                           version,
+                          update_flags_str,
                           timestamp_str,
                           update_urls,
                           results);
@@ -1544,6 +1566,7 @@ metadata_fetch_finished (GObject *object,
       eos_updater_set_update_refspec (updater, info->new_refspec);
       eos_updater_set_original_refspec (updater, info->old_refspec);
       eos_updater_set_version (updater, info->version);
+      eos_updater_set_update_flags (updater, info->update_flags);
 
       g_variant_get_child (info->commit, 3, "&s", &label);
       g_variant_get_child (info->commit, 4, "&s", &message);

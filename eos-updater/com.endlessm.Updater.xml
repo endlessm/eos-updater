@@ -184,6 +184,22 @@
     <property name="Version" type="s" access="read"/>
 
     <!--
+      UpdateFlags:
+
+      A set of flags describing the content of the update, or `0` if no update
+      is available.
+
+      Currently defined flags are below. Consumers must ignore any high bits
+      which they don’t recognise.
+
+        * `0` (`None`): No flags set.
+        * `1 << 0` (`UserVisible`): Update contains significant user visible
+          changes which should be notified to the user in advance of the update
+          being applied.
+    -->
+    <property name="UpdateFlags" type="t" access="read"/>
+
+    <!--
       DownloadSize:
 
       Size (in bytes) of the update when downloaded, or `-1` if an update is

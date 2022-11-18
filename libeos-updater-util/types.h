@@ -102,4 +102,20 @@ typedef enum {
   EU_INSTALLER_FLAGS_ALSO_PULL = (1 << 0)
 } EosUpdaterInstallerFlags;
 
+/**
+ * EuUpdateFlags:
+ * @EU_UPDATE_FLAGS_NONE: No flags set.
+ * @EU_UPDATE_FLAGS_USER_VISIBLE: Update contains significant user visible
+ *   changes which should be notified to the user in advance of the update
+ *   being applied.
+ *
+ * Flags describing the content of an update.
+ *
+ * Since: UNRELEASED
+ */
+typedef enum {
+  EU_UPDATE_FLAGS_NONE = 0,
+  EU_UPDATE_FLAGS_USER_VISIBLE = 1 << 0,
+} EuUpdateFlags;
+
 G_END_DECLS

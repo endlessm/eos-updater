@@ -269,6 +269,7 @@ typedef struct {
   gchar *new_refspec;
   gchar *checksum;
   gchar *version;
+  EuUpdateFlags update_flags;
   GVariant *commit;
 } UpdateRefInfo;
 
@@ -283,6 +284,7 @@ update_ref_info_init (UpdateRefInfo *update_ref_info)
   update_ref_info->new_refspec = NULL;
   update_ref_info->checksum = NULL;
   update_ref_info->version = NULL;
+  update_ref_info->update_flags = EU_UPDATE_FLAGS_NONE;
   update_ref_info->commit = NULL;
 }
 
@@ -345,6 +347,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
   g_autofree gchar *new_refspec = NULL;
   g_autofree gchar *new_ref = NULL;
   g_autofree gchar *version = NULL;
+  EuUpdateFlags update_flags = EU_UPDATE_FLAGS_NONE;
   gboolean is_update = FALSE;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
@@ -374,6 +377,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
                             &checksum,
                             &new_refspec,
                             &version,
+                            &update_flags,
                             error))
     return FALSE;
 
@@ -401,6 +405,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
       out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
       out_update_ref_info->checksum = g_steal_pointer (&checksum);
       out_update_ref_info->version = g_steal_pointer (&version);
+      out_update_ref_info->update_flags = update_flags;
       out_update_ref_info->commit = g_steal_pointer (&commit);
     }
   else
@@ -428,6 +433,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_autoptr(OstreeCollectionRef) collection_ref = NULL;
   g_autofree gchar *new_refspec = NULL;
   g_autofree gchar *version = NULL;
+  EuUpdateFlags update_flags = EU_UPDATE_FLAGS_NONE;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
   g_auto(OstreeRepoFinderResultv) results = NULL;
@@ -470,6 +476,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                             &checksum,
                             &new_refspec,
                             &version,
+                            &update_flags,
                             error))
     return FALSE;
 
@@ -504,6 +511,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
 
   out_update_ref_info->results = g_steal_pointer (&results);
   out_update_ref_info->version = g_steal_pointer (&version);
+  out_update_ref_info->update_flags = update_flags;
   out_update_ref_info->commit = g_steal_pointer (&commit);
 
   return TRUE;
@@ -622,6 +630,7 @@ metadata_fetch_new (OstreeRepo    *repo,
                                   update_ref_info.new_refspec,
                                   update_ref_info.refspec,
                                   update_ref_info.version,
+                                  update_ref_info.update_flags,
                                   NULL,
                                   offline_results_only,
                                   g_steal_pointer (&update_ref_info.results));
@@ -670,6 +679,7 @@ metadata_fetch_from_main (OstreeRepo     *repo,
                                 update_ref_info.new_refspec,
                                 update_ref_info.refspec,
                                 update_ref_info.version,
+                                update_ref_info.update_flags,
                                 NULL,
                                 FALSE,
                                 NULL);

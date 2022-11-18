@@ -84,6 +84,7 @@ def dump_daemon_properties(proxy):
             continue
 
         value = proxy.get_cached_property(x)
+
         if x in (
             "DownloadSize",
             "DownloadedBytes",
@@ -97,6 +98,14 @@ def dump_daemon_properties(proxy):
                 )
             else:
                 value = "Unknown"
+
+        if x == "UpdateFlags":
+            if value.get_uint64() == 0:
+                value = "None"
+            elif value.get_uint64() == 1:
+                value = "UserVisible"
+            else:
+                value = "Unknown ({})".format(value.get_uint64())
 
         print("{:>{}}: {}".format(x, width, value))
 
