@@ -118,7 +118,10 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: not os.path.isfile(self.__old_service_file) and os.path.isfile(self.__new_service_file)
+            lambda s: (
+                not os.path.isfile(self.__old_service_file) and
+                os.path.isfile(self.__new_service_file)
+            )
         )
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
@@ -138,7 +141,10 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: not os.path.isfile(self.__old_service_file) and os.path.isfile(self.__new_service_file)
+            lambda s: (
+                not os.path.isfile(self.__old_service_file) and
+                os.path.isfile(self.__new_service_file)
+            )
         )
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
@@ -152,7 +158,10 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: not os.path.isfile(self.__old_service_file) and not os.path.isfile(self.__new_service_file)
+            lambda s: (
+                not os.path.isfile(self.__old_service_file) and
+                not os.path.isfile(self.__new_service_file)
+            )
         )
 
     @unittest.skipIf(os.geteuid() != 0, "Must be run as root")
@@ -174,7 +183,10 @@ class TestEosUpdaterAvahi(unittest.TestCase):
             )
 
         self._wait_for_condition(
-            lambda s: not os.path.isfile(self.__old_service_file) and os.path.isfile(self.__new_service_file)
+            lambda s: (
+                not os.path.isfile(self.__old_service_file) and
+                os.path.isfile(self.__new_service_file)
+            )
         )
         before = get_mtime_if_exists(self.__new_service_file)
 
