@@ -1573,17 +1573,39 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
   CheckpointTestData tests[] =
     {
       /* Normal system */
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Split disk */
-      { NULL, NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, NULL, NULL, TRUE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .is_split_disk = TRUE,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .is_split_disk = TRUE,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* aarch64 */
-      { NULL, NULL, NULL, NULL, FALSE, "x86_64", NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
+      {
+        .uname_machine = "x86_64",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .uname_machine = "aarch64",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Ref matching. When the ref does not match the expected "eos3a"
        * and "eos4" patterns, the checkpoint is followed. Since that
@@ -1591,42 +1613,147 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
        * refs, the machine is set to aarch64. The result being that the
        * checkpoint is skipped for ref matches and followed for ref
        * mismatches. */
-      { "os/eos/arm64/eos3", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { "os/eos/arm64/eos3a2", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { NULL, "os/eos/arm64/eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { NULL, "os/eos/arm64/eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { "os/eos/arm64/eos3a", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { NULL, "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { "os/eos/arm64/eos3a", "os/eos/arm64/latest1", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
+      {
+        .src_ref = "os/eos/arm64/eos3",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a2",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .tgt_ref = "os/eos/arm64/eos3b",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .tgt_ref = "os/eos/arm64/eos4a",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .tgt_ref = "os/eos/arm64/eos4",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a",
+        .tgt_ref = "os/eos/arm64/eos4",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a",
+        .tgt_ref = "os/eos/arm64/latest1",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a",
+        .tgt_ref = "os/eos/arm64/eos4",
+        .uname_machine = "aarch64",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Ref matching. When the ref matches the "nexthw/eos3.9", the checkpoint
        * is followed. It should allow updating to "eos4" directly.
        * https://phabricator.endlessm.com/T32542 */
-      { "os/eos/nexthw/eos3.9", NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
+      {
+        .src_ref = "os/eos/nexthw/eos3.9",
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Asus with i-8565U CPU */
-      { NULL, NULL, NULL, NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, TRUE },
-      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_not_i8565u, NULL, FALSE, TRUE },
-      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, FALSE },
-      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_i8565u, NULL, TRUE, TRUE },
+      {
+        .cpuinfo = cpuinfo_i8565u,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .sys_vendor = "Asus",
+        .cpuinfo = cpuinfo_not_i8565u,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .sys_vendor = "Asus",
+        .cpuinfo = cpuinfo_i8565u,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Asus",
+        .cpuinfo = cpuinfo_i8565u,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Various systems unsupported by the new kernel */
-      { NULL, NULL, "Acer", "Aspire ES1-533", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Acer", "Aspire ES1-732", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Acer", "Veriton Z4660G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Acer", "Veriton Z4860G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Acer", "Veriton Z6860G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "ASUSTeK COMPUTER INC.", "Z550MA", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Aspire ES1-533",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Aspire ES1-732",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Veriton Z4660G",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Veriton Z4860G",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Veriton Z6860G",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "ASUSTeK COMPUTER INC.",
+        .product_name = "Z550MA",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Endless",
+        .product_name = "ELT-JWM",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Endless",
+        .product_name = "ELT-JWM",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Read-only in kernel command line args */
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_not_ro, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_end, FALSE, FALSE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_middle, FALSE, FALSE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_end, TRUE, TRUE },
+      {
+        .cmdline = cmdline_not_ro,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .cmdline = cmdline_ro_end,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .cmdline = cmdline_ro_middle,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .cmdline = cmdline_ro_end,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
     };
 
   if (eos_test_skip_chroot ())
@@ -1663,20 +1790,58 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
   CheckpointTestData tests[] =
     {
       /* Normal system */
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Platforms: x86_64 and aarch64 */
-      { NULL, NULL, NULL, NULL, FALSE, "x86_64", NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      {
+        .uname_machine = "x86_64",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Various systems unsupported by the new kernel */
-      { NULL, NULL, "Endless", "EE-200", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Endless", "EE-200", FALSE, NULL, NULL, NULL, TRUE, TRUE },
-      { NULL, NULL, "Standard", "EF20", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Standard", "EF20", FALSE, NULL, NULL, NULL, TRUE, TRUE },
-      { NULL, NULL, "Standard", "EF20EA", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Standard", "EF20EA", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .sys_vendor = "Endless",
+        .product_name = "EE-200",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Endless",
+        .product_name = "EE-200",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .sys_vendor = "Standard",
+        .product_name = "EF20",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Standard",
+        .product_name = "EF20",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .sys_vendor = "Standard",
+        .product_name = "EF20EA",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Standard",
+        .product_name = "EF20EA",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
     };
 
   if (eos_test_skip_chroot ())
