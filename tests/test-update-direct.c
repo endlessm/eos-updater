@@ -55,6 +55,11 @@ setup_basic_test_server_client (EosUpdaterFixture *fixture,
   g_autoptr(EosTestSubserver) subserver = NULL;
   g_autoptr(GFile) client_root = NULL;
   g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
+
+  /* Arbitrarily say that the currently booted commit is version 1.0.0. */
+  eos_test_add_metadata_for_commit (&additional_metadata_for_commit,
+                                    0, "version", "1.0.0");
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
@@ -65,7 +70,8 @@ setup_basic_test_server_client (EosUpdaterFixture *fixture,
                                       fixture->gpg_home,
                                       keyid,
                                       default_ostree_path,
-                                      NULL, NULL, NULL,
+                                      NULL, NULL,
+                                      additional_metadata_for_commit,
                                       error);
 
   if (server == NULL)
@@ -373,6 +379,84 @@ test_update_version (EosUpdaterFixture *fixture,
   g_assert_cmpstr (eos_updater_get_version (updater), ==, version);
 }
 
+/* Tests getting the UpdateIsUserVisible property for an update whose version is
+ * set to @user_data. */
+static void
+test_update_is_user_visible (EosUpdaterFixture *fixture,
+                             gconstpointer      user_data)
+{
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(EosUpdater) updater = NULL;
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
+  DownloadSource main_source = DOWNLOAD_MAIN;
+  const gchar *update_version = (user_data != NULL) ? (const gchar *) user_data : "";
+
+  if (eos_test_skip_chroot ())
+    return;
+
+  setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
+  g_assert_no_error (error);
+
+  /* setup_basic_test_server_client() sets the booted commit to version 1.0.0,
+   * so @update_version will end up being compared against that. */
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (default_collection_ref),
+                       GUINT_TO_POINTER (1));
+  eos_test_add_metadata_for_commit (&subserver->additional_metadata_for_commit,
+                                    1, "version", update_version);
+
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
+  eos_test_subserver_update (subserver, &error);
+  g_assert_no_error (error);
+
+  eos_test_client_run_updater (client,
+                               &main_source,
+                               1,
+                               NULL,
+                               NULL,
+                               &error);
+  g_assert_no_error (error);
+
+  updater = eos_updater_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+                                                G_DBUS_PROXY_FLAGS_NONE,
+                                                "com.endlessm.Updater",
+                                                "/com/endlessm/Updater",
+                                                NULL,
+                                                &error);
+  g_assert_no_error (error);
+
+  EosUpdaterState state = EOS_UPDATER_STATE_POLLING;
+  g_signal_connect (updater, "notify::state",
+                    G_CALLBACK (update_with_loop_state_changed_cb),
+                    &state);
+
+  /* start the state changes */
+  eos_updater_call_poll_sync (updater, NULL, &error);
+  g_assert_no_error (error);
+
+  gboolean timed_out = FALSE;
+  guint timeout_id = g_timeout_add_seconds (DEFAULT_TIMEOUT_SECS, timeout_cb, &timed_out);
+
+  while (state == EOS_UPDATER_STATE_POLLING && !timed_out)
+    g_main_context_iteration (NULL, TRUE);
+
+  g_source_remove (timeout_id);
+
+  g_assert_false (timed_out);
+
+  g_assert_cmpuint (eos_updater_get_state (updater), ==, EOS_UPDATER_STATE_UPDATE_AVAILABLE);
+
+  if (update_version[0] == '1')
+    g_assert_false (eos_updater_get_update_is_user_visible (updater));
+  else
+    g_assert_true (eos_updater_get_update_is_user_visible (updater));
+}
+
 /* Tests getting an update when there is none available. */
 static void
 test_update_when_none_available (EosUpdaterFixture *fixture,
@@ -535,6 +619,8 @@ main (int argc,
   eos_test_add ("/updater/cancel-update", NULL, test_cancel_update);
   eos_test_add ("/updater/update-no-version", NULL, test_update_version);
   eos_test_add ("/updater/update-version", "1.2.3", test_update_version);
+  eos_test_add ("/updater/update-is-user-visible/minor", "1.3.0", test_update_is_user_visible);
+  eos_test_add ("/updater/update-is-user-visible/major", "2.0.0", test_update_is_user_visible);
   eos_test_add ("/updater/update-not-available", NULL, test_update_when_none_available);
   eos_test_add ("/updater/commit-sizes", NULL, test_update_sizes);
 

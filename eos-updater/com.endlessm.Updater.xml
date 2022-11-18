@@ -184,6 +184,15 @@
     <property name="Version" type="s" access="read"/>
 
     <!--
+      UpdateIsUserVisible:
+
+      If the update contains significant user visible changes which should be
+      notified to the user in advance of the update being applied, this is
+      `True`. Otherwise, or if no update is available, this is `False`.
+    -->
+    <property name="UpdateIsUserVisible" type="b" access="read"/>
+
+    <!--
       DownloadSize:
 
       Size (in bytes) of the update when downloaded, or `-1` if an update is

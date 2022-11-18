@@ -82,6 +82,33 @@ async_result_cb (GObject      *source_object,
   *result_out = g_object_ref (result);
 }
 
+/* Returns a strcmp()-like integer, negative if @version_a < @version_b, zero if
+ * they’re equal (or the comparison is invalid), positive if
+ * @version_a > @version_b. */
+static int
+compare_major_versions (const char *version_a,
+                        const char *version_b)
+{
+  guint64 version_a_major, version_b_major;
+
+  if (version_a == NULL || version_b == NULL)
+    return 0;
+
+  /* Take the first whole integer off each string, and assume it’s the major
+   * version number. This should work regardless of whether the strings are in
+   * `X.Y.Z` form or `X.Y` or `X`. Note that this parsing is locale
+   * independent. */
+  version_a_major = g_ascii_strtoull (version_a, NULL, 10);
+  version_b_major = g_ascii_strtoull (version_b, NULL, 10);
+
+  if (version_a_major > version_b_major)
+    return 1;
+  else if (version_a_major < version_b_major)
+    return -1;
+  else
+    return 0;
+}
+
 /**
  * is_checksum_an_update:
  * @repo: the #OstreeRepo
@@ -91,6 +118,10 @@ async_result_cb (GObject      *source_object,
  * @out_commit: (not optional) (nullable) (out) (transfer full): return location
  *   for the #GVariant containing the commit identified by @update_checksum *if*
  *   it is an update compared to @booted_ref; %NULL is returned otherwise
+ * @out_is_update_user_visible: (not optional) (out): return location for a
+ *   boolean indicating whether the update to @update_checksum contains user
+ *   visible changes which should be highlighted to the user; always returns
+ *   %FALSE when @out_commit returns %NULL
  * @error: return location for a #GError, or %NULL
  *
  * Checks whether an update from @booted_ref to @update_ref would actually be
@@ -109,22 +140,29 @@ is_checksum_an_update (OstreeRepo *repo,
                        const gchar *booted_ref,
                        const gchar *update_ref,
                        GVariant **out_commit,
+                       gboolean *out_is_update_user_visible,
                        GError **error)
 {
   g_autoptr(GVariant) current_commit = NULL;
   g_autoptr(GVariant) update_commit = NULL;
+  g_autoptr(GVariant) current_commit_metadata = NULL;
+  g_autoptr(GVariant) update_commit_metadata = NULL;
   g_autofree gchar *booted_checksum = NULL;
   gboolean is_newer;
+  gboolean is_update_user_visible;
   guint64 update_timestamp, current_timestamp;
+  const char *current_version = NULL, *update_version = NULL;
   g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
   g_return_val_if_fail (update_checksum != NULL, FALSE);
   g_return_val_if_fail (out_commit != NULL, FALSE);
+  g_return_val_if_fail (out_is_update_user_visible != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   /* Default output. */
   *out_commit = NULL;
+  *out_is_update_user_visible = FALSE;
 
   booted_checksum = eos_updater_get_booted_checksum (error);
   if (booted_checksum == NULL)
@@ -158,8 +196,17 @@ is_checksum_an_update (OstreeRepo *repo,
   if (current_commit == NULL)
     {
       *out_commit = g_steal_pointer (&update_commit);
+      *out_is_update_user_visible = FALSE;
       return TRUE;
     }
+
+  /* Look up the versions on the current and update commits, so we can determine
+   * if there are meant to be any user visible changes in the update. */
+  current_commit_metadata = g_variant_get_child_value (current_commit, 0);
+  g_variant_lookup (current_commit_metadata, OSTREE_COMMIT_META_KEY_VERSION, "&s", &current_version);
+
+  update_commit_metadata = g_variant_get_child_value (update_commit, 0);
+  g_variant_lookup (update_commit_metadata, OSTREE_COMMIT_META_KEY_VERSION, "&s", &update_version);
 
   /* Determine if the new commit is newer than the old commit to prevent
    * inadvertent (or malicious) attempts to downgrade the system.
@@ -168,8 +215,10 @@ is_checksum_an_update (OstreeRepo *repo,
   current_timestamp = ostree_commit_get_timestamp (current_commit);
 
   g_debug ("%s: current_timestamp: %" G_GUINT64_FORMAT ", "
-           "update_timestamp: %" G_GUINT64_FORMAT,
-           G_STRFUNC, current_timestamp, update_timestamp);
+           "current_version: %s, update_timestamp: %" G_GUINT64_FORMAT ", "
+           "update_version: %s",
+           G_STRFUNC, current_timestamp, current_version,
+           update_timestamp, update_version);
 
   /* "Newer" if we are switching branches or the update timestamp
    * is greater than the timestamp of the current commit.
@@ -191,7 +240,14 @@ is_checksum_an_update (OstreeRepo *repo,
    */
   is_newer = (g_strcmp0 (booted_ref, update_ref) != 0 ||
               update_timestamp > current_timestamp);
+
+  /* We have explicit semantics on our version numbers, which are of the form
+   * `major.minor.micro`. Major versions contain user visible changes, minor
+   * versions are generally branch changes, and micro versions are bug fixes. */
+  is_update_user_visible = compare_major_versions (current_version, update_version) < 0;
+
   *out_commit = is_newer ? g_steal_pointer (&update_commit) : NULL;
+  *out_is_update_user_visible = is_newer ? is_update_user_visible : FALSE;
 
   return TRUE;
 }
@@ -273,6 +329,7 @@ eos_update_info_new (const gchar *checksum,
                      const gchar *new_refspec,
                      const gchar *old_refspec,
                      const gchar *version,
+                     gboolean is_user_visible,
                      const gchar * const *urls,
                      gboolean offline_results_only,
                      OstreeRepoFinderResult **results)
@@ -290,6 +347,7 @@ eos_update_info_new (const gchar *checksum,
   info->new_refspec = g_strdup (new_refspec);
   info->old_refspec = g_strdup (old_refspec);
   info->version = g_strdup (version);
+  info->is_user_visible = is_user_visible;
   info->urls = g_strdupv ((gchar **) urls);
   info->offline_results_only = offline_results_only;
   info->results = g_steal_pointer (&results);
@@ -1313,6 +1371,7 @@ eos_update_info_to_string (EosUpdateInfo *update)
   g_autoptr(GString) results_string = NULL;
   g_autofree gchar *results = NULL;
   const gchar *version = update->version;
+  const gchar *is_user_visible_str = NULL;
   gsize i;
 
   if (update->urls != NULL)
@@ -1341,11 +1400,14 @@ eos_update_info_to_string (EosUpdateInfo *update)
   if (version == NULL)
     version = "(no version information)";
 
-  return g_strdup_printf ("%s, %s, %s, %s, %s\n   %s%s",
+  is_user_visible_str = update->is_user_visible ? "user visible" : "not user visible";
+
+  return g_strdup_printf ("%s, %s, %s, %s, %s, %s\n   %s%s",
                           update->checksum,
                           update->new_refspec,
                           update->old_refspec,
                           version,
+                          is_user_visible_str,
                           timestamp_str,
                           update_urls,
                           results);
@@ -1638,6 +1700,7 @@ metadata_fetch_finished (GObject *object,
       eos_updater_set_update_refspec (updater, info->new_refspec);
       eos_updater_set_original_refspec (updater, info->old_refspec);
       eos_updater_set_version (updater, info->version);
+      eos_updater_set_update_is_user_visible (updater, info->is_user_visible);
 
       g_variant_get_child (info->commit, 3, "&s", &label);
       g_variant_get_child (info->commit, 4, "&s", &message);
