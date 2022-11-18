@@ -392,6 +392,10 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
                               error))
     return FALSE;
 
+  /* FIXME: As in check_for_update_following_checkpoint_commits(), we should
+   * add code here to iterate through the commits booted_refspec..new_refspec
+   * and sum up the @update_flags for all of them. */
+
   is_update = (commit != NULL);
   *out_is_update = is_update;
 
@@ -493,6 +497,22 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                               &commit,
                               error))
     return FALSE;
+
+  /* FIXME: Once we’ve worked out which commit to update to, we really should
+   * then iterate back through the commits on @new_refspec until we get to:
+   *  1. the first commit in the branch; or
+   *  2. the currently booted commit (@booted_refspec).
+   * We need to combine the @update_flags of all the commits we iterate over,
+   * to ensure that flagged ‘user visible’ changes in (for example) 5.0.0 aren’t
+   * ignored if the user ends up upgrading directly from 4.9.0 to 5.0.1. (The
+   * example ignores the likely presence of a checkpoint on the 4→5 transition,
+   * but we can’t assume one is always present.)
+   *
+   * For the moment, however, that’s too much work to implement and test, so
+   * assume that if there’s been a branch name change, there are user visible
+   * changes. */
+  if (g_strcmp0 (new_refspec, booted_refspec) != 0)
+    update_flags |= EU_UPDATE_FLAGS_USER_VISIBLE;
 
   /* The "refspec" member is the *currently booted* refspec
    * which may get cleaned up later if we change away from it. */
