@@ -1403,6 +1403,7 @@ typedef struct
   const gchar *uname_machine;  /* (nullable) for default */
   const gchar *cpuinfo;  /* (nullable) for default */
   const gchar *cmdline;  /* (nullable) for default */
+  gboolean flatpak_repo_is_symlink;
   gboolean force_follow_checkpoint;
 
   /* Results */
@@ -1430,6 +1431,8 @@ checkpoint_test_data_description (CheckpointTestData *data)
     g_ptr_array_add (fields, g_strdup_printf ("cpuinfo=%s", data->cpuinfo));
   if (data->cmdline)
     g_ptr_array_add (fields, g_strdup_printf ("cmdline=%s", data->cmdline));
+  if (data->flatpak_repo_is_symlink)
+    g_ptr_array_add (fields, g_strdup ("flatpak_repo_is_symlink=TRUE"));
   if (data->force_follow_checkpoint)
     g_ptr_array_add (fields, g_strdup ("force_follow_checkpoint=TRUE"));
 
@@ -1502,6 +1505,7 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
   eos_test_client_set_uname_machine (client, test_machine->uname_machine);
   eos_test_client_set_cpuinfo (client, test_machine->cpuinfo);
   eos_test_client_set_cmdline (client, test_machine->cmdline);
+  eos_test_client_set_flatpak_repo_is_symlink (client, test_machine->flatpak_repo_is_symlink);
   eos_test_client_set_force_follow_checkpoint (client, test_machine->force_follow_checkpoint);
 
   g_hash_table_insert (leaf_commit_nodes,
@@ -1872,6 +1876,17 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
       {
         .sys_vendor = "Standard",
         .product_name = "EF20EA",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
+
+      /* Merged flatpak repo */
+      {
+        .flatpak_repo_is_symlink = TRUE,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .flatpak_repo_is_symlink = TRUE,
         .force_follow_checkpoint = TRUE,
         .expect_checkpoint_followed = TRUE,
       },
