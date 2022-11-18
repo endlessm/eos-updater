@@ -35,7 +35,10 @@
 #include <libsoup/soup.h>
 #include <ostree.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #ifdef HAS_EOSMETRICS_0
 #include <eosmetrics/eosmetrics.h>
@@ -526,6 +529,33 @@ boot_args_contain (const gchar *needle)
   return g_regex_match_simple (regex, cmdline, 0, 0);
 }
 
+/* Check if /var/lib/flatpak/repo has been split from /ostree/repo. A
+ * simple symlink check is used since it would be very unlikely that
+ * would occur in any other scenario.
+ */
+static gboolean
+flatpak_repo_is_split (void)
+{
+  const gchar *dir_path;
+  g_autofree gchar *repo_path = NULL;
+  struct stat buf;
+
+  dir_path = allow_env_override ("/var/lib/flatpak", "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR");
+  repo_path = g_build_filename (dir_path, "repo", NULL);
+  if (lstat (repo_path, &buf) == -1)
+    {
+      if (errno == ENOENT)
+        return TRUE;
+
+      g_warning ("Could not determine %s status: %s", repo_path, g_strerror (errno));
+      return FALSE;
+    }
+  if ((buf.st_mode & S_IFMT) == S_IFLNK)
+    return FALSE;
+
+  return TRUE;
+}
+
 /* Whether the upgrade should follow the given checkpoint and move to the given
  * @target_ref for the upgrade deployment. The default for this is %TRUE, but
  * there are various systems for which support has been withdrawn, which need
@@ -616,6 +646,14 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
       booted_system_is_unsupported_by_eos5_kernel (sys_vendor, product_name))
     {
       *out_reason = g_strdup_printf (_("%s %s systems are not supported in EOS 5."), sys_vendor, product_name);
+      return FALSE;
+    }
+
+  /* https://phabricator.endlessm.com/T34110 */
+  if (is_eos4_conditional_upgrade_path &&
+      !flatpak_repo_is_split ())
+    {
+      *out_reason = g_strdup (_("Merged OSTree and Flatpak repos are not supported in EOS 5."));
       return FALSE;
     }
 

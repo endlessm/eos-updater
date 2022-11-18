@@ -226,6 +226,7 @@ struct _EosTestClient
   gchar *cmdline;
   gchar *uname_machine;
   gboolean is_split_disk;
+  gboolean flatpak_repo_is_symlink;
   gboolean force_follow_checkpoint;
 };
 
@@ -253,6 +254,8 @@ void eos_test_client_set_cpuinfo (EosTestClient *client,
                                   const gchar   *cpuinfo);
 void eos_test_client_set_cmdline (EosTestClient *client,
                                   const gchar   *cmdline);
+void eos_test_client_set_flatpak_repo_is_symlink (EosTestClient *client,
+                                                  gboolean flatpak_repo_is_symlink);
 void eos_test_client_set_force_follow_checkpoint (EosTestClient *client,
                                                   gboolean       force_follow_checkpoint);
 

@@ -1564,6 +1564,7 @@ prepare_updater_dir (GFile *updater_dir,
                      GKeyFile *hw_file,
                      const gchar *cpuinfo,
                      const gchar *cmdline,
+                     gboolean flatpak_repo_is_symlink,
                      GError **error)
 {
   g_autoptr(GFile) quit_file_path = NULL;
@@ -1571,6 +1572,9 @@ prepare_updater_dir (GFile *updater_dir,
   g_autoptr(GFile) hw_file_path = NULL;
   g_autoptr(GFile) cpuinfo_file_path = NULL;
   g_autoptr(GFile) cmdline_file_path = NULL;
+  g_autoptr(GFile) flatpak_dir = NULL;
+  g_autoptr(GFile) flatpak_repo = NULL;
+  g_autoptr(GFile) flatpak_link_repo = NULL;
 
   if (!create_directory (updater_dir, error))
     return FALSE;
@@ -1596,6 +1600,40 @@ prepare_updater_dir (GFile *updater_dir,
   if (!g_file_replace_contents (cmdline_file_path, cmdline, strlen (cmdline),
                                 NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL, error))
     return FALSE;
+
+  /* Make the flatpak installation repo a symlink if needed. This
+   * function may be called multiple times per test, so this needs to be
+   * idempotent.
+   */
+  if (!flatpak_init (updater_dir, error))
+    return FALSE;
+  flatpak_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
+  flatpak_repo = g_file_get_child (flatpak_dir, "repo");
+  flatpak_link_repo = g_file_get_child (flatpak_dir, "link-repo");
+  if (flatpak_repo_is_symlink)
+    {
+      if (!g_file_query_exists (flatpak_link_repo, NULL))
+        {
+          g_test_message ("Creating symlink from %s to %s",
+                          g_file_get_path (flatpak_repo),
+                          g_file_get_path (flatpak_link_repo));
+          if (!g_file_move (flatpak_repo, flatpak_link_repo, G_FILE_COPY_NONE, NULL, NULL, NULL, error))
+            return FALSE;
+          if (!g_file_make_symbolic_link (flatpak_repo, "link-repo", NULL, error))
+            return FALSE;
+        }
+    }
+  else
+    {
+      if (g_file_query_exists (flatpak_link_repo, NULL))
+        {
+          g_test_message ("Moving %s to %s",
+                          g_file_get_path (flatpak_link_repo),
+                          g_file_get_path (flatpak_repo));
+          if (!g_file_move (flatpak_link_repo, flatpak_repo, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+            return FALSE;
+        }
+    }
 
   return TRUE;
 }
@@ -1847,6 +1885,7 @@ run_updater (GFile *client_root,
              gboolean fatal_warnings,
              const gchar *uname_machine_override,
              gboolean is_split_disk,
+             gboolean flatpak_repo_is_symlink,
              gboolean force_follow_checkpoint,
              CmdAsyncResult *updater_cmd,
              GError **error)
@@ -1880,6 +1919,7 @@ run_updater (GFile *client_root,
                             hw_config,
                             cpuinfo_file_override,
                             cmdline_file_override,
+                            flatpak_repo_is_symlink,
                             error))
     return FALSE;
   if (!spawn_updater_simple (sysroot,
@@ -1997,6 +2037,13 @@ eos_test_client_set_cpuinfo (EosTestClient *client,
 }
 
 void
+eos_test_client_set_flatpak_repo_is_symlink (EosTestClient *client,
+                                             gboolean flatpak_repo_is_symlink)
+{
+  client->flatpak_repo_is_symlink = flatpak_repo_is_symlink;
+}
+
+void
 eos_test_client_set_cmdline (EosTestClient *client,
                              const gchar   *cmdline)
 {
@@ -2031,6 +2078,7 @@ eos_test_client_run_updater (EosTestClient *client,
                     TRUE,  /* fatal-warnings */
                     client->uname_machine,
                     client->is_split_disk,
+                    client->flatpak_repo_is_symlink,
                     client->force_follow_checkpoint,
                     cmd,
                     error))
@@ -2059,6 +2107,7 @@ eos_test_client_run_updater_ignore_warnings (EosTestClient   *client,
                     FALSE,  /* not fatal-warnings */
                     client->uname_machine,
                     client->is_split_disk,
+                    client->flatpak_repo_is_symlink,
                     client->force_follow_checkpoint,
                     cmd,
                     error))
