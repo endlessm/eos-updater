@@ -28,6 +28,9 @@
 
 G_BEGIN_DECLS
 
+gboolean flatpak_init (GFile   *updater_dir,
+                       GError **error);
+
 gboolean flatpak_remote_add (GFile        *updater_dir,
                              const gchar  *repo_name,
                              const gchar  *repo_directory,
