@@ -154,7 +154,7 @@ eos_test_subserver_new (const gchar *collection_id,
                         GHashTable *commit_graph,
                         GHashTable *additional_directories_for_commit,
                         GHashTable *additional_files_for_commit,
-                        GHashTable *additional_metadata_for_commit)
+                        GHashTable *additional_metadata_for_commit  /* (element-type uint GHashTable<utf8, GVariant>) */)
 {
   EosTestSubserver *subserver = g_object_new (EOS_TEST_TYPE_SUBSERVER, NULL);
 
@@ -717,7 +717,7 @@ prepare_commit (GFile *repo,
                 const gchar *keyid,
                 GHashTable *additional_directories_for_commit,
                 GHashTable *additional_files_for_commit,
-                GHashTable *additional_metadata_for_commit,
+                GHashTable *additional_metadata_for_commit  /* (element-type uint GHashTable<utf8, GVariant>) */,
                 gchar **out_checksum,
                 GError **error)
 {
@@ -1203,7 +1203,7 @@ eos_test_server_new_quick (GFile *server_root,
                            const gchar *ostree_path,
                            GHashTable *additional_directories_for_commit,
                            GHashTable *additional_files_for_commit,
-                           GHashTable *additional_metadata_for_commit,
+                           GHashTable *additional_metadata_for_commit  /* (element-type uint GHashTable<utf8, GVariant>) */,
                            GError **error)
 {
   g_autoptr(GPtrArray) subservers = object_array_new ();
@@ -3518,7 +3518,7 @@ void
 eos_test_add_metadata_for_commit (GHashTable **commit_metadata,
                                   guint commit_number,
                                   const gchar *key,
-                                  const gchar *value)
+                                  GVariant *value)
 {
   GHashTable *metadata = NULL;
 
@@ -3535,11 +3535,11 @@ eos_test_add_metadata_for_commit (GHashTable **commit_metadata,
       metadata = g_hash_table_new_full (g_str_hash,
                                         g_str_equal,
                                         g_free,
-                                        g_free);
+                                        (GDestroyNotify) g_variant_unref);
       g_hash_table_insert (*commit_metadata,
                            GUINT_TO_POINTER (commit_number),
                            metadata);
     }
 
-  g_hash_table_insert (metadata, g_strdup (key), g_strdup (value));
+  g_hash_table_insert (metadata, g_strdup (key), g_variant_ref_sink (value));
 }

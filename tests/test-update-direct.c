@@ -326,7 +326,7 @@ test_update_version (EosUpdaterFixture *fixture,
                        GUINT_TO_POINTER (1));
   if (version != NULL)
     eos_test_add_metadata_for_commit (&subserver->additional_metadata_for_commit,
-                                      1, "version", version);
+                                      1, "version", g_variant_new_string (version));
 
   eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
                                                             leaf_commit_nodes);

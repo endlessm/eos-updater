@@ -38,10 +38,10 @@ const OstreeCollectionRef *default_collection_ref_no_id = &_default_collection_r
 static GHashTable *
 create_eol_rebase_metadata (const gchar *ref_to_upgrade)
 {
-  GHashTable *ht = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+  GHashTable *ht = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, (GDestroyNotify) g_variant_unref);
   g_hash_table_insert (ht,
                        g_strdup (OSTREE_COMMIT_META_KEY_ENDOFLIFE_REBASE),
-                       g_strdup (ref_to_upgrade));
+                       g_variant_new_string (ref_to_upgrade));
 
   return ht;
 }

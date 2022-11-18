@@ -121,7 +121,7 @@ ostree_init (GFile *repo,
 
 static void
 copy_additional_metadata_args_from_hashtable (GArray      *cmd_args,
-                                              GHashTable  *metadata,
+                                              GHashTable  *metadata  /* (element-type utf8 GVariant) */,
                                               GPtrArray  **out_cmd_args_membuf)
 {
   gpointer key;
@@ -139,12 +139,13 @@ copy_additional_metadata_args_from_hashtable (GArray      *cmd_args,
 
   while (g_hash_table_iter_next (&iter, &key, &value))
     {
+      g_autofree gchar *value_formatted = g_variant_print (value, TRUE);
       g_autofree gchar *formatted_metadata_string = g_strdup_printf ("%s=%s",
                                                                      (const char *) key,
-                                                                     (const gchar *) value);
+                                                                     value_formatted);
       CmdArg arg =
         {
-          "add-metadata-string",
+          "add-metadata",
           formatted_metadata_string
         };
 
@@ -196,7 +197,7 @@ ostree_commit (GFile *repo,
                GFile *gpg_home,
                const gchar *keyid,
                GDateTime *timestamp,
-               GHashTable *metadata,
+               GHashTable *metadata  /* (element-type utf8 GVariant) */,
                CmdResult *cmd,
                GError **error)
 {
