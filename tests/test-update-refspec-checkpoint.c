@@ -178,6 +178,7 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -317,6 +318,7 @@ test_update_refspec_checkpoint_old_ref_deleted (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -412,6 +414,7 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -525,6 +528,7 @@ test_update_refspec_checkpoint_no_collection_ref_server (EosUpdaterFixture *fixt
                                 default_collection_ref_no_id,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -628,6 +632,7 @@ test_update_refspec_checkpoint_malformed_checkpoint (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -745,6 +750,7 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -899,6 +905,7 @@ test_update_refspec_checkpoint_no_collection_ref_client (EosUpdaterFixture *fixt
                                 default_collection_ref_no_id,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1012,6 +1019,7 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1159,6 +1167,7 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1336,6 +1345,7 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1496,6 +1506,7 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                                 src_collection_ref,
                                 test_machine->sys_vendor ? test_machine->sys_vendor : default_vendor,
                                 test_machine->product_name ? test_machine->product_name : default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
