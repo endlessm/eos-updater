@@ -30,7 +30,7 @@ libeos_updater_dbus_deps = [
   dependency('gobject-2.0', version: '>= 2.62'),
   dependency('libsoup-2.4'),
   dependency('mogwai-schedule-client-0'),
-  dependency('ostree-1', version: '>= 2018.6'),
+  dependency('ostree-1', version: '>= 2019.2'),
   libeos_updater_util_dep,
 ]
 

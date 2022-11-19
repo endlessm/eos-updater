@@ -45,6 +45,7 @@ const OstreeCollectionRef _default_collection_ref = { (gchar *) "com.endlessm.Co
 const OstreeCollectionRef *default_collection_ref = &_default_collection_ref;
 const gchar *const default_ostree_path = "OSTREE/PATH";
 const gchar *const default_remote_name = "REMOTE";
+const gboolean default_auto_bootloader = FALSE;
 const gchar *arch_override_name = "arch";
 const guint max_commit_number = 10;
 
@@ -1329,12 +1330,13 @@ prepare_client_sysroot (GFile *client_root,
                         const OstreeCollectionRef *collection_ref,
                         GFile *gpg_home,
                         const gchar *keyid,
+                        gboolean auto_bootloader,
                         GError **error)
 {
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GFile) gpg_key = NULL;
-  g_autoptr(GFile) repo = NULL;
+  g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
   g_autofree gchar *refspec = NULL;
 
   if (!create_directory (sysroot,
@@ -1357,11 +1359,29 @@ prepare_client_sysroot (GFile *client_root,
   if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  if (!setup_stub_uboot_config (sysroot, error))
-    return FALSE;
+  if (auto_bootloader)
+    {
+      /* Add a u-boot setup that should be automatically detected. */
+      if (!setup_stub_uboot_config (sysroot, error))
+        return FALSE;
+    }
+  else
+    {
+      /* Set the bootloader to none so only the boot loader spec entries
+       * are updated.
+       */
+      cmd_result_clear (&cmd);
+      if (!ostree_set_config (repo,
+                              "sysroot.bootloader",
+                              "none",
+                              &cmd,
+                              error))
+        return FALSE;
+      if (!cmd_result_ensure_ok (&cmd, error))
+        return FALSE;
+    }
 
   gpg_key = get_gpg_key_file_for_keyid (gpg_home, keyid);
-  repo = get_repo_for_sysroot (sysroot);
   cmd_result_clear (&cmd);
   if (!ostree_remote_add (repo,
                           remote_name,
@@ -1974,6 +1994,7 @@ eos_test_client_new (GFile *client_root,
                      const OstreeCollectionRef *collection_ref,
                      const gchar *vendor,
                      const gchar *product,
+                     gboolean auto_bootloader,
                      GError **error)
 {
   g_autoptr(EosTestClient) client = NULL;
@@ -1995,6 +2016,7 @@ eos_test_client_new (GFile *client_root,
                                collection_ref,
                                subserver->gpg_home,
                                subserver->keyid,
+                               auto_bootloader,
                                error))
     return FALSE;
 
@@ -2010,6 +2032,7 @@ eos_test_client_new (GFile *client_root,
   client->product = g_strdup (product);
   client->remote_name = g_strdup (remote_name);
   client->ostree_path = g_strdup (subserver->ostree_path);
+  client->auto_bootloader = auto_bootloader;
   return g_steal_pointer (&client);
 }
 

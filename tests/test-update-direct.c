@@ -81,6 +81,7 @@ setup_basic_test_server_client (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 error);
 
   if (client == NULL)

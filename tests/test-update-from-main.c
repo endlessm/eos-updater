@@ -82,6 +82,7 @@ test_update_from_main (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
