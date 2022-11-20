@@ -1414,6 +1414,7 @@ typedef struct
   const gchar *cpuinfo;  /* (nullable) for default */
   const gchar *cmdline;  /* (nullable) for default */
   gboolean flatpak_repo_is_symlink;
+  gboolean auto_bootloader;
   gboolean force_follow_checkpoint;
 
   /* Results */
@@ -1443,6 +1444,8 @@ checkpoint_test_data_description (CheckpointTestData *data)
     g_ptr_array_add (fields, g_strdup_printf ("cmdline=%s", data->cmdline));
   if (data->flatpak_repo_is_symlink)
     g_ptr_array_add (fields, g_strdup ("flatpak_repo_is_symlink=TRUE"));
+  if (data->auto_bootloader)
+    g_ptr_array_add (fields, g_strdup ("auto_bootloader=TRUE"));
   if (data->force_follow_checkpoint)
     g_ptr_array_add (fields, g_strdup ("force_follow_checkpoint=TRUE"));
 
@@ -1506,7 +1509,7 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                                 src_collection_ref,
                                 test_machine->sys_vendor ? test_machine->sys_vendor : default_vendor,
                                 test_machine->product_name ? test_machine->product_name : default_product,
-                                default_auto_bootloader,
+                                test_machine->auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1898,6 +1901,17 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
       },
       {
         .flatpak_repo_is_symlink = TRUE,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
+
+      /* Auto bootloader */
+      {
+        .auto_bootloader = TRUE,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .auto_bootloader = TRUE,
         .force_follow_checkpoint = TRUE,
         .expect_checkpoint_followed = TRUE,
       },
