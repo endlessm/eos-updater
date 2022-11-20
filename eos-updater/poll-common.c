@@ -556,6 +556,35 @@ flatpak_repo_is_split (void)
   return TRUE;
 }
 
+/* Check whether the ostree repo option "sysroot.bootloader" is set. */
+static gboolean
+ostree_bootloader_is_configured (OstreeRepo *repo)
+{
+  GKeyFile *config;
+  g_autofree gchar *value = NULL;
+  g_autoptr(GError) error = NULL;
+
+  config = ostree_repo_get_config (repo);
+  value = g_key_file_get_string (config, "sysroot", "bootloader", &error);
+
+  /* Note that we don't care what the value is, only that it's set. This
+   * matches the logic in the eos-ostree-bootloader-setup migration
+   * script.
+   */
+  if (value == NULL)
+    {
+      if (!g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_GROUP_NOT_FOUND) &&
+          !g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_KEY_NOT_FOUND))
+        {
+          g_autofree gchar *repo_path = g_file_get_path (ostree_repo_get_path (repo));
+          g_warning ("Error reading %s sysroot.bootloader option: %s", repo_path, error->message);
+        }
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 /* Whether the upgrade should follow the given checkpoint and move to the given
  * @target_ref for the upgrade deployment. The default for this is %TRUE, but
  * there are various systems for which support has been withdrawn, which need
@@ -654,6 +683,13 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
       !flatpak_repo_is_split ())
     {
       *out_reason = g_strdup (_("Merged OSTree and Flatpak repos are not supported in EOS 5."));
+      return FALSE;
+    }
+
+  if (is_eos4_conditional_upgrade_path &&
+      !ostree_bootloader_is_configured (repo))
+    {
+      *out_reason = g_strdup (_("OSTree automatic bootloader detection is not supported in EOS 5."));
       return FALSE;
     }
 
