@@ -1747,8 +1747,9 @@ generate_bash_script (GFile *bash_script,
 
 typedef struct
 {
-  GMainLoop *loop;
-  guint id;
+  GMainContext *context;  /* (unowned) (nullable) */
+  gboolean appeared;
+  guint watch_id;
 } WatchUpdater;
 
 static void
@@ -1759,8 +1760,11 @@ com_endlessm_updater_appeared (GDBusConnection *connection,
 {
   WatchUpdater *wu = wu_ptr;
 
-  g_bus_unwatch_name (wu->id);
-  g_main_loop_quit (wu->loop);
+  wu->appeared = TRUE;
+  g_bus_unwatch_name (wu->watch_id);
+  wu->watch_id = 0;
+
+  g_main_context_wakeup (wu->context);
 }
 
 static gboolean
@@ -1823,8 +1827,7 @@ spawn_updater (GFile *sysroot,
     };
   g_auto(GStrv) envp = build_cmd_env (envv);
   g_autofree gchar *bash_script_path = NULL;
-  g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
-  WatchUpdater wu = { loop, 0u };
+  WatchUpdater wu = { NULL, FALSE, 0u };
   guint id = g_bus_watch_name (G_BUS_TYPE_SESSION,
                                "com.endlessm.Updater",
                                G_BUS_NAME_WATCHER_FLAGS_NONE,
@@ -1833,7 +1836,7 @@ spawn_updater (GFile *sysroot,
                                &wu,
                                NULL);
 
-  wu.id = id;
+  wu.watch_id = id;
   bash_script_path = g_strdup (g_getenv ("EOS_CHECK_UPDATER_GDB_BASH_PATH"));
   if (bash_script_path != NULL)
     {
@@ -1850,7 +1853,9 @@ spawn_updater (GFile *sysroot,
                               (const gchar * const *) envp, FALSE, cmd, error))
     return FALSE;
 
-  g_main_loop_run (loop);
+  while (!wu.appeared)
+    g_main_context_iteration (NULL, TRUE);
+
   return TRUE;
 }
 
@@ -2164,8 +2169,11 @@ com_endlessm_updater_vanished (GDBusConnection *connection,
 {
   WatchUpdater *wu = wu_ptr;
 
-  g_bus_unwatch_name (wu->id);
-  g_main_loop_quit (wu->loop);
+  wu->appeared = FALSE;
+  g_bus_unwatch_name (wu->watch_id);
+  wu->watch_id = 0;
+
+  g_main_context_wakeup (wu->context);
 }
 
 static gboolean
@@ -2176,21 +2184,21 @@ real_reap_updater (EosTestClient *client,
 {
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client->root);
   g_autoptr(GFile) quit_file = updater_quit_file (updater_dir);
-  g_autoptr(GMainLoop) loop = g_main_loop_new (NULL, FALSE);
-  WatchUpdater wu = { loop, 0u };
+  WatchUpdater wu = { NULL, TRUE, 0u };
 
-  wu.id = g_bus_watch_name (G_BUS_TYPE_SESSION,
-                            "com.endlessm.Updater",
-                            G_BUS_NAME_WATCHER_FLAGS_NONE,
-                            NULL,
-                            com_endlessm_updater_vanished,
-                            &wu,
-                            NULL);
+  wu.watch_id = g_bus_watch_name (G_BUS_TYPE_SESSION,
+                                  "com.endlessm.Updater",
+                                  G_BUS_NAME_WATCHER_FLAGS_NONE,
+                                  NULL,
+                                  com_endlessm_updater_vanished,
+                                  &wu,
+                                  NULL);
 
   if (!eos_updater_remove_recursive (quit_file, NULL, error))
     return FALSE;
 
-  g_main_loop_run (loop);
+  while (wu.appeared)
+    g_main_context_iteration (NULL, TRUE);
 
   return reap_async_cmd (cmd, reaped, error);
 }
