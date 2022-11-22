@@ -6,7 +6,7 @@ eos_updater_avahi_deps = [
   dependency('gio-2.0', version: '>= 2.62'),
   dependency('glib-2.0', version: '>= 2.62'),
   dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('ostree-1', version: '>= 2018.6'),
+  dependency('ostree-1', version: '>= 2019.2'),
   libeos_update_server_dep,
   libeos_updater_util_dep,
 ]

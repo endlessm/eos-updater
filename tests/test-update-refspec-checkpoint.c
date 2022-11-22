@@ -29,6 +29,8 @@
 #include <locale.h>
 #include <sys/utsname.h>
 
+const gchar *default_src_ref = "os/eos/amd64/eos3a";
+const gchar *default_tgt_ref = "os/eos/amd64/eos4";
 const gchar *next_ref = "REFv2";
 const OstreeCollectionRef _next_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) "REFv2" };
 const OstreeCollectionRef *next_collection_ref = &_next_collection_ref;
@@ -176,6 +178,7 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -315,6 +318,7 @@ test_update_refspec_checkpoint_old_ref_deleted (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -410,6 +414,7 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -523,6 +528,7 @@ test_update_refspec_checkpoint_no_collection_ref_server (EosUpdaterFixture *fixt
                                 default_collection_ref_no_id,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -626,6 +632,7 @@ test_update_refspec_checkpoint_malformed_checkpoint (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -743,6 +750,7 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -897,6 +905,7 @@ test_update_refspec_checkpoint_no_collection_ref_client (EosUpdaterFixture *fixt
                                 default_collection_ref_no_id,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1010,6 +1019,7 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1157,6 +1167,7 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1334,6 +1345,7 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
                                 default_collection_ref,
                                 default_vendor,
                                 default_product,
+                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1401,11 +1413,49 @@ typedef struct
   const gchar *uname_machine;  /* (nullable) for default */
   const gchar *cpuinfo;  /* (nullable) for default */
   const gchar *cmdline;  /* (nullable) for default */
+  gboolean flatpak_repo_is_symlink;
+  gboolean auto_bootloader;
   gboolean force_follow_checkpoint;
 
   /* Results */
   gboolean expect_checkpoint_followed;
 } CheckpointTestData;
+
+static gchar *
+checkpoint_test_data_description (CheckpointTestData *data)
+{
+  g_autoptr(GPtrArray) fields =  g_ptr_array_new_with_free_func (g_free);
+
+  if (data->src_ref)
+    g_ptr_array_add (fields, g_strdup_printf ("src_ref=%s", data->src_ref));
+  if (data->tgt_ref)
+    g_ptr_array_add (fields, g_strdup_printf ("tgt_ref=%s", data->tgt_ref));
+  if (data->sys_vendor)
+    g_ptr_array_add (fields, g_strdup_printf ("sys_vendor=%s", data->sys_vendor));
+  if (data->product_name)
+    g_ptr_array_add (fields, g_strdup_printf ("product_name=%s", data->product_name));
+  if (data->is_split_disk)
+    g_ptr_array_add (fields, g_strdup ("is_split_disk=TRUE"));
+  if (data->uname_machine)
+    g_ptr_array_add (fields, g_strdup_printf ("uname_machine=%s", data->uname_machine));
+  if (data->cpuinfo)
+    g_ptr_array_add (fields, g_strdup_printf ("cpuinfo=%s", data->cpuinfo));
+  if (data->cmdline)
+    g_ptr_array_add (fields, g_strdup_printf ("cmdline=%s", data->cmdline));
+  if (data->flatpak_repo_is_symlink)
+    g_ptr_array_add (fields, g_strdup ("flatpak_repo_is_symlink=TRUE"));
+  if (data->auto_bootloader)
+    g_ptr_array_add (fields, g_strdup ("auto_bootloader=TRUE"));
+  if (data->force_follow_checkpoint)
+    g_ptr_array_add (fields, g_strdup ("force_follow_checkpoint=TRUE"));
+
+  g_ptr_array_add (fields, g_strdup_printf ("expect_checkpoint_followed=%s",
+                                            data->expect_checkpoint_followed ? "TRUE" : "FALSE"));
+
+  /* NULL terminate */
+  g_ptr_array_add (fields, NULL);
+  return g_strjoinv(", ", (gchar **)fields->pdata);
+}
 
 static void
 do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
@@ -1413,10 +1463,10 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                               CheckpointTestData *test_machine,
                               gboolean            host_is_aarch64)
 {
-  const gchar *src_ref = test_machine->src_ref;
+  const gchar *src_ref = test_machine->src_ref ? test_machine->src_ref : default_src_ref;
   const OstreeCollectionRef _src_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) src_ref };
   const OstreeCollectionRef *src_collection_ref = &_src_collection_ref;
-  const gchar *tgt_ref = test_machine->tgt_ref;
+  const gchar *tgt_ref = test_machine->tgt_ref ? test_machine->tgt_ref : default_tgt_ref;
   const OstreeCollectionRef _tgt_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) tgt_ref };
   const OstreeCollectionRef *tgt_collection_ref = &_tgt_collection_ref;
   g_autoptr(GFile) server_root = NULL;
@@ -1457,8 +1507,9 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                                 default_remote_name,
                                 subserver,
                                 src_collection_ref,
-                                test_machine->sys_vendor,
-                                test_machine->product_name,
+                                test_machine->sys_vendor ? test_machine->sys_vendor : default_vendor,
+                                test_machine->product_name ? test_machine->product_name : default_product,
+                                test_machine->auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1468,6 +1519,7 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
   eos_test_client_set_uname_machine (client, test_machine->uname_machine);
   eos_test_client_set_cpuinfo (client, test_machine->cpuinfo);
   eos_test_client_set_cmdline (client, test_machine->cmdline);
+  eos_test_client_set_flatpak_repo_is_symlink (client, test_machine->flatpak_repo_is_symlink);
   eos_test_client_set_force_follow_checkpoint (client, test_machine->force_follow_checkpoint);
 
   g_hash_table_insert (leaf_commit_nodes,
@@ -1571,17 +1623,39 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
   CheckpointTestData tests[] =
     {
       /* Normal system */
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Split disk */
-      { NULL, NULL, NULL, NULL, TRUE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, NULL, NULL, TRUE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .is_split_disk = TRUE,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .is_split_disk = TRUE,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* aarch64 */
-      { NULL, NULL, NULL, NULL, FALSE, "x86_64", NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
+      {
+        .uname_machine = "x86_64",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .uname_machine = "aarch64",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Ref matching. When the ref does not match the expected "eos3a"
        * and "eos4" patterns, the checkpoint is followed. Since that
@@ -1589,42 +1663,147 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
        * refs, the machine is set to aarch64. The result being that the
        * checkpoint is skipped for ref matches and followed for ref
        * mismatches. */
-      { "eos3", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { "eos3a2", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
-      { NULL, "eos3b", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { NULL, "eos4a", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { "os/eos/arm64/eos3a", NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { NULL, "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { "os/eos/arm64/eos3a", "os/eos/arm64/latest1", NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, FALSE },
-      { "os/eos/arm64/eos3a", "os/eos/arm64/eos4", NULL, NULL, FALSE, "aarch64", NULL, NULL, TRUE, TRUE },
+      {
+        .src_ref = "os/eos/arm64/eos3",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a2",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .tgt_ref = "os/eos/arm64/eos3b",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .tgt_ref = "os/eos/arm64/eos4a",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .tgt_ref = "os/eos/arm64/eos4",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a",
+        .tgt_ref = "os/eos/arm64/eos4",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a",
+        .tgt_ref = "os/eos/arm64/latest1",
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/arm64/eos3a",
+        .tgt_ref = "os/eos/arm64/eos4",
+        .uname_machine = "aarch64",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Ref matching. When the ref matches the "nexthw/eos3.9", the checkpoint
        * is followed. It should allow updating to "eos4" directly.
        * https://phabricator.endlessm.com/T32542 */
-      { "nexthw/eos3.9", NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
+      {
+        .src_ref = "os/eos/nexthw/eos3.9",
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Asus with i-8565U CPU */
-      { NULL, NULL, NULL, NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, TRUE },
-      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_not_i8565u, NULL, FALSE, TRUE },
-      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_i8565u, NULL, FALSE, FALSE },
-      { NULL, NULL, "Asus", NULL, FALSE, NULL, cpuinfo_i8565u, NULL, TRUE, TRUE },
+      {
+        .cpuinfo = cpuinfo_i8565u,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .sys_vendor = "Asus",
+        .cpuinfo = cpuinfo_not_i8565u,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .sys_vendor = "Asus",
+        .cpuinfo = cpuinfo_i8565u,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Asus",
+        .cpuinfo = cpuinfo_i8565u,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Various systems unsupported by the new kernel */
-      { NULL, NULL, "Acer", "Aspire ES1-533", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Acer", "Aspire ES1-732", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Acer", "Veriton Z4660G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Acer", "Veriton Z4860G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Acer", "Veriton Z6860G", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "ASUSTeK COMPUTER INC.", "Z550MA", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Endless", "ELT-JWM", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Aspire ES1-533",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Aspire ES1-732",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Veriton Z4660G",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Veriton Z4860G",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Acer",
+        .product_name = "Veriton Z6860G",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "ASUSTeK COMPUTER INC.",
+        .product_name = "Z550MA",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Endless",
+        .product_name = "ELT-JWM",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Endless",
+        .product_name = "ELT-JWM",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Read-only in kernel command line args */
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_not_ro, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_end, FALSE, FALSE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_middle, FALSE, FALSE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, cmdline_ro_end, TRUE, TRUE },
+      {
+        .cmdline = cmdline_not_ro,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .cmdline = cmdline_ro_end,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .cmdline = cmdline_ro_middle,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .cmdline = cmdline_ro_end,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
     };
 
   if (eos_test_skip_chroot ())
@@ -1638,12 +1817,9 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
 
   for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
     {
-      g_test_message ("Test eos3a to eos4 %" G_GSIZE_FORMAT, i);
+      g_autofree gchar *description = checkpoint_test_data_description (&tests[i]);
 
-      tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "eos3a";
-      tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "eos4";
-      tests[i].sys_vendor = tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor;
-      tests[i].product_name = tests[i].product_name ? tests[i].product_name : default_product;
+      g_test_message ("Test eos3a to eos4 %" G_GSIZE_FORMAT ": %s", i, description);
       do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
     }
 }
@@ -1665,20 +1841,80 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
   CheckpointTestData tests[] =
     {
       /* Normal system */
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Platforms: x86_64 and aarch64 */
-      { NULL, NULL, NULL, NULL, FALSE, "x86_64", NULL, NULL, FALSE, TRUE },
-      { NULL, NULL, NULL, NULL, FALSE, "aarch64", NULL, NULL, FALSE, TRUE },
+      {
+        .uname_machine = "x86_64",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .uname_machine = "aarch64",
+        .expect_checkpoint_followed = TRUE,
+      },
 
       /* Various systems unsupported by the new kernel */
-      { NULL, NULL, "Endless", "EE-200", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Endless", "EE-200", FALSE, NULL, NULL, NULL, TRUE, TRUE },
-      { NULL, NULL, "Standard", "EF20", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Standard", "EF20", FALSE, NULL, NULL, NULL, TRUE, TRUE },
-      { NULL, NULL, "Standard", "EF20EA", FALSE, NULL, NULL, NULL, FALSE, FALSE },
-      { NULL, NULL, "Standard", "EF20EA", FALSE, NULL, NULL, NULL, TRUE, TRUE },
+      {
+        .sys_vendor = "Endless",
+        .product_name = "EE-200",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Endless",
+        .product_name = "EE-200",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .sys_vendor = "Standard",
+        .product_name = "EF20",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Standard",
+        .product_name = "EF20",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .sys_vendor = "Standard",
+        .product_name = "EF20EA",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .sys_vendor = "Standard",
+        .product_name = "EF20EA",
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
+
+      /* Merged flatpak repo */
+      {
+        .flatpak_repo_is_symlink = TRUE,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .flatpak_repo_is_symlink = TRUE,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
+
+      /* Auto bootloader */
+      {
+        .auto_bootloader = TRUE,
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .auto_bootloader = TRUE,
+        .force_follow_checkpoint = TRUE,
+        .expect_checkpoint_followed = TRUE,
+      },
     };
 
   if (eos_test_skip_chroot ())
@@ -1692,12 +1928,12 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
 
   for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
     {
-      g_test_message ("Test eos4 to eos5 %" G_GSIZE_FORMAT, i);
+      g_autofree gchar *description = NULL;
 
       tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "os/eos/amd64/latest1";
       tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "os/eos/amd64/latest2";
-      tests[i].sys_vendor = tests[i].sys_vendor ? tests[i].sys_vendor : default_vendor;
-      tests[i].product_name = tests[i].product_name ? tests[i].product_name : default_product;
+      description = checkpoint_test_data_description (&tests[i]);
+      g_test_message ("Test eos4 to eos5 %" G_GSIZE_FORMAT ": %s", i, description);
       do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
     }
 }

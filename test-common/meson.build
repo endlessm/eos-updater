@@ -48,7 +48,7 @@ libeos_updater_test_common_deps = [
   dependency('gio-unix-2.0', version: '>= 2.62'),
   dependency('glib-2.0', version: '>= 2.70'),
   dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('ostree-1', version: '>= 2018.6'),
+  dependency('ostree-1', version: '>= 2019.2'),
   libeos_updater_util_dep,
 ]
 

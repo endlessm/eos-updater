@@ -4,7 +4,7 @@ deps = [
   dependency('glib-2.0', version: '>= 2.62.0'),
   dependency('gobject-2.0', version: '>= 2.44'),
   dependency('json-glib-1.0', version: '>= 1.2.6'),
-  dependency('ostree-1', version: '>= 2018.6'),
+  dependency('ostree-1', version: '>= 2019.2'),
   dependency('libsoup-2.4'),
   libeos_updater_util_dep,
 ]

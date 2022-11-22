@@ -35,7 +35,10 @@
 #include <libsoup/soup.h>
 #include <ostree.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #ifdef HAS_EOSMETRICS_0
 #include <eosmetrics/eosmetrics.h>
@@ -526,6 +529,62 @@ boot_args_contain (const gchar *needle)
   return g_regex_match_simple (regex, cmdline, 0, 0);
 }
 
+/* Check if /var/lib/flatpak/repo has been split from /ostree/repo. A
+ * simple symlink check is used since it would be very unlikely that
+ * would occur in any other scenario.
+ */
+static gboolean
+flatpak_repo_is_split (void)
+{
+  const gchar *dir_path;
+  g_autofree gchar *repo_path = NULL;
+  struct stat buf;
+
+  dir_path = allow_env_override ("/var/lib/flatpak", "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR");
+  repo_path = g_build_filename (dir_path, "repo", NULL);
+  if (lstat (repo_path, &buf) == -1)
+    {
+      if (errno == ENOENT)
+        return TRUE;
+
+      g_warning ("Could not determine %s status: %s", repo_path, g_strerror (errno));
+      return FALSE;
+    }
+  if ((buf.st_mode & S_IFMT) == S_IFLNK)
+    return FALSE;
+
+  return TRUE;
+}
+
+/* Check whether the ostree repo option "sysroot.bootloader" is set. */
+static gboolean
+ostree_bootloader_is_configured (OstreeRepo *repo)
+{
+  GKeyFile *config;
+  g_autofree gchar *value = NULL;
+  g_autoptr(GError) error = NULL;
+
+  config = ostree_repo_get_config (repo);
+  value = g_key_file_get_string (config, "sysroot", "bootloader", &error);
+
+  /* Note that we don't care what the value is, only that it's set. This
+   * matches the logic in the eos-ostree-bootloader-setup migration
+   * script.
+   */
+  if (value == NULL)
+    {
+      if (!g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_GROUP_NOT_FOUND) &&
+          !g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_KEY_NOT_FOUND))
+        {
+          g_autofree gchar *repo_path = g_file_get_path (ostree_repo_get_path (repo));
+          g_warning ("Error reading %s sysroot.bootloader option: %s", repo_path, error->message);
+        }
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 /* Whether the upgrade should follow the given checkpoint and move to the given
  * @target_ref for the upgrade deployment. The default for this is %TRUE, but
  * there are various systems for which support has been withdrawn, which need
@@ -544,8 +603,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
   /* https://phabricator.endlessm.com/T32542,
    * https://phabricator.endlessm.com/T32552 */
   gboolean is_eos3_conditional_upgrade_path =
-    (g_str_equal (booted_ref, "eos3a") ||
-     g_str_has_suffix (booted_ref, "/eos3a") ||
+    (g_str_has_suffix (booted_ref, "/eos3a") ||
      g_str_has_suffix (booted_ref, "nexthw/eos3.9"));
   /* https://phabricator.endlessm.com/T33311 */
   gboolean is_eos4_conditional_upgrade_path = g_str_has_suffix (booted_ref, "/latest1");
@@ -617,6 +675,21 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
       booted_system_is_unsupported_by_eos5_kernel (sys_vendor, product_name))
     {
       *out_reason = g_strdup_printf (_("%s %s systems are not supported in EOS 5."), sys_vendor, product_name);
+      return FALSE;
+    }
+
+  /* https://phabricator.endlessm.com/T34110 */
+  if (is_eos4_conditional_upgrade_path &&
+      !flatpak_repo_is_split ())
+    {
+      *out_reason = g_strdup (_("Merged OSTree and Flatpak repos are not supported in EOS 5."));
+      return FALSE;
+    }
+
+  if (is_eos4_conditional_upgrade_path &&
+      !ostree_bootloader_is_configured (repo))
+    {
+      *out_reason = g_strdup (_("OSTree automatic bootloader detection is not supported in EOS 5."));
       return FALSE;
     }
 
