@@ -160,4 +160,16 @@ foreach test_name, extra_args : python_tests
   endif
 endforeach
 
+reuse = find_program('reuse', required: false)
+if reuse.found()
+  test(
+    'reuse',
+    reuse,
+    args: ['lint'],
+    protocol: 'exitcode',
+    suite: 'eos-updater',
+    workdir: meson.project_source_root(),
+  )
+endif
+
 subdir('services')
