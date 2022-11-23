@@ -1,3 +1,6 @@
+# Copyright 2017 Endless Mobile, Inc.
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 [Unit]
 Description=Socket for Endless OS Automatic Updater
 Documentation=man:eos-update-server(8)

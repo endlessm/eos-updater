@@ -1,0 +1,38 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: eos-updater
+Upstream-Contact: Philip Withnall <withnall@endlessm.com>
+Source: github.com/endlessm/eos-updater
+
+# These test files are too simple to be copyrightable, but adding
+# copyright/licensing headers to them (or beside them in a .license file) may
+# affect the tests
+Files:
+ libeos-updater-util/tests/config-test-invalid.conf
+ libeos-updater-util/tests/config-test.conf
+ tests/gpghome/C1EB8F4E.asc
+ tests/gpghome/keyid
+ tests/gpghome/pubring.gpg
+ tests/gpghome/random_seed
+ tests/gpghome/secring.gpg
+Copyright: See individual files
+License: CC0-1.0
+
+# Debian packaging is under the same license as the package but the file formats
+# don’t easily allow copyright/license data to be added
+Files:
+ debian/**
+Copyright: See individual files
+License: LGPL-2.1-or-later
+
+# The JSON Schema format doesn’t easily allow copyright/license data to be added
+Files:
+ eos-updater-flatpak-installer/eos-updater-autoinstall.schema.json
+Copyright: Copyright 2017 Endless Mobile, Inc.
+License: LGPL-2.1-or-later
+
+# Putting copyright/licensing information at the top of README.md makes it
+# less readable
+Files:
+ README.md
+Copyright: Copyright 2013, 2016, 2017, 2020 Endless OS Foundation, LLC
+License: LGPL-2.1-or-later

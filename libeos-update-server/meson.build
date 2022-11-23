@@ -1,3 +1,6 @@
+# Copyright 2020 Endless OS Foundation, LLC
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # Server utility library
 eus_api_version = '0'
 

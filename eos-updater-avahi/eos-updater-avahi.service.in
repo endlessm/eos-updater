@@ -1,3 +1,6 @@
+# Copyright 2017 Endless Mobile, Inc.
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 [Unit]
 Description=Endless OS Avahi Advertisement Updater
 Documentation=man:eos-updater-avahi(8)

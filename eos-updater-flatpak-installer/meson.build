@@ -1,3 +1,6 @@
+# Copyright 2020 Endless OS Foundation, LLC
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 eos_update_flatpak_installer_sources = [
   'main.c',
 ]

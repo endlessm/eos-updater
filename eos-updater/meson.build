@@ -1,3 +1,6 @@
+# Copyright 2020, 2022 Endless OS Foundation, LLC
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # D-Bus helper library
 libeos_updater_dbus_codegen_sources = gnome.gdbus_codegen(
   'dbus',

@@ -1,3 +1,6 @@
+# Copyright 2018 Endless Mobile, Inc.
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 [Unit]
 Description=Endless OS Updater
 Documentation=man:eos-updater(8)

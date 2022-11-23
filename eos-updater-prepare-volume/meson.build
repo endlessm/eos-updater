@@ -1,3 +1,6 @@
+# Copyright 2020 Endless OS Foundation, LLC
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # Python program
 install_data('eos-updater-prepare-volume',
   install_dir: bindir,

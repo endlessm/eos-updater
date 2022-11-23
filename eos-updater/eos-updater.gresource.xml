@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2018 Endless Mobile, Inc.
+     SPDX-License-Identifier: LGPL-2.1-or-later -->
 <gresources>
   <gresource prefix="/com/endlessm/Updater/config">
     <file alias="eos-autoupdater.conf">../eos-autoupdater/eos-autoupdater.conf</file>
