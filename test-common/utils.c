@@ -1596,7 +1596,10 @@ prepare_updater_dir (GFile *updater_dir,
   g_autoptr(GFile) cmdline_file_path = NULL;
   g_autoptr(GFile) flatpak_dir = NULL;
   g_autoptr(GFile) flatpak_repo = NULL;
+  g_autofree gchar *flatpak_repo_path = NULL;
   g_autoptr(GFile) flatpak_link_repo = NULL;
+  g_autofree gchar *flatpak_link_repo_path = NULL;
+  gboolean flatpak_link_repo_exists;
 
   if (!create_directory (updater_dir, error))
     return FALSE;
@@ -1631,30 +1634,23 @@ prepare_updater_dir (GFile *updater_dir,
     return FALSE;
   flatpak_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
   flatpak_repo = g_file_get_child (flatpak_dir, "repo");
+  flatpak_repo_path = g_file_get_path (flatpak_repo);
   flatpak_link_repo = g_file_get_child (flatpak_dir, "link-repo");
-  if (flatpak_repo_is_symlink)
+  flatpak_link_repo_path = g_file_get_path (flatpak_link_repo);
+  flatpak_link_repo_exists = g_file_query_exists (flatpak_link_repo, NULL);
+  if (flatpak_repo_is_symlink && !flatpak_link_repo_exists)
     {
-      if (!g_file_query_exists (flatpak_link_repo, NULL))
-        {
-          g_test_message ("Creating symlink from %s to %s",
-                          g_file_get_path (flatpak_repo),
-                          g_file_get_path (flatpak_link_repo));
-          if (!g_file_move (flatpak_repo, flatpak_link_repo, G_FILE_COPY_NONE, NULL, NULL, NULL, error))
-            return FALSE;
-          if (!g_file_make_symbolic_link (flatpak_repo, "link-repo", NULL, error))
-            return FALSE;
-        }
+      g_test_message ("Creating symlink from %s to %s", flatpak_repo_path, flatpak_link_repo_path);
+      if (!g_file_move (flatpak_repo, flatpak_link_repo, G_FILE_COPY_NONE, NULL, NULL, NULL, error))
+        return FALSE;
+      if (!g_file_make_symbolic_link (flatpak_repo, "link-repo", NULL, error))
+        return FALSE;
     }
-  else
+  else if (!flatpak_repo_is_symlink && flatpak_link_repo_exists)
     {
-      if (g_file_query_exists (flatpak_link_repo, NULL))
-        {
-          g_test_message ("Moving %s to %s",
-                          g_file_get_path (flatpak_link_repo),
-                          g_file_get_path (flatpak_repo));
-          if (!g_file_move (flatpak_link_repo, flatpak_repo, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
-            return FALSE;
-        }
+      g_test_message ("Moving %s to %s", flatpak_link_repo_path, flatpak_repo_path);
+      if (!g_file_move (flatpak_link_repo, flatpak_repo, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+        return FALSE;
     }
 
   return TRUE;
