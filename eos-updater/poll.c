@@ -489,24 +489,31 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                               error))
     return FALSE;
 
-  /* The "refspec" member is the *currently booted* refspec
-   * which may get cleaned up later if we change away from it. */
-  out_update_ref_info->refspec = g_steal_pointer (&booted_refspec);
+  if (commit != NULL)
+    {
+      /* The "refspec" member is the *currently booted* refspec
+       * which may get cleaned up later if we change away from it. */
+      out_update_ref_info->refspec = g_steal_pointer (&booted_refspec);
 
-  /* The "remote", "ref" and "collection_ref" refer here to the
-   * ref and remote that we should be following given checkpoints. */
-  out_update_ref_info->remote = g_steal_pointer (&remote);
-  out_update_ref_info->ref = g_steal_pointer (&ref);
+      /* The "remote", "ref" and "collection_ref" refer here to the
+       * ref and remote that we should be following given checkpoints. */
+      out_update_ref_info->remote = g_steal_pointer (&remote);
+      out_update_ref_info->ref = g_steal_pointer (&ref);
 
-  /* "collection_ref", "new_refspec" and "checksum" refer to the collection
-   * ref and refspec of the checksum that we will be pulling and updating to */
-  out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
-  out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
-  out_update_ref_info->checksum = g_steal_pointer (&checksum);
+      /* "collection_ref", "new_refspec" and "checksum" refer to the collection
+       * ref and refspec of the checksum that we will be pulling and updating to */
+      out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
+      out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
+      out_update_ref_info->checksum = g_steal_pointer (&checksum);
 
-  out_update_ref_info->results = g_steal_pointer (&results);
-  out_update_ref_info->version = g_steal_pointer (&version);
-  out_update_ref_info->commit = g_steal_pointer (&commit);
+      out_update_ref_info->results = g_steal_pointer (&results);
+      out_update_ref_info->version = g_steal_pointer (&version);
+      out_update_ref_info->commit = g_steal_pointer (&commit);
+    }
+  else
+    {
+      update_ref_info_clear (out_update_ref_info);
+    }
 
   return TRUE;
 }
