@@ -33,10 +33,10 @@ G_BEGIN_DECLS
 
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
-                       const gchar *checksum,
+                       const gchar *update_checksum,
                        const gchar *booted_ref,
-                       const gchar *upgrade_ref,
-                       GVariant **commit,
+                       const gchar *update_ref,
+                       GVariant **out_commit,
                        GError **error);
 
 #define EOS_TYPE_METRICS_INFO eos_metrics_info_get_type ()

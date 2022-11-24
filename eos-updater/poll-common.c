@@ -84,12 +84,33 @@ async_result_cb (GObject      *source_object,
   *result_out = g_object_ref (result);
 }
 
+/**
+ * is_checksum_an_update:
+ * @repo: the #OstreeRepo
+ * @update_checksum: checksum of the commit to potentially update to
+ * @booted_ref: ref which is currently booted
+ * @update_ref: ref of the branch to potentially update to
+ * @out_commit: (not optional) (nullable) (out) (transfer full): return location
+ *   for the #GVariant containing the commit identified by @update_checksum *if*
+ *   it is an update compared to @booted_ref; %NULL is returned otherwise
+ * @error: return location for a #GError, or %NULL
+ *
+ * Checks whether an update from @booted_ref to @update_ref would actually be
+ * an update, or would end up switching to an older release. See the block
+ * comment below for the details.
+ *
+ * The return value indicates whether there was an error in the check. It does
+ * not indicate whether the checksum is an update. If the checksum is an update,
+ * @out_commit returns a non-%NULL value.
+ *
+ * Returns: %TRUE if @out_commit is defined, %FALSE on error
+ */
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
-                       const gchar *checksum,
+                       const gchar *update_checksum,
                        const gchar *booted_ref,
-                       const gchar *upgrade_ref,
-                       GVariant **commit,
+                       const gchar *update_ref,
+                       GVariant **out_commit,
                        GError **error)
 {
   g_autoptr(GVariant) current_commit = NULL;
@@ -100,8 +121,8 @@ is_checksum_an_update (OstreeRepo *repo,
   g_autoptr(GError) local_error = NULL;
 
   g_return_val_if_fail (OSTREE_IS_REPO (repo), FALSE);
-  g_return_val_if_fail (checksum != NULL, FALSE);
-  g_return_val_if_fail (commit != NULL, FALSE);
+  g_return_val_if_fail (update_checksum != NULL, FALSE);
+  g_return_val_if_fail (out_commit != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   booted_checksum = eos_updater_get_booted_checksum (error);
@@ -112,22 +133,22 @@ is_checksum_an_update (OstreeRepo *repo,
    * was the same as the booted checksum. It is possible for the timestamp
    * on the server to be newer if the commit was re-generated from an
    * existing tree. */
-  if (g_str_equal (booted_checksum, checksum))
+  if (g_str_equal (booted_checksum, update_checksum))
     {
-      *commit = NULL;
+      *out_commit = NULL;
       return TRUE;
     }
 
-  g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, checksum);
+  g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, update_checksum);
 
   if (!ostree_repo_load_commit (repo, booted_checksum, &current_commit, NULL, &local_error))
     {
       g_warning ("Error loading current commit ‘%s’ to check if ‘%s’ is an update (assuming it is): %s",
-                 booted_checksum, checksum, local_error->message);
+                 booted_checksum, update_checksum, local_error->message);
       g_clear_error (&local_error);
     }
 
-  if (!ostree_repo_load_commit (repo, checksum, &update_commit, NULL, error))
+  if (!ostree_repo_load_commit (repo, update_checksum, &update_commit, NULL, error))
     return FALSE;
 
   /* If we failed to load the currently deployed commit, it is probably missing
@@ -138,7 +159,7 @@ is_checksum_an_update (OstreeRepo *repo,
    * to examine the commit metadata before upgrading to it. */
   if (current_commit == NULL)
     {
-      *commit = g_steal_pointer (&update_commit);
+      *out_commit = g_steal_pointer (&update_commit);
       return TRUE;
     }
 
@@ -170,9 +191,9 @@ is_checksum_an_update (OstreeRepo *repo,
    * refspec that redirects to it. So we shouldn't fail to switch branches
    * if the commit on the new branch was older in time.
    */
-  is_newer = (g_strcmp0 (booted_ref, upgrade_ref) != 0 ||
+  is_newer = (g_strcmp0 (booted_ref, update_ref) != 0 ||
               update_timestamp > current_timestamp);
-  *commit = is_newer ? g_steal_pointer (&update_commit) : NULL;
+  *out_commit = is_newer ? g_steal_pointer (&update_commit) : NULL;
 
   return TRUE;
 }
