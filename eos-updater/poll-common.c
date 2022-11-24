@@ -123,6 +123,9 @@ is_checksum_an_update (OstreeRepo *repo,
   g_return_val_if_fail (out_commit != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
+  /* Default output. */
+  *out_commit = NULL;
+
   booted_checksum = eos_updater_get_booted_checksum (error);
   if (booted_checksum == NULL)
     return FALSE;
@@ -132,10 +135,7 @@ is_checksum_an_update (OstreeRepo *repo,
    * on the server to be newer if the commit was re-generated from an
    * existing tree. */
   if (g_str_equal (booted_checksum, update_checksum))
-    {
-      *out_commit = NULL;
-      return TRUE;
-    }
+    return TRUE;
 
   g_debug ("%s: current: %s, update: %s", G_STRFUNC, booted_checksum, update_checksum);
 
