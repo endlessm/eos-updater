@@ -148,7 +148,7 @@ is_checksum_an_update (OstreeRepo *repo,
 
   g_debug ("%s: current_timestamp: %" G_GUINT64_FORMAT ", "
            "update_timestamp: %" G_GUINT64_FORMAT,
-           G_STRFUNC, update_timestamp, current_timestamp);
+           G_STRFUNC, current_timestamp, update_timestamp);
 
   /* "Newer" if we are switching branches or the update timestamp
    * is greater than the timestamp of the current commit.
