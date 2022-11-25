@@ -15,7 +15,11 @@ project('eos-updater', 'c',
 gnome = import('gnome')
 cc = meson.get_compiler('c')
 py3_mod = import('python')
-py3 = py3_mod.find_installation('python3')
+py3 = py3_mod.find_installation(
+  'python3',
+  # Used in tests
+  modules: ['flake8'],
+)
 
 prefix = get_option('prefix')
 bindir = join_paths(prefix, get_option('bindir'))
