@@ -98,6 +98,8 @@ def load(mock, parameters):
             'UpdateLabel': dbus.String(parameters.get('UpdateLabel', '')),
             'UpdateMessage': dbus.String(parameters.get('UpdateMessage', '')),
             'Version': dbus.String(parameters.get('Version', '')),
+            'UpdateIsUserVisible':
+                dbus.Boolean(parameters.get('UpdateIsUserVisible', False)),
             'DownloadSize': dbus.Int64(parameters.get('DownloadSize', 0)),
             'DownloadedBytes':
                 dbus.Int64(parameters.get('DownloadedBytes', 0)),
@@ -286,6 +288,7 @@ def SetPollAction(self, action, update_properties, error_name, error_message):
             'UpdateMessage':
                 dbus.String('Some release notes.', variant_level=1),
             'Version': dbus.String('3.7.0', variant_level=1),
+            'UpdateIsUserVisible': dbus.Boolean(False),
             'DownloadSize': dbus.Int64(1000000000, variant_level=1),
             'UnpackedSize': dbus.Int64(1500000000, variant_level=1),
             'FullDownloadSize': dbus.Int64(1000000000 * 0.8, variant_level=1),
@@ -313,6 +316,7 @@ def FinishPoll(self):
             'UpdateLabel',
             'UpdateMessage',
             'Version',
+            'UpdateIsUserVisible',
             'FullDownloadSize',
             'FullUnpackedSize',
             'DownloadSize',
