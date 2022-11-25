@@ -33,10 +33,11 @@ G_BEGIN_DECLS
 
 gboolean
 is_checksum_an_update (OstreeRepo *repo,
-                       const gchar *checksum,
+                       const gchar *update_checksum,
                        const gchar *booted_ref,
-                       const gchar *upgrade_ref,
-                       GVariant **commit,
+                       const gchar *update_ref,
+                       GVariant **out_commit,
+                       gboolean *out_is_update_user_visible,
                        GError **error);
 
 #define EOS_TYPE_METRICS_INFO eos_metrics_info_get_type ()
@@ -76,6 +77,7 @@ struct _EosUpdateInfo
   gchar *version;
   gchar **urls;
   gboolean offline_results_only;
+  gboolean is_user_visible;
 
   OstreeRepoFinderResult **results;  /* (owned) (array zero-terminated=1) */
 };
@@ -86,6 +88,7 @@ eos_update_info_new (const gchar *csum,
                      const gchar *new_refspec,
                      const gchar *old_refspec,
                      const gchar *version,
+                     gboolean is_user_visible,
                      const gchar * const *urls,
                      gboolean offline_results_only,
                      OstreeRepoFinderResult **results);

@@ -271,6 +271,7 @@ typedef struct {
   gchar *new_refspec;
   gchar *checksum;
   gchar *version;
+  gboolean is_user_visible;
   GVariant *commit;
 } UpdateRefInfo;
 
@@ -285,6 +286,7 @@ update_ref_info_init (UpdateRefInfo *update_ref_info)
   update_ref_info->new_refspec = NULL;
   update_ref_info->checksum = NULL;
   update_ref_info->version = NULL;
+  update_ref_info->is_user_visible = FALSE;
   update_ref_info->commit = NULL;
 }
 
@@ -350,6 +352,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
   gboolean is_update = FALSE;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
+  gboolean is_update_user_visible = FALSE;
   g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_auto(OstreeRepoFinderResultv) results = NULL;
@@ -387,6 +390,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
                               ref,
                               new_ref,
                               &commit,
+                              &is_update_user_visible,
                               error))
     return FALSE;
 
@@ -403,6 +407,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
       out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
       out_update_ref_info->checksum = g_steal_pointer (&checksum);
       out_update_ref_info->version = g_steal_pointer (&version);
+      out_update_ref_info->is_user_visible = is_update_user_visible;
       out_update_ref_info->commit = g_steal_pointer (&commit);
     }
   else
@@ -432,6 +437,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_autofree gchar *version = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
+  gboolean is_update_user_visible = FALSE;
   g_auto(OstreeRepoFinderResultv) results = NULL;
 
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
@@ -486,27 +492,36 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                               booted_ref,
                               ref_after_following_rebases,
                               &commit,
+                              &is_update_user_visible,
                               error))
     return FALSE;
 
-  /* The "refspec" member is the *currently booted* refspec
-   * which may get cleaned up later if we change away from it. */
-  out_update_ref_info->refspec = g_steal_pointer (&booted_refspec);
+  if (commit != NULL)
+    {
+      /* The "refspec" member is the *currently booted* refspec
+       * which may get cleaned up later if we change away from it. */
+      out_update_ref_info->refspec = g_steal_pointer (&booted_refspec);
 
-  /* The "remote", "ref" and "collection_ref" refer here to the
-   * ref and remote that we should be following given checkpoints. */
-  out_update_ref_info->remote = g_steal_pointer (&remote);
-  out_update_ref_info->ref = g_steal_pointer (&ref);
+      /* The "remote", "ref" and "collection_ref" refer here to the
+       * ref and remote that we should be following given checkpoints. */
+      out_update_ref_info->remote = g_steal_pointer (&remote);
+      out_update_ref_info->ref = g_steal_pointer (&ref);
 
-  /* "collection_ref", "new_refspec" and "checksum" refer to the collection
-   * ref and refspec of the checksum that we will be pulling and updating to */
-  out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
-  out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
-  out_update_ref_info->checksum = g_steal_pointer (&checksum);
+      /* "collection_ref", "new_refspec" and "checksum" refer to the collection
+       * ref and refspec of the checksum that we will be pulling and updating to */
+      out_update_ref_info->collection_ref = g_steal_pointer (&collection_ref);
+      out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
+      out_update_ref_info->checksum = g_steal_pointer (&checksum);
 
-  out_update_ref_info->results = g_steal_pointer (&results);
-  out_update_ref_info->version = g_steal_pointer (&version);
-  out_update_ref_info->commit = g_steal_pointer (&commit);
+      out_update_ref_info->results = g_steal_pointer (&results);
+      out_update_ref_info->version = g_steal_pointer (&version);
+      out_update_ref_info->is_user_visible = is_update_user_visible;
+      out_update_ref_info->commit = g_steal_pointer (&commit);
+    }
+  else
+    {
+      update_ref_info_clear (out_update_ref_info);
+    }
 
   return TRUE;
 }
@@ -624,6 +639,7 @@ metadata_fetch_new (OstreeRepo    *repo,
                                   update_ref_info.new_refspec,
                                   update_ref_info.refspec,
                                   update_ref_info.version,
+                                  update_ref_info.is_user_visible,
                                   NULL,
                                   offline_results_only,
                                   g_steal_pointer (&update_ref_info.results));
@@ -672,6 +688,7 @@ metadata_fetch_from_main (OstreeRepo     *repo,
                                 update_ref_info.new_refspec,
                                 update_ref_info.refspec,
                                 update_ref_info.version,
+                                update_ref_info.is_user_visible,
                                 NULL,
                                 FALSE,
                                 NULL);

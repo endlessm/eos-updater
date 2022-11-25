@@ -148,6 +148,7 @@ on_bus_acquired (GDBusConnection *connection,
       eos_updater_set_downloaded_bytes (updater, 0);
       eos_updater_set_unpacked_size (updater, 0);
       eos_updater_set_update_id (updater, "");
+      eos_updater_set_update_is_user_visible (updater, FALSE);
       eos_updater_clear_error (updater, EOS_UPDATER_STATE_READY);
     }
   else if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) ||
