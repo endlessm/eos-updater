@@ -58,6 +58,7 @@ libeos_updater_flatpak_installer_gir = gnome.generate_gir(libeos_updater_flatpak
   ],
   install: true,
   dependencies: libeos_updater_flatpak_installer_dep,
+  fatal_warnings: true,
 )
 
 subdir('tests')
