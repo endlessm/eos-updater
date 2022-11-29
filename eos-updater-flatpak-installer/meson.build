@@ -8,7 +8,7 @@ eos_update_flatpak_installer_deps = [
   dependency('glib-2.0', version: '>= 2.62'),
   dependency('gobject-2.0', version: '>= 2.62'),
   dependency('json-glib-1.0', version: '>= 1.2.6'),
-  dependency('ostree-1', version: '>= 2018.6'),
+  dependency('ostree-1', version: '>= 2019.2'),
   libeos_updater_flatpak_installer_dep,
   libeos_updater_util_dep,
   eosmetrics_dep,

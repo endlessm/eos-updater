@@ -53,6 +53,7 @@ extern const gchar *const default_ref;
 extern const OstreeCollectionRef *default_collection_ref;
 extern const gchar *const default_ostree_path;
 extern const gchar *const default_remote_name;
+extern const gboolean default_auto_bootloader;
 
 typedef struct {
   guint sequence_number;
@@ -225,7 +226,9 @@ struct _EosTestClient
   gchar *cpuinfo;
   gchar *cmdline;
   gchar *uname_machine;
+  gboolean auto_bootloader;
   gboolean is_split_disk;
+  gboolean flatpak_repo_is_symlink;
   gboolean force_follow_checkpoint;
 };
 
@@ -242,6 +245,7 @@ EosTestClient *eos_test_client_new (GFile *client_root,
                                     const OstreeCollectionRef *collection_ref,
                                     const gchar *vendor,
                                     const gchar *product,
+                                    gboolean auto_bootloader,
                                     GError **error);
 
 
@@ -253,6 +257,8 @@ void eos_test_client_set_cpuinfo (EosTestClient *client,
                                   const gchar   *cpuinfo);
 void eos_test_client_set_cmdline (EosTestClient *client,
                                   const gchar   *cmdline);
+void eos_test_client_set_flatpak_repo_is_symlink (EosTestClient *client,
+                                                  gboolean flatpak_repo_is_symlink);
 void eos_test_client_set_force_follow_checkpoint (EosTestClient *client,
                                                   gboolean       force_follow_checkpoint);
 

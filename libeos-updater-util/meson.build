@@ -37,7 +37,7 @@ libeos_updater_util_deps = [
   dependency('json-glib-1.0', version: '>= 1.2.6'),
   dependency('libsoup-2.4'),
   dependency('mount', version: '>= 2.24'),
-  dependency('ostree-1', version: '>= 2018.6'),
+  dependency('ostree-1', version: '>= 2019.2'),
 ]
 
 enums = gnome.mkenums_simple('enums',

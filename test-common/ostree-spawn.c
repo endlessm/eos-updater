@@ -165,6 +165,28 @@ copy_additional_metadata_args_from_hashtable (GArray      *cmd_args,
 }
 
 gboolean
+ostree_set_config (GFile        *repo,
+                   const gchar  *key,
+                   const gchar  *value,
+                   CmdResult    *cmd,
+                   GError      **error)
+{
+  CmdArg args[] =
+    {
+      { NULL, "config" },
+      { NULL, "set" },
+      { NULL, key },
+      { NULL, value },
+      { NULL, NULL }
+    };
+
+  return spawn_ostree_in_repo_args (repo,
+                                    args,
+                                    cmd,
+                                    error);
+}
+
+gboolean
 ostree_cmd_remote_set_collection_id (GFile        *repo,
                                      const gchar  *remote_name,
                                      const gchar  *collection_id,

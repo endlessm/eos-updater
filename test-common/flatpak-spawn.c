@@ -56,6 +56,29 @@ test_spawn_flatpak_cmd_in_local_env (GFile                *updater_dir,
 }
 
 gboolean
+flatpak_init (GFile   *updater_dir,
+              GError **error)
+{
+  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
+  CmdArg args[] =
+    {
+      { NULL, FLATPAK_BINARY },
+      { NULL, "list" },
+      { "user", NULL },
+      { NULL, NULL }
+    };
+  g_auto(GStrv) argv = build_cmd_args (args);
+
+  if (!test_spawn_flatpak_cmd_in_local_env (updater_dir,
+                                            (const gchar * const *) argv,
+                                            &cmd,
+                                            error))
+    return FALSE;
+
+  return cmd_result_ensure_ok (&cmd, error);
+}
+
+gboolean
 flatpak_remote_add (GFile        *updater_dir,
                     const gchar  *repo_name,
                     const gchar  *repo_directory,

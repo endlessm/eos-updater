@@ -2,7 +2,7 @@ deps = [
   dependency('gio-2.0', version: '>= 2.60.1'),
   dependency('glib-2.0', version: '>= 2.62.0'),
   dependency('gobject-2.0', version: '>= 2.44'),
-  dependency('ostree-1', version: '>= 2018.6'),
+  dependency('ostree-1', version: '>= 2019.2'),
   libeos_updater_test_common_dep,
   libeos_updater_util_dep,
 ]
