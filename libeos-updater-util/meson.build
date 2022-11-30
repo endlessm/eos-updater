@@ -86,6 +86,7 @@ libeos_updater_util_gir = gnome.generate_gir(libeos_updater_util,
   ],
   install: true,
   dependencies: libeos_updater_util_dep,
+  fatal_warnings: true,
 )
 
 subdir('tests')
