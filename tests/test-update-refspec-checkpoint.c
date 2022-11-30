@@ -38,17 +38,6 @@ const OstreeCollectionRef *next_collection_ref = &_next_collection_ref;
 const OstreeCollectionRef _default_collection_ref_no_id = { NULL, (gchar *) "REF" };
 const OstreeCollectionRef *default_collection_ref_no_id = &_default_collection_ref_no_id;
 
-static GHashTable *
-create_checkpoint_target_metadata (const gchar *ref_to_upgrade)
-{
-  GHashTable *ht = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
-  g_hash_table_insert (ht,
-                       g_strdup ("eos.checkpoint-target"),
-                       g_strdup (ref_to_upgrade));
-
-  return ht;
-}
-
 /* Add some metadata to add to the given commit, which when running as the
  * deployed commit, tells the updater which ref to pull from (as opposed to
  * the currently booted one) */
@@ -59,15 +48,8 @@ insert_update_refspec_metadata_for_commit (guint         commit,
 {
   g_return_if_fail (out_metadata_hashtable != NULL);
 
-  if (*out_metadata_hashtable == NULL)
-    *out_metadata_hashtable = g_hash_table_new_full (g_direct_hash,
-                                                     g_direct_equal,
-                                                     NULL,
-                                                     (GDestroyNotify) g_hash_table_unref);
-
-  g_hash_table_insert (*out_metadata_hashtable,
-                       GUINT_TO_POINTER (commit),
-                       create_checkpoint_target_metadata (new_ref));
+  eos_test_add_metadata_for_commit (out_metadata_hashtable, commit,
+                                    "eos.checkpoint-target", new_ref);
 }
 
 /* @expected_updater_warnings should typically be set to %NULL. Set it to a
