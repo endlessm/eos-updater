@@ -36,6 +36,8 @@ is_checksum_an_update (OstreeRepo *repo,
                        const gchar *update_ref,
                        GVariant **out_commit,
                        gboolean *out_is_update_user_visible,
+                       gchar **out_booted_version,
+                       gchar **out_update_version,
                        GError **error);
 
 #define EOS_TYPE_METRICS_INFO eos_metrics_info_get_type ()
@@ -76,6 +78,7 @@ struct _EosUpdateInfo
   gchar **urls;
   gboolean offline_results_only;
   gboolean is_user_visible;
+  gchar *release_notes_uri;
 
   OstreeRepoFinderResult **results;  /* (owned) (array zero-terminated=1) */
 };
@@ -87,6 +90,7 @@ eos_update_info_new (const gchar *csum,
                      const gchar *old_refspec,
                      const gchar *version,
                      gboolean is_user_visible,
+                     const gchar *release_notes_uri,
                      const gchar * const *urls,
                      gboolean offline_results_only,
                      OstreeRepoFinderResult **results);
@@ -124,6 +128,7 @@ gboolean fetch_latest_commit (OstreeRepo *repo,
                               gchar **out_checksum,
                               gchar **out_new_refspec,
                               gchar **out_version,
+                              gchar **out_release_notes_uri_template,
                               GError **error);
 
 gboolean parse_latest_commit (OstreeRepo           *repo,
@@ -133,6 +138,7 @@ gboolean parse_latest_commit (OstreeRepo           *repo,
                               gchar               **out_new_refspec,
                               OstreeCollectionRef **out_new_collection_ref,
                               gchar               **out_version,
+                              gchar               **out_release_notes_uri_template,
                               GCancellable         *cancellable,
                               GError              **error);
 

@@ -122,6 +122,12 @@ compare_major_versions (const char *version_a,
  *   boolean indicating whether the update to @update_checksum contains user
  *   visible changes which should be highlighted to the user; always returns
  *   %FALSE when @out_commit returns %NULL
+ * @out_booted_version: (optional) (nullable) (out): return location for the
+ *   version number of the currently booted commit, or %NULL to not return it;
+ *   the returned value may be %NULL if the version is not known
+ * @out_update_version: (optional) (nullable) (out): return location for the
+ *   version number of the commit to update to, or %NULL to not return it; the
+ *   returned value may be %NULL if the version is not known
  * @error: return location for a #GError, or %NULL
  *
  * Checks whether an update from @booted_ref to @update_ref would actually be
@@ -141,6 +147,8 @@ is_checksum_an_update (OstreeRepo *repo,
                        const gchar *update_ref,
                        GVariant **out_commit,
                        gboolean *out_is_update_user_visible,
+                       gchar **out_booted_version,
+                       gchar **out_update_version,
                        GError **error)
 {
   g_autoptr(GVariant) current_commit = NULL;
@@ -163,6 +171,10 @@ is_checksum_an_update (OstreeRepo *repo,
   /* Default output. */
   *out_commit = NULL;
   *out_is_update_user_visible = FALSE;
+  if (out_booted_version != NULL)
+    *out_booted_version = NULL;
+  if (out_update_version != NULL)
+    *out_update_version = NULL;
 
   booted_checksum = eos_updater_get_booted_checksum (error);
   if (booted_checksum == NULL)
@@ -249,6 +261,11 @@ is_checksum_an_update (OstreeRepo *repo,
   *out_commit = is_newer ? g_steal_pointer (&update_commit) : NULL;
   *out_is_update_user_visible = is_newer ? is_update_user_visible : FALSE;
 
+  if (out_booted_version != NULL)
+    *out_booted_version = g_strdup (current_version);
+  if (out_update_version != NULL)
+    *out_update_version = g_strdup (update_version);
+
   return TRUE;
 }
 
@@ -330,6 +347,7 @@ eos_update_info_new (const gchar *checksum,
                      const gchar *old_refspec,
                      const gchar *version,
                      gboolean is_user_visible,
+                     const gchar *release_notes_uri,
                      const gchar * const *urls,
                      gboolean offline_results_only,
                      OstreeRepoFinderResult **results)
@@ -348,6 +366,7 @@ eos_update_info_new (const gchar *checksum,
   info->old_refspec = g_strdup (old_refspec);
   info->version = g_strdup (version);
   info->is_user_visible = is_user_visible;
+  info->release_notes_uri = g_strdup (release_notes_uri);
   info->urls = g_strdupv ((gchar **) urls);
   info->offline_results_only = offline_results_only;
   info->results = g_steal_pointer (&results);
@@ -968,6 +987,7 @@ fetch_latest_commit (OstreeRepo *repo,
                      gchar **out_checksum,
                      gchar **out_new_refspec,
                      gchar **out_version,
+                     gchar **out_release_notes_uri_template,
                      GError **error)
 {
   g_autofree gchar *checksum = NULL;
@@ -980,6 +1000,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_autofree gchar *upgrade_refspec = NULL;
   g_autofree gchar *new_refspec = NULL;
   g_autofree gchar *version = NULL;
+  g_autofree gchar *release_notes_uri_template = NULL;
   gboolean redirect_followed = FALSE;
   g_auto(OstreeRepoFinderResultv) results = NULL;
   g_autoptr(OstreeCollectionRef) upgrade_collection_ref = NULL;
@@ -991,6 +1012,7 @@ fetch_latest_commit (OstreeRepo *repo,
   g_return_val_if_fail (out_checksum != NULL, FALSE);
   g_return_val_if_fail (out_new_refspec != NULL, FALSE);
   g_return_val_if_fail (out_version != NULL, FALSE);
+  g_return_val_if_fail (out_release_notes_uri_template != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (finders != NULL && collection_ref == NULL)
@@ -1072,6 +1094,7 @@ fetch_latest_commit (OstreeRepo *repo,
 
       g_clear_pointer (&checksum, g_free);
       g_clear_pointer (&version, g_free);
+      g_clear_pointer (&release_notes_uri_template, g_free);
       g_clear_pointer (&new_refspec, g_free);
       g_clear_pointer (&new_collection_ref, ostree_collection_ref_free);
 
@@ -1079,7 +1102,7 @@ fetch_latest_commit (OstreeRepo *repo,
       if (!parse_latest_commit (repo, upgrade_refspec, &redirect_followed,
                                 &checksum, &new_refspec,
                                 finders == NULL ? NULL : &new_collection_ref,
-                                &version, cancellable, error))
+                                &version, &release_notes_uri_template, cancellable, error))
         return FALSE;
 
       if (new_refspec != NULL)
@@ -1096,6 +1119,7 @@ fetch_latest_commit (OstreeRepo *repo,
   while (redirect_followed);
 
   *out_version = g_steal_pointer (&version);
+  *out_release_notes_uri_template = g_steal_pointer (&release_notes_uri_template);
   *out_checksum = g_steal_pointer (&checksum);
   if (new_refspec != NULL)
     *out_new_refspec = g_steal_pointer (&new_refspec);
@@ -1118,6 +1142,7 @@ parse_latest_commit (OstreeRepo           *repo,
                      gchar               **out_new_refspec,
                      OstreeCollectionRef **out_new_collection_ref,
                      gchar               **out_version,
+                     gchar               **out_release_notes_uri_template,
                      GCancellable         *cancellable,
                      GError              **error)
 {
@@ -1138,6 +1163,7 @@ parse_latest_commit (OstreeRepo           *repo,
   g_return_val_if_fail (out_checksum != NULL, FALSE);
   g_return_val_if_fail (out_new_refspec != NULL, FALSE);
   g_return_val_if_fail (out_version != NULL, FALSE);
+  g_return_val_if_fail (out_release_notes_uri_template != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   if (!ostree_parse_refspec (refspec, &remote_name, &ref, error))
@@ -1187,6 +1213,10 @@ parse_latest_commit (OstreeRepo           *repo,
     *out_version = NULL;
   else
     *out_version = g_variant_dup_string (version, NULL);
+
+  if (metadata == NULL ||
+      !g_variant_lookup (metadata, "eos-updater.release-notes-uri", "s", out_release_notes_uri_template))
+    *out_release_notes_uri_template = NULL;
 
   *out_checksum = g_steal_pointer (&checksum);
   *out_new_refspec = g_strconcat (remote_name, ":", ref, NULL);
@@ -1372,6 +1402,7 @@ eos_update_info_to_string (EosUpdateInfo *update)
   g_autofree gchar *results = NULL;
   const gchar *version = update->version;
   const gchar *is_user_visible_str = NULL;
+  const gchar *release_notes_uri = update->release_notes_uri;
   gsize i;
 
   if (update->urls != NULL)
@@ -1402,12 +1433,16 @@ eos_update_info_to_string (EosUpdateInfo *update)
 
   is_user_visible_str = update->is_user_visible ? "user visible" : "not user visible";
 
-  return g_strdup_printf ("%s, %s, %s, %s, %s, %s\n   %s%s",
+  if (release_notes_uri == NULL)
+    release_notes_uri = "(no release notes URI)";
+
+  return g_strdup_printf ("%s, %s, %s, %s, %s, %s, %s\n   %s%s",
                           update->checksum,
                           update->new_refspec,
                           update->old_refspec,
                           version,
                           is_user_visible_str,
+                          release_notes_uri,
                           timestamp_str,
                           update_urls,
                           results);
@@ -1701,6 +1736,7 @@ metadata_fetch_finished (GObject *object,
       eos_updater_set_original_refspec (updater, info->old_refspec);
       eos_updater_set_version (updater, info->version);
       eos_updater_set_update_is_user_visible (updater, info->is_user_visible);
+      eos_updater_set_release_notes_uri (updater, info->release_notes_uri);
 
       g_variant_get_child (info->commit, 3, "&s", &label);
       g_variant_get_child (info->commit, 4, "&s", &message);
