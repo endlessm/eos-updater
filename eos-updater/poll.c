@@ -272,6 +272,7 @@ typedef struct {
   gchar *checksum;
   gchar *version;
   gboolean is_user_visible;
+  gchar *release_notes_uri;
   GVariant *commit;
 } UpdateRefInfo;
 
@@ -287,6 +288,7 @@ update_ref_info_init (UpdateRefInfo *update_ref_info)
   update_ref_info->checksum = NULL;
   update_ref_info->version = NULL;
   update_ref_info->is_user_visible = FALSE;
+  update_ref_info->release_notes_uri = NULL;
   update_ref_info->commit = NULL;
 }
 
@@ -301,6 +303,7 @@ update_ref_info_clear (UpdateRefInfo *update_ref_info)
   g_clear_pointer (&update_ref_info->new_refspec, g_free);
   g_clear_pointer (&update_ref_info->checksum, g_free);
   g_clear_pointer (&update_ref_info->version, g_free);
+  g_clear_pointer (&update_ref_info->release_notes_uri, g_free);
   g_clear_pointer (&update_ref_info->commit, g_variant_unref);
 }
 
@@ -333,6 +336,22 @@ get_booted_refspec_from_default_booted_sysroot_deployment (gchar               *
                              error);
 }
 
+/* Replace any placeholders in the given @template release notes URI with the
+ * appropriate values, which depend on the update path being taken, and return
+ * the resulting release notes URI. */
+static gchar *
+format_release_notes_uri (const gchar *template,
+                          const gchar *booted_version,
+                          const gchar *update_version)
+{
+  g_autoptr(GString) str = g_string_new (template);
+
+  g_string_replace (str, "${booted_version}", (booted_version != NULL) ? booted_version : "-", 0);
+  g_string_replace (str, "${update_version}", (update_version != NULL) ? update_version : "-", 0);
+
+  return g_string_free (g_steal_pointer (&str), FALSE);
+}
+
 static gboolean
 check_for_update_using_booted_branch (OstreeRepo           *repo,
                                       gboolean             *out_is_update,
@@ -349,6 +368,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
   g_autofree gchar *new_refspec = NULL;
   g_autofree gchar *new_ref = NULL;
   g_autofree gchar *version = NULL;
+  g_autofree gchar *release_notes_uri_template = NULL;
   gboolean is_update = FALSE;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
@@ -356,6 +376,8 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
   g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new_default ();
   g_autoptr(OstreeDeployment) booted_deployment = NULL;
   g_auto(OstreeRepoFinderResultv) results = NULL;
+  g_autofree gchar *booted_version = NULL;
+  g_autofree gchar *update_version = NULL;
 
   g_return_val_if_fail (out_is_update != NULL, FALSE);
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
@@ -379,6 +401,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
                             &checksum,
                             &new_refspec,
                             &version,
+                            &release_notes_uri_template,
                             error))
     return FALSE;
 
@@ -391,6 +414,8 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
                               new_ref,
                               &commit,
                               &is_update_user_visible,
+                              &booted_version,
+                              &update_version,
                               error))
     return FALSE;
 
@@ -407,6 +432,7 @@ check_for_update_using_booted_branch (OstreeRepo           *repo,
       out_update_ref_info->new_refspec = g_steal_pointer (&new_refspec);
       out_update_ref_info->checksum = g_steal_pointer (&checksum);
       out_update_ref_info->version = g_steal_pointer (&version);
+      out_update_ref_info->release_notes_uri = format_release_notes_uri (release_notes_uri_template, booted_version, update_version);
       out_update_ref_info->is_user_visible = is_update_user_visible;
       out_update_ref_info->commit = g_steal_pointer (&commit);
     }
@@ -435,10 +461,13 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
   g_autoptr(OstreeCollectionRef) collection_ref = NULL;
   g_autofree gchar *new_refspec = NULL;
   g_autofree gchar *version = NULL;
+  g_autofree gchar *release_notes_uri_template = NULL;
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
   gboolean is_update_user_visible = FALSE;
   g_auto(OstreeRepoFinderResultv) results = NULL;
+  g_autofree gchar *booted_version = NULL;
+  g_autofree gchar *update_version = NULL;
 
   g_return_val_if_fail (out_update_ref_info != NULL, FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -478,6 +507,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                             &checksum,
                             &new_refspec,
                             &version,
+                            &release_notes_uri_template,
                             error))
     return FALSE;
 
@@ -493,6 +523,8 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
                               ref_after_following_rebases,
                               &commit,
                               &is_update_user_visible,
+                              &booted_version,
+                              &update_version,
                               error))
     return FALSE;
 
@@ -516,6 +548,7 @@ check_for_update_following_checkpoint_commits (OstreeRepo     *repo,
       out_update_ref_info->results = g_steal_pointer (&results);
       out_update_ref_info->version = g_steal_pointer (&version);
       out_update_ref_info->is_user_visible = is_update_user_visible;
+      out_update_ref_info->release_notes_uri = format_release_notes_uri (release_notes_uri_template, booted_version, update_version);
       out_update_ref_info->commit = g_steal_pointer (&commit);
     }
   else
@@ -640,6 +673,7 @@ metadata_fetch_new (OstreeRepo    *repo,
                                   update_ref_info.refspec,
                                   update_ref_info.version,
                                   update_ref_info.is_user_visible,
+                                  update_ref_info.release_notes_uri,
                                   NULL,
                                   offline_results_only,
                                   g_steal_pointer (&update_ref_info.results));
@@ -689,6 +723,7 @@ metadata_fetch_from_main (OstreeRepo     *repo,
                                 update_ref_info.refspec,
                                 update_ref_info.version,
                                 update_ref_info.is_user_visible,
+                                update_ref_info.release_notes_uri,
                                 NULL,
                                 FALSE,
                                 NULL);
