@@ -1610,20 +1610,11 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
       {
         .expect_checkpoint_followed = TRUE,
       },
-      {
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
 
       /* Split disk */
       {
         .is_split_disk = TRUE,
         .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .is_split_disk = TRUE,
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
       },
 
       /* aarch64 */
@@ -1634,11 +1625,6 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
       {
         .uname_machine = "aarch64",
         .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .uname_machine = "aarch64",
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
       },
 
       /* Ref matching. When the ref does not match the expected "eos3a"
@@ -1689,13 +1675,6 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
         .uname_machine = "aarch64",
         .expect_checkpoint_followed = FALSE,
       },
-      {
-        .src_ref = "os/eos/arm64/eos3a",
-        .tgt_ref = "os/eos/arm64/eos4",
-        .uname_machine = "aarch64",
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
 
       /* Ref matching. When the ref matches the "nexthw/eos3.9", the checkpoint
        * is followed. It should allow updating to "eos4" directly.
@@ -1719,12 +1698,6 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
         .sys_vendor = "Asus",
         .cpuinfo = cpuinfo_i8565u,
         .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Asus",
-        .cpuinfo = cpuinfo_i8565u,
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
       },
 
       /* Various systems unsupported by the new kernel */
@@ -1763,12 +1736,6 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
         .product_name = "ELT-JWM",
         .expect_checkpoint_followed = FALSE,
       },
-      {
-        .sys_vendor = "Endless",
-        .product_name = "ELT-JWM",
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
 
       /* Read-only in kernel command line args */
       {
@@ -1783,7 +1750,14 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
         .cmdline = cmdline_ro_middle,
         .expect_checkpoint_followed = FALSE,
       },
+
+      /* EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT. Add new negative
+       * conditions here. */
       {
+        .sys_vendor = "Asus",
+        .is_split_disk = TRUE,
+        .uname_machine = "aarch64",
+        .cpuinfo = cpuinfo_i8565u,
         .cmdline = cmdline_ro_end,
         .force_follow_checkpoint = TRUE,
         .expect_checkpoint_followed = TRUE,
@@ -1828,10 +1802,6 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
       {
         .expect_checkpoint_followed = TRUE,
       },
-      {
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
 
       /* Platforms: x86_64 and aarch64 */
       {
@@ -1850,32 +1820,14 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
         .expect_checkpoint_followed = FALSE,
       },
       {
-        .sys_vendor = "Endless",
-        .product_name = "EE-200",
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
         .sys_vendor = "Standard",
         .product_name = "EF20",
         .expect_checkpoint_followed = FALSE,
       },
       {
         .sys_vendor = "Standard",
-        .product_name = "EF20",
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .sys_vendor = "Standard",
         .product_name = "EF20EA",
         .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Standard",
-        .product_name = "EF20EA",
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
       },
 
       /* Merged flatpak repo */
@@ -1883,18 +1835,19 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
         .flatpak_repo_is_symlink = TRUE,
         .expect_checkpoint_followed = FALSE,
       },
-      {
-        .flatpak_repo_is_symlink = TRUE,
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
 
       /* Auto bootloader */
       {
         .auto_bootloader = TRUE,
         .expect_checkpoint_followed = FALSE,
       },
+
+      /* EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT. Add new negative
+       * conditions here. */
       {
+        .sys_vendor = "Endless",
+        .product_name = "EE-200",
+        .flatpak_repo_is_symlink = TRUE,
         .auto_bootloader = TRUE,
         .force_follow_checkpoint = TRUE,
         .expect_checkpoint_followed = TRUE,
