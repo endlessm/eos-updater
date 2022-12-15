@@ -60,8 +60,9 @@ typedef enum {
 
 #define SEC_PER_DAY (3600ul * 24)
 
+static const char *STATE_DIR = LOCALSTATEDIR "/lib/eos-updater";
+
 /* This file is touched whenever the updater starts */
-static const char *UPDATE_STAMP_DIR = LOCALSTATEDIR "/lib/eos-updater";
 static const char *UPDATE_STAMP_NAME = "eos-updater-stamp";
 
 static const char *CONFIG_FILE_PATH = SYSCONFDIR "/eos-updater/eos-autoupdater.conf";
@@ -107,10 +108,9 @@ get_envvar_or (const gchar *envvar,
 }
 
 static const gchar *
-get_stamp_dir (void)
+get_state_dir (void)
 {
-  return get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_UPDATE_STAMP_DIR",
-                        UPDATE_STAMP_DIR);
+  return get_envvar_or ("EOS_UPDATER_TEST_AUTOUPDATER_STATE_DIR", STATE_DIR);
 }
 
 static void
@@ -202,7 +202,7 @@ update_stamp_file (guint64 last_successful_update_secs,
                    guint   update_interval_days,
                    guint   randomized_delay_days)
 {
-  const gchar *stamp_dir = get_stamp_dir ();
+  const gchar *state_dir = get_state_dir ();
   g_autofree gchar *stamp_path = NULL;
   g_autoptr(GFile) stamp_file = NULL;
   g_autoptr(GError) error = NULL;
@@ -211,29 +211,31 @@ update_stamp_file (guint64 last_successful_update_secs,
   g_autoptr(GDateTime) mtime_dt = NULL;
   g_autoptr(GFileInfo) file_info = NULL;
 
-  if (g_mkdir_with_parents (stamp_dir, 0755) != 0) {
-    int saved_errno = errno;
-    const char *err_str = g_strerror (saved_errno);
+  if (g_mkdir_with_parents (state_dir, 0755) != 0)
+    {
+      int saved_errno = errno;
+      const char *err_str = g_strerror (saved_errno);
 
-    critical (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
-              "Failed to create updater timestamp directory: %s",
-              err_str);
-    return;
-  }
+      critical (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+                "Failed to create updater state directory: %s",
+                err_str);
+      return;
+    }
 
   mtime = last_successful_update_secs;
 
-  stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
+  stamp_path = g_build_filename (state_dir, UPDATE_STAMP_NAME, NULL);
   stamp_file = g_file_new_for_path (stamp_path);
   g_file_replace_contents (stamp_file, "", 0, NULL, FALSE,
                            G_FILE_CREATE_NONE, NULL, NULL,
                            &error);
-  if (error) {
-    critical (EOS_UPDATER_STAMP_ERROR_MSGID,
-              "Failed to write updater stamp file: %s",
-              error->message);
-    return;
-  }
+  if (error)
+    {
+      critical (EOS_UPDATER_STAMP_ERROR_MSGID,
+                "Failed to write updater stamp file: %s",
+                error->message);
+      return;
+    }
 
   /* Set the file’s mtime to include the randomised delay. This will result in
    * the mtime either being now, or some number of days in the future. Setting
@@ -588,7 +590,7 @@ static gboolean
 is_time_to_update (guint update_interval_days,
                    guint randomized_delay_days)
 {
-  const gchar *stamp_dir = get_stamp_dir ();
+  const gchar *state_dir = get_state_dir ();
   g_autofree gchar *stamp_path = NULL;
   g_autoptr (GFile) stamp_file = NULL;
   g_autoptr (GFileInfo) stamp_file_info = NULL;
@@ -597,7 +599,7 @@ is_time_to_update (guint update_interval_days,
   g_autoptr (GError) error = NULL;
   gboolean is_time_to_update = FALSE;
 
-  stamp_path = g_build_filename (stamp_dir, UPDATE_STAMP_NAME, NULL);
+  stamp_path = g_build_filename (state_dir, UPDATE_STAMP_NAME, NULL);
   stamp_file = g_file_new_for_path (stamp_path);
   stamp_file_info = g_file_query_info (stamp_file,
                                        G_FILE_ATTRIBUTE_TIME_MODIFIED,
