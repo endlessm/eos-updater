@@ -159,7 +159,7 @@ def __change_state(self, new_state):
 
 
 def __set_error(self, error_name, error_message):
-    assert(error_name != '')
+    assert error_name != ''
 
     self.__set_properties(self, MAIN_IFACE, {
         'ErrorName': dbus.String(error_name, variant_level=1),
@@ -312,7 +312,7 @@ def FinishPoll(self):
     if self.__poll_action == 'no-update':
         self.__change_state(self, UpdaterState.READY)
     elif self.__poll_action == 'update':
-        assert(set([
+        assert set([
             'UpdateID',
             'UpdateRefspec',
             'OriginalRefspec',
@@ -326,7 +326,7 @@ def FinishPoll(self):
             'FullUnpackedSize',
             'DownloadSize',
             'UnpackedSize',
-        ]) <= set(self.__poll_update_properties.keys()))
+        ]) <= set(self.__poll_update_properties.keys())
 
         # Set the initial DownloadedBytes based on whether we know the full
         # download size.
@@ -345,7 +345,7 @@ def FinishPoll(self):
         self.__set_error(self, self.__poll_error_name,
                          self.__poll_error_message)
     else:
-        assert(False)
+        assert False
 
 
 @dbus.service.method(MOCK_IFACE, in_signature='sss', out_signature='')
@@ -413,7 +413,7 @@ def FinishFetch(self, success_cb, error_cb):
                          self.__fetch_error_message)
         success_cb()
     else:
-        assert(False)
+        assert False
 
 
 @dbus.service.method(MOCK_IFACE, in_signature='sss', out_signature='')
@@ -442,4 +442,4 @@ def FinishApply(self):
         self.__set_error(self, self.__apply_error_name,
                          self.__apply_error_message)
     else:
-        assert(False)
+        assert False
