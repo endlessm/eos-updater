@@ -657,7 +657,7 @@ is_time_to_update (guint update_interval_days,
                                update_interval_secs))
       next_update_time_secs = G_MAXUINT64;
 
-    is_time_to_update = (next_update_time_secs < (guint64) current_time_usec / G_USEC_PER_SEC);
+    is_time_to_update = (next_update_time_secs <= (guint64) current_time_usec / G_USEC_PER_SEC);
 
     if (is_time_to_update)
       g_debug ("Time to update");
