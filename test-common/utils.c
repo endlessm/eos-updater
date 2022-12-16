@@ -3545,7 +3545,7 @@ eos_test_autoupdater_new (GFile       *autoupdater_root,
 
   cmd = g_new0 (CmdResult, 1);
   if (!spawn_autoupdater_simple (autoupdater_root,
-                                 TRUE,
+                                 force_update,
                                  cmd,
                                  error))
     return NULL;
