@@ -150,6 +150,7 @@ test_poll_results (EosUpdaterFixture *fixture,
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_POLL,
                                           0,  /* interval (days) */
+                                          0, /* user visible delay (days) */
                                           FALSE,  /* force update */
                                           &error);
   g_assert_no_error (error);
@@ -181,6 +182,7 @@ test_poll_results (EosUpdaterFixture *fixture,
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_POLL,
                                           0,  /* interval (days) */
+                                          0, /* user visible delay (days) */
                                           FALSE,  /* force update */
                                           &error);
   g_assert_no_error (error);
@@ -207,6 +209,7 @@ test_poll_results (EosUpdaterFixture *fixture,
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_POLL,
                                           0,  /* interval (days) */
+                                          0, /* user visible delay (days) */
                                           FALSE,  /* force update */
                                           &error);
   g_assert_no_error (error);
@@ -228,6 +231,92 @@ test_poll_results (EosUpdaterFixture *fixture,
   cmd_result_ensure_ok_verbose (&reaped);
 }
 
+typedef struct {
+  guint    update_delay;
+  gboolean force_update;
+  gboolean expected_has_commit;
+} UserVisibleTestData;
+
+static void
+test_user_visible_update_delay (EosUpdaterFixture *fixture,
+                                gconstpointer      user_data)
+{
+  const UserVisibleTestData *test_data = user_data;
+  g_autoptr(GError) error = NULL;
+  g_autoptr(EosTestServer) server = NULL;
+  g_autoptr(EosTestSubserver) subserver = NULL;
+  g_autoptr(EosTestClient) client = NULL;
+  g_autoptr(GHashTable) leaf_commit_nodes =
+    eos_test_subserver_ref_to_commit_new ();
+  DownloadSource main_source = DOWNLOAD_MAIN;
+  g_auto(CmdAsyncResult) updater_cmd = CMD_ASYNC_RESULT_CLEARED;
+  g_autoptr(GFile) autoupdater_root = g_file_get_child (fixture->tmpdir, "autoupdater");
+  g_autoptr(EosTestAutoupdater) autoupdater = NULL;
+  g_auto(CmdResult) reaped = CMD_RESULT_CLEARED;
+  gboolean has_commit = FALSE;
+
+  if (eos_test_skip_chroot ())
+    return;
+
+  g_assert_nonnull (test_data);
+  g_test_message ("User visible test data %p: "
+                  "update_delay=%u, "
+                  "force_update=%s, "
+                  "expected_has_commit=%s",
+                  test_data,
+                  test_data->update_delay,
+                  test_data->force_update ? "TRUE" : "FALSE",
+                  test_data->expected_has_commit ? "TRUE" : "FALSE");
+
+  setup_basic_test_server_client (fixture, &server, &subserver, &client);
+
+  /* Make a user visible update commit. */
+  g_hash_table_insert (leaf_commit_nodes,
+                       ostree_collection_ref_dup (default_collection_ref),
+                       GUINT_TO_POINTER (1));
+  eos_test_add_metadata_for_commit (&subserver->additional_metadata_for_commit,
+                                    1, "version", "2.0.0");
+  eos_test_subserver_populate_commit_graph_from_leaf_nodes (subserver,
+                                                            leaf_commit_nodes);
+  eos_test_subserver_update (subserver, &error);
+  g_assert_no_error (error);
+
+  eos_test_client_run_updater (client,
+                               &main_source,
+                               1,
+                               NULL,
+                               &updater_cmd,
+                               &error);
+  g_assert_no_error (error);
+
+  autoupdater = eos_test_autoupdater_new (autoupdater_root,
+                                          UPDATE_STEP_APPLY,
+                                          0,  /* interval (days) */
+                                          test_data->update_delay, /* user visible delay (days) */
+                                          test_data->force_update,  /* force update */
+                                          &error);
+  g_assert_no_error (error);
+  cmd_result_ensure_ok_verbose (autoupdater->cmd);
+
+  eos_test_client_has_commit (client,
+                              default_remote_name,
+                              1,
+                              &has_commit,
+                              &error);
+  g_assert_no_error (error);
+  if (test_data->expected_has_commit)
+    g_assert_true (has_commit);
+  else
+    g_assert_false (has_commit);
+
+  eos_test_client_reap_updater (client,
+                                &updater_cmd,
+                                &reaped,
+                                &error);
+  g_assert_no_error (error);
+  cmd_result_ensure_ok_verbose (&reaped);
+}
+
 int
 main (int    argc,
       char **argv)
@@ -237,6 +326,27 @@ main (int    argc,
   g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
 
   eos_test_add ("/autoupdater/poll-results", NULL, test_poll_results);
+  eos_test_add ("/autoupdater/user-visible-update/delay",
+                (&(UserVisibleTestData) {
+                  .update_delay = 1,
+                  .force_update = FALSE,
+                  .expected_has_commit = FALSE,
+                }),
+                test_user_visible_update_delay);
+  eos_test_add ("/autoupdater/user-visible-update/nodelay",
+                (&(UserVisibleTestData) {
+                  .update_delay = 0,
+                  .force_update = FALSE,
+                  .expected_has_commit = TRUE,
+                }),
+                test_user_visible_update_delay);
+  eos_test_add ("/autoupdater/user-visible-update/force",
+                (&(UserVisibleTestData) {
+                  .update_delay = 1,
+                  .force_update = TRUE,
+                  .expected_has_commit = TRUE,
+                }),
+                test_user_visible_update_delay);
 
   return g_test_run ();
 }

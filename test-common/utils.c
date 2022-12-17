@@ -3385,7 +3385,8 @@ eos_test_autoupdater_init (EosTestAutoupdater *self)
 
 static GKeyFile *
 get_autoupdater_config (UpdateStep step,
-                        guint update_interval_in_days)
+                        guint update_interval_in_days,
+                        guint user_visible_update_delay_days)
 {
   g_autoptr(GKeyFile) config = g_key_file_new ();
 
@@ -3394,6 +3395,7 @@ get_autoupdater_config (UpdateStep step,
   g_key_file_set_integer (config, "Automatic Updates", "LastAutomaticStep", step);
   g_key_file_set_integer (config, "Automatic Updates", "IntervalDays", (gint) update_interval_in_days);
   g_key_file_set_integer (config, "Automatic Updates", "RandomizedDelayDays", 0);
+  g_key_file_set_integer (config, "Automatic Updates", "UserVisibleUpdateDelayDays", (gint) user_visible_update_delay_days);
 
   return g_steal_pointer (&config);
 }
@@ -3529,6 +3531,7 @@ EosTestAutoupdater *
 eos_test_autoupdater_new (GFile       *autoupdater_root,
                           UpdateStep   final_auto_step,
                           guint        interval_in_days,
+                          guint        user_visible_update_delay_days,
                           gboolean     force_update,
                           GError     **error)
 {
@@ -3537,7 +3540,8 @@ eos_test_autoupdater_new (GFile       *autoupdater_root,
   g_autoptr(CmdResult) cmd = NULL;
 
   autoupdater_config = get_autoupdater_config (final_auto_step,
-                                               interval_in_days);
+                                               interval_in_days,
+                                               user_visible_update_delay_days);
   if (!prepare_autoupdater_dir (autoupdater_root,
                                 autoupdater_config,
                                 error))
