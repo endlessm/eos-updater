@@ -352,6 +352,7 @@ struct _EosTestAutoupdater
 EosTestAutoupdater *eos_test_autoupdater_new (GFile       *autoupdater_root,
                                               UpdateStep   final_auto_step,
                                               guint        interval_in_days,
+                                              guint        user_visible_update_delay_days,
                                               gboolean     force_update,
                                               GError     **error);
 

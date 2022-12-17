@@ -62,6 +62,7 @@ typedef enum {
 #define UPDATE_STEP_LAST UPDATE_STEP_APPLY
 
 #define SEC_PER_DAY (3600ul * 24)
+#define USEC_PER_DAY (SEC_PER_DAY * G_USEC_PER_SEC)
 
 static const char *STATE_DIR = LOCALSTATEDIR "/lib/eos-updater";
 
@@ -77,6 +78,7 @@ static const char *AUTOMATIC_GROUP = "Automatic Updates";
 static const char *LAST_STEP_KEY = "LastAutomaticStep";
 static const char *INTERVAL_KEY = "IntervalDays";
 static const char *RANDOMIZED_DELAY_KEY = "RandomizedDelayDays";
+static const char *USER_VISIBLE_DELAY_KEY = "UserVisibleUpdateDelayDays";
 
 /* Ensures that the updater never tries to poll twice in one run */
 static gboolean polled_already = FALSE;
@@ -96,6 +98,9 @@ static gboolean force_update = FALSE;
 /* Force fetching in eos-updater. */
 static gboolean force_fetch = FALSE;
 
+/* Microseconds to delay user visible updates. */
+static guint64 user_visible_delay_usecs = 0;
+
 static GMainLoop *main_loop = NULL;
 static gchar *volume_path = NULL;
 
@@ -104,6 +109,8 @@ typedef struct {
   gchar   *update_refspec; /* (owned) (not nullable) */
   gchar   *update_id; /* (owned) (not nullable) */
 } PollResults;
+
+static PollResults *poll_results = NULL;
 
 static PollResults *
 poll_results_new (guint64      last_changed_usecs,
@@ -445,13 +452,15 @@ write_poll_results_file (PollResults *results)
  *
  * Compares the previously stored poll results to the latest @proxy poll
  * results. If the @proxy results are different from the stored results,
- * they're written to disk.
+ * they're written to disk. %poll_results is updated with the stored
+ * results.
  */
 static void
 update_poll_results (EosUpdater *proxy)
 {
   g_autoptr(PollResults) old_results = NULL;
   g_autoptr(PollResults) new_results = NULL;
+  PollResults *used_results;
 
   old_results = read_poll_results_file ();
   if (old_results != NULL)
@@ -482,7 +491,15 @@ update_poll_results (EosUpdater *proxy)
     {
       g_debug ("Updating autoupdater poll results file");
       write_poll_results_file (new_results);
+      used_results = g_steal_pointer (&new_results);
     }
+  else
+    {
+      used_results = g_steal_pointer (&old_results);
+    }
+
+  g_clear_pointer (&poll_results, poll_results_free);
+  poll_results = used_results;
 }
 
 /* Called on completion of the async dbus calls to check whether they
@@ -562,6 +579,24 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
       }
 
     case UPDATE_STEP_APPLY:
+      if (!force_update && eos_updater_get_update_is_user_visible (proxy))
+        {
+          guint64 now = (guint64) MAX (0, g_get_real_time ());
+          guint64 next_update = 0;
+
+          if (!g_uint64_checked_add (&next_update,
+                                     poll_results->last_changed_usecs,
+                                     user_visible_delay_usecs))
+            next_update = G_MAXUINT64;
+          if (now < next_update)
+            {
+              info (EOS_UPDATER_NOT_TIME_MSGID,
+                    "Less than %s since seeing user visible update",
+                    USER_VISIBLE_DELAY_KEY);
+              return FALSE;
+            }
+        }
+
       eos_updater_call_apply (proxy, NULL, update_step_callback, step_data);
       break;
 
@@ -696,6 +731,7 @@ read_config_file (const gchar *config_path,
   g_autoptr(GError) error = NULL;
   guint _update_interval_days;
   guint _randomized_delay_days;
+  guint _user_visible_delay_days;
   const gchar * const paths[] =
     {
       config_path,  /* typically CONFIG_FILE_PATH unless testing */
@@ -775,6 +811,20 @@ _Pragma ("GCC diagnostic pop")
     }
 
   *randomized_delay_days = _randomized_delay_days;
+
+  _user_visible_delay_days = euu_config_file_get_uint (config, AUTOMATIC_GROUP,
+                                                       USER_VISIBLE_DELAY_KEY,
+                                                       0,
+                                                       (guint) MIN (G_MAXUINT64 / USEC_PER_DAY, G_MAXUINT),
+                                                       &error);
+  if (error != NULL)
+    {
+      warning (EOS_UPDATER_CONFIGURATION_ERROR_MSGID,
+               "Unable to read key '%s' in config file: %s",
+               USER_VISIBLE_DELAY_KEY, error->message);
+      return FALSE;
+    }
+  user_visible_delay_usecs = (guint64) _user_visible_delay_days * USEC_PER_DAY;
 
   return TRUE;
 }

@@ -63,6 +63,15 @@ random interval, uniformly distributed between 0 and the number of days set in
 this option. It must be \fI0\fP or greater. An interval of \fI0\fP days means
 that the wait is always exactly \fIIntervalDays=\fP long.
 .\"
+.IP "\fIUserVisibleUpdateDelayDays=\fP"
+.IX Item "UserVisibleUpdateDelayDays="
+Number of days to wait until applying a ‘user visible’ update. If
+\fBeos\-autoupdater\fP(8) is triggered earlier than this number of days since a
+user visible update was seen, it will exit. It must be \fI0\fP or greater. An
+interval of \fI0\fP days means that user visible updates will be applied
+immediately. If \fBeos\-autoupdater\fP(8) is executed with the
+\fB\-\-force\-update\fP option, this setting is ignored.
+.\"
 .IP "\fIUpdateOnMobile=\fP"
 .IX Item "UpdateOnMobile="
 Deprecated. The value of this setting is ignored.
