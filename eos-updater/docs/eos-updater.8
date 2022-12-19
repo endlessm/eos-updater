@@ -56,6 +56,43 @@ unit. See \fBsystemctl\fP(1).
 If the computer has been converted to not use OSTree, automatic updates are
 permanently disabled.
 .\"
+.SH COMMIT METADATA
+.IX Header "COMMIT METADATA"
+.\"
+\fBeos\-updater\fP understands various well\-known keys in the metadata of the
+OSTree commits it parses, in addition to the ones used by OSTree itself.
+.\"
+.IP "\fIeos.checkpoint\-target\fP (type \fBs\fP)" 4
+.IX Item "eos.checkpoint\-target"
+If this is specified, it contains the name of a new ref to upgrade the
+deployment to, but only if the booted OS is the commit containing the
+\fIeos.checkpoint\-target\fP key. Effectively, this creates a checkpoint commit
+which a computer must boot into before it can upgrade to any subsequent
+releases.
+.\"
+.IP "\fIeos\-updater.release\-notes\-uri\fP (type \fBs\fP)" 4
+.IX Item "eos\-updater.release\-notes\-uri"
+Optional URI pointing to release notes for the OS release contained in the
+commit, intended to be shown to the user in the UI before/when upgrading. This
+may contain zero or more placeholders which will be replaced before the string
+is exposed in \fBeos\-updater\fP’s D\-Bus interface. \fI${booted_version}\fP
+will be replaced with the version of the currently booted OS.
+\fI${update_version}\fP will be replaced with the version of the OS release
+contained in the commit (see the \fIversion\fP key below).
+.\"
+.IP "\fIostree.endoflife\-rebase\fP (type \fBs\fP)" 4
+.IX Item "ostree.endoflife\-rebase"
+If this is specified, it contains the name of a new ref to switch the deployment
+to updating from, as the current one has now reached end\-of\-life. The new ref
+must be on the same remote.
+.\"
+.IP "\fIversion\fP (type \fBs\fP)" 4
+.IX Item "version"
+Version number of the OS release contained in the commit. This is a string, but
+it is assumed to be in \fImajor.minor.micro\fP format. \fBeos\-updater\fP
+assumes that there are user-visible changes between different major versions of
+the OS, and notifies that in its D\-Bus interface.
+.\"
 .SH OPTIONS
 .IX Header "OPTIONS"
 .\"
