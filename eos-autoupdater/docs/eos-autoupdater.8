@@ -57,6 +57,10 @@ permanently disabled.
 Force the updater to poll for an update (and potentially fetch and apply it),
 regardless of the policies configured in \fBeos\-autoupdater.conf\fP(5).
 .\"
+.IP "\fB\-\-force\-fetch\fP"
+Force eos-updater to fetch an update even if the download scheduler would
+prevent it. This option is implied by the \fB\-\-force\-update\fP option.
+.\"
 .IP "\fB\-\-from\-volume=\fP"
 Path to a mounted USB drive which contains Endless OS updates prepared using
 \fBeos\-updater\-prepare\-volume\fP(8). Force the updater to poll for updates

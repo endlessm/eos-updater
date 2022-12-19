@@ -3486,6 +3486,8 @@ spawn_autoupdater (GFile *stamps_dir,
   const gchar *argv[] =
     {
       eos_autoupdater_binary,
+      /* Always use --force-fetch to bypass download scheduler. */
+      "--force-fetch",
       force_update_flag,
       NULL
     };
