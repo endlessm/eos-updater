@@ -90,6 +90,9 @@ static guint previous_state = EOS_UPDATER_STATE_NONE;
 /* Force an update, even if the timer hasn’t expired, or if we’re on a metered connection. */
 static gboolean force_update = FALSE;
 
+/* Force fetching in eos-updater. */
+static gboolean force_fetch = FALSE;
+
 static GMainLoop *main_loop = NULL;
 static gchar *volume_path = NULL;
 
@@ -343,7 +346,7 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
     case UPDATE_STEP_FETCH:
       {
         g_auto(GVariantDict) options_dict = G_VARIANT_DICT_INIT (NULL);
-        g_variant_dict_insert (&options_dict, "force", "b", force_update);
+        g_variant_dict_insert (&options_dict, "force", "b", force_update || force_fetch);
 
         eos_updater_call_fetch_full (proxy, g_variant_dict_end (&options_dict),
                                      NULL, update_step_callback, step_data);
@@ -764,6 +767,7 @@ main (int argc, char **argv)
 
   GOptionEntry entries[] = {
     { "force-update", 0, 0, G_OPTION_ARG_NONE, &force_update, "Force an update", NULL },
+    { "force-fetch", 0, 0, G_OPTION_ARG_NONE, &force_fetch, "Force fetching an update", NULL },
     { "from-volume", 0, 0, G_OPTION_ARG_STRING, &volume_path, "Poll for updates from the volume", "PATH" },
     { NULL }
   };
