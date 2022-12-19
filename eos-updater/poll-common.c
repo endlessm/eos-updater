@@ -1151,7 +1151,6 @@ parse_latest_commit (OstreeRepo           *repo,
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) commit = NULL;
   g_autoptr(GVariant) rebase = NULL;
-  g_autoptr(GVariant) version = NULL;
   g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *collection_id = NULL;
   g_autoptr(GError) local_error = NULL;
@@ -1207,12 +1206,9 @@ parse_latest_commit (OstreeRepo           *repo,
   else
     *out_redirect_followed = FALSE;
 
-  if (metadata != NULL)
-    version = g_variant_lookup_value (metadata, "version", G_VARIANT_TYPE_STRING);
-  if (version == NULL)
+  if (metadata == NULL ||
+      !g_variant_lookup (metadata, "version", "s", out_version))
     *out_version = NULL;
-  else
-    *out_version = g_variant_dup_string (version, NULL);
 
   if (metadata == NULL ||
       !g_variant_lookup (metadata, "eos-updater.release-notes-uri", "s", out_release_notes_uri_template))
