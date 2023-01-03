@@ -101,6 +101,19 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
   g_object_unref (fixture->dbus);
 }
 
+void
+eos_test_add (const char            *testpath,
+              gconstpointer          tdata,
+              EosUpdaterFixtureFunc  ftest)
+{
+  g_test_add (testpath,
+              EosUpdaterFixture,
+              tdata,
+              eos_updater_fixture_setup,
+              ftest,
+              eos_updater_fixture_teardown);
+}
+
 G_DEFINE_TYPE (EosTestSubserver, eos_test_subserver, G_TYPE_OBJECT)
 
 static void
