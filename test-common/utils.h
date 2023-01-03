@@ -46,7 +46,12 @@ void eos_updater_fixture_setup_full (EosUpdaterFixture *fixture,
 void eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
                                    gconstpointer user_data);
 
-#define eos_test_add(testpath, tdata, ftest) g_test_add (testpath, EosUpdaterFixture, tdata, eos_updater_fixture_setup, ftest, eos_updater_fixture_teardown)
+typedef void (*EosUpdaterFixtureFunc) (EosUpdaterFixture *fixture,
+                                       gconstpointer      user_data);
+
+void eos_test_add (const char            *testpath,
+                   gconstpointer          tdata,
+                   EosUpdaterFixtureFunc  ftest);
 
 extern const gchar *const default_vendor;
 extern const gchar *const default_product;
