@@ -72,6 +72,10 @@ test_programs = {
       libeos_updater_dbus_dep,
     ],
   },
+  'test-autoupdater': {
+    'install': false,
+    'parallel': false,
+  },
 }
 
 installed_tests_metadir = join_paths(datadir, 'installed-tests',
