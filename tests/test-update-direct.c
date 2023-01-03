@@ -707,7 +707,7 @@ main (int argc,
   eos_test_add ("/updater/update-is-user-visible/major", "2.0.0", test_update_is_user_visible);
   eos_test_add ("/updater/update-release-notes-uri/empty", (&(ReleaseNotesUriData) {
                   .release_notes_uri_template = NULL,
-                  .expected_release_notes_uri = NULL,
+                  .expected_release_notes_uri = "",
                 }), test_update_release_notes_uri);
   eos_test_add ("/updater/update-release-notes-uri/plain", (&(ReleaseNotesUriData) {
                   .release_notes_uri_template = "https://example.com",
