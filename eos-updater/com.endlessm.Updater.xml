@@ -193,6 +193,14 @@
     <property name="UpdateIsUserVisible" type="b" access="read"/>
 
     <!--
+      ReleaseNotesUri:
+
+      URI of a page containing release notes or news for the update being
+      applied, or the empty string if it’s not set or if no update is available.
+    -->
+    <property name="ReleaseNotesUri" type="s" access="read"/>
+
+    <!--
       DownloadSize:
 
       Size (in bytes) of the update when downloaded, or `-1` if an update is
