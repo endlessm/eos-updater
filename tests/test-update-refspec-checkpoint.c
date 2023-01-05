@@ -1804,6 +1804,31 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
         .expect_checkpoint_followed = TRUE,
       },
 
+      /* Ref matching. The only allowed path is from latest1 to latest2. Any
+       * other booted ref cannot follow the checkpoint to latest2. */
+      {
+        .src_ref = "os/eos/amd64/eos4",
+        .tgt_ref = "os/eos/amd64/latest2",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        .src_ref = "os/eos/amd64/eos4.0",
+        .tgt_ref = "os/eos/amd64/latest2",
+        .expect_checkpoint_followed = FALSE,
+      },
+      {
+        /* Hypothetical LTS checkpoint that should not be affected by the
+         * latest2 checkpoint handling. */
+        .src_ref = "os/eos/amd64/eos4",
+        .tgt_ref = "os/eos/amd64/eos4a",
+        .expect_checkpoint_followed = TRUE,
+      },
+      {
+        .src_ref = "os/eos/arm64/latest1",
+        .tgt_ref = "os/eos/arm64/latest2",
+        .expect_checkpoint_followed = TRUE,
+      },
+
       /* Platforms: x86_64 and aarch64 */
       {
         .uname_machine = "x86_64",
