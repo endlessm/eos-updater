@@ -706,7 +706,7 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
     (g_str_has_suffix (booted_ref, "/eos3a") ||
      g_str_has_suffix (booted_ref, "nexthw/eos3.9"));
   /* https://phabricator.endlessm.com/T33311 */
-  gboolean is_eos4_conditional_upgrade_path = g_str_has_suffix (booted_ref, "/latest1");
+  gboolean is_eos4_conditional_upgrade_path = g_str_has_suffix (target_ref, "/latest2");
 
   /* Simplifies the code below. */
   g_assert (out_reason != NULL);
@@ -732,6 +732,17 @@ should_follow_checkpoint (OstreeSysroot     *sysroot,
       booted_system_is_arm64 ())
     {
       *out_reason = g_strdup (_("ARM64 system upgrades are not supported in EOS 4. Please reinstall."));
+      return FALSE;
+    }
+
+  /* Only EOS 4 systems on the latest ref (latest1) should upgrade to EOS 5.
+   * Systems on the LTS ref (eos4) or any other ref should not.
+   *
+   * https://phabricator.endlessm.com/T34298  */
+  if (is_eos4_conditional_upgrade_path &&
+      !g_str_has_suffix (booted_ref, "/latest1"))
+    {
+      *out_reason = g_strdup (_("Only systems following the latest updates can upgrade to EOS 5."));
       return FALSE;
     }
 
