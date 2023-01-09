@@ -101,6 +101,19 @@ eos_updater_fixture_teardown (EosUpdaterFixture *fixture,
   g_object_unref (fixture->dbus);
 }
 
+void
+eos_test_add (const char            *testpath,
+              gconstpointer          tdata,
+              EosUpdaterFixtureFunc  ftest)
+{
+  g_test_add (testpath,
+              EosUpdaterFixture,
+              tdata,
+              eos_updater_fixture_setup,
+              ftest,
+              eos_updater_fixture_teardown);
+}
+
 G_DEFINE_TYPE (EosTestSubserver, eos_test_subserver, G_TYPE_OBJECT)
 
 static void
@@ -3372,7 +3385,8 @@ eos_test_autoupdater_init (EosTestAutoupdater *self)
 
 static GKeyFile *
 get_autoupdater_config (UpdateStep step,
-                        guint update_interval_in_days)
+                        guint update_interval_in_days,
+                        guint user_visible_update_delay_days)
 {
   g_autoptr(GKeyFile) config = g_key_file_new ();
 
@@ -3381,14 +3395,15 @@ get_autoupdater_config (UpdateStep step,
   g_key_file_set_integer (config, "Automatic Updates", "LastAutomaticStep", step);
   g_key_file_set_integer (config, "Automatic Updates", "IntervalDays", (gint) update_interval_in_days);
   g_key_file_set_integer (config, "Automatic Updates", "RandomizedDelayDays", 0);
+  g_key_file_set_integer (config, "Automatic Updates", "UserVisibleUpdateDelayDays", (gint) user_visible_update_delay_days);
 
   return g_steal_pointer (&config);
 }
 
 static GFile *
-autoupdater_stamps_dir (GFile *autoupdater_dir)
+autoupdater_state_dir (GFile *autoupdater_dir)
 {
-  return g_file_get_child (autoupdater_dir, "stamps");
+  return g_file_get_child (autoupdater_dir, "state");
 }
 
 static GFile *
@@ -3402,10 +3417,10 @@ prepare_autoupdater_dir (GFile *autoupdater_dir,
                          GKeyFile *config,
                          GError **error)
 {
-  g_autoptr(GFile) stamps_dir_path = autoupdater_stamps_dir (autoupdater_dir);
+  g_autoptr(GFile) state_dir_path = autoupdater_state_dir (autoupdater_dir);
   g_autoptr(GFile) config_file_path = NULL;
 
-  if (!create_directory (stamps_dir_path, error))
+  if (!create_directory (state_dir_path, error))
     return FALSE;
 
   config_file_path = autoupdater_config_file (autoupdater_dir);
@@ -3458,7 +3473,7 @@ get_dbus_timeout_value_for_autoupdater (void)
 }
 
 static gboolean
-spawn_autoupdater (GFile *stamps_dir,
+spawn_autoupdater (GFile *state_dir,
                    GFile *config_file,
                    gboolean force_update,
                    CmdResult *cmd,
@@ -3473,13 +3488,15 @@ spawn_autoupdater (GFile *stamps_dir,
   const gchar *argv[] =
     {
       eos_autoupdater_binary,
+      /* Always use --force-fetch to bypass download scheduler. */
+      "--force-fetch",
       force_update_flag,
       NULL
     };
   g_autofree gchar *dbus_timeout_value = get_dbus_timeout_value_for_autoupdater ();
   CmdEnvVar envv[] =
     {
-      { "EOS_UPDATER_TEST_AUTOUPDATER_UPDATE_STAMP_DIR", NULL, stamps_dir },
+      { "EOS_UPDATER_TEST_AUTOUPDATER_STATE_DIR", NULL, state_dir },
       { "EOS_UPDATER_TEST_AUTOUPDATER_CONFIG_FILE_PATH", NULL, config_file },
       { "EOS_UPDATER_TEST_AUTOUPDATER_USE_SESSION_BUS", "yes", NULL },
       { "EOS_UPDATER_TEST_AUTOUPDATER_DBUS_TIMEOUT", dbus_timeout_value, NULL },
@@ -3500,10 +3517,10 @@ spawn_autoupdater_simple (GFile *autoupdater_dir,
                           CmdResult *cmd,
                           GError **error)
 {
-  g_autoptr(GFile) stamps_dir_path = autoupdater_stamps_dir (autoupdater_dir);
+  g_autoptr(GFile) state_dir_path = autoupdater_state_dir (autoupdater_dir);
   g_autoptr(GFile) config_file_path = autoupdater_config_file (autoupdater_dir);
 
-  return spawn_autoupdater (stamps_dir_path,
+  return spawn_autoupdater (state_dir_path,
                             config_file_path,
                             force_update,
                             cmd,
@@ -3514,6 +3531,7 @@ EosTestAutoupdater *
 eos_test_autoupdater_new (GFile       *autoupdater_root,
                           UpdateStep   final_auto_step,
                           guint        interval_in_days,
+                          guint        user_visible_update_delay_days,
                           gboolean     force_update,
                           GError     **error)
 {
@@ -3522,7 +3540,8 @@ eos_test_autoupdater_new (GFile       *autoupdater_root,
   g_autoptr(CmdResult) cmd = NULL;
 
   autoupdater_config = get_autoupdater_config (final_auto_step,
-                                               interval_in_days);
+                                               interval_in_days,
+                                               user_visible_update_delay_days);
   if (!prepare_autoupdater_dir (autoupdater_root,
                                 autoupdater_config,
                                 error))
@@ -3530,7 +3549,7 @@ eos_test_autoupdater_new (GFile       *autoupdater_root,
 
   cmd = g_new0 (CmdResult, 1);
   if (!spawn_autoupdater_simple (autoupdater_root,
-                                 TRUE,
+                                 force_update,
                                  cmd,
                                  error))
     return NULL;
