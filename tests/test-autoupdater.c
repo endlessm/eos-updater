@@ -289,6 +289,21 @@ test_user_visible_update_delay (EosUpdaterFixture *fixture,
                                &error);
   g_assert_no_error (error);
 
+  /* First poll so that poll results are written to disk. */
+  g_clear_object (&autoupdater);
+  autoupdater = eos_test_autoupdater_new (autoupdater_root,
+                                          UPDATE_STEP_POLL,
+                                          0,  /* interval (days) */
+                                          test_data->update_delay, /* user visible delay (days) */
+                                          test_data->force_update,  /* force update */
+                                          &error);
+  g_assert_no_error (error);
+  g_assert_true (cmd_result_ensure_ok_verbose (autoupdater->cmd));
+
+  /* Now run through to apply. Since eos-updater is in UPDATE_AVAILABLE state,
+   * polling will be skipped. This will test that the autoupdater loads the
+   * previous poll results even when not polling. */
+  g_clear_object (&autoupdater);
   autoupdater = eos_test_autoupdater_new (autoupdater_root,
                                           UPDATE_STEP_APPLY,
                                           0,  /* interval (days) */
