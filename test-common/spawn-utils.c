@@ -76,6 +76,7 @@ cmd_result_ensure_ok_verbose (CmdResult *cmd)
   if (cmd_result_ensure_ok (cmd, &error))
     return TRUE;
 
+  g_test_message ("%s", error->message);
   return FALSE;
 }
 
