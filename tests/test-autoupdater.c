@@ -154,7 +154,7 @@ test_poll_results (EosUpdaterFixture *fixture,
                                           FALSE,  /* force update */
                                           &error);
   g_assert_no_error (error);
-  cmd_result_ensure_ok_verbose (autoupdater->cmd);
+  g_assert_true (cmd_result_ensure_ok_verbose (autoupdater->cmd));
 
   get_poll_results (autoupdater_root,
                     &last_changed_usecs,
@@ -186,7 +186,7 @@ test_poll_results (EosUpdaterFixture *fixture,
                                           FALSE,  /* force update */
                                           &error);
   g_assert_no_error (error);
-  cmd_result_ensure_ok_verbose (autoupdater->cmd);
+  g_assert_true (cmd_result_ensure_ok_verbose (autoupdater->cmd));
 
   expected_update_id = g_hash_table_lookup (subserver->commits_in_repo,
                                             GUINT_TO_POINTER (1));
@@ -213,7 +213,7 @@ test_poll_results (EosUpdaterFixture *fixture,
                                           FALSE,  /* force update */
                                           &error);
   g_assert_no_error (error);
-  cmd_result_ensure_ok_verbose (autoupdater->cmd);
+  g_assert_true (cmd_result_ensure_ok_verbose (autoupdater->cmd));
 
   get_poll_results (autoupdater_root,
                     &last_changed_usecs,
@@ -228,7 +228,7 @@ test_poll_results (EosUpdaterFixture *fixture,
                                 &reaped,
                                 &error);
   g_assert_no_error (error);
-  cmd_result_ensure_ok_verbose (&reaped);
+  g_assert_true (cmd_result_ensure_ok_verbose (&reaped));
 }
 
 typedef struct {
@@ -296,7 +296,7 @@ test_user_visible_update_delay (EosUpdaterFixture *fixture,
                                           test_data->force_update,  /* force update */
                                           &error);
   g_assert_no_error (error);
-  cmd_result_ensure_ok_verbose (autoupdater->cmd);
+  g_assert_true (cmd_result_ensure_ok_verbose (autoupdater->cmd));
 
   eos_test_client_has_commit (client,
                               default_remote_name,
@@ -314,7 +314,7 @@ test_user_visible_update_delay (EosUpdaterFixture *fixture,
                                 &reaped,
                                 &error);
   g_assert_no_error (error);
-  cmd_result_ensure_ok_verbose (&reaped);
+  g_assert_true (cmd_result_ensure_ok_verbose (&reaped));
 }
 
 int
