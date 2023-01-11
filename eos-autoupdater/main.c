@@ -560,6 +560,9 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
       if (polled_already)
         return FALSE;
 
+      /* Ensure the in memory poll results are cleared before polling. */
+      g_clear_pointer (&poll_results, poll_results_free);
+
       /* TODO: What to do with the volume code path? */
       polled_already = TRUE;
       if (volume_path != NULL)
@@ -584,10 +587,13 @@ do_update_step (UpdateStep step, EosUpdater *proxy)
           guint64 now = (guint64) MAX (0, g_get_real_time ());
           guint64 next_update = 0;
 
+          g_assert (poll_results != NULL);
+
           if (!g_uint64_checked_add (&next_update,
                                      poll_results->last_changed_usecs,
                                      user_visible_delay_usecs))
             next_update = G_MAXUINT64;
+
           if (now < next_update)
             {
               info (EOS_UPDATER_NOT_TIME_MSGID,
@@ -660,6 +666,9 @@ on_state_changed (EosUpdater *proxy, EosUpdaterState state)
       break;
 
     case EOS_UPDATER_STATE_UPDATE_AVAILABLE: /* Possibly fetch */
+      /* Update the stored poll results if needed. */
+      if (poll_results == NULL)
+        update_poll_results (proxy);
       continue_running = do_update_step (UPDATE_STEP_FETCH, proxy);
       break;
 
@@ -667,6 +676,9 @@ on_state_changed (EosUpdater *proxy, EosUpdaterState state)
       break;
 
     case EOS_UPDATER_STATE_UPDATE_READY: /* Possibly apply */
+      /* Update the stored poll results if needed. */
+      if (poll_results == NULL)
+        update_poll_results (proxy);
       continue_running = do_update_step (UPDATE_STEP_APPLY, proxy);
       break;
 
