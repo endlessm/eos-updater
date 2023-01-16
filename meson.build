@@ -3,7 +3,7 @@
 
 project('eos-updater', 'c',
   version : '1.0.0',
-  meson_version : '>= 0.58.0',
+  meson_version : '>= 0.60.0',
   license: ['LGPL-2.1-or-later'],
   default_options : [
     'buildtype=debugoptimized',
