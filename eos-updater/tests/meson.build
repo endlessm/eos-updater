@@ -1,7 +1,10 @@
 # Copyright 2022 Endless OS Foundation, LLC
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# python-dbusmock doesn’t currently provide a way to install out-of-tree templates
+install_data('eos_updater.py',
+  install_dir : datadir / 'python-dbusmock' / 'templates',
+  install_tag : 'devel',
+)
 
 # lint check
 test(
