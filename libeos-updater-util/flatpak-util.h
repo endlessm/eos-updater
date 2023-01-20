@@ -37,7 +37,8 @@ G_BEGIN_DECLS
 typedef enum {
   EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL = 0,
   EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL = 1,
-  EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE = 2
+  EUU_FLATPAK_REMOTE_REF_ACTION_UPDATE = 2,
+  EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF = 3,
 } EuuFlatpakRemoteRefActionType;
 
 typedef struct {
@@ -198,6 +199,13 @@ gboolean euu_flatpak_transaction_uninstall (FlatpakInstallation *installation,
                                             const gchar         *formatted_ref,
                                             gboolean             no_prune,
                                             GCancellable        *cancellable,
+                                            GError              **error);
+
+gboolean euu_flatpak_transaction_prune_ref (FlatpakInstallation  *installation,
+                                            const gchar          *remote,
+                                            const gchar          *formatted_ref,
+                                            gboolean              no_prune,
+                                            GCancellable         *cancellable,
                                             GError              **error);
 
 G_END_DECLS

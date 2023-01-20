@@ -34,6 +34,42 @@
 #include <string.h>
 
 static gboolean
+validate_collection_id_remote (FlatpakInstallation  *installation,
+                               const gchar          *collection_id,
+                               const gchar          *expected_remote_name,
+                               GError              **error)
+{
+  g_autofree gchar *candidate_remote_name = NULL;
+  g_assert (collection_id != NULL);
+  g_assert (expected_remote_name != NULL);
+
+  g_message ("Finding remote name for %s", collection_id);
+
+  /* Ignore errors here. We always have the @expected_remote_name to use. */
+  candidate_remote_name = euu_lookup_flatpak_remote_for_collection_id (installation,
+                                                                       collection_id,
+                                                                       NULL);
+
+  if (candidate_remote_name != NULL &&
+      g_strcmp0 (expected_remote_name, candidate_remote_name) != 0)
+    {
+      g_set_error (error,
+                   EOS_UPDATER_ERROR,
+                   EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT,
+                   "Specified flatpak remote ‘%s’ conflicts with the remote "
+                   "detected for collection ID ‘%s’ (‘%s’), cannot continue.",
+                   expected_remote_name,
+                   collection_id,
+                   candidate_remote_name);
+      return FALSE;
+    }
+
+  g_message ("Remote name for %s is %s", collection_id, expected_remote_name);
+
+  return TRUE;
+}
+
+static gboolean
 try_update_application (FlatpakInstallation       *installation,
                         FlatpakRef                *ref,
                         EosUpdaterInstallerFlags   flags,
@@ -71,44 +107,23 @@ try_update_application (FlatpakInstallation       *installation,
 static gboolean
 try_install_application (FlatpakInstallation       *installation,
                          const gchar               *collection_id,
-                         const gchar               *in_remote_name,
+                         const gchar               *remote_name,
                          FlatpakRef                *ref,
                          EosUpdaterInstallerFlags   flags,
                          GError                   **error)
 {
   g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
-  g_autofree gchar *candidate_remote_name = NULL;
-  const gchar *remote_name = in_remote_name;
   gboolean no_pull = !(flags & EU_INSTALLER_FLAGS_ALSO_PULL);
   g_autoptr(GError) local_error = NULL;
 
-  g_assert (in_remote_name != NULL);
+  g_assert (remote_name != NULL);
 
-  if (collection_id != NULL)
-    {
-      g_message ("Finding remote name for %s", collection_id);
-
-      /* Ignore errors here. We always have the @in_remote_name to use. */
-      candidate_remote_name = euu_lookup_flatpak_remote_for_collection_id (installation,
-                                                                           collection_id,
-                                                                           NULL);
-
-      if (candidate_remote_name != NULL &&
-          g_strcmp0 (in_remote_name, candidate_remote_name) != 0)
-        {
-          g_set_error (error,
-                       EOS_UPDATER_ERROR,
-                       EOS_UPDATER_ERROR_FLATPAK_REMOTE_CONFLICT,
-                       "Specified flatpak remote ‘%s’ conflicts with the remote "
-                       "detected for collection ID ‘%s’ (‘%s’), cannot continue.",
-                       in_remote_name,
-                       collection_id,
-                       candidate_remote_name);
-          return FALSE;
-        }
-
-      g_message ("Remote name for %s is %s", collection_id, remote_name);
-    }
+  if (collection_id != NULL &&
+      !validate_collection_id_remote (installation,
+                                      collection_id,
+                                      remote_name,
+                                      error))
+    return FALSE;
 
   g_message ("Attempting to install %s:%s", remote_name, formatted_ref);
 
@@ -178,6 +193,39 @@ try_uninstall_application (FlatpakInstallation  *installation,
 }
 
 static gboolean
+try_prune_ref (FlatpakInstallation  *installation,
+               const gchar          *collection_id,
+               const gchar          *remote_name,
+               FlatpakRef           *ref,
+               GError              **error)
+{
+  g_autofree gchar *formatted_ref = flatpak_ref_format_ref (ref);
+
+  if (collection_id != NULL &&
+      !validate_collection_id_remote (installation,
+                                      collection_id,
+                                      remote_name,
+                                      error))
+    return FALSE;
+
+  g_message ("Attempting to prune ref %s:%s", remote_name, formatted_ref);
+
+  if (!euu_flatpak_transaction_prune_ref (installation,
+                                          remote_name,
+                                          formatted_ref,
+                                          TRUE, /* no_prune */
+                                          NULL, /* cancellable */
+                                          error))
+    {
+      g_message ("Could not prune ref %s:%s", remote_name, formatted_ref);
+      return FALSE;
+    }
+
+  g_message ("Successfully pruned ref %s:%s", remote_name, formatted_ref);
+  return TRUE;
+}
+
+static gboolean
 perform_action (FlatpakInstallation        *installation,
                 EuuFlatpakRemoteRefAction  *action,
                 EosUpdaterInstallerFlags    flags,
@@ -204,6 +252,12 @@ perform_action (FlatpakInstallation        *installation,
         return try_uninstall_application (installation,
                                           action->ref->ref,
                                           error);
+      case EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF:
+        return try_prune_ref (installation,
+                              collection_id,
+                              remote_name,
+                              action->ref->ref,
+                              error);
       default:
         g_assert_not_reached ();
     }
@@ -370,6 +424,7 @@ eufi_apply_flatpak_ref_actions (FlatpakInstallation       *installation,
 static gboolean
 check_if_flatpak_is_installed (FlatpakInstallation        *installation,
                                EuuFlatpakRemoteRefAction  *action,
+                               gboolean                    match_remote,
                                gboolean                   *out_is_installed,
                                GError                    **error)
 {
@@ -399,10 +454,60 @@ check_if_flatpak_is_installed (FlatpakInstallation        *installation,
     }
   g_clear_error (&local_error);
 
-  *out_is_installed = (installed_ref != NULL);
-  g_message ("Flatpak described by ref %s is %s",
-             formatted_ref,
-             *out_is_installed ? "installed": "not installed");
+  if (match_remote)
+    {
+      if (installed_ref != NULL)
+        {
+          const gchar *installed_remote = flatpak_installed_ref_get_origin (installed_ref);
+          *out_is_installed = g_strcmp0 (installed_remote, action->ref->remote);
+        }
+      else
+        *out_is_installed = FALSE;
+      g_message ("Flatpak described by ref %s:%s is %s",
+                 action->ref->remote, formatted_ref,
+                 *out_is_installed ? "installed" : "not installed");
+    }
+  else
+    {
+      *out_is_installed = (installed_ref != NULL);
+      g_message ("Flatpak described by ref %s is %s",
+                 formatted_ref,
+                 *out_is_installed ? "installed" : "not installed");
+    }
+
+  return TRUE;
+}
+
+static gboolean
+check_if_ostree_ref_exists (FlatpakInstallation        *installation,
+                            EuuFlatpakRemoteRefAction  *action,
+                            gboolean                   *out_exists,
+                            GError                    **error)
+{
+  g_autoptr(GFile) installation_directory = flatpak_installation_get_path (installation);
+  g_autoptr(GFile) repo_directory = g_file_get_child (installation_directory, "repo");
+  g_autoptr(OstreeRepo) repo = ostree_repo_new (repo_directory);
+  g_autofree gchar *formatted_ref = NULL;
+  g_autofree gchar *refspec = NULL;
+  g_autofree gchar *rev = NULL;
+
+  if (!ostree_repo_open (repo, NULL, error))
+    return FALSE;
+
+  formatted_ref = flatpak_ref_format_ref (action->ref->ref);
+  refspec = g_strdup_printf ("%s:%s", action->ref->remote, formatted_ref);
+  if (!ostree_repo_resolve_rev_ext (repo,
+                                    refspec,
+                                    TRUE, /* allow_noent */
+                                    OSTREE_REPO_RESOLVE_REV_EXT_LOCAL_ONLY,
+                                    &rev,
+                                    error))
+    return FALSE;
+
+  *out_exists = (rev != NULL);
+  g_message ("OSTree ref %s %s",
+             refspec,
+             *out_exists ? "exists" : "does not exist");
 
   return TRUE;
 }
@@ -442,6 +547,7 @@ eufi_check_ref_actions_applied (FlatpakInstallation  *installation,
           case EUU_FLATPAK_REMOTE_REF_ACTION_INSTALL:
             if (!check_if_flatpak_is_installed (installation,
                                                 pending_action,
+                                                FALSE, /* match_remote */
                                                 &is_installed,
                                                 error))
               return FALSE;
@@ -459,6 +565,7 @@ eufi_check_ref_actions_applied (FlatpakInstallation  *installation,
           case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
             if (!check_if_flatpak_is_installed (installation,
                                                 pending_action,
+                                                FALSE, /* match_remote */
                                                 &is_installed,
                                                 error))
               return FALSE;
@@ -477,6 +584,37 @@ eufi_check_ref_actions_applied (FlatpakInstallation  *installation,
             /* Nothing meaningful we can do here - the flatpak is meant
              * to be installed if it would have been installed before
              * otherwise it stays uninstalled */
+            break;
+          case EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF:
+            if (!check_if_flatpak_is_installed (installation,
+                                                pending_action,
+                                                TRUE, /* match_remote */
+                                                &is_installed,
+                                                error))
+              return FALSE;
+
+            if (!is_installed)
+              {
+                gboolean ref_exists = FALSE;
+
+                if (!check_if_ostree_ref_exists (installation,
+                                                 pending_action,
+                                                 &ref_exists,
+                                                 error))
+                  return FALSE;
+
+                if (ref_exists)
+                  {
+                    g_autofree gchar *formatted_ref = flatpak_ref_format_ref (pending_action->ref->ref);
+                    g_autofree gchar *msg = g_strdup_printf ("OSTree ref %s:%s should have been "
+                                                             "removed by %s but exists\n",
+                                                             pending_action->ref->remote,
+                                                             formatted_ref,
+                                                             name);
+                    g_string_append (deltas, msg);
+                  }
+              }
+
             break;
           default:
             g_assert_not_reached ();

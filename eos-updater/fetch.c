@@ -600,6 +600,7 @@ perform_action_preparation (FlatpakInstallation        *installation,
                                            cancellable,
                                            error);
       case EUU_FLATPAK_REMOTE_REF_ACTION_UNINSTALL:
+      case EUU_FLATPAK_REMOTE_REF_ACTION_PRUNE_REF:
         return TRUE;
       default:
         g_assert_not_reached ();
