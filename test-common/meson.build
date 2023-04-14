@@ -24,27 +24,11 @@ libeos_updater_test_common_headers = [
   'utils.h',
 ]
 
-# ostree-trivial-httpd is in libexecdir/libostree or
-# libexecdir/installed-tests/libostree if
-# https://github.com/ostreedev/ostree/pull/1633 is merged.
-# Unfortunately, but we don't know where ostree's libexecdir is. Try to
-# build a path for typical places.
-ostree_trivial_httpd = find_program(
-    'ostree-trivial-httpd',
-    join_paths(libexecdir, 'libostree/ostree-trivial-httpd'),
-    join_paths(libexecdir, 'installed-tests/libostree/ostree-trivial-httpd'),
-    '/usr/libexec/libostree/ostree-trivial-httpd',
-    '/usr/libexec/installed-tests/libostree/ostree-trivial-httpd',
-    '/usr/lib/libostree/ostree-trivial-httpd',
-    '/usr/lib/installed-tests/libostree/ostree-trivial-httpd',
-)
-
 libeos_updater_test_common_cppflags = [
   '-DFLATPAK_BINARY="@0@"'.format(find_program('flatpak').full_path()),
   '-DG_LOG_DOMAIN="eos-updater-test-common"',
   '-DGPG_BINARY="@0@"'.format(find_program('gpg').full_path()),
   '-DOSTREE_BINARY="@0@"'.format(find_program('ostree').full_path()),
-  '-DOSTREE_TRIVIAL_HTTPD_BINARY="@0@"'.format(ostree_trivial_httpd.full_path()),
   '-DOSTREE_WITH_AUTOCLEANUPS',
 ]
 

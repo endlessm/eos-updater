@@ -165,14 +165,4 @@ gboolean ostree_list_refs_in_repo (GFile      *repo,
                                    CmdResult  *cmd,
                                    GError    **error);
 
-/* due to some bug I don't know where (either my fault, or ostree
- * trivial-httpd's in lackluster or just cursory daemonizing or
- * g_spawn_sync's in pipe handling), we get no output here at all -
- * g_spawn_sync becomes stuck on reading pipes. */
-gboolean ostree_httpd (GFile *served_dir,
-                       GFile *port_file,
-                       GFile *log_file,
-                       CmdResult *cmd,
-                       GError **error);
-
 G_END_DECLS

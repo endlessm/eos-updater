@@ -30,10 +30,6 @@
 #error OSTREE_BINARY is not defined
 #endif
 
-#ifndef OSTREE_TRIVIAL_HTTPD_BINARY
-#error OSTREE_TRIVIAL_HTTPD_BINARY is not defined
-#endif
-
 static void
 copy_strv_to_ptr_array (const gchar * const *strv,
                         GPtrArray *array)
@@ -673,44 +669,4 @@ ostree_list_refs_in_repo (GFile      *repo,
                      NULL,
                      cmd,
                      error);
-}
-
-gboolean
-ostree_httpd (GFile *served_dir,
-              GFile *port_file,
-              GFile *log_file,
-              CmdResult *cmd,
-              GError **error)
-{
-  g_autofree gchar *raw_port_file = g_file_get_path (port_file);
-  g_autofree gchar *raw_served_dir = g_file_get_path (served_dir);
-  g_autofree gchar *raw_log_file = g_file_get_path (log_file);
-  CmdArg args[] =
-    {
-      { NULL, OSTREE_TRIVIAL_HTTPD_BINARY },
-      { "autoexit", NULL },
-      { "daemonize", NULL },
-      { "port-file", raw_port_file },
-      { "log-file", raw_log_file },
-      { NULL, raw_served_dir },
-      { NULL, NULL }
-    };
-  g_auto(GStrv) argv = build_cmd_args (args);
-  CmdEnvVar envv[] =
-    {
-      { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
-      { "G_DEBUG", "gc-friendly,fatal-warnings", NULL },
-      { NULL, NULL, NULL },
-    };
-  g_auto(GStrv) envp = build_cmd_env (envv);
-
-  if (!test_spawn_cwd_full (NULL,
-                            (const gchar * const *) argv,
-                            (const gchar * const *) envp,
-                            TRUE,
-                            cmd,
-                            error))
-    return FALSE;
-
-  return TRUE;
 }
