@@ -6,6 +6,7 @@ libeos_updater_test_common_sources = [
   'convenience.c',
   'flatpak-spawn.c',
   'gpg.c',
+  'httpd.c',
   'misc-utils.c',
   'ostree-spawn.c',
   'spawn-utils.c',
@@ -16,6 +17,7 @@ libeos_updater_test_common_headers = [
   'convenience.h',
   'flatpak-spawn.h',
   'gpg.h',
+  'httpd.h',
   'misc-utils.h',
   'ostree-spawn.h',
   'spawn-utils.h',
@@ -51,6 +53,7 @@ libeos_updater_test_common_deps = [
   dependency('gio-unix-2.0', version: '>= 2.62'),
   dependency('glib-2.0', version: '>= 2.70'),
   dependency('gobject-2.0', version: '>= 2.62'),
+  dependency('libsoup-2.4', version: '>= 2.52'),
   dependency('ostree-1', version: '>= 2019.2'),
   libeos_updater_util_dep,
 ]
