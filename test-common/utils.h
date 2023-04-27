@@ -27,6 +27,7 @@
 #include <gio/gio.h>
 #include <ostree.h>
 
+#include "httpd.h"
 #include "spawn-utils.h"
 
 G_BEGIN_DECLS
@@ -193,6 +194,7 @@ struct _EosTestServer
   GObject parent_instance;
 
   GFile *root;
+  Httpd *httpd;  /* (owned) */
   gchar *url;
   GPtrArray *subservers;
 };

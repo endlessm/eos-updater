@@ -23,6 +23,7 @@
  */
 
 #include <test-common/gpg.h>
+#include <test-common/httpd.h>
 #include <test-common/misc-utils.h>
 #include <test-common/ostree-spawn.h>
 #include <test-common/utils.h>
@@ -1052,6 +1053,8 @@ eos_test_server_dispose (GObject *object)
   EosTestServer *self = EOS_TEST_SERVER (object);
 
   g_clear_object (&self->root);
+  g_clear_pointer (&self->httpd, httpd_free);
+  g_clear_pointer (&self->url, g_free);
   g_clear_pointer (&self->subservers, g_ptr_array_unref);
 
   G_OBJECT_CLASS (eos_test_server_parent_class)->dispose (object);
@@ -1083,31 +1086,16 @@ eos_test_server_init (EosTestServer *self)
 }
 
 static gboolean
-run_httpd (GFile *served_root,
-           GFile *httpd_dir,
-           gchar **out_url,
+run_httpd (GFile   *served_root,
+           Httpd  **out_httpd,
            GError **error)
 {
-  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
-  g_autoptr(GFile) port_file = g_file_get_child (httpd_dir, "port-file");
-  g_autoptr(GFile) log_file = g_file_get_child (httpd_dir, "httpd-log");
-  guint16 port;
+  g_autoptr(Httpd) httpd = httpd_new (served_root);
 
-  if (!ostree_httpd (served_root,
-                     port_file,
-                     log_file,
-                     &cmd,
-                     error))
-    return FALSE;
-  if (!cmd_result_ensure_ok (&cmd, error))
+  if (!httpd_start (httpd, error))
     return FALSE;
 
-  if (!read_port_file (port_file,
-                       &port,
-                       error))
-    return FALSE;
-
-  *out_url = g_strdup_printf ("http://127.0.0.1:%" G_GUINT16_FORMAT, port);
+  *out_httpd = g_steal_pointer (&httpd);
   return TRUE;
 }
 
@@ -1121,12 +1109,6 @@ static GFile *
 get_main_served_root (GFile *main_root)
 {
   return g_file_get_child (main_root, "served");
-}
-
-static GFile *
-get_main_httpd_dir (GFile *main_root)
-{
-  return g_file_get_child (main_root, "httpd");
 }
 
 static gboolean
@@ -1178,30 +1160,25 @@ eos_test_server_new (GFile *server_root,
                      GError **error)
 {
   g_autoptr(EosTestServer) server = NULL;
+  g_autoptr(Httpd) httpd = NULL;
   g_autofree gchar *server_url = NULL;
   g_autoptr(GFile) served_root = NULL;
-  g_autoptr(GFile) httpd_dir = NULL;
 
   if (!setup_subservers (subservers,
                          server_root,
                          error))
     return FALSE;
 
-  httpd_dir = get_main_httpd_dir (server_root);
-  if (!create_directory (httpd_dir, error))
-    return FALSE;
-
   served_root = get_main_served_root (server_root);
-  if (!run_httpd (served_root,
-                  httpd_dir,
-                  &server_url,
-                  error))
+  if (!run_httpd (served_root, &httpd, error))
     return FALSE;
 
+  server_url = g_strdup (httpd_get_url (httpd));
   update_subserver_urls (subservers, server_url);
 
   server = g_object_new (EOS_TEST_TYPE_SERVER, NULL);
   server->root = g_object_ref (server_root);
+  server->httpd = g_steal_pointer (&httpd);
   server->url = g_steal_pointer (&server_url);
   server->subservers = g_ptr_array_ref (subservers);
 

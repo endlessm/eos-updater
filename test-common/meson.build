@@ -6,6 +6,7 @@ libeos_updater_test_common_sources = [
   'convenience.c',
   'flatpak-spawn.c',
   'gpg.c',
+  'httpd.c',
   'misc-utils.c',
   'ostree-spawn.c',
   'spawn-utils.c',
@@ -16,33 +17,18 @@ libeos_updater_test_common_headers = [
   'convenience.h',
   'flatpak-spawn.h',
   'gpg.h',
+  'httpd.h',
   'misc-utils.h',
   'ostree-spawn.h',
   'spawn-utils.h',
   'utils.h',
 ]
 
-# ostree-trivial-httpd is in libexecdir/libostree or
-# libexecdir/installed-tests/libostree if
-# https://github.com/ostreedev/ostree/pull/1633 is merged.
-# Unfortunately, but we don't know where ostree's libexecdir is. Try to
-# build a path for typical places.
-ostree_trivial_httpd = find_program(
-    'ostree-trivial-httpd',
-    join_paths(libexecdir, 'libostree/ostree-trivial-httpd'),
-    join_paths(libexecdir, 'installed-tests/libostree/ostree-trivial-httpd'),
-    '/usr/libexec/libostree/ostree-trivial-httpd',
-    '/usr/libexec/installed-tests/libostree/ostree-trivial-httpd',
-    '/usr/lib/libostree/ostree-trivial-httpd',
-    '/usr/lib/installed-tests/libostree/ostree-trivial-httpd',
-)
-
 libeos_updater_test_common_cppflags = [
   '-DFLATPAK_BINARY="@0@"'.format(find_program('flatpak').full_path()),
   '-DG_LOG_DOMAIN="eos-updater-test-common"',
   '-DGPG_BINARY="@0@"'.format(find_program('gpg').full_path()),
   '-DOSTREE_BINARY="@0@"'.format(find_program('ostree').full_path()),
-  '-DOSTREE_TRIVIAL_HTTPD_BINARY="@0@"'.format(ostree_trivial_httpd.full_path()),
   '-DOSTREE_WITH_AUTOCLEANUPS',
 ]
 
@@ -51,6 +37,7 @@ libeos_updater_test_common_deps = [
   dependency('gio-unix-2.0', version: '>= 2.62'),
   dependency('glib-2.0', version: '>= 2.70'),
   dependency('gobject-2.0', version: '>= 2.62'),
+  dependency('libsoup-2.4', version: '>= 2.52'),
   dependency('ostree-1', version: '>= 2019.2'),
   libeos_updater_util_dep,
 ]
