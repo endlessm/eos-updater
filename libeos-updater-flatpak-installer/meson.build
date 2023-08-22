@@ -61,4 +61,6 @@ libeos_updater_flatpak_installer_gir = gnome.generate_gir(libeos_updater_flatpak
   fatal_warnings: true,
 )
 
-subdir('tests')
+if get_option('tests')
+  subdir('tests')
+endif

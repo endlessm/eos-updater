@@ -149,4 +149,6 @@ subdir('eos-updater-avahi')
 subdir('eos-updater-ctl')
 subdir('eos-updater-flatpak-installer')
 subdir('eos-updater-prepare-volume')
-subdir('tests')
+if get_option('tests')
+  subdir('tests')
+endif
