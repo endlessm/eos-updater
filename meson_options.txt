@@ -19,3 +19,9 @@ option(
   value: 43381,
   description: 'port number for the update server',
 )
+option(
+  'tests',
+  type: 'boolean',
+  value: true,
+  description: 'Whether to build and run unit tests'
+)
