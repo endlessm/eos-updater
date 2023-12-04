@@ -31,7 +31,6 @@ libeos_updater_dbus_deps = [
   gio_unix_dep,
   glib_dep,
   gobject_dep,
-  libsoup_dep,
   mogwai_dep,
   ostree_dep,
   libeos_updater_util_dep,

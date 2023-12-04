@@ -34,7 +34,6 @@
 #include <libeos-updater-util/metrics-private.h>
 #include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
-#include <libsoup/soup.h>
 #include <ostree.h>
 #include <string.h>
 #include <sys/stat.h>

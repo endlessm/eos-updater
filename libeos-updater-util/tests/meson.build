@@ -8,7 +8,6 @@ deps = [
   gobject_dep,
   json_glib_dep,
   ostree_dep,
-  libsoup_dep,
   libeos_updater_util_dep,
 ]
 
