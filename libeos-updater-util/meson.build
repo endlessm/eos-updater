@@ -38,7 +38,6 @@ libeos_updater_util_deps = [
   glib_dep,
   gobject_dep,
   json_glib_dep,
-  libsoup_dep,
   ostree_dep,
 ]
 
