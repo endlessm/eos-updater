@@ -75,16 +75,13 @@ typedef enum
 static GParamSpec *props[PROP_LAST_REQUEST_TIME + 1] = { NULL, };
 
 static void request_read_cb (SoupServer        *soup_server,
-                             SoupMessage       *message,
-                             SoupClientContext *client,
+                             SoupServerMessage *message,
                              gpointer           user_data);
 static void request_finished_cb (SoupServer        *soup_server,
-                                 SoupMessage       *message,
-                                 SoupClientContext *client,
+                                 SoupServerMessage *message,
                                  gpointer           user_data);
 static void request_aborted_cb (SoupServer        *soup_server,
-                                SoupMessage       *message,
-                                SoupClientContext *client,
+                                SoupServerMessage *message,
                                 gpointer           user_data);
 
 static void
@@ -275,8 +272,7 @@ update_pending_requests (EusServer *self,
 
 static void
 request_read_cb (SoupServer        *soup_server,
-                 SoupMessage       *message,
-                 SoupClientContext *client,
+                 SoupServerMessage *message,
                  gpointer           user_data)
 {
   EusServer *self = EUS_SERVER (user_data);
@@ -286,8 +282,7 @@ request_read_cb (SoupServer        *soup_server,
 
 static void
 request_finished_cb (SoupServer        *soup_server,
-                     SoupMessage       *message,
-                     SoupClientContext *client,
+                     SoupServerMessage *message,
                      gpointer           user_data)
 {
   EusServer *self = EUS_SERVER (user_data);
@@ -297,8 +292,7 @@ request_finished_cb (SoupServer        *soup_server,
 
 static void
 request_aborted_cb (SoupServer        *soup_server,
-                    SoupMessage       *message,
-                    SoupClientContext *client,
+                    SoupServerMessage *message,
                     gpointer           user_data)
 {
   EusServer *self = EUS_SERVER (user_data);

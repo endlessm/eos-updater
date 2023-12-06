@@ -58,34 +58,37 @@ httpd_data_free (HttpdData *data)
 }
 
 static void
-log_httpd_message (SoupMessage *msg,
-                   const char  *path)
+log_httpd_message (SoupServerMessage *msg,
+                   const char        *path)
 {
+  guint status = soup_server_message_get_status (msg);
+  const char *reason = soup_server_message_get_reason_phrase (msg);
+  const char *method = soup_server_message_get_method (msg);
   g_autoptr(GDateTime) now = NULL;
   g_autofree gchar *now_str = NULL;
 
-  g_assert_cmpuint (msg->status_code, !=, 0);
-  g_assert_nonnull (msg->reason_phrase);
+  g_assert_cmpuint (status, !=, 0);
+  g_assert_nonnull (reason);
   now = g_date_time_new_now_local ();
   now_str = g_date_time_format_iso8601 (now);
-  g_test_message ("%s %s /%s: %u %s",
-                  now_str, msg->method, path, msg->status_code, msg->reason_phrase);
+  g_test_message ("%s %s /%s: %u %s", now_str, method, path, status, reason);
 }
 
 static void
 httpd_handler (SoupServer        *server,
-               SoupMessage       *msg,
+               SoupServerMessage *msg,
                const char        *path,
                GHashTable        *query,
-               SoupClientContext *client,
                gpointer           user_data)
 {
   GFile *root = G_FILE (user_data);
+  const char *method = soup_server_message_get_method (msg);
+  SoupMessageHeaders *request_headers = soup_server_message_get_request_headers (msg);
+  SoupMessageHeaders *response_headers = soup_server_message_get_response_headers (msg);
   g_autoptr(GFile) child = NULL;
   g_autoptr(GFileInfo) info = NULL;
   g_autoptr(GError) error = NULL;
   g_autoptr(GDateTime) modified_dt = NULL;
-  g_autoptr(SoupDate) modified_st = NULL;
   g_autofree char *last_modified = NULL;
   const char *content_type;
   const char *etag_value;
@@ -94,11 +97,11 @@ httpd_handler (SoupServer        *server,
   const char *if_modified_since;
   gboolean not_modified = FALSE;
 
-  g_debug ("Received %s %s", msg->method, path);
+  g_debug ("Received %s %s", method, path);
 
-  if (msg->method != SOUP_METHOD_HEAD && msg->method != SOUP_METHOD_GET)
+  if (method != SOUP_METHOD_HEAD && method != SOUP_METHOD_GET)
     {
-      soup_message_set_status (msg, SOUP_STATUS_METHOD_NOT_ALLOWED);
+      soup_server_message_set_status (msg, SOUP_STATUS_METHOD_NOT_ALLOWED, NULL);
       return log_httpd_message (msg, path);
     }
 
@@ -108,7 +111,7 @@ httpd_handler (SoupServer        *server,
   child = g_file_get_child (root, path);
   if (!g_file_equal (child, root) && !g_file_has_prefix (child, root))
     {
-      soup_message_set_status (msg, SOUP_STATUS_FORBIDDEN);
+      soup_server_message_set_status (msg, SOUP_STATUS_FORBIDDEN, NULL);
       return log_httpd_message (msg, path);
     }
 
@@ -125,28 +128,27 @@ httpd_handler (SoupServer        *server,
     {
       if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
         {
-          soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+          soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
         }
       else
         {
           g_autofree gchar *child_path = g_file_get_path (child);
 
           g_error ("Could not query file %s: %s", child_path, error->message);
-          soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
+          soup_server_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR, NULL);
         }
       return log_httpd_message (msg, path);
     }
 
   if (g_file_info_get_file_type (info) != G_FILE_TYPE_REGULAR)
     {
-      soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
+      soup_server_message_set_status (msg, SOUP_STATUS_BAD_REQUEST, NULL);
       return log_httpd_message (msg, path);
     }
 
   modified_dt = g_file_info_get_modification_date_time (info);
-  modified_st = soup_date_new_from_time_t (g_date_time_to_unix (modified_dt));
-  last_modified = soup_date_to_string (modified_st, SOUP_DATE_HTTP);
-  soup_message_headers_append (msg->response_headers, "Last-Modified", last_modified);
+  last_modified = soup_date_time_to_string (modified_dt, SOUP_DATE_HTTP);
+  soup_message_headers_append (response_headers, "Last-Modified", last_modified);
 
   content_type = g_file_info_get_content_type (info);
   if (!content_type)
@@ -156,7 +158,7 @@ httpd_handler (SoupServer        *server,
   if (etag_value != NULL)
     {
       etag = g_strdup_printf ("\"%s\"", etag_value);
-      soup_message_headers_append (msg->response_headers, "ETag", etag);
+      soup_message_headers_append (response_headers, "ETag", etag);
     }
 
   /* Handle If-None-Match and If-Modified-Since. Per
@@ -164,33 +166,29 @@ httpd_handler (SoupServer        *server,
    * If-Modified-Since is ignored if If-None-Match is sent and is supported by
    * the server.
    */
-  if_none_match = soup_message_headers_get_one (msg->request_headers, "If-None-Match");
-  if_modified_since = soup_message_headers_get_one (msg->request_headers, "If-Modified-Since");
+  if_none_match = soup_message_headers_get_one (request_headers, "If-None-Match");
+  if_modified_since = soup_message_headers_get_one (request_headers, "If-Modified-Since");
   if (etag != NULL && if_none_match != NULL)
     {
       not_modified = (g_strcmp0 (etag, if_none_match) == 0);
     }
   else if (modified_dt != NULL && if_modified_since != NULL)
     {
-      g_autoptr(SoupDate) if_modified_since_sd = NULL;
       g_autoptr(GDateTime) if_modified_since_dt = NULL;
 
-      if_modified_since_sd = soup_date_new_from_string (if_modified_since);
-      if (if_modified_since_sd != NULL)
-        if_modified_since_dt =
-          g_date_time_new_from_unix_utc (soup_date_to_time_t (if_modified_since_sd));
+      if_modified_since_dt = soup_date_time_new_from_http_string (if_modified_since);
       if (if_modified_since_dt != NULL)
         not_modified = (g_date_time_compare (modified_dt, if_modified_since_dt) <= 0);
     }
 
-  if (not_modified || msg->method == SOUP_METHOD_HEAD)
+  if (not_modified || method == SOUP_METHOD_HEAD)
     {
       g_autofree gchar *length = g_strdup_printf ("%" G_GOFFSET_FORMAT, g_file_info_get_size (info));
       guint status = not_modified ? SOUP_STATUS_NOT_MODIFIED : SOUP_STATUS_OK;
 
-      soup_message_headers_append (msg->response_headers, "Content-Length", length);
-      soup_message_headers_append (msg->response_headers, "Content-Type", content_type);
-      soup_message_set_status (msg, status);
+      soup_message_headers_append (response_headers, "Content-Length", length);
+      soup_message_headers_append (response_headers, "Content-Type", content_type);
+      soup_server_message_set_status (msg, status, NULL);
     }
   else
     {
@@ -201,20 +199,21 @@ httpd_handler (SoupServer        *server,
         {
           if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
             {
-              soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+              soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
             }
           else
             {
               g_autofree gchar *child_path = g_file_get_path (child);
 
               g_error ("Could not load file %s: %s", child_path, error->message);
-              soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
+              soup_server_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR, NULL);
             }
           return log_httpd_message (msg, path);
         }
 
-      soup_message_set_response (msg, content_type, SOUP_MEMORY_TAKE, g_steal_pointer (&contents), length);
-      soup_message_set_status (msg, SOUP_STATUS_OK);
+      soup_server_message_set_response (msg, content_type, SOUP_MEMORY_TAKE,
+                                        g_steal_pointer (&contents), length);
+      soup_server_message_set_status (msg, SOUP_STATUS_OK, NULL);
     }
 
   return log_httpd_message (msg, path);
@@ -246,8 +245,8 @@ httpd_thread (gpointer thread_data)
                            "HTTP server does not have any URLs");
       return g_steal_pointer (&error);
     }
-  url = soup_uri_to_string ((SoupURI *) uris->data, FALSE);
-  g_slist_free_full (g_steal_pointer (&uris), (GDestroyNotify) soup_uri_free);
+  url = g_uri_to_string_partial ((GUri *) uris->data, G_URI_HIDE_PASSWORD);
+  g_slist_free_full (g_steal_pointer (&uris), (GDestroyNotify) g_uri_unref);
 
   g_test_message ("Starting HTTP server on %s", url);
   g_atomic_pointer_set (&data->url, g_steal_pointer (&url));

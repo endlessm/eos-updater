@@ -23,7 +23,7 @@ Build-Depends:
  libmogwai-schedule-client-0-dev,
  libnm-dev (>= 1.2.0),
  libostree-dev (>= 2019.2),
- libsoup2.4-dev (>= 2.52),
+ libsoup-3.0-dev (>= 3.2),
  libsystemd-dev,
  meson (>= 0.60.0),
  ostree (>= 2017.12),

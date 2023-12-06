@@ -325,22 +325,22 @@ typedef GSList URIList;
 static void
 uri_list_free (URIList *uris)
 {
-  g_slist_free_full (uris, (GDestroyNotify)soup_uri_free);
+  g_slist_free_full (uris, (GDestroyNotify)g_uri_unref);
 }
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (URIList, uri_list_free)
 
 static gboolean
-get_first_uri_from_server (SoupServer *server,
-                           SoupURI **out_uri,
-                           GError **error)
+get_first_uri_from_server (SoupServer  *server,
+                           GUri       **out_uri,
+                           GError     **error)
 {
   g_autoptr(URIList) uris = soup_server_get_uris (server);
   URIList *iter;
 
   for (iter = uris; iter != NULL; iter = iter->next)
     {
-      SoupURI *uri = iter->data;
+      GUri *uri = iter->data;
 
       if (uri == NULL)
         continue;
@@ -368,7 +368,7 @@ listen_local (SoupServer *server,
 
   if (options->raw_port_path != NULL)
     {
-      g_autoptr(SoupURI) uri = NULL;
+      g_autoptr(GUri) uri = NULL;
       g_autoptr(GFile) file = NULL;
       g_autofree gchar *contents = NULL;
 
@@ -376,7 +376,7 @@ listen_local (SoupServer *server,
         return FALSE;
 
       file = g_file_new_for_path (options->raw_port_path);
-      contents = g_strdup_printf ("%u", soup_uri_get_port (uri));
+      contents = g_strdup_printf ("%d", g_uri_get_port (uri));
       if (!g_file_replace_contents (file,
                                     contents,
                                     strlen (contents),
@@ -398,6 +398,7 @@ start_listening (SoupServer *server,
                  GError **error)
 {
   int result;
+  g_autoptr(GSocket) socket = NULL;
 
   if (options->local_port > 0 || options->raw_port_path)
     return listen_local (server, options, error);
@@ -424,7 +425,14 @@ start_listening (SoupServer *server,
       return FALSE;
     }
 
-  return soup_server_listen_fd (server, SD_LISTEN_FDS_START, 0, error);
+  socket = g_socket_new_from_fd (SD_LISTEN_FDS_START, error);
+  if (socket == NULL)
+    {
+      g_prefix_error (error, "Failed to initialize listen socket from systemd");
+      return FALSE;
+    }
+
+  return soup_server_listen_socket (server, socket, 0, error);
 }
 
 /* Create an #EusRepo to wrap the given #OstreeRepo and add it to the
