@@ -227,7 +227,7 @@ httpd_thread (gpointer thread_data)
   HttpdData *data = thread_data;
   GMainContext *context = data->context;
   g_autoptr(GMainContextPusher) pusher = g_main_context_pusher_new (context);
-  g_autoptr(GSList) uris = NULL;
+  GSList *uris;
   g_autofree gchar *url = NULL;
   g_autoptr(GError) error = NULL;
 
@@ -247,6 +247,7 @@ httpd_thread (gpointer thread_data)
       return g_steal_pointer (&error);
     }
   url = soup_uri_to_string ((SoupURI *) uris->data, FALSE);
+  g_slist_free_full (g_steal_pointer (&uris), (GDestroyNotify) soup_uri_free);
 
   g_test_message ("Starting HTTP server on %s", url);
   g_atomic_pointer_set (&data->url, g_steal_pointer (&url));
