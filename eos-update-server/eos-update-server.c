@@ -320,23 +320,13 @@ timeout_data_clear (TimeoutData *data)
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (TimeoutData, timeout_data_clear)
 
-typedef GSList URIList;
-
-static void
-uri_list_free (URIList *uris)
-{
-  g_slist_free_full (uris, (GDestroyNotify)g_uri_unref);
-}
-
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (URIList, uri_list_free)
-
 static gboolean
 get_first_uri_from_server (SoupServer  *server,
                            GUri       **out_uri,
                            GError     **error)
 {
-  g_autoptr(URIList) uris = soup_server_get_uris (server);
-  URIList *iter;
+  g_autoslist(GUri) uris = soup_server_get_uris (server);
+  GSList *iter;
 
   for (iter = uris; iter != NULL; iter = iter->next)
     {
