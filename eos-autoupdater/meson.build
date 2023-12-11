@@ -6,10 +6,10 @@ eos_autoupdater_sources = [
 ] + eos_updater_resources
 
 eos_autoupdater_deps = [
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('libnm', version: '>= 1.2.0'),
+  gio_dep,
+  glib_dep,
+  gobject_dep,
+  libnm_dep,
   libeos_updater_dbus_dep,
   libeos_updater_util_dep,
 ]
@@ -34,13 +34,13 @@ config.set('libexecdir', join_paths(get_option('prefix'), get_option('libexecdir
 configure_file(
   input: 'eos-autoupdater.service.in',
   output: 'eos-autoupdater.service',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 configure_file(
   input: 'eos-autoupdater.timer.in',
   output: 'eos-autoupdater.timer',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 

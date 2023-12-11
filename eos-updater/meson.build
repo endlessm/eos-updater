@@ -23,17 +23,16 @@ libeos_updater_dbus_cppflags = [
 ]
 
 libeos_updater_dbus_deps = [
-  dependency('avahi-client', version: '>= 0.6.31'),
-  dependency('avahi-glib', version: '>= 0.6.31'),
+  avahi_client_dep,
+  avahi_glib_dep,
   eosmetrics_dep,
-  dependency('flatpak', version: '>= 1.1.2'),
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('gio-unix-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('libsoup-2.4'),
-  dependency('mogwai-schedule-client-0'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  flatpak_dep,
+  gio_dep,
+  gio_unix_dep,
+  glib_dep,
+  gobject_dep,
+  mogwai_dep,
+  ostree_dep,
   libeos_updater_util_dep,
 ]
 
@@ -112,21 +111,21 @@ config.set('ostree', find_program('ostree').full_path())
 configure_file(
   input: 'eos-updater.service.in',
   output: 'eos-updater.service',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 
 configure_file(
   input: 'eos-updater-autocleanup.service.in',
   output: 'eos-updater-autocleanup.service',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 
 configure_file(
   input: 'finalize-autocleanup.conf.in',
   output: 'autocleanup.conf',
-  install_dir: join_paths(dependency('systemd').get_variable('systemdsystemunitdir'), 'ostree-finalize-staged.service.d'),
+  install_dir: join_paths(systemd_dep.get_variable('systemdsystemunitdir'), 'ostree-finalize-staged.service.d'),
   configuration: config,
 )
 

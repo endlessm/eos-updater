@@ -18,12 +18,12 @@ libeos_updater_flatpak_installer_cppflags = [
 ]
 
 libeos_updater_flatpak_installer_deps = [
-  dependency('flatpak', version: '>= 1.1.2'),
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('json-glib-1.0', version: '>= 1.2.6'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  flatpak_dep,
+  gio_dep,
+  glib_dep,
+  gobject_dep,
+  json_glib_dep,
+  ostree_dep,
   libeos_updater_util_dep,
 ]
 

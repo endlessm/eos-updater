@@ -419,7 +419,7 @@ struct _EosFilezReadData
   EusRepo *server_repo;
   gpointer buffer;
   gsize buflen;
-  SoupMessage *msg;
+  SoupServerMessage *msg;
   gchar *filez_path;
 
   gulong finished_signal_id;
@@ -476,7 +476,7 @@ eos_filez_read_data_init (EosFilezReadData *self)
 }
 
 static void
-filez_read_data_finished_cb (SoupMessage *msg,
+filez_read_data_finished_cb (SoupServerMessage *msg,
                              gpointer read_data_ptr)
 {
   EosFilezReadData *read_data = EOS_FILEZ_READ_DATA (read_data_ptr);
@@ -486,10 +486,10 @@ filez_read_data_finished_cb (SoupMessage *msg,
 }
 
 static EosFilezReadData *
-filez_read_data_new (EusRepo     *self,
-                     gsize        buflen,
-                     SoupMessage *msg,
-                     const gchar *filez_path)
+filez_read_data_new (EusRepo           *self,
+                     gsize              buflen,
+                     SoupServerMessage *msg,
+                     const gchar       *filez_path)
 {
   EosFilezReadData *read_data;
 
@@ -524,18 +524,20 @@ filez_stream_read_chunk_cb (GObject *stream_object,
                                                   result,
                                                   &error);
   EusRepo *self;
+  SoupMessageBody *body;
 
   if (read_data->msg == NULL)
     /* got cancelled */
     return;
 
   self = read_data->server_repo;
+  body = soup_server_message_get_response_body (read_data->msg);
   if (bytes_read < 0)
     {
       g_warning ("Failed to read the file %s: %s", read_data->filez_path, error->message);
-      soup_message_set_status (read_data->msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
-      soup_message_body_complete (read_data->msg->response_body);
-      soup_server_unpause_message (self->server, read_data->msg);
+      soup_server_message_set_status (read_data->msg, SOUP_STATUS_INTERNAL_SERVER_ERROR, NULL);
+      soup_message_body_complete (body);
+      soup_server_message_unpause (read_data->msg);
       return;
     }
   if (bytes_read > 0)
@@ -545,11 +547,11 @@ filez_stream_read_chunk_cb (GObject *stream_object,
       GCancellable *cancellable;
 
       g_debug ("Read %" G_GSSIZE_FORMAT " bytes of the file %s", bytes_read, read_data->filez_path);
-      soup_message_body_append (read_data->msg->response_body,
+      soup_message_body_append (body,
                                 SOUP_MEMORY_COPY,
                                 read_data->buffer,
                                 (gsize) bytes_read);
-      soup_server_unpause_message (self->server, read_data->msg);
+      soup_server_message_unpause (read_data->msg);
 
       buffer = read_data->buffer;
       buflen = read_data->buflen;
@@ -564,14 +566,14 @@ filez_stream_read_chunk_cb (GObject *stream_object,
       return;
     }
   g_debug ("Finished reading file %s", read_data->filez_path);
-  soup_message_body_complete (read_data->msg->response_body);
-  soup_server_unpause_message (self->server, read_data->msg);
+  soup_message_body_complete (body);
+  soup_server_message_unpause (read_data->msg);
 }
 
 static void
-handle_objects_filez (EusRepo     *self,
-                      SoupMessage *msg,
-                      const gchar *requested_path)
+handle_objects_filez (EusRepo           *self,
+                      SoupServerMessage *msg,
+                      const gchar       *requested_path)
 {
   g_autoptr(GError) error = NULL;
   g_autofree gchar *checksum = NULL;
@@ -586,7 +588,7 @@ handle_objects_filez (EusRepo     *self,
   if (checksum == NULL)
     {
       g_warning ("Failed to get checksum of the filez object %s: %s", requested_path, error->message);
-      soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+      soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
       return;
     }
   g_debug ("Got checksum: %s", checksum);
@@ -599,14 +601,14 @@ handle_objects_filez (EusRepo     *self,
                                     &error))
     {
       g_warning ("Failed to get stream to the filez object %s: %s", requested_path, error->message);
-      soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+      soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
       return;
     }
 
   g_debug ("Sending %s", requested_path);
-  soup_message_headers_set_encoding (msg->response_headers,
+  soup_message_headers_set_encoding (soup_server_message_get_response_headers (msg),
                                      SOUP_ENCODING_CHUNKED);
-  soup_message_set_status (msg, SOUP_STATUS_OK);
+  soup_server_message_set_status (msg, SOUP_STATUS_OK, NULL);
   read_data = filez_read_data_new (self,
                                    MIN (2 * 1024 * 1024, (gsize) (uncompressed_size + 1)),
                                    msg,
@@ -620,7 +622,7 @@ handle_objects_filez (EusRepo     *self,
                              self->cancellable,
                              filez_stream_read_chunk_cb,
                              g_steal_pointer (&read_data));
-  soup_server_pause_message (self->server, msg);
+  soup_server_message_pause (msg);
   return;
 }
 
@@ -668,19 +670,19 @@ path_is_summary (const gchar *path)
 }
 
 static gboolean
-serve_file_if_exists (SoupMessage *msg,
-                      const gchar *root,
-                      const gchar *raw_path,
-                      GCancellable *cancellable,
-                      gboolean *served)
+serve_file_if_exists (SoupServerMessage *msg,
+                      const gchar       *root,
+                      const gchar       *raw_path,
+                      GCancellable      *cancellable,
+                      gboolean          *served)
 {
   g_autoptr(GFile) path = g_file_new_for_path (raw_path);
   g_autoptr(GFile) root_path = g_file_new_for_path (root);
   g_autoptr(GMappedFile) mapping = NULL;
   g_autoptr(GBytes) file_bytes = NULL;
   g_autoptr(GError) error = NULL;
-  g_autoptr(SoupBuffer) buffer = NULL;
   GFileType file_type;
+  SoupMessageBody *body;
 
   /* Security check to ensure we don’t get tricked into serving files which
    * are outside the document root. This canonicalises the paths but does not
@@ -728,7 +730,7 @@ serve_file_if_exists (SoupMessage *msg,
       if (!g_file_get_contents (raw_path, &contents, &contents_len, &error))
         {
           g_warning ("Failed to load ‘%s’: %s", raw_path, error->message);
-          soup_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
+          soup_server_message_set_status (msg, SOUP_STATUS_INTERNAL_SERVER_ERROR, NULL);
           return FALSE;
         }
 
@@ -737,23 +739,19 @@ serve_file_if_exists (SoupMessage *msg,
     }
 
   g_debug ("Serving %s", raw_path);
-  buffer = soup_buffer_new_with_owner (g_bytes_get_data (file_bytes, NULL),
-                                       g_bytes_get_size (file_bytes),
-                                       g_bytes_ref (file_bytes),
-                                       (GDestroyNotify) g_bytes_unref);
-  if (buffer->length > 0)
-    soup_message_body_append_buffer (msg->response_body, buffer);
-  soup_message_set_status (msg, SOUP_STATUS_OK);
+  body = soup_server_message_get_response_body (msg);
+  soup_message_body_append_bytes (body, file_bytes);
+  soup_server_message_set_status (msg, SOUP_STATUS_OK, NULL);
   *served = TRUE;
 
   return TRUE;
 }
 
 static void
-serve_file (SoupMessage *msg,
-            const gchar *root,
-            const gchar *raw_path,
-            GCancellable *cancellable)
+serve_file (SoupServerMessage *msg,
+            const gchar       *root,
+            const gchar       *raw_path,
+            GCancellable      *cancellable)
 {
   gboolean served = FALSE;
 
@@ -763,55 +761,40 @@ serve_file (SoupMessage *msg,
   if (!served)
     {
       g_debug ("File %s not found", raw_path);
-      soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+      soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
     }
 }
 
 static void
-handle_as_is (EusRepo     *self,
-              SoupMessage *msg,
-              const gchar *requested_path)
+handle_as_is (EusRepo           *self,
+              SoupServerMessage *msg,
+              const gchar       *requested_path)
 {
   g_autofree gchar *raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
 
   serve_file (msg, self->cached_repo_root, raw_path, self->cancellable);
 }
 
-static SoupBuffer *
-buffer_from_bytes (GBytes *bytes)
+static void
+send_bytes (SoupServerMessage *msg,
+            GBytes            *bytes)
 {
-  gconstpointer raw;
-  gsize len;
-
-  raw = g_bytes_get_data (bytes, &len);
-  return soup_buffer_new_with_owner (raw,
-                                     len,
-                                     g_bytes_ref (bytes),
-                                     (GDestroyNotify)g_bytes_unref);
+  SoupMessageBody *body = soup_server_message_get_response_body (msg);
+  soup_message_body_append_bytes (body, bytes);
+  soup_server_message_set_status (msg, SOUP_STATUS_OK, NULL);
 }
 
 static void
-send_bytes (SoupMessage *msg,
-            GBytes *bytes)
-{
-  g_autoptr(SoupBuffer) buffer = buffer_from_bytes (bytes);
-
-  if (buffer->length > 0)
-    soup_message_body_append_buffer (msg->response_body, buffer);
-  soup_message_set_status (msg, SOUP_STATUS_OK);
-}
-
-static void
-handle_config (EusRepo     *self,
-               SoupMessage *msg)
+handle_config (EusRepo           *self,
+               SoupServerMessage *msg)
 {
   send_bytes (msg, self->cached_config);
 }
 
 static void
-handle_summary (EusRepo     *self,
-                SoupMessage *msg,
-                const gchar *requested_path)
+handle_summary (EusRepo           *self,
+                SoupServerMessage *msg,
+                const gchar       *requested_path)
 {
   g_autofree gchar *raw_path = g_build_filename (self->cached_repo_root, requested_path, NULL);
   gboolean served = FALSE;
@@ -831,7 +814,7 @@ handle_summary (EusRepo     *self,
     {
       g_debug ("Error regenerating summary: %s", local_error->message);
       g_clear_error (&local_error);
-      soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+      soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
       return;
     }
 
@@ -839,9 +822,9 @@ handle_summary (EusRepo     *self,
 }
 
 static void
-handle_refs_heads (EusRepo     *self,
-                   SoupMessage *msg,
-                   const gchar *requested_path)
+handle_refs_heads (EusRepo           *self,
+                   SoupServerMessage *msg,
+                   const gchar       *requested_path)
 {
   const gsize prefix_len = strlen ("/refs/heads/");
   const gsize requested_path_len = strlen (requested_path);
@@ -852,7 +835,7 @@ handle_refs_heads (EusRepo     *self,
   if (requested_path_len <= prefix_len)
     {
       g_debug ("Invalid request for /refs/heads/");
-      soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
+      soup_server_message_set_status (msg, SOUP_STATUS_BAD_REQUEST, NULL);
       return;
     }
 
@@ -883,9 +866,9 @@ handle_refs_heads (EusRepo     *self,
 }
 
 static void
-handle_refs_mirrors (EusRepo     *self,
-                     SoupMessage *msg,
-                     const gchar *requested_path)
+handle_refs_mirrors (EusRepo           *self,
+                     SoupServerMessage *msg,
+                     const gchar       *requested_path)
 {
   const gsize prefix_len = strlen ("/refs/mirrors/");
   const gsize requested_path_len = strlen (requested_path);
@@ -900,7 +883,7 @@ handle_refs_mirrors (EusRepo     *self,
   if (requested_path_len <= prefix_len || strstr (requested_path + prefix_len, "/") == NULL)
     {
       g_debug ("Invalid request for /refs/mirrors/");
-      soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
+      soup_server_message_set_status (msg, SOUP_STATUS_BAD_REQUEST, NULL);
       return;
     }
 
@@ -920,7 +903,7 @@ handle_refs_mirrors (EusRepo     *self,
   if (!ostree_validate_collection_id (collection_id, &error))
     {
       g_debug ("Invalid /refs/mirrors/ request: %s", error->message);
-      soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
+      soup_server_message_set_status (msg, SOUP_STATUS_BAD_REQUEST, NULL);
       return;
     }
 
@@ -928,7 +911,7 @@ handle_refs_mirrors (EusRepo     *self,
   if (*collection_ref == '\0')
     {
       g_debug ("Invalid /refs/mirrors/ request: missing ref");
-      soup_message_set_status (msg, SOUP_STATUS_BAD_REQUEST);
+      soup_server_message_set_status (msg, SOUP_STATUS_BAD_REQUEST, NULL);
       return;
     }
 
@@ -967,17 +950,17 @@ handle_refs_mirrors (EusRepo     *self,
     }
 
   g_warning ("Requested ref ‘%s’ not found in any remote", requested_path);
-  soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+  soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
 }
 
 static void
-handle_path (EusRepo     *self,
-             SoupMessage *msg,
-             const gchar *path)
+handle_path (EusRepo           *self,
+             SoupServerMessage *msg,
+             const gchar       *path)
 {
   if (g_cancellable_is_cancelled (self->cancellable))
     {
-      soup_message_set_status (msg, SOUP_STATUS_SERVICE_UNAVAILABLE);
+      soup_server_message_set_status (msg, SOUP_STATUS_SERVICE_UNAVAILABLE, NULL);
       return;
     }
 
@@ -990,12 +973,12 @@ handle_path (EusRepo     *self,
     }
   else
     {
-      soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+      soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
       goto out;
     }
 
   if (strstr (path, "..") != NULL)
-    soup_message_set_status (msg, SOUP_STATUS_FORBIDDEN);
+    soup_server_message_set_status (msg, SOUP_STATUS_FORBIDDEN, NULL);
   else if (g_str_has_prefix (path, "/objects/") && g_str_has_suffix (path, ".filez"))
     handle_objects_filez (self, msg, path);
   else if (path_is_handled_as_is (path))
@@ -1009,19 +992,20 @@ handle_path (EusRepo     *self,
   else if (g_str_has_prefix (path, "/refs/mirrors/"))
     handle_refs_mirrors (self, msg, path);
   else
-    soup_message_set_status (msg, SOUP_STATUS_NOT_FOUND);
+    soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
 
 out:
-  g_debug ("Returning status %u (%s)", msg->status_code, msg->reason_phrase);
+  g_debug ("Returning status %u (%s)",
+           soup_server_message_get_status (msg),
+           soup_server_message_get_reason_phrase (msg));
 }
 
 static void
-server_cb (SoupServer *soup_server,
-           SoupMessage *msg,
-           const gchar *path,
-           GHashTable *query,
-           SoupClientContext *context,
-           gpointer user_data)
+server_cb (SoupServer        *soup_server,
+           SoupServerMessage *msg,
+           const gchar       *path,
+           GHashTable        *query,
+           gpointer           user_data)
 {
   EusRepo *self = EUS_REPO (user_data);
 

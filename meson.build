@@ -38,14 +38,29 @@ dbussystemservicedir = dbus.get_variable('system_bus_services_dir',
 dbusinterfacesdir = dbus.get_variable('interfaces_dir',
   pkgconfig_define: ['datadir', datadir])
 
+# Common dependencies
+avahi_client_dep = dependency('avahi-client', version: '>= 0.6.31')
+avahi_glib_dep = dependency('avahi-glib', version: '>= 0.6.31')
 eosmetrics_dep = dependency('eosmetrics-0', required: get_option('metrics'))
+flatpak_dep = dependency('flatpak', version: '>= 1.1.2')
+glib_dep = dependency('glib-2.0', version: '>= 2.70')
+gio_dep = dependency('gio-2.0', version: '>= 2.62')
+gio_unix_dep = dependency('gio-unix-2.0', version: '>= 2.62')
+gobject_dep = dependency('gobject-2.0', version: '>= 2.62')
+json_glib_dep = dependency('json-glib-1.0', version: '>= 1.2.6')
+libnm_dep = dependency('libnm', version: '>= 1.2.0')
+libsoup_dep = dependency('libsoup-3.0', version: '>= 3.2')
+libsystemd_dep = dependency('libsystemd')
+mogwai_dep = dependency('mogwai-schedule-client-0')
+ostree_dep = dependency('ostree-1', version: '>= 2019.2')
+systemd_dep = dependency('systemd')
 
 config_h = configuration_data()
 config_h.set('EOS_AVAHI_PORT', get_option('server_port'))
 config_h.set_quoted('GETTEXT_PACKAGE', 'eos-updater')
 config_h.set_quoted('PACKAGE_LOCALE_DIR', join_paths(get_option('prefix'), get_option('localedir')))
 config_h.set_quoted('VERSION', meson.project_version())
-config_h.set('HAVE_OSTREE_COMMIT_GET_OBJECT_SIZES', cc.has_function('ostree_commit_get_object_sizes', dependencies: [dependency('ostree-1')]))
+config_h.set('HAVE_OSTREE_COMMIT_GET_OBJECT_SIZES', cc.has_function('ostree_commit_get_object_sizes', dependencies: [ostree_dep]))
 config_h.set('HAS_EOSMETRICS_0', eosmetrics_dep.found())
 configure_file(
   output: 'config.h',

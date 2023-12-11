@@ -6,10 +6,10 @@ eos_updater_avahi_sources = [
 ]
 
 eos_updater_avahi_deps = [
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  gio_dep,
+  glib_dep,
+  gobject_dep,
+  ostree_dep,
   libeos_update_server_dep,
   libeos_updater_util_dep,
 ]
@@ -37,13 +37,13 @@ config.set('sysconfdir', join_paths(get_option('prefix'), get_option('sysconfdir
 configure_file(
   input: 'eos-updater-avahi.path.in',
   output: 'eos-updater-avahi.path',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 configure_file(
   input: 'eos-updater-avahi.service.in',
   output: 'eos-updater-avahi.service',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 

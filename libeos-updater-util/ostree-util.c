@@ -25,7 +25,6 @@
 #include <glib.h>
 #include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
-#include <libsoup/soup.h>
 #include <ostree.h>
 #include <string.h>
 
@@ -284,28 +283,23 @@ eos_updater_get_ostree_path (OstreeRepo *repo,
                              GError **error)
 {
   g_autofree gchar *ostree_url = NULL;
-  g_autoptr(SoupURI) uri = NULL;
+  g_autoptr(GUri) uri = NULL;
   g_autofree gchar *path = NULL;
   gsize to_move = 0;
 
   if (!ostree_repo_remote_get_url (repo, osname, &ostree_url, error))
     return FALSE;
 
-  uri = soup_uri_new (ostree_url);
+  uri = g_uri_parse (ostree_url, G_URI_FLAGS_NONE, error);
   if (uri == NULL)
     {
-      g_set_error (error,
-                   G_IO_ERROR,
-                   G_IO_ERROR_INVALID_DATA,
-                   "ostree %s remote's URL is invalid (%s)",
-                   osname,
-                   ostree_url);
+      g_prefix_error (error, "ostree %s remote's URL is invalid (%s)", osname, ostree_url);
       return FALSE;
     }
 
   /* Take the path from the URI from `ostree remote show-url eos` and strip all
    * leading slashes from it. */
-  path = g_strdup (soup_uri_get_path (uri));
+  path = g_strdup (g_uri_get_path (uri));
   while (path[to_move] == '/')
     ++to_move;
   if (to_move > 0)

@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 deps = [
-  dependency('gio-2.0', version: '>= 2.60.1'),
-  dependency('glib-2.0', version: '>= 2.62.0'),
-  dependency('gobject-2.0', version: '>= 2.44'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  gio_dep,
+  glib_dep,
+  gobject_dep,
+  ostree_dep,
   libeos_updater_test_common_dep,
   libeos_updater_util_dep,
 ]
@@ -48,8 +48,8 @@ test_programs = {
     'parallel': false,
     'slow': true,
     'dependencies': [
-      dependency('flatpak', version: '>= 1.1.2'),
-      dependency('json-glib-1.0', version: '>= 1.2.6'),
+      flatpak_dep,
+      json_glib_dep,
     ],
   },
   'test-update-missing-deployed-commit': {

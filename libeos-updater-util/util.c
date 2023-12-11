@@ -26,8 +26,6 @@
 
 #include <libeos-updater-util/util.h>
 
-#include <libsoup/soup.h>
-
 #include <errno.h>
 #include <string.h>
 

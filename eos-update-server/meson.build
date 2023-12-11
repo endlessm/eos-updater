@@ -6,12 +6,12 @@ eos_update_server_sources = [
 ]
 
 eos_update_server_deps = [
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('libsoup-2.4', version: '>= 2.52'),
-  dependency('libsystemd'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  gio_dep,
+  glib_dep,
+  gobject_dep,
+  libsoup_dep,
+  libsystemd_dep,
+  ostree_dep,
   libeos_update_server_dep,
   libeos_updater_util_dep,
 ]
@@ -38,13 +38,13 @@ config.set('sysconfdir', join_paths(get_option('prefix'), get_option('sysconfdir
 configure_file(
   input: 'eos-update-server.service.in',
   output: 'eos-update-server.service',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 configure_file(
   input: 'eos-update-server.socket.in',
   output: 'eos-update-server.socket',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 

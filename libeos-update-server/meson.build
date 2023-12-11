@@ -27,12 +27,12 @@ libeos_update_server_cppflags = [
 ]
 
 libeos_update_server_deps = [
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('libsoup-2.4'),
-  dependency('libsystemd'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  gio_dep,
+  glib_dep,
+  gobject_dep,
+  libsoup_dep,
+  libsystemd_dep,
+  ostree_dep,
   libeos_updater_util_dep,
 ]
 
