@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('eos-updater', 'c',
-  version : '1.0.0',
+  version : '1.4.0',
   meson_version : '>= 0.60.0',
   license: ['LGPL-2.1-or-later'],
   default_options : [
