@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('eos-updater', 'c',
-  version : '1.0.0',
+  version : '1.4.0',
   meson_version : '>= 0.60.0',
   license: ['LGPL-2.1-or-later'],
   default_options : [
@@ -19,6 +19,9 @@ py3 = py3_mod.find_installation(
   'python3',
   # Used in tests
   modules: ['flake8'],
+  # Just disable those tests if flake8 is not installed
+  required: false,
+  disabler: true,
 )
 
 prefix = get_option('prefix')
