@@ -12,4 +12,5 @@ test(
   flake8,
   args: [files('eos_updater.py')],
   suite: 'eos-updater',
+  workdir: meson.current_source_dir(),
 )

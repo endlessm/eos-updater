@@ -13,6 +13,7 @@ test(
   flake8,
   args: [files('eos-updater-prepare-volume')],
   suite: 'eos-updater-prepare-volume',
+  workdir: meson.current_source_dir(),
 )
 
 # Documentation

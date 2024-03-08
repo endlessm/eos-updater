@@ -13,6 +13,7 @@ test(
   flake8,
   args: [files('eos-updater-ctl')],
   suite: 'eos-updater-ctl',
+  workdir: meson.current_source_dir(),
 )
 
 # Documentation
