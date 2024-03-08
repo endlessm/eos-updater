@@ -1004,9 +1004,6 @@ fetch_latest_commit (OstreeRepo *repo,
 {
   g_autofree gchar *checksum = NULL;
   g_autoptr(GVariant) options = NULL;
-  g_autoptr(GVariant) commit = NULL;
-  g_autoptr(GVariant) rebase = NULL;
-  g_autoptr(GVariant) metadata = NULL;
   g_autofree gchar *remote_name = NULL;
   g_autofree gchar *ref = NULL;
   g_autofree gchar *upgrade_refspec = NULL;
