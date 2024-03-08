@@ -10,8 +10,8 @@ install_data('eos-updater-prepare-volume',
 # lint check
 test(
   'flake8',
-  py3,
-  args: ['-m', 'flake8', files('eos-updater-prepare-volume')],
+  flake8,
+  args: [files('eos-updater-prepare-volume')],
   suite: 'eos-updater-prepare-volume',
 )
 

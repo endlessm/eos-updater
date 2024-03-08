@@ -9,7 +9,7 @@ install_data('eos_updater.py',
 # lint check
 test(
   'flake8',
-  py3,
-  args: ['-m', 'flake8', files('eos_updater.py')],
+  flake8,
+  args: [files('eos_updater.py')],
   suite: 'eos-updater',
 )

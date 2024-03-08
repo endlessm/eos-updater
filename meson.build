@@ -17,11 +17,11 @@ cc = meson.get_compiler('c')
 py3_mod = import('python')
 py3 = py3_mod.find_installation(
   'python3',
-  # Used in tests
-  modules: ['flake8'],
-  # Just disable those tests if flake8 is not installed
-  required: false,
-  disabler: true,
+)
+flake8 = find_program(
+  'flake8',
+  required : false,
+  disabler : true,
 )
 
 prefix = get_option('prefix')
