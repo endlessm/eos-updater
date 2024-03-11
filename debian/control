@@ -29,6 +29,7 @@ Build-Depends:
  ostree (>= 2017.12),
  python3-flake8,
  python3-gi,
+ reuse,
 
 Package: eos-updater
 Section: misc
