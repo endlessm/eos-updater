@@ -65,5 +65,6 @@ foreach test_name, extra_args : test_programs
     env: envs,
     suite: suite,
     timeout: extra_args.get('slow', false) ? 360 : 60,
+    protocol: 'tap',
   )
 endforeach

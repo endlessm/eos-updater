@@ -115,6 +115,7 @@ foreach test_name, extra_args : test_programs
     suite: ['eos-updater'] + extra_args.get('suite', []),
     timeout: extra_args.get('slow', false) ? 600 : 60,
     is_parallel: extra_args.get('parallel', true),
+    protocol: 'tap',
   )
 endforeach
 
@@ -160,6 +161,7 @@ foreach test_name, extra_args : python_tests
       args: main,
       env: envs,
       suite: ['eos-updater'] + extra_args.get('suite', []),
+      protocol: 'tap',
     )
   endif
 endforeach

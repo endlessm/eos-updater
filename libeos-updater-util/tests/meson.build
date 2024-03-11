@@ -66,5 +66,5 @@ foreach test_name, extra_args : test_programs
   )
 
   suite = ['libeos-updater-util'] + extra_args.get('suite', [])
-  test(test_name, exe, env : envs, suite : suite)
+  test(test_name, exe, env : envs, suite : suite, protocol : 'tap')
 endforeach
