@@ -102,19 +102,6 @@ gboolean ostree_ref_delete (GFile *repo,
                             CmdResult *cmd,
                             GError **error);
 
-typedef enum
-  {
-    OSTREE_PRUNE_REFS_ONLY = 1 << 0,
-    OSTREE_PRUNE_NO_PRUNE  = 1 << 1,
-    OSTREE_PRUNE_VERBOSE   = 1 << 2,
-  } OstreePruneFlags;
-
-gboolean ostree_prune (GFile *repo,
-                       OstreePruneFlags flags,
-                       gint depth_opt,
-                       CmdResult *cmd,
-                       GError **error);
-
 gboolean ostree_static_delta_generate (GFile *repo,
                                        const gchar *from,
                                        const gchar *to,
@@ -152,17 +139,12 @@ gboolean ostree_os_init (GFile *sysroot,
                          CmdResult *cmd,
                          GError **error);
 
-gboolean ostree_status (GFile *sysroot,
-                        CmdResult *cmd,
-                        GError **error);
-
 gboolean ostree_undeploy (GFile *sysroot,
                           int deployment_index,
                           CmdResult *cmd,
                           GError **error);
 
-gboolean ostree_list_refs_in_repo (GFile      *repo,
-                                   CmdResult  *cmd,
-                                   GError    **error);
+GStrv ostree_list_refs_in_repo (GFile      *repo,
+                                GError    **error);
 
 G_END_DECLS

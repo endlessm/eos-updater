@@ -419,38 +419,6 @@ ostree_ref_delete (GFile *repo,
 }
 
 gboolean
-ostree_prune (GFile *repo,
-              OstreePruneFlags flags,
-              gint depth_opt,
-              CmdResult *cmd,
-              GError **error)
-{
-  g_autoptr(GArray) args = cmd_arg_array_new ();
-  g_autofree gchar *depth_str = g_strdup_printf ("%d", depth_opt);
-  CmdArg prune = { NULL, "prune" };
-  CmdArg refs_only = { "refs-only", NULL };
-  CmdArg no_prune = { "no-prune", NULL };
-  CmdArg verbose = { "verbose", NULL };
-  CmdArg depth = { "depth", depth_str };
-  CmdArg terminator = { NULL, NULL };
-
-  g_array_append_val (args, prune);
-  if ((flags & OSTREE_PRUNE_REFS_ONLY) == OSTREE_PRUNE_REFS_ONLY)
-    g_array_append_val (args, refs_only);
-  if ((flags & OSTREE_PRUNE_NO_PRUNE) == OSTREE_PRUNE_NO_PRUNE)
-    g_array_append_val (args, no_prune);
-  if ((flags & OSTREE_PRUNE_VERBOSE) == OSTREE_PRUNE_VERBOSE)
-    g_array_append_val (args, verbose);
-  g_array_append_val (args, depth);
-  g_array_append_val (args, terminator);
-
-  return spawn_ostree_in_repo_args (repo,
-                                    cmd_arg_array_raw (args),
-                                    cmd,
-                                    error);
-}
-
-gboolean
 ostree_static_delta_generate (GFile *repo,
                               const gchar *from,
                               const gchar *to,
@@ -619,18 +587,6 @@ ostree_os_init (GFile *sysroot,
 }
 
 gboolean
-ostree_status (GFile *sysroot,
-               CmdResult *cmd,
-               GError **error)
-{
-  return ostree_admin_spawn_in_sysroot (sysroot,
-                                        "status",
-                                        NULL,
-                                        cmd,
-                                        error);
-}
-
-gboolean
 ostree_undeploy (GFile *sysroot,
                  int deployment_index,
                  CmdResult *cmd,
@@ -649,24 +605,28 @@ ostree_undeploy (GFile *sysroot,
                                         error);
 }
 
-gboolean
-ostree_list_refs_in_repo (GFile      *repo,
-                          CmdResult  *cmd,
+GStrv
+ostree_list_refs_in_repo (GFile      *repo_dir,
                           GError    **error)
 {
-  g_autoptr(GPtrArray) argv = string_array_new ();
-  g_autofree gchar *repo_path = g_file_get_path (repo);
-  CmdArg args[] =
-    {
-      { NULL, OSTREE_BINARY },
-      { NULL, "refs" },
-      { "repo", repo_path },
-      { NULL, NULL }
-    };
-  g_auto(GStrv) raw_args = build_cmd_args (args);
+  g_autoptr(OstreeRepo) repo = ostree_repo_new (repo_dir);
+  g_autoptr(GHashTable) refs = NULL;
+  GHashTableIter iter;
+  gpointer key;
+  GPtrArray *ref_names = NULL;
 
-  return test_spawn ((const gchar * const *) raw_args,
-                     NULL,
-                     cmd,
-                     error);
+  if (!ostree_repo_open (repo, NULL, error))
+    return NULL;
+
+  if (!ostree_repo_list_refs (repo, NULL, &refs, NULL, error))
+    return NULL;
+
+  ref_names = g_ptr_array_sized_new (g_hash_table_size (refs) + 1);
+  g_hash_table_iter_init (&iter, refs);
+  while (g_hash_table_iter_next (&iter, &key, NULL))
+    g_ptr_array_add (ref_names, g_strdup (key));
+
+  g_ptr_array_sort (ref_names, (GCompareFunc) g_strcmp0);
+  g_ptr_array_add (ref_names, NULL);
+  return (GStrv) g_ptr_array_free (ref_names, FALSE);
 }

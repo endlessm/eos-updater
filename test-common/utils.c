@@ -2884,56 +2884,6 @@ eos_test_client_reap_update_server (EosTestClient *client,
                                                  error);
 }
 
-static gboolean
-get_deploy_ids (GFile *sysroot,
-                const gchar *osname,
-                gchar ***out_ids,
-                GError **error)
-{
-  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
-  g_auto(GStrv) lines = NULL;
-  gchar **iter;
-  gsize len;
-  g_autoptr(GPtrArray) ids = NULL;
-
-  if (!ostree_status (sysroot, &cmd, error))
-    return FALSE;
-
-  lines = g_strsplit (cmd.standard_output, "\n", -1);
-  len = strlen (osname);
-  ids = string_array_new ();
-  for (iter = lines; *iter != NULL; ++iter)
-    {
-      gchar *line = g_strstrip (*iter);
-
-      if (!g_str_has_prefix (line, osname))
-        continue;
-      if (strlen (line) <= len + 2)
-        continue;
-
-      g_ptr_array_add (ids, g_strdup (line + len + 1));
-    }
-  g_ptr_array_add (ids, NULL);
-
-  *out_ids = (gchar **)g_ptr_array_free (g_steal_pointer (&ids), FALSE);
-  return TRUE;
-}
-
-static GFile *
-get_deployment_dir (GFile *sysroot,
-                    const gchar *osname,
-                    const gchar *id)
-{
-  g_autofree gchar *rel_path = g_build_filename ("ostree",
-                                                 "deploy",
-                                                 osname,
-                                                 "deploy",
-                                                 id,
-                                                 NULL);
-
-  return g_file_get_child (sysroot, rel_path);
-}
-
 gboolean
 eos_test_client_has_commit (EosTestClient *client,
                             const gchar *osname,
@@ -2941,17 +2891,19 @@ eos_test_client_has_commit (EosTestClient *client,
                             gboolean *out_result,
                             GError **error)
 {
-  g_auto(GStrv) ids = NULL;
-  g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
-  gchar **iter;
+  g_autoptr(GFile) path = get_sysroot_for_client (client->root);
+  g_autoptr(OstreeSysroot) sysroot = ostree_sysroot_new (path);
+  g_autoptr(GPtrArray) deployments = NULL;
 
-  if (!get_deploy_ids (sysroot, osname, &ids, error))
+  if (!ostree_sysroot_load (sysroot, NULL, error))
     return FALSE;
+  deployments = ostree_sysroot_get_deployments (sysroot);
 
-  for (iter = ids; *iter != NULL; ++iter)
+  for (size_t i = 0; i < deployments->len; i++)
     {
+      OstreeDeployment *deployment = g_ptr_array_index (deployments, i);
       g_autofree gchar *commit_filename = get_commit_filename (commit_number);
-      g_autoptr(GFile) dir = get_deployment_dir (sysroot, osname, *iter);
+      g_autoptr(GFile) dir = ostree_sysroot_get_deployment_directory (sysroot, deployment);
       g_autoptr(GFile) commit_file = g_file_get_child (dir, commit_filename);
 
       if (g_file_query_exists (commit_file, NULL))
@@ -2963,19 +2915,6 @@ eos_test_client_has_commit (EosTestClient *client,
 
   *out_result = FALSE;
   return TRUE;
-}
-
-gboolean
-eos_test_client_get_deployments (EosTestClient *client,
-                                 const gchar *osname,
-                                 gchar ***out_ids,
-                                 GError **error)
-{
-  g_autoptr(GFile) sysroot = get_sysroot_for_client (client->root);
-
-  g_assert_nonnull (out_ids);
-
-  return get_deploy_ids (sysroot, osname, out_ids, error);
 }
 
 gboolean

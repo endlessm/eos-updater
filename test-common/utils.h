@@ -287,11 +287,6 @@ gboolean eos_test_client_has_commit (EosTestClient *client,
                                      gboolean *out_has_commit,
                                      GError **error);
 
-gboolean eos_test_client_get_deployments (EosTestClient *client,
-                                          const gchar *osname,
-                                          gchar ***out_ids,
-                                          GError **error);
-
 gboolean eos_test_client_prepare_volume (EosTestClient *client,
                                          GFile *volume_path,
                                          GError **error);

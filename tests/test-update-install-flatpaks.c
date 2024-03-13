@@ -369,29 +369,9 @@ autoinstall_flatpaks_files_override (GFile                   *updater_directory,
 }
 
 static GStrv
-drop_empty_lines (const gchar  *paragraph,
-                  GError      **error)
-{
-  g_auto(GStrv) lines = g_strsplit (paragraph, "\n", -1);
-  g_auto(GStrv) constructed_lines = g_new0 (gchar *, g_strv_length (lines));
-  guint i = 0;
-
-  for (const gchar **iter = (const gchar **) lines; *iter; ++iter)
-    {
-      if (g_strcmp0 (*iter, "") == 0)
-        continue;
-
-      constructed_lines[i++] = g_strdup (*iter);
-    }
-
-  return g_steal_pointer (&constructed_lines);
-}
-
-static GStrv
-parse_ostree_refs_for_flatpaks (const gchar  *ostree_refs_stdout,
+parse_ostree_refs_for_flatpaks (GStrv ostree_refs_stdout_lines,
                                 GError      **error)
 {
-  g_auto(GStrv) ostree_refs_stdout_lines = g_strsplit (ostree_refs_stdout, "\n", -1);
   g_auto(GStrv) parsed_out_flatpak_refs = g_new0 (gchar *, g_strv_length (ostree_refs_stdout_lines));
   GStrv ostree_refs_stdout_lines_iter = ostree_refs_stdout_lines;
   g_autoptr(GRegex) flatpak_refs_parser = g_regex_new (".*:.*?\\/(.*?)\\/.*", 0, 0, error);
@@ -420,7 +400,7 @@ parse_ostree_refs_for_flatpaks (const gchar  *ostree_refs_stdout,
 
       if (!matched_flatpak_name)
         {
-          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Failed to parse output of OSTree refs: %s", ostree_refs_stdout);
+          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Failed to parse OSTree ref: %s", *ostree_refs_stdout_lines);
           return FALSE;
         }
 
@@ -492,19 +472,14 @@ get_checksum_for_flatpak_in_installation_dir (GFile        *flatpak_installation
                                               const gchar  *partial_refspec,
                                               GError      **error)
 {
-  g_auto(CmdResult) refs_cmd = CMD_RESULT_CLEARED;
   g_auto(CmdResult) show_cmd = CMD_RESULT_CLEARED;
   g_autoptr(GFile) flatpak_repo = g_file_get_child (flatpak_installation_dir, "repo");
   g_auto(GStrv) all_refs_in_repo = NULL;
   const gchar *matching_refspec = NULL;
 
-  if (!ostree_list_refs_in_repo (flatpak_repo, &refs_cmd, error))
+  if (!(all_refs_in_repo = ostree_list_refs_in_repo (flatpak_repo, error)))
     return FALSE;
 
-  if (!cmd_result_ensure_ok (&refs_cmd, error))
-    return FALSE;
-
-  all_refs_in_repo = g_strsplit (refs_cmd.standard_output, "\n", -1);
   matching_refspec = find_matching_ref_for_listed_refs (all_refs_in_repo,
                                                         partial_refspec,
                                                         error);
@@ -531,26 +506,22 @@ static GStrv
 flatpaks_in_installation_repo (GFile   *flatpak_installation_dir,
                                GError **error)
 {
-  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GFile) flatpak_repo = g_file_get_child (flatpak_installation_dir, "repo");
+  g_auto(GStrv) refs = NULL;
 
-  if (!ostree_list_refs_in_repo (flatpak_repo, &cmd, error))
+  if (!(refs = ostree_list_refs_in_repo (flatpak_repo, error)))
     return FALSE;
 
-  return parse_ostree_refs_for_flatpaks (cmd.standard_output, error);
+  return parse_ostree_refs_for_flatpaks (refs, error);
 }
 
 static GStrv
 ostree_refspecs_in_installation_repo (GFile   *flatpak_installation_dir,
                                       GError **error)
 {
-  g_auto(CmdResult) cmd = CMD_RESULT_CLEARED;
   g_autoptr(GFile) flatpak_repo = g_file_get_child (flatpak_installation_dir, "repo");
 
-  if (!ostree_list_refs_in_repo (flatpak_repo, &cmd, error))
-    return FALSE;
-
-  return drop_empty_lines (cmd.standard_output, error);
+  return ostree_list_refs_in_repo (flatpak_repo, error);
 }
 
 static gchar *
@@ -3471,6 +3442,8 @@ static void
 test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
                                                    gconstpointer      user_data)
 {
+  g_autoptr(GFile) sysroot_dir = NULL;
+  g_autoptr(OstreeSysroot) sysroot = NULL;
   g_auto(EtcData) real_data = { NULL, };
   EtcData *data = &real_data;
   FlatpakToInstall flatpaks_to_install[] = {
@@ -3482,14 +3455,8 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   g_autoptr(GFile) flatpak_remote_dir = NULL;
   g_autoptr(GFile) updater_directory = NULL;
   g_autofree gchar *updater_directory_str = NULL;
-  g_autofree gchar *expected_directory_relative_path = NULL;
-  g_autoptr(GFile) expected_directory = NULL;
-  g_autoptr(GFile) expected_directory_child = NULL;
-  g_auto(GStrv) initial_deployment_ids = NULL;
-  g_autofree gchar *deployment_id = NULL;
-  g_autofree gchar *refspec = concat_refspec (default_remote_name, default_ref);
-  g_autoptr(GFile) deployment_repo_dir = NULL;
-  g_auto(GStrv) after_update_deployment_ids = NULL;
+  g_autoptr(GPtrArray) initial_deployments = NULL;
+  g_autoptr(GPtrArray) after_update_deployments = NULL;
   g_autofree gchar *keyid = get_keyid (fixture->gpg_home);
   g_autoptr(GFile) gpg_key_file = get_gpg_key_file_for_keyid (fixture->gpg_home, keyid);
   g_autoptr(GError) error = NULL;
@@ -3515,13 +3482,13 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
    */
   etc_set_up_client_synced_to_server (data);
 
-  /* Now simulate a reboot by running eos-updater-flatpak-installer */
-  eos_test_client_get_deployments (data->client,
-                                   default_remote_name,
-                                   &initial_deployment_ids,
-                                   &error);
+  sysroot_dir = g_file_get_child (data->client->root, "sysroot");
+  sysroot = ostree_sysroot_new (sysroot_dir);
+  ostree_sysroot_load (sysroot, NULL, &error);
   g_assert_no_error (error);
+  initial_deployments = ostree_sysroot_get_deployments (sysroot);
 
+  /* Now simulate a reboot by running eos-updater-flatpak-installer */
   updater_directory = g_file_get_child (data->client->root, "updater");
   updater_directory_str = g_file_get_path (updater_directory);
   flatpak_remote_path = g_build_filename (updater_directory_str,
@@ -3553,13 +3520,11 @@ test_update_flatpak_pull_fail_system_not_deployed (EosUpdaterFixture *fixture,
   etc_update_client_expect_failure (data);
 
   /* Assert that the deployment checksum is the same as earlier */
-  eos_test_client_get_deployments (data->client,
-                                   default_remote_name,
-                                   &after_update_deployment_ids,
-                                   &error);
-  g_assert_no_error (error);
+  after_update_deployments = ostree_sysroot_get_deployments (sysroot);
 
-  g_assert_cmpstr (initial_deployment_ids[0], ==, after_update_deployment_ids[0]);
+  g_assert_cmpstr (ostree_deployment_get_csum (g_ptr_array_index (initial_deployments, 0)),
+                   ==,
+                   ostree_deployment_get_csum (g_ptr_array_index (after_update_deployments, 0)));
 }
 
 

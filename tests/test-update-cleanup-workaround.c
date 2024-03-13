@@ -40,10 +40,11 @@ static void
 save_old_deployment_commit_in_ref (EtcData *data,
                                    const gchar *ref)
 {
-  g_auto(GStrv) deployment_ids = NULL;
+  g_autoptr(GFile) sysroot_dir = NULL;
+  g_autoptr(OstreeSysroot) sysroot = NULL;
+  g_autoptr(GPtrArray) deployments = NULL;
   g_autoptr(GError) error = NULL;
-  g_autofree gchar *old_commit_id = NULL;
-  gchar *dot_ptr;
+  OstreeDeployment *old_deployment = NULL;
   g_autoptr(GFile) client_repo = NULL;
   g_auto(CmdResult) ref_created = CMD_RESULT_CLEARED;
 
@@ -51,24 +52,22 @@ save_old_deployment_commit_in_ref (EtcData *data,
   g_assert_nonnull (data->client);
   g_assert_nonnull (ref);
 
-  eos_test_client_get_deployments (data->client,
-                                   default_remote_name,
-                                   &deployment_ids,
-                                   &error);
+  sysroot_dir = g_file_get_child (data->client->root, "sysroot");
+  sysroot = ostree_sysroot_new (sysroot_dir);
+  ostree_sysroot_load (sysroot, NULL, &error);
   g_assert_no_error (error);
-  g_assert_cmpint (g_strv_length (deployment_ids), ==, 2);
+
+  deployments = ostree_sysroot_get_deployments (sysroot);
+  g_assert_cmpint (deployments->len, ==, 2);
 
   /* Index 1 is always guaranteed to be the old deployment.
    */
-  old_commit_id = g_strdup (deployment_ids[1]);
-  dot_ptr = strchr (old_commit_id, '.');
-  g_assert_nonnull (dot_ptr);
-  *dot_ptr = '\0';
+  old_deployment = g_ptr_array_index (deployments, 1);
 
   client_repo = eos_test_client_get_repo (data->client);
   ostree_ref_create (client_repo,
                      ref,
-                     old_commit_id,
+                     ostree_deployment_get_csum (old_deployment),
                      &ref_created,
                      &error);
   g_assert_no_error (error);
@@ -96,11 +95,10 @@ undeploy_old_deployment (EtcData *data)
 }
 
 static void
-delete_ref (EtcData *data,
-            const gchar *ref)
+delete_ref_and_some_old_dirtree_objects (EtcData     *data,
+                                         const gchar *ref)
 {
   g_autoptr(GFile) client_repo = NULL;
-  g_auto(CmdResult) ref_deleted = CMD_RESULT_CLEARED;
   g_autoptr(GError) error = NULL;
 
   g_assert_nonnull (data);
@@ -108,54 +106,45 @@ delete_ref (EtcData *data,
   g_assert_nonnull (data->client);
 
   client_repo = eos_test_client_get_repo (data->client);
-  ostree_ref_delete (client_repo, ref, &ref_deleted, &error);
+
+  g_autoptr(OstreeRepo) repo = ostree_repo_new (client_repo);
+  ostree_repo_open (repo, NULL, &error);
   g_assert_no_error (error);
-  g_assert_true (cmd_result_ensure_ok_verbose (&ref_deleted));
-}
 
-/* Runs the "ostree prune" with a mode that does no pruning, but
- * prints what items would be pruned if it could do it. Then remove
- * some of the dirtree objects from that list (at most 3).
- */
-static void
-delete_some_old_dirtree_objects (EtcData *data)
-{
-  g_autoptr(GFile) client_repo = NULL;
-  OstreePruneFlags prune_flags = OSTREE_PRUNE_REFS_ONLY | OSTREE_PRUNE_NO_PRUNE | OSTREE_PRUNE_VERBOSE;
-  g_auto(CmdResult) listed = CMD_RESULT_CLEARED;
-  g_autoptr(GError) error = NULL;
-  g_autoptr(GRegex) gregex = NULL;
-  g_autoptr(GMatchInfo) match_info = NULL;
-  guint removed;
-
-  g_assert_nonnull (data);
-  g_assert_nonnull (data->client);
-
-  client_repo = eos_test_client_get_repo (data->client);
-  ostree_prune (client_repo, prune_flags, 0, &listed, &error);
+  g_autoptr(GFile) root = NULL;
+  ostree_repo_read_commit (repo, ref, &root, NULL /* out_commit */, (GCancellable *) NULL, &error);
   g_assert_no_error (error);
-  g_assert_true (cmd_result_ensure_ok_verbose (&listed));
 
-  gregex = g_regex_new ("Pruning\\s+unneeded\\s+object\\s+([0-9a-zA-Z]{64}.dirtree)",
-                        /* compile flags: */ 0,
-                        /* match flags: */ 0,
-                        &error);
-  g_assert_no_error (error);
-  g_regex_match (gregex,
-                 listed.standard_error,
-                 /* match flags: */ 0,
-                 &match_info);
-  for (removed = 0;
-       g_match_info_matches (match_info) && (removed < 3);
-       ++removed)
+  /* Delete a few dirtree objects that are unique to the ref we are about to
+   * delete and so will become eligible for pruning as a result of deleting the
+   * ref.
+   *
+   * This relies on the way the test trees are constructed: for each commit N,
+   * files at for-all-commits/commit{0..N}.dir/{a,b,c}/{x,y,z}.N are created,
+   * meaning those directories' contents differ and so the dirtree checksum is
+   * unique to each commit.
+   */
+  const char *changed_paths[] = {
+    /* TODO: why don't these dirtrees exist when I go to delete them? */
+    /* "for-all-commits/commit0.dir/a", */
+    /* "for-all-commits/commit0.dir/b", */
+    "for-all-commits/commit0.dir",
+  };
+  for (size_t i = 0; i < G_N_ELEMENTS (changed_paths); i++)
     {
-      g_autofree gchar *object = g_match_info_fetch (match_info,
-                                                     /* match group: */ 1);
-      etc_delete_object (client_repo, object);
-      g_match_info_next (match_info, &error);
+      g_autoptr(GFile) dirtree_file = g_file_resolve_relative_path (root, changed_paths[i]);
+      ostree_repo_file_ensure_resolved (OSTREE_REPO_FILE (dirtree_file), &error);
       g_assert_no_error (error);
+
+      const gchar *dirtree_checksum = ostree_repo_file_tree_get_contents_checksum (OSTREE_REPO_FILE (dirtree_file));
+      g_autofree gchar *dirtree_object_name = g_strconcat (dirtree_checksum, ".dirtree", NULL);
+      g_message ("deleting %s %s\n", changed_paths[i], dirtree_object_name);
+      etc_delete_object (client_repo, dirtree_object_name);
     }
-  g_assert_cmpint (removed, >, 0);
+
+  /* Now delete the ref. This doesn't prune the repository. */
+  ostree_repo_set_ref_immediate (repo, NULL /* remote */, ref, NULL /* checksum */, (GCancellable *) NULL, &error);
+  g_assert_no_error (error);
 }
 
 /* Corrupt a repository on the client side, so that pruning may fail
@@ -200,13 +189,10 @@ test_update_cleanup_workaround (EosUpdaterFixture *fixture,
    */
   undeploy_old_deployment (data);
   /* Remove the temporary ref, so the commit becomes unreferenced and
-   * thus a candidate for pruning. This step does not invoke pruning.
+   * thus a candidate for pruning; and remove some dirtree objects referenced
+   * by the old commit, so we can trigger an error during pruning.
    */
-  delete_ref (data, save_ref_name);
-  /* We remove some dirtree objects referenced by the old commit, so
-   * we can trigger an error during pruning.
-   */
-  delete_some_old_dirtree_objects (data);
+  delete_ref_and_some_old_dirtree_objects (data, save_ref_name);
   /* Let's advertise another update on the server.
    */
   etc_update_server (data, 2);
