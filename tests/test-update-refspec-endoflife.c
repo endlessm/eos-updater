@@ -147,15 +147,6 @@ _test_update_refspec_endoflife (EosUpdaterFixture *fixture,
   g_autofree gchar *branches_option = NULL;
   g_autofree gchar *expected_branches = NULL;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
-
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
                                              &additional_metadata_for_commit);

@@ -56,9 +56,6 @@ test_update_from_volume (EosUpdaterFixture *fixture,
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
 
-  if (eos_test_skip_chroot ())
-    return;
-
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
                                       default_vendor,

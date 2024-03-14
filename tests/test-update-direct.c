@@ -237,9 +237,6 @@ test_cancel_update (EosUpdaterFixture *fixture,
   gboolean cancelled_states[EOS_UPDATER_STATE_LAST + 1] = { FALSE };
   TestCancelHelper helper = { FALSE, cancelled_states, 0, 0 };
 
-  if (eos_test_skip_chroot ())
-    return;
-
   setup_basic_test_server_client (fixture, &server, &subserver, &client,
                                   &local_error);
   g_assert_no_error (local_error);
@@ -324,9 +321,6 @@ test_update_version (EosUpdaterFixture *fixture,
   DownloadSource main_source = DOWNLOAD_MAIN;
   const gchar *version = (user_data != NULL) ? (const gchar *) user_data : "";
 
-  if (eos_test_skip_chroot ())
-    return;
-
   setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
   g_assert_no_error (error);
 
@@ -396,9 +390,6 @@ test_update_is_user_visible (EosUpdaterFixture *fixture,
     eos_test_subserver_ref_to_commit_new ();
   DownloadSource main_source = DOWNLOAD_MAIN;
   const gchar *update_version = (user_data != NULL) ? (const gchar *) user_data : "";
-
-  if (eos_test_skip_chroot ())
-    return;
 
   setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
   g_assert_no_error (error);
@@ -480,9 +471,6 @@ test_update_release_notes_uri (EosUpdaterFixture *fixture,
   DownloadSource main_source = DOWNLOAD_MAIN;
   const ReleaseNotesUriData *data = user_data;
 
-  if (eos_test_skip_chroot ())
-    return;
-
   setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
   g_assert_no_error (error);
 
@@ -554,9 +542,6 @@ test_update_when_none_available (EosUpdaterFixture *fixture,
   DownloadSource main_source = DOWNLOAD_MAIN;
   gulong state_change_handler = 0;
 
-  if (eos_test_skip_chroot ())
-    return;
-
   setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
   g_assert_no_error (error);
 
@@ -614,9 +599,6 @@ test_update_sizes (EosUpdaterFixture *fixture,
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
   DownloadSource main_source = DOWNLOAD_MAIN;
-
-  if (eos_test_skip_chroot ())
-    return;
 
   setup_basic_test_server_client (fixture, &server, &subserver, &client, &error);
   g_assert_no_error (error);

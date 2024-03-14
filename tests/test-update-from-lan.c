@@ -59,9 +59,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
 
-  if (eos_test_skip_chroot ())
-    return;
-
   g_test_message ("Setting up server");
 
   server_root = g_file_get_child (fixture->tmpdir, "main");

@@ -132,9 +132,6 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
   g_autofree gchar *branches_option = NULL;
   g_autofree gchar *expected_branches = NULL;
 
-  if (eos_test_skip_chroot ())
-    return;
-
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
                                              &additional_metadata_for_commit);
@@ -272,9 +269,6 @@ test_update_refspec_checkpoint_old_ref_deleted (EosUpdaterFixture *fixture,
   g_autofree gchar *branches_option = NULL;
   g_autofree gchar *expected_branches = NULL;
 
-  if (eos_test_skip_chroot ())
-    return;
-
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
                                              &additional_metadata_for_commit);
@@ -367,9 +361,6 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
-
-  if (eos_test_skip_chroot ())
-    return;
 
   insert_update_refspec_metadata_for_commit (2,
                                              next_ref,
@@ -482,9 +473,6 @@ test_update_refspec_checkpoint_no_collection_ref_server (EosUpdaterFixture *fixt
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
 
-  if (eos_test_skip_chroot ())
-    return;
-
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
                                              &additional_metadata_for_commit);
@@ -585,9 +573,6 @@ test_update_refspec_checkpoint_malformed_checkpoint (EosUpdaterFixture *fixture,
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
-
-  if (eos_test_skip_chroot ())
-    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              "$^^@*invalid",
@@ -700,9 +685,6 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
-
-  if (eos_test_skip_chroot ())
-    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              "$^^@*invalid",
@@ -859,9 +841,6 @@ test_update_refspec_checkpoint_no_collection_ref_client (EosUpdaterFixture *fixt
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
 
-  if (eos_test_skip_chroot ())
-    return;
-
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
                                              &additional_metadata_for_commit);
@@ -972,9 +951,6 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
   gboolean has_commit;
-
-  if (eos_test_skip_chroot ())
-    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
@@ -1117,9 +1093,6 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
   g_autoptr(EosTestClient) client = NULL;
   g_autoptr(GHashTable) additional_metadata_for_commit = NULL;
   gboolean has_commit;
-
-  if (eos_test_skip_chroot ())
-    return;
 
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
@@ -1297,9 +1270,6 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
     eos_test_subserver_ref_to_commit_new ();
   gboolean has_commit;
   g_autofree gchar *next_refspec = g_strdup_printf ("BADREMOTE:%s", next_ref);
-
-  if (eos_test_skip_chroot ())
-    return;
 
   /* Set checkpoint with full refspec */
   insert_update_refspec_metadata_for_commit (1,
@@ -1765,9 +1735,6 @@ test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
       },
     };
 
-  if (eos_test_skip_chroot ())
-    return;
-
   /* If the host running the tests is actually aarch64, it will refuse to
    * follow the checkpoint unless @force_follow_checkpoint is set (or there are
    * bugs), so the test has to adapt. */
@@ -1879,9 +1846,6 @@ test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
         .expect_checkpoint_followed = TRUE,
       },
     };
-
-  if (eos_test_skip_chroot ())
-    return;
 
   /* The aarch64 platforms can update from EOS 4 to EOS 5. So, let aarch64
    * platforms follow the normal update checkpoint procedure.
