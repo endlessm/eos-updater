@@ -54,14 +54,11 @@ void eos_test_add (const char            *testpath,
                    gconstpointer          tdata,
                    EosUpdaterFixtureFunc  ftest);
 
-extern const gchar *const default_vendor;
-extern const gchar *const default_product;
 extern const gchar *const default_collection_id;
 extern const gchar *const default_ref;
 extern const OstreeCollectionRef *default_collection_ref;
 extern const gchar *const default_ostree_path;
 extern const gchar *const default_remote_name;
-extern const gboolean default_auto_bootloader;
 
 typedef struct {
   guint sequence_number;
@@ -204,8 +201,6 @@ EosTestServer *eos_test_server_new (GFile *server_root,
                                     GError **error);
 
 EosTestServer *eos_test_server_new_quick (GFile *server_root,
-                                          const gchar *vendor,
-                                          const gchar *product,
                                           const OstreeCollectionRef *collection_ref,
                                           guint commit_number,
                                           GFile *gpg_home,
@@ -228,17 +223,9 @@ struct _EosTestClient
   GObject parent_instance;
 
   GFile *root;
-  gchar *vendor;
-  gchar *product;
   gchar *remote_name;
   gchar *ostree_path;
-  gchar *cpuinfo;
-  gchar *cmdline;
-  gchar *uname_machine;
-  gboolean auto_bootloader;
-  gboolean is_split_disk;
-  gboolean flatpak_repo_is_symlink;
-  gboolean force_follow_checkpoint;
+  const gchar *force_follow_checkpoint;
 };
 
 typedef enum
@@ -252,24 +239,10 @@ EosTestClient *eos_test_client_new (GFile *client_root,
                                     const gchar *remote_name,
                                     EosTestSubserver *subserver,
                                     const OstreeCollectionRef *collection_ref,
-                                    const gchar *vendor,
-                                    const gchar *product,
-                                    gboolean auto_bootloader,
                                     GError **error);
 
-
-void eos_test_client_set_is_split_disk (EosTestClient *client,
-                                        gboolean       is_split_disk);
-void eos_test_client_set_uname_machine (EosTestClient *client,
-                                        const gchar   *uname_machine);
-void eos_test_client_set_cpuinfo (EosTestClient *client,
-                                  const gchar   *cpuinfo);
-void eos_test_client_set_cmdline (EosTestClient *client,
-                                  const gchar   *cmdline);
-void eos_test_client_set_flatpak_repo_is_symlink (EosTestClient *client,
-                                                  gboolean flatpak_repo_is_symlink);
 void eos_test_client_set_force_follow_checkpoint (EosTestClient *client,
-                                                  gboolean       force_follow_checkpoint);
+                                                  const gchar   *force_follow_checkpoint);
 
 gboolean eos_test_client_run_updater (EosTestClient *client,
                                       DownloadSource *order,

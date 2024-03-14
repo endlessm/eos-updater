@@ -153,8 +153,6 @@ _test_update_refspec_endoflife (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -173,9 +171,6 @@ _test_update_refspec_endoflife (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 

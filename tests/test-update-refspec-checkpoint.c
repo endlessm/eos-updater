@@ -138,8 +138,6 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -158,9 +156,6 @@ test_update_refspec_checkpoint (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -273,8 +268,6 @@ test_update_refspec_checkpoint_old_ref_deleted (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -293,9 +286,6 @@ test_update_refspec_checkpoint_old_ref_deleted (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -366,8 +356,6 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -386,9 +374,6 @@ test_update_refspec_checkpoint_even_if_downgrade (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -477,8 +462,6 @@ test_update_refspec_checkpoint_no_collection_ref_server (EosUpdaterFixture *fixt
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref_no_id,
                                       0,
                                       fixture->gpg_home,
@@ -497,9 +480,6 @@ test_update_refspec_checkpoint_no_collection_ref_server (EosUpdaterFixture *fixt
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref_no_id,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -578,8 +558,6 @@ test_update_refspec_checkpoint_malformed_checkpoint (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -598,9 +576,6 @@ test_update_refspec_checkpoint_malformed_checkpoint (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -693,8 +668,6 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -713,9 +686,6 @@ test_update_refspec_checkpoint_malformed_checkpoint_recovery (EosUpdaterFixture 
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -845,8 +815,6 @@ test_update_refspec_checkpoint_no_collection_ref_client (EosUpdaterFixture *fixt
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -865,9 +833,6 @@ test_update_refspec_checkpoint_no_collection_ref_client (EosUpdaterFixture *fixt
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref_no_id,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -956,8 +921,6 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -976,9 +939,6 @@ test_update_refspec_checkpoint_continue_old_branch (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1101,8 +1061,6 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -1121,9 +1079,6 @@ test_update_refspec_checkpoint_continue_old_branch_then_new_branch (EosUpdaterFi
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1276,8 +1231,6 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -1296,9 +1249,6 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -1355,72 +1305,13 @@ test_update_refspec_checkpoint_ignore_remote (EosUpdaterFixture *fixture,
   g_assert_true (has_commit);
 }
 
-typedef struct
-{
-  /* Setup */
-  const gchar *src_ref;  /* (nullable) for default */
-  const gchar *tgt_ref;  /* (nullable) for default */
-  const gchar *sys_vendor;  /* (nullable) for default */
-  const gchar *product_name;  /* (nullable) for default */
-  gboolean is_split_disk;
-  const gchar *uname_machine;  /* (nullable) for default */
-  const gchar *cpuinfo;  /* (nullable) for default */
-  const gchar *cmdline;  /* (nullable) for default */
-  gboolean flatpak_repo_is_symlink;
-  gboolean auto_bootloader;
-  gboolean force_follow_checkpoint;
-
-  /* Results */
-  gboolean expect_checkpoint_followed;
-} CheckpointTestData;
-
-static gchar *
-checkpoint_test_data_description (CheckpointTestData *data)
-{
-  g_autoptr(GPtrArray) fields =  g_ptr_array_new_with_free_func (g_free);
-
-  if (data->src_ref)
-    g_ptr_array_add (fields, g_strdup_printf ("src_ref=%s", data->src_ref));
-  if (data->tgt_ref)
-    g_ptr_array_add (fields, g_strdup_printf ("tgt_ref=%s", data->tgt_ref));
-  if (data->sys_vendor)
-    g_ptr_array_add (fields, g_strdup_printf ("sys_vendor=%s", data->sys_vendor));
-  if (data->product_name)
-    g_ptr_array_add (fields, g_strdup_printf ("product_name=%s", data->product_name));
-  if (data->is_split_disk)
-    g_ptr_array_add (fields, g_strdup ("is_split_disk=TRUE"));
-  if (data->uname_machine)
-    g_ptr_array_add (fields, g_strdup_printf ("uname_machine=%s", data->uname_machine));
-  if (data->cpuinfo)
-    g_ptr_array_add (fields, g_strdup_printf ("cpuinfo=%s", data->cpuinfo));
-  if (data->cmdline)
-    g_ptr_array_add (fields, g_strdup_printf ("cmdline=%s", data->cmdline));
-  if (data->flatpak_repo_is_symlink)
-    g_ptr_array_add (fields, g_strdup ("flatpak_repo_is_symlink=TRUE"));
-  if (data->auto_bootloader)
-    g_ptr_array_add (fields, g_strdup ("auto_bootloader=TRUE"));
-  if (data->force_follow_checkpoint)
-    g_ptr_array_add (fields, g_strdup ("force_follow_checkpoint=TRUE"));
-
-  g_ptr_array_add (fields, g_strdup_printf ("expect_checkpoint_followed=%s",
-                                            data->expect_checkpoint_followed ? "TRUE" : "FALSE"));
-
-  /* NULL terminate */
-  g_ptr_array_add (fields, NULL);
-  return g_strjoinv(", ", (gchar **)fields->pdata);
-}
-
 static void
-do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
-                              gconstpointer       user_data,
-                              CheckpointTestData *test_machine,
-                              gboolean            host_is_aarch64)
+test_update_refspec_checkpoint_force_no_follow (EosUpdaterFixture *fixture,
+                                                gconstpointer      user_data)
 {
-  const gchar *src_ref = test_machine->src_ref ? test_machine->src_ref : default_src_ref;
-  const OstreeCollectionRef _src_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) src_ref };
+  const OstreeCollectionRef _src_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) default_src_ref };
   const OstreeCollectionRef *src_collection_ref = &_src_collection_ref;
-  const gchar *tgt_ref = test_machine->tgt_ref ? test_machine->tgt_ref : default_tgt_ref;
-  const OstreeCollectionRef _tgt_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) tgt_ref };
+  const OstreeCollectionRef _tgt_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) default_tgt_ref };
   const OstreeCollectionRef *tgt_collection_ref = &_tgt_collection_ref;
   g_autoptr(GFile) server_root = NULL;
   g_autoptr(EosTestServer) server = NULL;
@@ -1435,13 +1326,11 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
 
   /* Create the checkpoint */
   insert_update_refspec_metadata_for_commit (1,
-                                             tgt_ref,
+                                             default_tgt_ref,
                                              &additional_metadata_for_commit);
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       src_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -1460,20 +1349,11 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                                 default_remote_name,
                                 subserver,
                                 src_collection_ref,
-                                test_machine->sys_vendor ? test_machine->sys_vendor : default_vendor,
-                                test_machine->product_name ? test_machine->product_name : default_product,
-                                test_machine->auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
-  /* Set the client to imitate a machine which may or may not follow the
-   * checkpoint. */
-  eos_test_client_set_is_split_disk (client, test_machine->is_split_disk);
-  eos_test_client_set_uname_machine (client, test_machine->uname_machine);
-  eos_test_client_set_cpuinfo (client, test_machine->cpuinfo);
-  eos_test_client_set_cmdline (client, test_machine->cmdline);
-  eos_test_client_set_flatpak_repo_is_symlink (client, test_machine->flatpak_repo_is_symlink);
-  eos_test_client_set_force_follow_checkpoint (client, test_machine->force_follow_checkpoint);
+  /* Set the client to imitate a machine which will not follow the checkpoint. */
+  eos_test_client_set_force_follow_checkpoint (client, "0");
 
   g_hash_table_insert (leaf_commit_nodes,
                        ostree_collection_ref_dup (src_collection_ref),
@@ -1525,342 +1405,7 @@ do_update_refspec_checkpoint (EosUpdaterFixture  *fixture,
                               &error);
   g_assert_no_error (error);
 
-  if (test_machine->expect_checkpoint_followed &&
-      (!host_is_aarch64 ||
-       test_machine->force_follow_checkpoint ||
-       test_machine->uname_machine != NULL))
-    g_assert_true (has_commit);
-  else
-    g_assert_false (has_commit);
-
-  /* Prepare for the next iteration */
-  eos_updater_fixture_teardown (fixture, user_data);
-  eos_updater_fixture_setup (fixture, user_data);
-}
-
-/* Specifically test the checkpoint at the upgrade from the eos3a branch (EOS 3.9)
- * to the eos4 branch (EOS 4). With the release of EOS 4, various features and
- * systems are no longer supported, so we need to make sure they *don’t* get
- * migrated to the eos4 branch.
- *
- * Conversely, test that machines which don’t match any of the
- * no-longer-supported machines *do* get migrated to the eos4 branch.
- *
- * https://phabricator.endlessm.com/T31918 */
-static void
-test_update_refspec_checkpoint_eos3a_eos4 (EosUpdaterFixture *fixture,
-                                           gconstpointer      user_data)
-{
-  struct utsname uts;
-  gboolean host_is_aarch64;
-  const gchar *cpuinfo_i8565u =
-      "processor	: 0\n"
-      "vendor_id	: GenuineIntel\n"
-      "cpu family	: 6\n"
-      "model		: 142\n"
-      "model name	: Intel(R) Core(TM) i7-8565U CPU @ 1.80GHz\n"
-      "stepping	: 12\n";
-      /* etc */
-  const gchar *cpuinfo_not_i8565u =
-      "processor	: 0\n"
-      "vendor_id	: NotIntel\n"
-      "cpu family	: 6\n"
-      "model		: 123\n"
-      "model name	: Some collection of ASICs\n"
-      "stepping	: 12\n";
-      /* etc */
-  const gchar *cmdline_ro_end = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0 ro";
-  const gchar *cmdline_ro_middle = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet ro loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0";
-  const gchar *cmdline_not_ro = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0";
-
-  CheckpointTestData tests[] =
-    {
-      /* Normal system */
-      {
-        .expect_checkpoint_followed = TRUE,
-      },
-
-      /* Split disk */
-      {
-        .is_split_disk = TRUE,
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* aarch64 */
-      {
-        .uname_machine = "x86_64",
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* Ref matching. When the ref does not match the expected "eos3a"
-       * and "eos4" patterns, the checkpoint is followed. Since that
-       * would be indistinguishable from a normal system with matching
-       * refs, the machine is set to aarch64. The result being that the
-       * checkpoint is skipped for ref matches and followed for ref
-       * mismatches. */
-      {
-        .src_ref = "os/eos/arm64/eos3",
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .src_ref = "os/eos/arm64/eos3a2",
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .tgt_ref = "os/eos/arm64/eos3b",
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .tgt_ref = "os/eos/arm64/eos4a",
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .src_ref = "os/eos/arm64/eos3a",
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .tgt_ref = "os/eos/arm64/eos4",
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .src_ref = "os/eos/arm64/eos3a",
-        .tgt_ref = "os/eos/arm64/eos4",
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .src_ref = "os/eos/arm64/eos3a",
-        .tgt_ref = "os/eos/arm64/latest1",
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* Ref matching. When the ref matches the "nexthw/eos3.9", the checkpoint
-       * is followed. It should allow updating to "eos4" directly.
-       * https://phabricator.endlessm.com/T32542 */
-      {
-        .src_ref = "os/eos/nexthw/eos3.9",
-        .expect_checkpoint_followed = TRUE,
-      },
-
-      /* Asus with i-8565U CPU */
-      {
-        .cpuinfo = cpuinfo_i8565u,
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .sys_vendor = "Asus",
-        .cpuinfo = cpuinfo_not_i8565u,
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .sys_vendor = "Asus",
-        .cpuinfo = cpuinfo_i8565u,
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* Various systems unsupported by the new kernel */
-      {
-        .sys_vendor = "Acer",
-        .product_name = "Aspire ES1-533",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Acer",
-        .product_name = "Aspire ES1-732",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Acer",
-        .product_name = "Veriton Z4660G",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Acer",
-        .product_name = "Veriton Z4860G",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Acer",
-        .product_name = "Veriton Z6860G",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "ASUSTeK COMPUTER INC.",
-        .product_name = "Z550MA",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Endless",
-        .product_name = "ELT-JWM",
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* Read-only in kernel command line args */
-      {
-        .cmdline = cmdline_not_ro,
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .cmdline = cmdline_ro_end,
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .cmdline = cmdline_ro_middle,
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT. Add new negative
-       * conditions here. */
-      {
-        .sys_vendor = "Asus",
-        .is_split_disk = TRUE,
-        .uname_machine = "aarch64",
-        .cpuinfo = cpuinfo_i8565u,
-        .cmdline = cmdline_ro_end,
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
-    };
-
-  /* If the host running the tests is actually aarch64, it will refuse to
-   * follow the checkpoint unless @force_follow_checkpoint is set (or there are
-   * bugs), so the test has to adapt. */
-  g_assert (uname (&uts) == 0);
-  host_is_aarch64 = (g_strcmp0 (uts.machine, "aarch64") == 0);
-
-  for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
-    {
-      g_autofree gchar *description = checkpoint_test_data_description (&tests[i]);
-
-      g_test_message ("Test eos3a to eos4 %" G_GSIZE_FORMAT ": %s", i, description);
-      do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
-    }
-}
-
-/* Specifically test the checkpoint at the upgrade from the latest1 branch
- * (EOS 4) to the latest2 branch (EOS 5). With the release of EOS 5, various
- * features and systems are no longer supported, so we need to make sure they
- * *don’t* get migrated to the latest2 branch.
- *
- * Conversely, test that machines which don’t match any of the
- * no-longer-supported machines *do* get migrated to the eos4 branch.
- *
- * https://phabricator.endlessm.com/T33311 */
-static void
-test_update_refspec_checkpoint_latest1_latest2 (EosUpdaterFixture *fixture,
-                                                gconstpointer      user_data)
-{
-  gboolean host_is_aarch64;
-  CheckpointTestData tests[] =
-    {
-      /* Normal system */
-      {
-        .expect_checkpoint_followed = TRUE,
-      },
-
-      /* Ref matching. The only allowed path is from latest1 to latest2. Any
-       * other booted ref cannot follow the checkpoint to latest2. */
-      {
-        .src_ref = "os/eos/amd64/eos4",
-        .tgt_ref = "os/eos/amd64/latest2",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .src_ref = "os/eos/amd64/eos4.0",
-        .tgt_ref = "os/eos/amd64/latest2",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        /* Hypothetical LTS checkpoint that should not be affected by the
-         * latest2 checkpoint handling. */
-        .src_ref = "os/eos/amd64/eos4",
-        .tgt_ref = "os/eos/amd64/eos4a",
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .src_ref = "os/eos/arm64/latest1",
-        .tgt_ref = "os/eos/arm64/latest2",
-        .expect_checkpoint_followed = TRUE,
-      },
-
-      /* Platforms: x86_64 and aarch64 */
-      {
-        .uname_machine = "x86_64",
-        .expect_checkpoint_followed = TRUE,
-      },
-      {
-        .uname_machine = "aarch64",
-        .expect_checkpoint_followed = TRUE,
-      },
-
-      /* Various systems unsupported by the new kernel */
-      {
-        .sys_vendor = "Endless",
-        .product_name = "EE-200",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Standard",
-        .product_name = "EF20",
-        .expect_checkpoint_followed = FALSE,
-      },
-      {
-        .sys_vendor = "Standard",
-        .product_name = "EF20EA",
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* Merged flatpak repo */
-      {
-        .flatpak_repo_is_symlink = TRUE,
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* Auto bootloader */
-      {
-        .auto_bootloader = TRUE,
-        .expect_checkpoint_followed = FALSE,
-      },
-
-      /* EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT. Add new negative
-       * conditions here. */
-      {
-        .sys_vendor = "Endless",
-        .product_name = "EE-200",
-        .flatpak_repo_is_symlink = TRUE,
-        .auto_bootloader = TRUE,
-        .force_follow_checkpoint = TRUE,
-        .expect_checkpoint_followed = TRUE,
-      },
-    };
-
-  /* The aarch64 platforms can update from EOS 4 to EOS 5. So, let aarch64
-   * platforms follow the normal update checkpoint procedure.
-   *
-   * https://phabricator.endlessm.com/T33759 */
-  host_is_aarch64 = FALSE;
-
-  for (gsize i = 0; i < G_N_ELEMENTS (tests); i++)
-    {
-      g_autofree gchar *description = NULL;
-
-      tests[i].src_ref = tests[i].src_ref ? tests[i].src_ref : "os/eos/amd64/latest1";
-      tests[i].tgt_ref = tests[i].tgt_ref ? tests[i].tgt_ref : "os/eos/amd64/latest2";
-      description = checkpoint_test_data_description (&tests[i]);
-      g_test_message ("Test eos4 to eos5 %" G_GSIZE_FORMAT ": %s", i, description);
-      do_update_refspec_checkpoint (fixture, user_data, &tests[i], host_is_aarch64);
-    }
+  g_assert_false (has_commit);
 }
 
 int
@@ -1901,12 +1446,9 @@ main (int argc,
   eos_test_add ("/updater/update-refspec-checkpoint-ignore-remote",
                 NULL,
                 test_update_refspec_checkpoint_ignore_remote);
-  eos_test_add ("/updater/update-refspec-checkpoint-eos3a-eos4",
+  eos_test_add ("/updater/update-refspec-checkpoint-force-no-follow",
                 NULL,
-                test_update_refspec_checkpoint_eos3a_eos4);
-  eos_test_add ("/updater/update-refspec-checkpoint-latest1-latest2",
-                NULL,
-                test_update_refspec_checkpoint_latest1_latest2);
+                test_update_refspec_checkpoint_force_no_follow);
 
   return g_test_run ();
 }
