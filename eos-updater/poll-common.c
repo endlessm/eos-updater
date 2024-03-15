@@ -31,6 +31,7 @@
 #include <gio/gunixmounts.h>
 #include <glib.h>
 #include <glib/gi18n.h>
+#include <libeos-updater-util/checkpoint-private.h>
 #include <libeos-updater-util/metrics-private.h>
 #include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
@@ -490,44 +491,6 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
   return TRUE;
 }
 
-/* Whether the upgrade should follow the given checkpoint and move to the given
- * @target_ref for the upgrade deployment. The default for this is %TRUE, but
- * there are various systems for which support has been withdrawn, which need
- * to stay on old branches. In those cases, this function will return %FALSE
- * and will set a human-readable reason for this in @out_reason. */
-static gboolean
-should_follow_checkpoint (OstreeSysroot     *sysroot,
-                          OstreeRepo        *repo,
-                          OstreeDeployment  *booted_deployment,
-                          const gchar       *booted_ref,
-                          const gchar       *target_ref,
-                          gchar            **out_reason)
-{
-  /* Simplifies the code below. */
-  g_assert (out_reason != NULL);
-
-  /* Allow an override in case the logic below is incorrect or doesn’t age well. */
-  if (g_strcmp0 (g_getenv ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT"), "1") == 0)
-    {
-      g_message ("Forcing checkpoint target ‘%s’ to be used as EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT=1 is set",
-                  target_ref);
-      return TRUE;
-    }
-
-  /* And an override in the opposite direction, for testing */
-  if (g_strcmp0 (g_getenv ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT"), "0") == 0)
-    {
-      g_message ("Forcing checkpoint target ‘%s’ not to be used as EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT=0 is set",
-                  target_ref);
-      *out_reason = g_strdup ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT=0 is set");
-      return FALSE;
-    }
-
-  /* Checkpoint can be followed. */
-  g_assert (*out_reason == NULL);
-  return TRUE;
-}
-
 static gboolean
 get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
                                        OstreeDeployment  *booted_deployment,
@@ -595,7 +558,7 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
                remote, refspec_for_deployment);
 
   /* Should we take this checkpoint? */
-  if (!should_follow_checkpoint (sysroot, repo, booted_deployment, booted_ref, ref, &reason))
+  if (!euu_should_follow_checkpoint (sysroot, booted_ref, ref, &reason))
     {
       g_message ("Ignoring eos.checkpoint-target metadata ‘%s’ as following "
                  "the checkpoint is disabled for this system: %s",
