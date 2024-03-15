@@ -29,6 +29,7 @@ config_resources = gnome.compile_resources(
 
 test_programs = {
   'avahi-service-file': {},
+  'checkpoint': {},
   'config-util': {
     'source': ['config-util.c'] + config_resources,
   },
