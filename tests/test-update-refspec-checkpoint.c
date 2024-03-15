@@ -266,8 +266,6 @@ test_update_refspec_checkpoint_old_ref_deleted (EosUpdaterFixture *fixture,
     eos_test_subserver_ref_to_commit_new ();
   g_autoptr(GHashTable) refs = NULL;
   gboolean has_original_ref, has_new_ref;
-  g_autofree gchar *branches_option = NULL;
-  g_autofree gchar *expected_branches = NULL;
 
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
