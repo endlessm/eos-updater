@@ -95,6 +95,67 @@ test_force_no_follow (Fixture                  *fixture,
   g_unsetenv ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT");
 }
 
+/* Up to & including eos5.1 (a.k.a. latest2), our kernel had an nvme-remap
+ * driver to support a weird Intel storage configuration. We are removing this
+ * driver in eos6.0 (a.k.a. latest3). Test that it is detected correctly.
+ */
+static void
+test_nvme_remap (Fixture       *fixture,
+                 gconstpointer  user_data)
+{
+  g_autoptr(GFile) driver_dir = NULL;
+  g_autoptr(GError) error = NULL;
+  gboolean nvme_remap_in_use = GPOINTER_TO_INT (user_data);
+  gboolean should_follow_checkpoint;
+
+  driver_dir = g_file_resolve_relative_path (fixture->root_dir, "sys/bus/pci/drivers/intel-nvme-remap");
+  g_file_make_directory_with_parents (driver_dir, NULL, &error);
+  g_assert_no_error (error);
+
+  /* We built this driver into the kernel. These files exist on all systems: */
+  const char * const standard_files[] = { "bind", "new_id", "remove_id", "uevent", "unbind" };
+  for (size_t i = 0; i < G_N_ELEMENTS (standard_files); i++)
+    {
+      g_autoptr(GFile) file = g_file_get_child (driver_dir, standard_files[i]);
+      g_autoptr(GFileOutputStream) o = g_file_create (file, G_FILE_CREATE_NONE, NULL, &error);
+      g_assert_no_error (error);
+      g_assert_nonnull (o);
+    }
+
+  if (nvme_remap_in_use)
+    {
+      /* If nvme-remap is in use, there will be at least 1 symlink starting with
+       * "0000:", which points at the PCI device where we found NVMe devices
+       * hiding behind.
+       */
+      g_autoptr(GFile) symlink = g_file_get_child (driver_dir, "0000:39:00.0");
+      /* Where the symlink points doesn't matter to the code under test.
+       * It should really point to a directory, but when GLib cleans up the
+       * test's temporary directory it follows symbolic links
+       * https://gitlab.gnome.org/GNOME/glib/-/issues/3290
+       * so the link mustn't form a cycle or (ahem) point to /.
+       * Just point it to nowhere.
+       */
+      g_file_make_symbolic_link (symlink, "nonexistent", NULL, &error);
+      g_assert_no_error (error);
+    }
+
+  g_autofree gchar *reason = NULL;
+
+  should_follow_checkpoint = euu_should_follow_checkpoint (fixture->sysroot, "os/eos/amd64/latest2", "os/eos/amd64/latest3", &reason);
+
+  if (nvme_remap_in_use)
+    {
+      g_assert_false (should_follow_checkpoint);
+      g_assert_cmpstr (reason, !=, NULL);
+    }
+  else
+    {
+      g_assert_true (should_follow_checkpoint);
+      g_assert_cmpstr (reason, ==, NULL);
+    }
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -107,6 +168,18 @@ main (int   argc,
               test_default_follow, teardown);
   g_test_add ("/checkpoint/force-no-follow", Fixture, NULL, setup,
               test_force_no_follow, teardown);
+  g_test_add ("/checkpoint/nvme-remap/not-in-use",
+              Fixture,
+              GINT_TO_POINTER (FALSE),
+              setup,
+              test_nvme_remap,
+              teardown);
+  g_test_add ("/checkpoint/nvme-remap/in-use",
+              Fixture,
+              GINT_TO_POINTER (TRUE),
+              setup,
+              test_nvme_remap,
+              teardown);
 
   return g_test_run ();
 }
