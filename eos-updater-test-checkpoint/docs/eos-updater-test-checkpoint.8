@@ -1,0 +1,55 @@
+.\" Manpage for eos-updater-checkpoint-test.
+.\" SPDX-License-Identifier: CC-BY-SA-4.0
+.\" SPDX-FileCopyrightText: Copyright 2024 Endless OS Foundation LLC
+.TH man 8 "19 Mar 2024" "1.0" "eos\-updater\-test\-checkpoint man page"
+.\"
+.SH NAME
+.IX Header "NAME"
+eos\-updater\-test\-checkpoint — test Endless OS Updater checkpoint checks
+.\"
+.SH SYNOPSIS
+.B eos\-updater\-test\-checkpoint
+\fI\,SOURCE_REF\/\fR \fI\,TARGET_REF\/\fR
+.SH DESCRIPTION
+.IX Header "DESCRIPTION"
+.\"
+Tests whether \fBeos\-updater\fP(8) would allow the current system to follow a
+checkpoint on SOURCE_REF and upgrade to its TARGET_REF, or whether it would
+block the upgrade. Typically systems are prevented from crossing a checkpoint
+if their hardware configuration is no longer supported on the new OS branch.
+.PP
+This tool is primarily for use during development of Endless OS.
+.\"
+.SH "EXIT STATUS"
+.IX Header "EXIT STATUS"
+.\"
+.B eos\-updater\-test\-checkpoint
+may return one of several error codes if it encounters
+problems.
+.\"
+.IP "0" 4
+.IX Item "0"
+No problems occurred.
+.\"
+.IP "1" 4
+.IX Item "1"
+Some problem occurred, such as the system not being an OSTree system.
+.\"
+.IP "2" 4
+.IX Item "2"
+Invalid options were passed to \fBeos\-updater\-test\-checkpoint\fP.
+.\"
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+.\"
+\fBeos\-updater\fP(8),
+.\"
+.SH AUTHOR
+.IX Header "AUTHOR"
+.\"
+Endless OS Foundation LLC
+.\"
+.SH COPYRIGHT
+.IX Header "COPYRIGHT"
+.\"
+Copyright 2024 Endless OS Foundation LLC
