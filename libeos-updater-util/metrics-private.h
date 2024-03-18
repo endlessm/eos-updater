@@ -38,11 +38,18 @@ G_BEGIN_DECLS
 static const gchar *const EOS_UPDATER_METRIC_FAILURE = "927d0f61-4890-4912-a513-b2cb0205908f";
 
 /*
- * Records which branch will be used by the updater. The payload is a 4-tuple
- * of 3 strings and boolean: vendor name, product ID, selected OStree ref, and
- * whether the machine is on hold
+ * Aggregate event, recorded when the system is blocked from crossing a checkpoint.
+ *
+ * The payload is a 5-tuple of strings: hardware vendor name, hardware product
+ * name, current OSTree ref, target OSTree ref, and the stringified value of
+ * EuuCheckpointBlock describing why the update was blocked.
+ *
+ * The count is to be ignored: it will be incremented whenever the system tries
+ * and fails to update, but since this is a static condition the number of times
+ * doesn't really matter. It is aggregated so each system only reports the event
+ * once per day and month.
  */
-static const gchar *const EOS_UPDATER_METRIC_BRANCH_SELECTED = "99f48aac-b5a0-426d-95f4-18af7d081c4e";
+static const gchar *const EOS_UPDATER_METRIC_CHECKPOINT_BLOCKED = "e3609b7e-88aa-4ba5-90f9-418bf9234139";
 
 /**
  * euu_get_metrics_enabled:

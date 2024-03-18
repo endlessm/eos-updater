@@ -32,6 +32,7 @@
 #include <glib.h>
 #include <glib/gi18n.h>
 #include <libeos-updater-util/checkpoint-private.h>
+#include <libeos-updater-util/enums.h>
 #include <libeos-updater-util/metrics-private.h>
 #include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
@@ -272,34 +273,6 @@ is_checksum_an_update (OstreeRepo *repo,
   return TRUE;
 }
 
-G_DEFINE_TYPE (EosMetricsInfo, eos_metrics_info, G_TYPE_OBJECT)
-
-static void
-eos_metrics_info_finalize (GObject *object)
-{
-  EosMetricsInfo *self = EOS_METRICS_INFO (object);
-
-  g_free (self->vendor);
-  g_free (self->product);
-  g_free (self->ref);
-
-  G_OBJECT_CLASS (eos_metrics_info_parent_class)->finalize (object);
-}
-
-static void
-eos_metrics_info_class_init (EosMetricsInfoClass *self_class)
-{
-  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
-
-  object_class->finalize = eos_metrics_info_finalize;
-}
-
-static void
-eos_metrics_info_init (EosMetricsInfo *self)
-{
-  /* nothing here */
-}
-
 G_DEFINE_TYPE (EosUpdateInfo, eos_update_info, G_TYPE_OBJECT)
 
 static void
@@ -407,21 +380,83 @@ cleanstr (gchar *s)
   return s;
 }
 
-EosMetricsInfo *
-eos_metrics_info_new (const gchar *booted_ref)
+static GVariant *
+checkpoint_blocked_event_payload_new (const char         *booted_ref,
+                                      const char         *target_ref,
+                                      EuuCheckpointBlock  reason)
 {
   g_autoptr(GHashTable) hw_descriptors = NULL;
-  g_autoptr(EosMetricsInfo) info = NULL;
+  g_autofree gchar *vendor, *product;
+  const char *reason_nick;
 
   hw_descriptors = get_hw_descriptors ();
 
-  info = g_object_new (EOS_TYPE_METRICS_INFO, NULL);
-  info->vendor = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, VENDOR_KEY)));
-  info->product = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, PRODUCT_KEY)));
-  info->ref = g_strdup (booted_ref);
+  vendor = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, VENDOR_KEY)));
+  product = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, PRODUCT_KEY)));
 
-  return g_steal_pointer (&info);
+  reason_nick = euu_checkpoint_block_to_string (reason);
+
+  return g_variant_new ("(sssss)", /* ophidian noises intensify */
+                        vendor,
+                        product,
+                        booted_ref,
+                        target_ref,
+                        reason_nick ?: "");
 }
+
+#ifdef HAS_EOSMETRICS_0
+static gboolean
+stop_aggregate_timer (gpointer data)
+{
+  g_return_val_if_fail (EMTR_IS_AGGREGATE_TIMER (data), G_SOURCE_REMOVE);
+
+  emtr_aggregate_timer_stop (data);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+maybe_send_checkpoint_blocked_event (GVariant *payload)
+{
+  g_return_if_fail (payload != NULL);
+  g_autofree gchar *payload_str = g_variant_print (payload, FALSE);
+
+  if (euu_get_metrics_enabled ())
+    {
+      EmtrAggregateTimer *timer;
+
+      g_message ("Recording metric event %s: %s",
+                 EOS_UPDATER_METRIC_CHECKPOINT_BLOCKED,
+                 payload_str);
+
+      /* What we actually want to do is increment the counter by 1. There is no
+       * API for this; or rather, there is a RecordAggregateEvent D-Bus API, but
+       * it is a no-op. https://phabricator.endlessm.com/T33511
+       *
+       * Fake it by using the API we do have: start a timer, and stop it after
+       * approximately one second.
+       */
+      timer = emtr_event_recorder_start_aggregate_timer (emtr_event_recorder_get_default (),
+                                                         EOS_UPDATER_METRIC_CHECKPOINT_BLOCKED,
+                                                         payload);
+      g_timeout_add_seconds_full (G_PRIORITY_DEFAULT,
+                                  1,
+                                  stop_aggregate_timer,
+                                  timer,
+                                  g_object_unref);
+    }
+  else
+    {
+      g_debug ("Skipping metric event %s: %s (metrics disabled)",
+               EOS_UPDATER_METRIC_CHECKPOINT_BLOCKED,
+               payload_str);
+    }
+}
+#else
+static void
+maybe_send_checkpoint_blocked_event (GVariant *payload)
+{
+}
+#endif
 
 gboolean
 get_booted_refspec (OstreeDeployment     *booted_deployment,
@@ -562,9 +597,15 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
       if (local_error->domain != EUU_CHECKPOINT_BLOCK)
         return FALSE;
 
+      g_autoptr(GVariant) payload = checkpoint_blocked_event_payload_new (booted_ref,
+                                                                          ref,
+                                                                          (EuuCheckpointBlock) local_error->code);
+      g_variant_ref_sink (payload);
+
       g_message ("Ignoring eos.checkpoint-target metadata ‘%s’ as following "
                  "the checkpoint is disabled for this system: %s",
                  refspec_for_deployment, local_error->message);
+      maybe_send_checkpoint_blocked_event (payload);
       *out_ref_to_upgrade_from_deployment = NULL;
       return TRUE;
     }
@@ -1034,57 +1075,6 @@ get_hw_descriptors (void)
   return hw_descriptors;
 }
 
-static void
-maybe_send_metric (EosMetricsInfo *metrics)
-{
-#ifdef HAS_EOSMETRICS_0
-  static gboolean metric_sent = FALSE;
-
-  if (metric_sent)
-    return;
-
-  if (euu_get_metrics_enabled ())
-    {
-      g_message ("Recording metric event %s: (%s, %s, %s)",
-                 EOS_UPDATER_METRIC_BRANCH_SELECTED, metrics->vendor, metrics->product,
-                 metrics->ref);
-      emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
-                                             EOS_UPDATER_METRIC_BRANCH_SELECTED,
-                                             g_variant_new ("(sssb)", metrics->vendor,
-                                                            metrics->product,
-                                                            metrics->ref,
-                                                            (gboolean) FALSE  /* on-hold */));
-    }
-  else
-    {
-      g_debug ("Skipping metric event %s: (%s, %s, %s) (metrics disabled)",
-               EOS_UPDATER_METRIC_BRANCH_SELECTED, metrics->vendor, metrics->product,
-               metrics->ref);
-    }
-
-  metric_sent = TRUE;
-#endif
-}
-
-void
-metrics_report_successful_poll (EosUpdateInfo *update)
-{
-  g_autofree gchar *new_ref = NULL;
-  g_autoptr(GError) error = NULL;
-  g_autoptr(EosMetricsInfo) metrics = NULL;
-
-  if (!ostree_parse_refspec (update->new_refspec, NULL, &new_ref, &error))
-    {
-      g_message ("Failed to get metrics: %s", error->message);
-      return;
-    }
-
-  /* Send metrics about our ref: this is the ref we’re going to upgrade to,
-   * and that’s not always the same as the one we’re currently on. */
-  metrics = eos_metrics_info_new (new_ref);
-  maybe_send_metric (metrics);
-}
-
 gchar *
 eos_update_info_to_string (EosUpdateInfo *update)
 {
@@ -1263,7 +1253,6 @@ run_fetchers (OstreeRepo   *repo,
       latest_update = get_latest_update (sources, source_to_update);
       if (latest_update != NULL)
         {
-          metrics_report_successful_poll (latest_update);
           return g_object_ref (latest_update);
         }
     }
