@@ -507,7 +507,6 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
   g_autofree gchar *ref = NULL;
   g_autoptr(OstreeRepo) repo = NULL;
   g_autoptr(GError) local_error = NULL;
-  g_autofree gchar *reason = NULL;
 
   g_return_val_if_fail (out_ref_to_upgrade_from_deployment != NULL, FALSE);
 
@@ -558,11 +557,14 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
                remote, refspec_for_deployment);
 
   /* Should we take this checkpoint? */
-  if (!euu_should_follow_checkpoint (sysroot, booted_ref, ref, &reason))
+  if (!euu_should_follow_checkpoint (sysroot, booted_ref, ref, &local_error))
     {
+      if (local_error->domain != EUU_CHECKPOINT_BLOCK)
+        return FALSE;
+
       g_message ("Ignoring eos.checkpoint-target metadata ‘%s’ as following "
                  "the checkpoint is disabled for this system: %s",
-                 refspec_for_deployment, reason);
+                 refspec_for_deployment, local_error->message);
       *out_ref_to_upgrade_from_deployment = NULL;
       return TRUE;
     }

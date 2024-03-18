@@ -64,6 +64,12 @@ teardown (Fixture       *fixture,
   g_clear_object (&fixture->root_dir);
 }
 
+static void
+test_reason_to_string (void)
+{
+  g_assert_cmpstr ("forced", ==, euu_checkpoint_block_to_string (EUU_CHECKPOINT_BLOCK_FORCED));
+}
+
 /* Test that checkpoints are followed unless there is a particular reason not
  * to.
  */
@@ -71,9 +77,9 @@ static void
 test_default_follow (Fixture                  *fixture,
                      gconstpointer  user_data  G_GNUC_UNUSED)
 {
-  gchar *reason = NULL;
-  g_assert_true (euu_should_follow_checkpoint (fixture->sysroot, "os/eos/amd64/latest2", "os/eos/amd64/latest3", &reason));
-  g_assert_cmpstr (reason, ==, NULL);
+  g_autoptr(GError) error = NULL;
+  g_assert_true (euu_should_follow_checkpoint (fixture->sysroot, "os/eos/amd64/latest2", "os/eos/amd64/latest3", &error));
+  g_assert_no_error (error);
 }
 
 /* Test that setting EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT=0 prevents following
@@ -85,12 +91,12 @@ static void
 test_force_no_follow (Fixture                  *fixture,
                       gconstpointer  user_data  G_GNUC_UNUSED)
 {
-  g_autofree gchar *reason = NULL;
+  g_autoptr(GError) error = NULL;
 
   g_setenv ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT", "0", TRUE);
 
-  g_assert_false (euu_should_follow_checkpoint (fixture->sysroot, "os/eos/amd64/latest2", "os/eos/amd64/latest3", &reason));
-  g_assert_cmpstr (reason, !=, NULL);
+  g_assert_false (euu_should_follow_checkpoint (fixture->sysroot, "os/eos/amd64/latest2", "os/eos/amd64/latest3", &error));
+  g_assert_error (error, EUU_CHECKPOINT_BLOCK, EUU_CHECKPOINT_BLOCK_FORCED);
 
   g_unsetenv ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT");
 }
@@ -140,19 +146,17 @@ test_nvme_remap (Fixture       *fixture,
       g_assert_no_error (error);
     }
 
-  g_autofree gchar *reason = NULL;
-
-  should_follow_checkpoint = euu_should_follow_checkpoint (fixture->sysroot, "os/eos/amd64/latest2", "os/eos/amd64/latest3", &reason);
+  should_follow_checkpoint = euu_should_follow_checkpoint (fixture->sysroot, "os/eos/amd64/latest2", "os/eos/amd64/latest3", &error);
 
   if (nvme_remap_in_use)
     {
       g_assert_false (should_follow_checkpoint);
-      g_assert_cmpstr (reason, !=, NULL);
+      g_assert_error (error, EUU_CHECKPOINT_BLOCK, EUU_CHECKPOINT_BLOCK_NVME_REMAP);
     }
   else
     {
       g_assert_true (should_follow_checkpoint);
-      g_assert_cmpstr (reason, ==, NULL);
+      g_assert_no_error (error);
     }
 }
 
@@ -163,6 +167,8 @@ main (int   argc,
   setlocale (LC_ALL, "");
 
   g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
+
+  g_test_add_func ("/checkpoint/reason-to-string", test_reason_to_string);
 
   g_test_add ("/checkpoint/default-follow", Fixture, NULL, setup,
               test_default_follow, teardown);

@@ -45,7 +45,10 @@ libeos_updater_util_deps = [
 ]
 
 enums = gnome.mkenums_simple('enums',
-  sources: libeos_updater_util_headers,
+  sources: [
+    libeos_updater_util_headers,
+    libeos_updater_util_private_headers,
+  ],
   install_header: false,
 )
 

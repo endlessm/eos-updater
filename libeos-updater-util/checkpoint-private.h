@@ -24,8 +24,24 @@
 
 G_BEGIN_DECLS
 
-gboolean euu_should_follow_checkpoint (OstreeSysroot     *sysroot,
-                                       const gchar       *booted_ref,
-                                       const gchar       *target_ref,
-                                       gchar            **out_reason);
+#define EUU_CHECKPOINT_BLOCK (euu_checkpoint_block_quark ())
+GQuark euu_checkpoint_block_quark (void);
+
+/**
+ * EuuCheckpointBlock:
+ * @EUU_CHECKPOINT_BLOCK_NVME_REMAP: The system uses the nvme-remap driver
+ *
+ * Reasons why eos-updater may block the system from crossing a checkpoint.
+ */
+typedef enum {
+  EUU_CHECKPOINT_BLOCK_FORCED,
+  EUU_CHECKPOINT_BLOCK_NVME_REMAP,
+} EuuCheckpointBlock;
+
+const char *euu_checkpoint_block_to_string (EuuCheckpointBlock reason);
+
+gboolean euu_should_follow_checkpoint (OstreeSysroot  *sysroot,
+                                       const gchar    *booted_ref,
+                                       const gchar    *target_ref,
+                                       GError        **error);
 G_END_DECLS

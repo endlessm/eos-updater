@@ -21,7 +21,28 @@
 #include "config.h"
 
 #include <libeos-updater-util/checkpoint-private.h>
+#include <libeos-updater-util/enums.h>
 #include <glib/gi18n.h>
+
+G_DEFINE_QUARK (euu-checkpoint-block-quark, euu_checkpoint_block)
+
+/**
+ * euu_checkpoint_block_to_string:
+ * @reason: An element of #EuuCheckpointBlock
+ *
+ * Helper function to get the nickname of @reason.
+ *
+ * Returns: the nickname of @reason, such as "forced"
+ */
+const char *
+euu_checkpoint_block_to_string (EuuCheckpointBlock reason)
+{
+  g_autoptr(GEnumClass) enum_class = G_ENUM_CLASS (g_type_class_ref (EUU_TYPE_CHECKPOINT_BLOCK));
+  GEnumValue *value = g_enum_get_value (enum_class, (gint) reason);
+
+  g_return_val_if_fail (value != NULL, NULL);
+  return value->value_nick;
+}
 
 static gboolean
 is_nvme_remap_in_use (OstreeSysroot *sysroot)
@@ -73,25 +94,25 @@ is_nvme_remap_in_use (OstreeSysroot *sysroot)
  * @sysroot: the filesystem root of the system being upgraded
  * @booted_ref: the currently-booted ref
  * @target_ref: the candidate new ref to move to
- * @out_reason: (out): a human-readable reason not to follow the checkpoint
+ * @error: (out): an error with domain #EUU_CHECKPOINT_BLOCK
  *
  * Whether the upgrade should follow the given checkpoint and move to the given
  * @target_ref for the upgrade deployment. The default for this is %TRUE, but
  * there are various systems for which support has been withdrawn, which need
  * to stay on old branches. In those cases, this function will return %FALSE
- * and will set a human-readable reason for this in @out_reason.
+ * and will set @error with domain #EUU_CHECKPOINT_BLOCK, a code from
+ * #EuuCheckpointBlock, and a human-readable reason as the message.
  */
 gboolean
-euu_should_follow_checkpoint (OstreeSysroot     *sysroot,
-                              const gchar       *booted_ref,
-                              const gchar       *target_ref,
-                              gchar            **out_reason)
+euu_should_follow_checkpoint (OstreeSysroot  *sysroot,
+                              const gchar    *booted_ref,
+                              const gchar    *target_ref,
+                              GError        **error)
 {
   g_return_val_if_fail (OSTREE_IS_SYSROOT (sysroot), FALSE);
   g_return_val_if_fail (booted_ref != NULL, FALSE);
   g_return_val_if_fail (target_ref != NULL, FALSE);
-  g_return_val_if_fail (out_reason != NULL, FALSE);
-  g_return_val_if_fail (*out_reason == NULL, FALSE);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
   /* Allow an override in case the logic below is incorrect or doesn’t age well. */
   if (g_strcmp0 (g_getenv ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT"), "1") == 0)
@@ -106,13 +127,15 @@ euu_should_follow_checkpoint (OstreeSysroot     *sysroot,
     {
       g_message ("Forcing checkpoint target ‘%s’ not to be used as EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT=0 is set",
                   target_ref);
-      *out_reason = g_strdup ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT=0 is set");
+      g_set_error (error, EUU_CHECKPOINT_BLOCK, EUU_CHECKPOINT_BLOCK_FORCED,
+                   "EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT=0 is set");
       return FALSE;
     }
 
   if (is_nvme_remap_in_use (sysroot))
     {
-      *out_reason = g_strdup (_("This device uses remapped NVME storage, which is not supported in Endless OS 6"));
+      g_set_error (error, EUU_CHECKPOINT_BLOCK, EUU_CHECKPOINT_BLOCK_NVME_REMAP,
+                   _("This device uses remapped NVME storage, which is not supported in Endless OS 6"));
       return FALSE;
     }
 
