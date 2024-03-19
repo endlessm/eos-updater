@@ -10,9 +10,10 @@ install_data('eos-updater-ctl',
 # lint check
 test(
   'flake8',
-  py3,
-  args: ['-m', 'flake8', files('eos-updater-ctl')],
+  flake8,
+  args: [files('eos-updater-ctl')],
   suite: 'eos-updater-ctl',
+  workdir: meson.current_source_dir(),
 )
 
 # Documentation

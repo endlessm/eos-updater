@@ -115,6 +115,7 @@ foreach test_name, extra_args : test_programs
     suite: ['eos-updater'] + extra_args.get('suite', []),
     timeout: extra_args.get('slow', false) ? 600 : 60,
     is_parallel: extra_args.get('parallel', true),
+    protocol: 'tap',
   )
 endforeach
 
@@ -160,20 +161,19 @@ foreach test_name, extra_args : python_tests
       args: main,
       env: envs,
       suite: ['eos-updater'] + extra_args.get('suite', []),
+      protocol: 'tap',
     )
   endif
 endforeach
 
-reuse = find_program('reuse', required: false)
-if reuse.found()
-  test(
-    'reuse',
-    reuse,
-    args: ['lint'],
-    protocol: 'exitcode',
-    suite: 'eos-updater',
-    workdir: meson.project_source_root(),
-  )
-endif
+reuse = find_program('reuse', required: false, disabler: true)
+test(
+  'reuse',
+  reuse,
+  args: ['lint'],
+  protocol: 'exitcode',
+  suite: 'eos-updater',
+  workdir: meson.project_source_root(),
+)
 
 subdir('services')

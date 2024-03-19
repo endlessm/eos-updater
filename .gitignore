@@ -1,0 +1,16 @@
+# Copyright 2024 Endless OS Foundation, LLC
+# SPDX-License-Identifier: CC0-1.0
+/debian/*.debhelper.log
+/debian/*.postrm.debhelper
+/debian/*.substvars
+/debian/.debhelper/
+/debian/debhelper-build-stamp
+/debian/eos-updater-dev/
+/debian/eos-updater-tests/
+/debian/eos-updater-tools/
+/debian/eos-updater/
+/debian/files
+/debian/gir1.2-eos-updater-0/
+/debian/libeos-updater-flatpak-installer-0-tests/
+/debian/libeos-updater-util-0-tests/
+/debian/tmp/
