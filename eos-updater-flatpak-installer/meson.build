@@ -6,12 +6,12 @@ eos_update_flatpak_installer_sources = [
 ]
 
 eos_update_flatpak_installer_deps = [
-  dependency('flatpak', version: '>= 1.1.2'),
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('json-glib-1.0', version: '>= 1.2.6'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  flatpak_dep,
+  gio_dep,
+  glib_dep,
+  gobject_dep,
+  json_glib_dep,
+  ostree_dep,
   libeos_updater_flatpak_installer_dep,
   libeos_updater_util_dep,
   eosmetrics_dep,
@@ -38,21 +38,21 @@ config.set('libexecdir', join_paths(get_option('prefix'), get_option('libexecdir
 configure_file(
   input: 'eos-updater-flatpak-installer.service.in',
   output: 'eos-updater-flatpak-installer.service',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 
 configure_file(
   input: 'eos-updater-flatpak-installer-fallback.service.in',
   output: 'eos-updater-flatpak-installer-fallback.service',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 
 configure_file(
   input: 'eos-updater-flatpak-installer-fallback.timer.in',
   output: 'eos-updater-flatpak-installer-fallback.timer',
-  install_dir: dependency('systemd').get_variable('systemdsystemunitdir'),
+  install_dir: systemd_dep.get_variable('systemdsystemunitdir'),
   configuration: config,
 )
 

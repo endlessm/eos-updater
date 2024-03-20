@@ -40,15 +40,12 @@
 #error "GPG_BINARY is not defined"
 #endif
 
-const gchar *const default_vendor = "VENDOR";
-const gchar *const default_product = "PRODUCT";
 const gchar *const default_collection_id = "com.endlessm.CollectionId";
 const gchar *const default_ref = "REF";
 const OstreeCollectionRef _default_collection_ref = { (gchar *) "com.endlessm.CollectionId", (gchar *) "REF" };
 const OstreeCollectionRef *default_collection_ref = &_default_collection_ref;
 const gchar *const default_ostree_path = "OSTREE/PATH";
 const gchar *const default_remote_name = "REMOTE";
-const gboolean default_auto_bootloader = FALSE;
 const gchar *arch_override_name = "arch";
 const guint max_commit_number = 10;
 
@@ -1187,8 +1184,6 @@ eos_test_server_new (GFile *server_root,
 
 EosTestServer *
 eos_test_server_new_quick (GFile *server_root,
-                           const gchar *vendor,
-                           const gchar *product,
                            const OstreeCollectionRef *collection_ref,
                            guint commit_number,
                            GFile *gpg_home,
@@ -1249,13 +1244,8 @@ eos_test_client_finalize (GObject *object)
 {
   EosTestClient *self = EOS_TEST_CLIENT (object);
 
-  g_free (self->vendor);
-  g_free (self->product);
   g_free (self->remote_name);
   g_free (self->ostree_path);
-  g_free (self->cpuinfo);
-  g_free (self->cmdline);
-  g_free (self->uname_machine);
 
   G_OBJECT_CLASS (eos_test_client_parent_class)->finalize (object);
 }
@@ -1288,41 +1278,12 @@ static GFile *get_repo_for_sysroot (GFile *sysroot)
 }
 
 static gboolean
-setup_stub_uboot_config (GFile *sysroot,
-                         GError **error)
-{
-  g_autoptr (GFile) boot = g_file_get_child (sysroot, "boot");
-  g_autoptr (GFile) loader0 = g_file_get_child (boot, "loader.0");
-  g_autoptr (GFile) loader = g_file_get_child (boot, "loader");
-  g_autoptr (GFile) uenv = g_file_get_child (loader, "uEnv.txt");
-  g_autoptr (GFile) uenv_compat = g_file_get_child (boot, "uEnv.txt");
-  g_autofree gchar *symlink_target = g_build_filename ("loader", "uEnv.txt", NULL);
-
-  if (!create_directory (loader0, error))
-    return FALSE;
-
-  if (!create_symlink ("loader.0", loader, error))
-    return FALSE;
-
-  if (!create_file (uenv, NULL, error))
-    return FALSE;
-
-  if (!create_symlink (symlink_target,
-                       uenv_compat,
-                       error))
-    return FALSE;
-
-  return TRUE;
-}
-
-static gboolean
 prepare_client_sysroot (GFile *client_root,
                         const gchar *remote_name,
                         const gchar *url,
                         const OstreeCollectionRef *collection_ref,
                         GFile *gpg_home,
                         const gchar *keyid,
-                        gboolean auto_bootloader,
                         GError **error)
 {
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
@@ -1351,27 +1312,18 @@ prepare_client_sysroot (GFile *client_root,
   if (!cmd_result_ensure_ok (&cmd, error))
     return FALSE;
 
-  if (auto_bootloader)
-    {
-      /* Add a u-boot setup that should be automatically detected. */
-      if (!setup_stub_uboot_config (sysroot, error))
-        return FALSE;
-    }
-  else
-    {
-      /* Set the bootloader to none so only the boot loader spec entries
-       * are updated.
-       */
-      cmd_result_clear (&cmd);
-      if (!ostree_set_config (repo,
-                              "sysroot.bootloader",
-                              "none",
-                              &cmd,
-                              error))
-        return FALSE;
-      if (!cmd_result_ensure_ok (&cmd, error))
-        return FALSE;
-    }
+  /* Set the bootloader to none so only the boot loader spec entries
+   * are updated.
+   */
+  cmd_result_clear (&cmd);
+  if (!ostree_set_config (repo,
+                          "sysroot.bootloader",
+                          "none",
+                          &cmd,
+                          error))
+    return FALSE;
+  if (!cmd_result_ensure_ok (&cmd, error))
+    return FALSE;
 
   gpg_key = get_gpg_key_file_for_keyid (gpg_home, keyid);
   cmd_result_clear (&cmd);
@@ -1510,18 +1462,6 @@ get_updater_config (DownloadSource *order,
   return g_steal_pointer (&config);
 }
 
-static GKeyFile *
-get_hw_config (const gchar *vendor,
-               const gchar *product)
-{
-  g_autoptr(GKeyFile) hw = g_key_file_new ();
-
-  g_key_file_set_string (hw, "descriptors", "sys_vendor", vendor);
-  g_key_file_set_string (hw, "descriptors", "product_name", product);
-
-  return g_steal_pointer (&hw);
-}
-
 static GFile *
 updater_quit_file (GFile *updater_dir)
 {
@@ -1532,24 +1472,6 @@ static GFile *
 updater_config_file (GFile *updater_dir)
 {
   return g_file_get_child (updater_dir, "config");
-}
-
-static GFile *
-updater_hw_file (GFile *updater_dir)
-{
-  return g_file_get_child (updater_dir, "hw");
-}
-
-static GFile *
-updater_cpuinfo_file (GFile *updater_dir)
-{
-  return g_file_get_child (updater_dir, "cpuinfo");
-}
-
-static GFile *
-updater_cmdline_file (GFile *updater_dir)
-{
-  return g_file_get_child (updater_dir, "cmdline");
 }
 
 GFile *
@@ -1573,23 +1495,10 @@ get_flatpak_autoinstall_override_dir (GFile *client_root)
 static gboolean
 prepare_updater_dir (GFile *updater_dir,
                      GKeyFile *config_file,
-                     GKeyFile *hw_file,
-                     const gchar *cpuinfo,
-                     const gchar *cmdline,
-                     gboolean flatpak_repo_is_symlink,
                      GError **error)
 {
   g_autoptr(GFile) quit_file_path = NULL;
   g_autoptr(GFile) config_file_path = NULL;
-  g_autoptr(GFile) hw_file_path = NULL;
-  g_autoptr(GFile) cpuinfo_file_path = NULL;
-  g_autoptr(GFile) cmdline_file_path = NULL;
-  g_autoptr(GFile) flatpak_dir = NULL;
-  g_autoptr(GFile) flatpak_repo = NULL;
-  g_autofree gchar *flatpak_repo_path = NULL;
-  g_autoptr(GFile) flatpak_link_repo = NULL;
-  g_autofree gchar *flatpak_link_repo_path = NULL;
-  gboolean flatpak_link_repo_exists;
 
   if (!create_directory (updater_dir, error))
     return FALSE;
@@ -1601,47 +1510,6 @@ prepare_updater_dir (GFile *updater_dir,
   config_file_path = updater_config_file (updater_dir);
   if (!save_key_file (config_file_path, config_file, error))
     return FALSE;
-
-  hw_file_path = updater_hw_file (updater_dir);
-  if (!save_key_file (hw_file_path, hw_file, error))
-    return FALSE;
-
-  cpuinfo_file_path = updater_cpuinfo_file (updater_dir);
-  if (!g_file_replace_contents (cpuinfo_file_path, cpuinfo, strlen (cpuinfo),
-                                NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL, error))
-    return FALSE;
-
-  cmdline_file_path = updater_cmdline_file (updater_dir);
-  if (!g_file_replace_contents (cmdline_file_path, cmdline, strlen (cmdline),
-                                NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL, error))
-    return FALSE;
-
-  /* Make the flatpak installation repo a symlink if needed. This
-   * function may be called multiple times per test, so this needs to be
-   * idempotent.
-   */
-  if (!flatpak_init (updater_dir, error))
-    return FALSE;
-  flatpak_dir = get_flatpak_user_dir_for_updater_dir (updater_dir);
-  flatpak_repo = g_file_get_child (flatpak_dir, "repo");
-  flatpak_repo_path = g_file_get_path (flatpak_repo);
-  flatpak_link_repo = g_file_get_child (flatpak_dir, "link-repo");
-  flatpak_link_repo_path = g_file_get_path (flatpak_link_repo);
-  flatpak_link_repo_exists = g_file_query_exists (flatpak_link_repo, NULL);
-  if (flatpak_repo_is_symlink && !flatpak_link_repo_exists)
-    {
-      g_test_message ("Creating symlink from %s to %s", flatpak_repo_path, flatpak_link_repo_path);
-      if (!g_file_move (flatpak_repo, flatpak_link_repo, G_FILE_COPY_NONE, NULL, NULL, NULL, error))
-        return FALSE;
-      if (!g_file_make_symbolic_link (flatpak_repo, "link-repo", NULL, error))
-        return FALSE;
-    }
-  else if (!flatpak_repo_is_symlink && flatpak_link_repo_exists)
-    {
-      g_test_message ("Moving %s to %s", flatpak_link_repo_path, flatpak_repo_path);
-      if (!g_file_move (flatpak_link_repo, flatpak_repo, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
-        return FALSE;
-    }
 
   return TRUE;
 }
@@ -1757,18 +1625,13 @@ static gboolean
 spawn_updater (GFile *sysroot,
                GFile *repo,
                GFile *config_file,
-               GFile *hw_file,
                GFile *quit_file,
                GFile *flatpak_upgrade_state_dir,
                GFile *flatpak_installation_dir,
                GFile *flatpak_autoinstall_override_dir,
-               GFile *cpuinfo_file,
-               GFile *cmdline_file,
                const gchar *osname,
                gboolean fatal_warnings,
-               const gchar *uname_machine,
-               gboolean is_split_disk,
-               gboolean force_follow_checkpoint,
+               const gchar *force_follow_checkpoint,
                CmdAsyncResult *cmd,
                GError **error)
 {
@@ -1780,7 +1643,6 @@ spawn_updater (GFile *sysroot,
   CmdEnvVar envv[] =
     {
       { "EOS_UPDATER_TEST_UPDATER_CONFIG_FILE_PATH", NULL, config_file },
-      { "EOS_UPDATER_TEST_UPDATER_CUSTOM_DESCRIPTORS_PATH", NULL, hw_file },
       { "EOS_UPDATER_TEST_UPDATER_DEPLOYMENT_FALLBACK", "yes", NULL },
       { "EOS_UPDATER_TEST_UPDATER_QUIT_FILE", NULL, quit_file },
       { "EOS_UPDATER_TEST_UPDATER_USE_SESSION_BUS", "yes", NULL },
@@ -1790,11 +1652,7 @@ spawn_updater (GFile *sysroot,
       { "EOS_UPDATER_TEST_UPDATER_FLATPAK_AUTOINSTALL_OVERRIDE_DIRS", NULL, flatpak_autoinstall_override_dir },
       { "EOS_UPDATER_TEST_OVERRIDE_ARCHITECTURE", arch_override_name, NULL },
       { "EOS_UPDATER_TEST_UPDATER_OVERRIDE_LOCALES", "locale", NULL },
-      { "EOS_UPDATER_TEST_IS_SPLIT_DISK", is_split_disk ? "1" : "", NULL },
-      { "EOS_UPDATER_TEST_UNAME_MACHINE", uname_machine, NULL },
-      { "EOS_UPDATER_TEST_CPUINFO_PATH", NULL, cpuinfo_file },
-      { "EOS_UPDATER_TEST_CMDLINE_PATH", NULL, cmdline_file },
-      { "EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT", force_follow_checkpoint ? "1" : "", NULL },
+      { "EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT", force_follow_checkpoint ?: "", NULL },
       { "OSTREE_SYSROOT", NULL, sysroot },
       { "OSTREE_REPO", NULL, repo },
       { "OSTREE_SYSROOT_DEBUG", "mutable-deployments", NULL },
@@ -1851,16 +1709,11 @@ spawn_updater_simple (GFile *sysroot,
                       GFile *updater_dir,
                       const gchar *osname,
                       gboolean fatal_warnings,
-                      const gchar *uname_machine,
-                      gboolean is_split_disk,
-                      gboolean force_follow_checkpoint,
+                      const gchar *force_follow_checkpoint,
                       CmdAsyncResult *cmd,
                       GError **error)
 {
   g_autoptr(GFile) config_file_path = updater_config_file (updater_dir);
-  g_autoptr(GFile) hw_file_path = updater_hw_file (updater_dir);
-  g_autoptr(GFile) cpuinfo_file = updater_cpuinfo_file (updater_dir);
-  g_autoptr(GFile) cmdline_file = updater_cmdline_file (updater_dir);
   g_autoptr(GFile) quit_file_path = updater_quit_file (updater_dir);
   g_autoptr(GFile) flatpak_upgrade_state_dir_path = get_flatpak_upgrade_state_dir_for_updater_dir (updater_dir);
   g_autoptr(GFile) flatpak_installation_dir_path = get_flatpak_user_dir_for_updater_dir (updater_dir);
@@ -1869,17 +1722,12 @@ spawn_updater_simple (GFile *sysroot,
   return spawn_updater (sysroot,
                         repo,
                         config_file_path,
-                        hw_file_path,
                         quit_file_path,
                         flatpak_upgrade_state_dir_path,
                         flatpak_installation_dir_path,
                         flatpak_autoinstall_override_dir,
-                        cpuinfo_file,
-                        cmdline_file,
                         osname,
                         fatal_warnings,
-                        uname_machine,
-                        is_split_disk,
                         force_follow_checkpoint,
                         cmd,
                         error);
@@ -1890,49 +1738,22 @@ run_updater (GFile *client_root,
              DownloadSource *order,
              gsize n_sources,
              GPtrArray *override_uris,
-             const gchar *cpuinfo_file_override,
-             const gchar *cmdline_file_override,
-             const gchar *vendor,
-             const gchar *product,
              const gchar *remote_name,
              gboolean fatal_warnings,
-             const gchar *uname_machine_override,
-             gboolean is_split_disk,
-             gboolean flatpak_repo_is_symlink,
-             gboolean force_follow_checkpoint,
+             const gchar *force_follow_checkpoint,
              CmdAsyncResult *updater_cmd,
              GError **error)
 {
   g_autoptr(GKeyFile) updater_config = NULL;
-  g_autoptr(GKeyFile) hw_config = NULL;
   g_autoptr(GFile) sysroot = get_sysroot_for_client (client_root);
   g_autoptr(GFile) repo = get_repo_for_sysroot (sysroot);
   g_autoptr(GFile) updater_dir = get_updater_dir_for_client (client_root);
-  g_autofree gchar *cpuinfo_file_override_allocated = NULL;
-
-  if (cpuinfo_file_override == NULL &&
-      g_file_get_contents ("/proc/cpuinfo", &cpuinfo_file_override_allocated, NULL, NULL))
-    cpuinfo_file_override = cpuinfo_file_override_allocated;
-  if (cmdline_file_override == NULL)
-    /* arbitrary default */
-    cmdline_file_override = "BOOT_IMAGE=(hd0,gpt3)/boot/ostree/eos-c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/vmlinuz-5.11.0-12-generic root=UUID=11356111-ea76-4f63-9d7e-1d6b9d10a065 rw splash plymouth.ignore-serial-consoles quiet loglevel=0 ostree=/ostree/boot.0/eos/c8cadea7ee2eb6b5fe6a15144bf2fc123327d5a0302e8e396cbb93c7e20f4be1/0";
-  if (uname_machine_override == NULL)
-    {
-      struct utsname buf;
-      if (uname (&buf) == 0)
-        uname_machine_override = buf.machine;
-    }
 
   updater_config = get_updater_config (order,
                                        n_sources,
                                        override_uris);
-  hw_config = get_hw_config (vendor, product);
   if (!prepare_updater_dir (updater_dir,
                             updater_config,
-                            hw_config,
-                            cpuinfo_file_override,
-                            cmdline_file_override,
-                            flatpak_repo_is_symlink,
                             error))
     return FALSE;
   if (!spawn_updater_simple (sysroot,
@@ -1940,8 +1761,6 @@ run_updater (GFile *client_root,
                              updater_dir,
                              remote_name,
                              fatal_warnings,
-                             uname_machine_override,
-                             is_split_disk,
                              force_follow_checkpoint,
                              updater_cmd,
                              error))
@@ -1985,9 +1804,6 @@ eos_test_client_new (GFile *client_root,
                      const gchar *remote_name,
                      EosTestSubserver *subserver,
                      const OstreeCollectionRef *collection_ref,
-                     const gchar *vendor,
-                     const gchar *product,
-                     gboolean auto_bootloader,
                      GError **error)
 {
   g_autoptr(EosTestClient) client = NULL;
@@ -2009,7 +1825,6 @@ eos_test_client_new (GFile *client_root,
                                collection_ref,
                                subserver->gpg_home,
                                subserver->keyid,
-                               auto_bootloader,
                                error))
     return FALSE;
 
@@ -2021,55 +1836,14 @@ eos_test_client_new (GFile *client_root,
 
   client = g_object_new (EOS_TEST_TYPE_CLIENT, NULL);
   client->root = g_object_ref (client_root);
-  client->vendor = g_strdup (vendor);
-  client->product = g_strdup (product);
   client->remote_name = g_strdup (remote_name);
   client->ostree_path = g_strdup (subserver->ostree_path);
-  client->auto_bootloader = auto_bootloader;
   return g_steal_pointer (&client);
 }
 
 void
-eos_test_client_set_is_split_disk (EosTestClient *client,
-                                   gboolean       is_split_disk)
-{
-  client->is_split_disk = is_split_disk;
-}
-
-void
-eos_test_client_set_uname_machine (EosTestClient *client,
-                                   const gchar   *uname_machine)
-{
-  g_free (client->uname_machine);
-  client->uname_machine = g_strdup (uname_machine);
-}
-
-void
-eos_test_client_set_cpuinfo (EosTestClient *client,
-                             const gchar   *cpuinfo)
-{
-  g_free (client->cpuinfo);
-  client->cpuinfo = g_strdup (cpuinfo);
-}
-
-void
-eos_test_client_set_flatpak_repo_is_symlink (EosTestClient *client,
-                                             gboolean flatpak_repo_is_symlink)
-{
-  client->flatpak_repo_is_symlink = flatpak_repo_is_symlink;
-}
-
-void
-eos_test_client_set_cmdline (EosTestClient *client,
-                             const gchar   *cmdline)
-{
-  g_free (client->cmdline);
-  client->cmdline = g_strdup (cmdline);
-}
-
-void
 eos_test_client_set_force_follow_checkpoint (EosTestClient *client,
-                                             gboolean       force_follow_checkpoint)
+                                             const gchar   *force_follow_checkpoint)
 {
   client->force_follow_checkpoint = force_follow_checkpoint;
 }
@@ -2086,15 +1860,8 @@ eos_test_client_run_updater (EosTestClient *client,
                     order,
                     n_sources,
                     override_uris,
-                    client->cpuinfo,
-                    client->cmdline,
-                    client->vendor,
-                    client->product,
                     client->remote_name,
                     TRUE,  /* fatal-warnings */
-                    client->uname_machine,
-                    client->is_split_disk,
-                    client->flatpak_repo_is_symlink,
                     client->force_follow_checkpoint,
                     cmd,
                     error))
@@ -2115,15 +1882,8 @@ eos_test_client_run_updater_ignore_warnings (EosTestClient   *client,
                     order,
                     n_sources,
                     override_uris,
-                    client->cpuinfo,
-                    client->cmdline,
-                    client->vendor,
-                    client->product,
                     client->remote_name,
                     FALSE,  /* not fatal-warnings */
-                    client->uname_machine,
-                    client->is_split_disk,
-                    client->flatpak_repo_is_symlink,
                     client->force_follow_checkpoint,
                     cmd,
                     error))
@@ -3538,49 +3298,6 @@ eos_test_autoupdater_new (GFile       *autoupdater_root,
   autoupdater->cmd = g_steal_pointer (&cmd);
   return g_steal_pointer (&autoupdater);
 }
-
-/**
- * eos_test_has_ostree_boot_id:
- *
- * Check whether the `/proc/sys/kernel/random/boot_id` file is available, which
- * is needed by #OstreeRepo.
- *
- * Returns: %TRUE if it exists, %FALSE otherwise
- */
-gboolean
-eos_test_has_ostree_boot_id (void)
-{
-  g_autoptr(GFile) boot_id_file = NULL;
-
-  boot_id_file = g_file_new_for_path ("/proc/sys/kernel/random/boot_id");
-  return g_file_query_exists (boot_id_file, NULL);
-}
-
-/**
- * eos_test_skip_chroot:
- *
- * Check whether the test is running in a chroot and, if so, skip it using
- * g_test_skip(). This avoids issues when running the tests in an ARM chroot.
- * See commit https://github.com/endlessm/eos-updater/commit/5032d0a879bb5b22.
- *
- * Returns: %TRUE if the test has been skipped and should be returned from
- *    immediately; %FALSE to continue and run the test
- */
-gboolean
-eos_test_skip_chroot (void)
-{
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return TRUE;
-    }
-
-  return FALSE;
-}
-
 /**
  * eos_test_add_metadata_for_commit:
  *

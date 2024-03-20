@@ -33,12 +33,12 @@ libeos_updater_test_common_cppflags = [
 ]
 
 libeos_updater_test_common_deps = [
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('gio-unix-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.70'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('libsoup-2.4', version: '>= 2.52'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  gio_dep,
+  gio_unix_dep,
+  glib_dep,
+  gobject_dep,
+  libsoup_dep,
+  ostree_dep,
   libeos_updater_util_dep,
 ]
 

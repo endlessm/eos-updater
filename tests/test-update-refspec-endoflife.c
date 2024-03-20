@@ -147,23 +147,12 @@ _test_update_refspec_endoflife (EosUpdaterFixture *fixture,
   g_autofree gchar *branches_option = NULL;
   g_autofree gchar *expected_branches = NULL;
 
-  /* We could get OSTree working by setting OSTREE_BOOTID, but shortly
-   * afterwards we hit unsupported syscalls in qemu-user when running in an
-   * ARM chroot (for example), so just bail. */
-  if (!eos_test_has_ostree_boot_id ())
-    {
-      g_test_skip ("OSTree will not work without a boot ID");
-      return;
-    }
-
   insert_update_refspec_metadata_for_commit (1,
                                              next_ref,
                                              &additional_metadata_for_commit);
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -182,9 +171,6 @@ _test_update_refspec_endoflife (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 

@@ -6,6 +6,7 @@ euu_api_version = '0'
 
 libeos_updater_util_sources = [
   'avahi-service-file.c',
+  'checkpoint.c',
   'config-util.c',
   'flatpak-util.c',
   'ostree-bloom.c',
@@ -24,6 +25,7 @@ libeos_updater_util_headers = [
 ]
 
 libeos_updater_util_private_headers = [
+  'checkpoint-private.h',
   'metrics-private.h',
   'ostree-bloom-private.h',
 ]
@@ -33,17 +35,20 @@ libeos_updater_util_cppflags = [
 ]
 
 libeos_updater_util_deps = [
-  dependency('flatpak', version: '>= 1.1.2'),
-  dependency('gio-2.0', version: '>= 2.62'),
-  dependency('glib-2.0', version: '>= 2.62'),
-  dependency('gobject-2.0', version: '>= 2.62'),
-  dependency('json-glib-1.0', version: '>= 1.2.6'),
-  dependency('libsoup-2.4'),
-  dependency('ostree-1', version: '>= 2019.2'),
+  flatpak_dep,
+  gio_dep,
+  glib_dep,
+  gobject_dep,
+  json_glib_dep,
+  libsoup_dep,
+  ostree_dep,
 ]
 
 enums = gnome.mkenums_simple('enums',
-  sources: libeos_updater_util_headers,
+  sources: [
+    libeos_updater_util_headers,
+    libeos_updater_util_private_headers,
+  ],
   install_header: false,
 )
 

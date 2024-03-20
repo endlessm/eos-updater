@@ -100,9 +100,6 @@ test_update_broken_delta (EosUpdaterFixture *fixture,
 
   g_test_bug ("T17183");
 
-  if (eos_test_skip_chroot ())
-    return;
-
   etc_data_init (data, fixture);
   /* Create and set up the server with the commit 0.
    */

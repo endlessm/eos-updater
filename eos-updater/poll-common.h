@@ -42,25 +42,6 @@ is_checksum_an_update (OstreeRepo *repo,
                        gchar **out_update_version,
                        GError **error);
 
-#define EOS_TYPE_METRICS_INFO eos_metrics_info_get_type ()
-G_DECLARE_FINAL_TYPE (EosMetricsInfo,
-                      eos_metrics_info,
-                      EOS,
-                      METRICS_INFO,
-                      GObject)
-
-struct _EosMetricsInfo
-{
-  GObject parent_instance;
-
-  gchar *vendor;
-  gchar *product;
-  gchar *ref;
-};
-
-EosMetricsInfo *
-eos_metrics_info_new (const gchar *booted_ref);
-
 #define EOS_TYPE_UPDATE_INFO eos_update_info_get_type ()
 G_DECLARE_FINAL_TYPE (EosUpdateInfo,
                       eos_update_info,
@@ -146,7 +127,6 @@ gboolean parse_latest_commit (OstreeRepo           *repo,
 
 GHashTable *get_hw_descriptors (void);
 
-void metrics_report_successful_poll (EosUpdateInfo *update);
 gchar *eos_update_info_to_string (EosUpdateInfo *update);
 
 typedef enum

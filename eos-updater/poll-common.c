@@ -31,6 +31,8 @@
 #include <gio/gunixmounts.h>
 #include <glib.h>
 #include <glib/gi18n.h>
+#include <libeos-updater-util/checkpoint-private.h>
+#include <libeos-updater-util/enums.h>
 #include <libeos-updater-util/metrics-private.h>
 #include <libeos-updater-util/ostree-util.h>
 #include <libeos-updater-util/util.h>
@@ -271,34 +273,6 @@ is_checksum_an_update (OstreeRepo *repo,
   return TRUE;
 }
 
-G_DEFINE_TYPE (EosMetricsInfo, eos_metrics_info, G_TYPE_OBJECT)
-
-static void
-eos_metrics_info_finalize (GObject *object)
-{
-  EosMetricsInfo *self = EOS_METRICS_INFO (object);
-
-  g_free (self->vendor);
-  g_free (self->product);
-  g_free (self->ref);
-
-  G_OBJECT_CLASS (eos_metrics_info_parent_class)->finalize (object);
-}
-
-static void
-eos_metrics_info_class_init (EosMetricsInfoClass *self_class)
-{
-  GObjectClass *object_class = G_OBJECT_CLASS (self_class);
-
-  object_class->finalize = eos_metrics_info_finalize;
-}
-
-static void
-eos_metrics_info_init (EosMetricsInfo *self)
-{
-  /* nothing here */
-}
-
 G_DEFINE_TYPE (EosUpdateInfo, eos_update_info, G_TYPE_OBJECT)
 
 static void
@@ -406,21 +380,83 @@ cleanstr (gchar *s)
   return s;
 }
 
-EosMetricsInfo *
-eos_metrics_info_new (const gchar *booted_ref)
+static GVariant *
+checkpoint_blocked_event_payload_new (const char         *booted_ref,
+                                      const char         *target_ref,
+                                      EuuCheckpointBlock  reason)
 {
   g_autoptr(GHashTable) hw_descriptors = NULL;
-  g_autoptr(EosMetricsInfo) info = NULL;
+  g_autofree gchar *vendor, *product;
+  const char *reason_nick;
 
   hw_descriptors = get_hw_descriptors ();
 
-  info = g_object_new (EOS_TYPE_METRICS_INFO, NULL);
-  info->vendor = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, VENDOR_KEY)));
-  info->product = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, PRODUCT_KEY)));
-  info->ref = g_strdup (booted_ref);
+  vendor = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, VENDOR_KEY)));
+  product = cleanstr (g_strdup (g_hash_table_lookup (hw_descriptors, PRODUCT_KEY)));
 
-  return g_steal_pointer (&info);
+  reason_nick = euu_checkpoint_block_to_string (reason);
+
+  return g_variant_new ("(sssss)", /* ophidian noises intensify */
+                        vendor,
+                        product,
+                        booted_ref,
+                        target_ref,
+                        reason_nick ?: "");
 }
+
+#ifdef HAS_EOSMETRICS_0
+static gboolean
+stop_aggregate_timer (gpointer data)
+{
+  g_return_val_if_fail (EMTR_IS_AGGREGATE_TIMER (data), G_SOURCE_REMOVE);
+
+  emtr_aggregate_timer_stop (data);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+maybe_send_checkpoint_blocked_event (GVariant *payload)
+{
+  g_return_if_fail (payload != NULL);
+  g_autofree gchar *payload_str = g_variant_print (payload, FALSE);
+
+  if (euu_get_metrics_enabled ())
+    {
+      EmtrAggregateTimer *timer;
+
+      g_message ("Recording metric event %s: %s",
+                 EOS_UPDATER_METRIC_CHECKPOINT_BLOCKED,
+                 payload_str);
+
+      /* What we actually want to do is increment the counter by 1. There is no
+       * API for this; or rather, there is a RecordAggregateEvent D-Bus API, but
+       * it is a no-op. https://phabricator.endlessm.com/T33511
+       *
+       * Fake it by using the API we do have: start a timer, and stop it after
+       * approximately one second.
+       */
+      timer = emtr_event_recorder_start_aggregate_timer (emtr_event_recorder_get_default (),
+                                                         EOS_UPDATER_METRIC_CHECKPOINT_BLOCKED,
+                                                         payload);
+      g_timeout_add_seconds_full (G_PRIORITY_DEFAULT,
+                                  1,
+                                  stop_aggregate_timer,
+                                  timer,
+                                  g_object_unref);
+    }
+  else
+    {
+      g_debug ("Skipping metric event %s: %s (metrics disabled)",
+               EOS_UPDATER_METRIC_CHECKPOINT_BLOCKED,
+               payload_str);
+    }
+}
+#else
+static void
+maybe_send_checkpoint_blocked_event (GVariant *payload)
+{
+}
+#endif
 
 gboolean
 get_booted_refspec (OstreeDeployment     *booted_deployment,
@@ -490,325 +526,6 @@ get_booted_refspec (OstreeDeployment     *booted_deployment,
   return TRUE;
 }
 
-/* On split-disk systems, an additional (bigger, slower) disk is mounted at
- * /var/endless-extra, and the system flatpak repo is configured to be at
- * /var/endless-extra/flatpak rather than /var/lib/flatpak/repo. */
-static gboolean
-booted_system_is_split_disk (OstreeRepo *os_repo)
-{
-  g_autoptr(GUnixMountEntry) extra_mount = NULL;
-
-  extra_mount = g_unix_mount_at ("/var/endless-extra", NULL);
-
-  if (g_strcmp0 (g_getenv ("EOS_UPDATER_TEST_IS_SPLIT_DISK"), "1") == 0)
-    return TRUE;
-
-  return (extra_mount != NULL);
-}
-
-/* Allow overriding various things for the tests. */
-static const gchar *
-allow_env_override (const gchar *default_value,
-                    const gchar *env_key)
-{
-  const gchar *env_value = g_getenv (env_key);
-
-  if (env_value != NULL && g_strcmp0 (env_value, "") != 0)
-    return env_value;
-  else
-    return default_value;
-}
-
-/* ARM64 systems have their architecture listed as `aarch64` on Linux. On other
- * OSs, such as Darwin, it’s listed as `arm64`. */
-static gboolean
-booted_system_is_arm64 (void)
-{
-  struct utsname buf;
-  const gchar *uname_machine;
-
-  if (uname (&buf) != 0)
-    return FALSE;
-
-  uname_machine = allow_env_override (buf.machine, "EOS_UPDATER_TEST_UNAME_MACHINE");
-
-  return (g_strcmp0 (uname_machine, "aarch64") == 0);
-}
-
-/* Check for an Intel i-8565U CPU using the info from /proc/cpuinfo. If the
- * system has multiple CPUs, this will match any of them. */
-static gboolean
-booted_system_has_i8565u_cpu (void)
-{
-  const gchar *cpuinfo_path;
-  g_autofree gchar *cpuinfo = NULL;
-
-  cpuinfo_path = allow_env_override ("/proc/cpuinfo", "EOS_UPDATER_TEST_CPUINFO_PATH");
-
-  if (!g_file_get_contents (cpuinfo_path, &cpuinfo, NULL, NULL))
-    return FALSE;
-
-  return g_regex_match_simple ("^model name\\s*:\\s*Intel\\(R\\) Core\\(TM\\) i7-8565U CPU @ 1.80GHz$", cpuinfo,
-                               G_REGEX_MULTILINE, 0);
-}
-
-/* Check @sys_vendor/@product_name against a list of systems which are no longer
- * supported since EOS 4. */
-static gboolean
-booted_system_is_unsupported_by_eos4_kernel (const gchar *sys_vendor,
-                                             const gchar *product_name)
-{
-  const struct
-    {
-      const gchar *sys_vendor;
-      const gchar *product_name;
-    }
-  no_upgrade_systems[] =
-    {
-      { "Acer", "Aspire ES1-533" },
-      { "Acer", "Aspire ES1-732" },
-      { "Acer", "Veriton Z4660G" },
-      { "Acer", "Veriton Z4860G" },
-      { "Acer", "Veriton Z6860G" },
-      { "ASUSTeK COMPUTER INC.", "Z550MA" },
-      { "Endless", "ELT-JWM" },
-    };
-
-  for (gsize i = 0; i < G_N_ELEMENTS (no_upgrade_systems); i++)
-    {
-      if (g_str_equal (sys_vendor, no_upgrade_systems[i].sys_vendor) &&
-          g_str_equal (product_name, no_upgrade_systems[i].product_name))
-        return TRUE;
-    }
-
-  return FALSE;
-}
-
-/* Check @sys_vendor/@product_name against a list of systems which are no longer
- * supported since EOS 5. */
-static gboolean
-booted_system_is_unsupported_by_eos5_kernel (const gchar *sys_vendor,
-                                             const gchar *product_name)
-{
-  const struct
-    {
-      const gchar *sys_vendor;
-      const gchar *product_name;
-    }
-  no_upgrade_systems[] =
-    {
-      { "Endless", "EE-200" },
-      { "Standard", "EF20" },
-      { "Standard", "EF20EA" },
-    };
-
-  for (gsize i = 0; i < G_N_ELEMENTS (no_upgrade_systems); i++)
-    {
-      if (g_str_equal (sys_vendor, no_upgrade_systems[i].sys_vendor) &&
-          g_str_equal (product_name, no_upgrade_systems[i].product_name))
-        return TRUE;
-    }
-
-  return FALSE;
-}
-
-/* Check if /proc/cmdline contains the given @needle, surrounded by word boundaries. */
-static gboolean
-boot_args_contain (const gchar *needle)
-{
-  const gchar *cmdline_path;
-  g_autofree gchar *cmdline = NULL;
-  g_autofree gchar *regex = NULL;
-
-  cmdline_path = allow_env_override ("/proc/cmdline", "EOS_UPDATER_TEST_CMDLINE_PATH");
-
-  if (!g_file_get_contents (cmdline_path, &cmdline, NULL, NULL))
-    return FALSE;
-
-  regex = g_strconcat ("\\b", needle, "\\b", NULL);
-  return g_regex_match_simple (regex, cmdline, 0, 0);
-}
-
-/* Check if /var/lib/flatpak/repo has been split from /ostree/repo. A
- * simple symlink check is used since it would be very unlikely that
- * would occur in any other scenario.
- */
-static gboolean
-flatpak_repo_is_split (void)
-{
-  const gchar *dir_path;
-  g_autofree gchar *repo_path = NULL;
-  struct stat buf;
-
-  dir_path = allow_env_override ("/var/lib/flatpak", "EOS_UPDATER_TEST_FLATPAK_INSTALLATION_DIR");
-  repo_path = g_build_filename (dir_path, "repo", NULL);
-  if (lstat (repo_path, &buf) == -1)
-    {
-      if (errno == ENOENT)
-        return TRUE;
-
-      g_warning ("Could not determine %s status: %s", repo_path, g_strerror (errno));
-      return FALSE;
-    }
-  if ((buf.st_mode & S_IFMT) == S_IFLNK)
-    return FALSE;
-
-  return TRUE;
-}
-
-/* Check whether the ostree repo option "sysroot.bootloader" is set. */
-static gboolean
-ostree_bootloader_is_configured (OstreeRepo *repo)
-{
-  GKeyFile *config;
-  g_autofree gchar *value = NULL;
-  g_autoptr(GError) error = NULL;
-
-  config = ostree_repo_get_config (repo);
-  value = g_key_file_get_string (config, "sysroot", "bootloader", &error);
-
-  /* Note that we don't care what the value is, only that it's set. This
-   * matches the logic in the eos-ostree-bootloader-setup migration
-   * script.
-   */
-  if (value == NULL)
-    {
-      if (!g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_GROUP_NOT_FOUND) &&
-          !g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_KEY_NOT_FOUND))
-        {
-          g_autofree gchar *repo_path = g_file_get_path (ostree_repo_get_path (repo));
-          g_warning ("Error reading %s sysroot.bootloader option: %s", repo_path, error->message);
-        }
-      return FALSE;
-    }
-
-  return TRUE;
-}
-
-/* Whether the upgrade should follow the given checkpoint and move to the given
- * @target_ref for the upgrade deployment. The default for this is %TRUE, but
- * there are various systems for which support has been withdrawn, which need
- * to stay on old branches. In those cases, this function will return %FALSE
- * and will set a human-readable reason for this in @out_reason. */
-static gboolean
-should_follow_checkpoint (OstreeSysroot     *sysroot,
-                          OstreeRepo        *repo,
-                          OstreeDeployment  *booted_deployment,
-                          const gchar       *booted_ref,
-                          const gchar       *target_ref,
-                          gchar            **out_reason)
-{
-  g_autoptr(GHashTable) hw_descriptors = NULL;
-  const gchar *sys_vendor, *product_name;
-  /* https://phabricator.endlessm.com/T32542,
-   * https://phabricator.endlessm.com/T32552 */
-  gboolean is_eos3_conditional_upgrade_path =
-    (g_str_has_suffix (booted_ref, "/eos3a") ||
-     g_str_has_suffix (booted_ref, "nexthw/eos3.9"));
-  /* https://phabricator.endlessm.com/T33311 */
-  gboolean is_eos4_conditional_upgrade_path = g_str_has_suffix (target_ref, "/latest2");
-
-  /* Simplifies the code below. */
-  g_assert (out_reason != NULL);
-
-  /* Allow an override in case the logic below is incorrect or doesn’t age well. */
-  if (g_strcmp0 (g_getenv ("EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT"), "1") == 0)
-    {
-      g_message ("Forcing checkpoint target ‘%s’ to be used as EOS_UPDATER_FORCE_FOLLOW_CHECKPOINT is set",
-                  target_ref);
-      return TRUE;
-    }
-
-  /* https://phabricator.endlessm.com/T30922 */
-  if (is_eos3_conditional_upgrade_path &&
-      booted_system_is_split_disk (repo))
-    {
-      *out_reason = g_strdup (_("Split disk systems are not supported in EOS 4."));
-      return FALSE;
-    }
-
-  /* https://phabricator.endlessm.com/T31726 */
-  if (is_eos3_conditional_upgrade_path &&
-      booted_system_is_arm64 ())
-    {
-      *out_reason = g_strdup (_("ARM64 system upgrades are not supported in EOS 4. Please reinstall."));
-      return FALSE;
-    }
-
-  /* Only EOS 4 systems on the latest ref (latest1) should upgrade to EOS 5.
-   * Systems on the LTS ref (eos4) or any other ref should not.
-   *
-   * https://phabricator.endlessm.com/T34298  */
-  if (is_eos4_conditional_upgrade_path &&
-      !g_str_has_suffix (booted_ref, "/latest1"))
-    {
-      *out_reason = g_strdup (_("Only systems following the latest updates can upgrade to EOS 5."));
-      return FALSE;
-    }
-
-  /* These support being overridden by tests inside get_hw_descriptors(). */
-  hw_descriptors = get_hw_descriptors ();
-  sys_vendor = g_hash_table_lookup (hw_descriptors, VENDOR_KEY);
-  product_name = g_hash_table_lookup (hw_descriptors, PRODUCT_KEY);
-
-  /* https://phabricator.endlessm.com/T31777 */
-  if (is_eos3_conditional_upgrade_path &&
-      g_strcmp0 (sys_vendor, "Asus") == 0 &&
-      booted_system_has_i8565u_cpu ())
-    {
-      /* Translators: The first placeholder is a system vendor name (such as
-       * Acer). The second placeholder is a computer model (such as
-       * Aspire ES1-533). */
-      *out_reason = g_strdup_printf (_("%s %s systems are not supported in EOS 4."), "Asus", "i-8565U");
-      return FALSE;
-    }
-
-  /* https://phabricator.endlessm.com/T31772 */
-  if (is_eos3_conditional_upgrade_path &&
-      sys_vendor != NULL && product_name != NULL &&
-      booted_system_is_unsupported_by_eos4_kernel (sys_vendor, product_name))
-    {
-      *out_reason = g_strdup_printf (_("%s %s systems are not supported in EOS 4."), sys_vendor, product_name);
-      return FALSE;
-    }
-
-  /* https://phabricator.endlessm.com/T31776 */
-  if (is_eos3_conditional_upgrade_path &&
-      boot_args_contain ("ro"))
-    {
-      *out_reason = g_strdup (_("Read-only systems are not supported in EOS 4."));
-      return FALSE;
-    }
-
-  /* https://phabricator.endlessm.com/T33311 */
-  if (is_eos4_conditional_upgrade_path &&
-      sys_vendor != NULL && product_name != NULL &&
-      booted_system_is_unsupported_by_eos5_kernel (sys_vendor, product_name))
-    {
-      *out_reason = g_strdup_printf (_("%s %s systems are not supported in EOS 5."), sys_vendor, product_name);
-      return FALSE;
-    }
-
-  /* https://phabricator.endlessm.com/T34110 */
-  if (is_eos4_conditional_upgrade_path &&
-      !flatpak_repo_is_split ())
-    {
-      *out_reason = g_strdup (_("Merged OSTree and Flatpak repos are not supported in EOS 5."));
-      return FALSE;
-    }
-
-  if (is_eos4_conditional_upgrade_path &&
-      !ostree_bootloader_is_configured (repo))
-    {
-      *out_reason = g_strdup (_("OSTree automatic bootloader detection is not supported in EOS 5."));
-      return FALSE;
-    }
-
-  /* Checkpoint can be followed. */
-  g_assert (*out_reason == NULL);
-  return TRUE;
-}
-
 static gboolean
 get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
                                        OstreeDeployment  *booted_deployment,
@@ -825,7 +542,6 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
   g_autofree gchar *ref = NULL;
   g_autoptr(OstreeRepo) repo = NULL;
   g_autoptr(GError) local_error = NULL;
-  g_autofree gchar *reason = NULL;
 
   g_return_val_if_fail (out_ref_to_upgrade_from_deployment != NULL, FALSE);
 
@@ -876,11 +592,20 @@ get_ref_to_upgrade_on_from_deployment (OstreeSysroot     *sysroot,
                remote, refspec_for_deployment);
 
   /* Should we take this checkpoint? */
-  if (!should_follow_checkpoint (sysroot, repo, booted_deployment, booted_ref, ref, &reason))
+  if (!euu_should_follow_checkpoint (sysroot, booted_ref, ref, &local_error))
     {
+      if (local_error->domain != EUU_CHECKPOINT_BLOCK)
+        return FALSE;
+
+      g_autoptr(GVariant) payload = checkpoint_blocked_event_payload_new (booted_ref,
+                                                                          ref,
+                                                                          (EuuCheckpointBlock) local_error->code);
+      g_variant_ref_sink (payload);
+
       g_message ("Ignoring eos.checkpoint-target metadata ‘%s’ as following "
                  "the checkpoint is disabled for this system: %s",
-                 refspec_for_deployment, reason);
+                 refspec_for_deployment, local_error->message);
+      maybe_send_checkpoint_blocked_event (payload);
       *out_ref_to_upgrade_from_deployment = NULL;
       return TRUE;
     }
@@ -1350,57 +1075,6 @@ get_hw_descriptors (void)
   return hw_descriptors;
 }
 
-static void
-maybe_send_metric (EosMetricsInfo *metrics)
-{
-#ifdef HAS_EOSMETRICS_0
-  static gboolean metric_sent = FALSE;
-
-  if (metric_sent)
-    return;
-
-  if (euu_get_metrics_enabled ())
-    {
-      g_message ("Recording metric event %s: (%s, %s, %s)",
-                 EOS_UPDATER_METRIC_BRANCH_SELECTED, metrics->vendor, metrics->product,
-                 metrics->ref);
-      emtr_event_recorder_record_event_sync (emtr_event_recorder_get_default (),
-                                             EOS_UPDATER_METRIC_BRANCH_SELECTED,
-                                             g_variant_new ("(sssb)", metrics->vendor,
-                                                            metrics->product,
-                                                            metrics->ref,
-                                                            (gboolean) FALSE  /* on-hold */));
-    }
-  else
-    {
-      g_debug ("Skipping metric event %s: (%s, %s, %s) (metrics disabled)",
-               EOS_UPDATER_METRIC_BRANCH_SELECTED, metrics->vendor, metrics->product,
-               metrics->ref);
-    }
-
-  metric_sent = TRUE;
-#endif
-}
-
-void
-metrics_report_successful_poll (EosUpdateInfo *update)
-{
-  g_autofree gchar *new_ref = NULL;
-  g_autoptr(GError) error = NULL;
-  g_autoptr(EosMetricsInfo) metrics = NULL;
-
-  if (!ostree_parse_refspec (update->new_refspec, NULL, &new_ref, &error))
-    {
-      g_message ("Failed to get metrics: %s", error->message);
-      return;
-    }
-
-  /* Send metrics about our ref: this is the ref we’re going to upgrade to,
-   * and that’s not always the same as the one we’re currently on. */
-  metrics = eos_metrics_info_new (new_ref);
-  maybe_send_metric (metrics);
-}
-
 gchar *
 eos_update_info_to_string (EosUpdateInfo *update)
 {
@@ -1579,7 +1253,6 @@ run_fetchers (OstreeRepo   *repo,
       latest_update = get_latest_update (sources, source_to_update);
       if (latest_update != NULL)
         {
-          metrics_report_successful_poll (latest_update);
           return g_object_ref (latest_update);
         }
     }

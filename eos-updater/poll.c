@@ -677,7 +677,6 @@ metadata_fetch_new (OstreeRepo    *repo,
                                   NULL,
                                   offline_results_only,
                                   g_steal_pointer (&update_ref_info.results));
-      metrics_report_successful_poll (info);
       return g_steal_pointer (&info);
     }
   else

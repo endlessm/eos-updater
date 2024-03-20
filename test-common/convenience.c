@@ -90,8 +90,6 @@ etc_set_up_server (EtcData *data)
   server_root = g_file_get_child (data->fixture->tmpdir, "main");
   keyid = get_keyid (data->fixture->gpg_home);
   data->server = eos_test_server_new_quick (server_root,
-                                            default_vendor,
-                                            default_product,
                                             default_collection_ref,
                                             0,
                                             data->fixture->gpg_home,
@@ -128,9 +126,6 @@ etc_set_up_client_synced_to_server (EtcData *data)
                                       default_remote_name,
                                       data->subserver,
                                       default_collection_ref,
-                                      default_vendor,
-                                      default_product,
-                                      default_auto_bootloader,
                                       &error);
   g_assert_no_error (error);
 }
