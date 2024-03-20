@@ -59,13 +59,8 @@ test_update_from_main (EosUpdaterFixture *fixture,
   g_autoptr(GKeyFile) config = NULL;
   g_autofree gchar *remote_group = NULL;
 
-  if (eos_test_skip_chroot ())
-    return;
-
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -82,9 +77,6 @@ test_update_from_main (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 

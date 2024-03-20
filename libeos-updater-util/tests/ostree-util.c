@@ -48,16 +48,6 @@ setup (Fixture       *fixture,
 
   fixture->tmp_dir = g_file_new_for_path (tmp_dir);
 
-  /* When running in a chroot (for example, when running ARM tests using
-   * qemu-user), the kernel’s boot ID isn’t available so we need to fake it for
-   * #OstreeRepo to work. */
-  boot_id_file = g_file_new_for_path ("/proc/sys/kernel/random/boot_id");
-  if (!g_file_query_exists (boot_id_file, NULL))
-    {
-      g_test_message ("Setting OSTREE_BOOTID since boot_id file doesn’t exist");
-      g_setenv ("OSTREE_BOOTID", "test-bootid", FALSE);
-    }
-
   /* Set up the sysroot. */
   fixture->sysroot = ostree_sysroot_new (fixture->tmp_dir);
 

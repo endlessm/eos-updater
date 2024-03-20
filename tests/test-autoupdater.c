@@ -49,8 +49,6 @@ setup_basic_test_server_client (EosUpdaterFixture  *fixture,
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -70,9 +68,6 @@ setup_basic_test_server_client (EosUpdaterFixture  *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
   g_assert_nonnull (client);
@@ -132,9 +127,6 @@ test_poll_results (EosUpdaterFixture *fixture,
   g_autofree gchar *update_id = NULL;
   guint64 prev_last_changed_usecs;
   const gchar *expected_update_id;
-
-  if (eos_test_skip_chroot ())
-    return;
 
   setup_basic_test_server_client (fixture, &server, &subserver, &client);
 
@@ -254,9 +246,6 @@ test_user_visible_update_delay (EosUpdaterFixture *fixture,
   g_autoptr(EosTestAutoupdater) autoupdater = NULL;
   g_auto(CmdResult) reaped = CMD_RESULT_CLEARED;
   gboolean has_commit = FALSE;
-
-  if (eos_test_skip_chroot ())
-    return;
 
   g_assert_nonnull (test_data);
   g_test_message ("User visible test data %p: "

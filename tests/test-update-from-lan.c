@@ -59,15 +59,10 @@ test_update_from_lan (EosUpdaterFixture *fixture,
   g_autoptr(GHashTable) leaf_commit_nodes =
     eos_test_subserver_ref_to_commit_new ();
 
-  if (eos_test_skip_chroot ())
-    return;
-
   g_test_message ("Setting up server");
 
   server_root = g_file_get_child (fixture->tmpdir, "main");
   server = eos_test_server_new_quick (server_root,
-                                      default_vendor,
-                                      default_product,
                                       default_collection_ref,
                                       0,
                                       fixture->gpg_home,
@@ -86,9 +81,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                 default_remote_name,
                                 subserver,
                                 default_collection_ref,
-                                default_vendor,
-                                default_product,
-                                default_auto_bootloader,
                                 &error);
   g_assert_no_error (error);
 
@@ -120,9 +112,6 @@ test_update_from_lan (EosUpdaterFixture *fixture,
                                         default_remote_name,
                                         subserver,
                                         default_collection_ref,
-                                        default_vendor,
-                                        default_product,
-                                        default_auto_bootloader,
                                         &error);
       g_assert_no_error (error);
 

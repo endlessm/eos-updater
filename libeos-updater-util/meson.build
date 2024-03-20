@@ -6,6 +6,7 @@ euu_api_version = '0'
 
 libeos_updater_util_sources = [
   'avahi-service-file.c',
+  'checkpoint.c',
   'config-util.c',
   'flatpak-util.c',
   'ostree-bloom.c',
@@ -24,6 +25,7 @@ libeos_updater_util_headers = [
 ]
 
 libeos_updater_util_private_headers = [
+  'checkpoint-private.h',
   'metrics-private.h',
   'ostree-bloom-private.h',
 ]
@@ -42,7 +44,10 @@ libeos_updater_util_deps = [
 ]
 
 enums = gnome.mkenums_simple('enums',
-  sources: libeos_updater_util_headers,
+  sources: [
+    libeos_updater_util_headers,
+    libeos_updater_util_private_headers,
+  ],
   install_header: false,
 )
 
