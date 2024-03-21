@@ -616,11 +616,13 @@ metadata_fetch_new (OstreeRepo    *repo,
 {
   g_auto(OstreeRepoFinderResultv) results = NULL;
   g_autoptr(EosUpdateInfo) info = NULL;
-  g_auto(UpdateRefInfo) update_ref_info;
+  g_auto(UpdateRefInfo) update_ref_info = { 0 };
   g_autoptr(GPtrArray) offline_finders = NULL;  /* (element-type OstreeRepoFinder) */
   g_autoptr(GPtrArray) online_finders = NULL;  /* (element-type OstreeRepoFinder) */
   g_autoptr(RepoFinderAvahiRunning) finder_avahi = NULL;
   gboolean offline_results_only = TRUE;
+
+  update_ref_info_init (&update_ref_info);
 
   get_finders (config, context, &offline_finders, &online_finders, &finder_avahi);
   if (offline_finders->len == 0 && online_finders->len == 0)
@@ -629,8 +631,6 @@ metadata_fetch_new (OstreeRepo    *repo,
                    "All configured update sources failed to initialize.");
       return NULL;
     }
-
-  update_ref_info_init (&update_ref_info);
 
   /* The upgrade refspec here is either the booted refspec if
    * there were new commits on the branch of the booted refspec, or
@@ -696,7 +696,7 @@ metadata_fetch_from_main (OstreeRepo     *repo,
                           GCancellable   *cancellable,
                           GError        **error)
 {
-  g_auto(UpdateRefInfo) update_ref_info;
+  g_auto(UpdateRefInfo) update_ref_info = { 0 };
   g_autofree gchar *ref = NULL;
   g_autofree gchar *new_ref = NULL;
   g_autoptr(GVariant) commit = NULL;
