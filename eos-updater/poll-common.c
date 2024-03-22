@@ -385,7 +385,7 @@ checkpoint_blocked_event_payload_new (const char         *booted_ref,
                                       EuuCheckpointBlock  reason)
 {
   g_autoptr(GHashTable) hw_descriptors = NULL;
-  g_autofree gchar *vendor, *product;
+  g_autofree gchar *vendor = NULL, *product = NULL;
   const char *reason_nick;
 
   hw_descriptors = get_hw_descriptors ();
