@@ -44,6 +44,14 @@ using `meson test`; and some installed-only tests which can be run using
 `sudo gnome-desktop-testing-runner eos-updater-0` in your installation prefix
 _after_ installing eos-updater.
 
+For the post-install tests you need `gnome-desktop-testing-runner`
+installed (eg. `sudo apt-get install gnome-desktop-testing`) and
+to configure the build like this:
+
+```
+meson setup -Dinstalled_tests=true builddir
+```
+
 Bug reports
 -----------
 
