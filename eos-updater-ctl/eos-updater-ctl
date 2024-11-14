@@ -140,9 +140,7 @@ def name_vanished_cb(connection, name):
     print("%s disappeared" % name)
 
 
-def command_dbus(command, block, quiet=False, parameters=None):
-    """Run the given command and wait for it to complete."""
-    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+def command_with_proxy(proxy, command, block, quiet=False, parameters=None):
     (function_name, in_progress_state) = METHODS[command]
 
     def signal_cb(proxy, sender_name, signal_name, parameters, user_data):
@@ -165,10 +163,6 @@ def command_dbus(command, block, quiet=False, parameters=None):
         elif new_state != in_progress_state and seen_in_progress_state:
             seen_next_state = True
 
-    proxy = Gio.DBusProxy.new_sync(bus, 0, None,
-                                   'com.endlessm.Updater',
-                                   '/com/endlessm/Updater',
-                                   'com.endlessm.Updater', None)
     signal_id = proxy.connect('g-signal', signal_cb, None)
     context = GLib.main_context_default()
 
@@ -200,6 +194,17 @@ def command_dbus(command, block, quiet=False, parameters=None):
     if cancelled or UPDATER_STATES[state] == "Error":
         return 1
     return 0
+
+
+def command_dbus(command, block, quiet=False, parameters=None):
+    """Run the given command and wait for it to complete."""
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+    proxy = Gio.DBusProxy.new_sync(bus, 0, None,
+                                   'com.endlessm.Updater',
+                                   '/com/endlessm/Updater',
+                                   'com.endlessm.Updater', None)
+
+    return command_with_proxy(proxy, command, block, quiet=quiet, parameters=parameters)
 
 
 def command_poll(block, quiet=False):
