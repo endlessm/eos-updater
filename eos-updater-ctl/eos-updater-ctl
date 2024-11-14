@@ -26,6 +26,10 @@ import os
 import sys
 from gi.repository import Gio, GLib
 
+BUS_NAME = 'com.endlessm.Updater'
+OBJECT_PATH = '/com/endlessm/Updater'
+INTERFACE = 'com.endlessm.Updater'
+
 UPDATER_STATES = [
     "None",
     "Ready",
@@ -120,8 +124,8 @@ def name_appeared_cb(connection, name, name_owner):
                                    Gio.DBusProxyFlags.NONE,
                                    None,  # interface info
                                    name_owner,
-                                   '/com/endlessm/Updater',
-                                   'com.endlessm.Updater',
+                                   OBJECT_PATH,
+                                   INTERFACE,
                                    None)  # cancellable
 
     proxy.connect('g-properties-changed', g_properties_changed_cb)
@@ -169,7 +173,7 @@ def command_with_proxy(proxy, command, block, quiet=False, parameters=None):
     # Call the method, wait for the updater to enter the expected in-progress
     # state; then wait for it to leave that state again (either to Error, or
     # the next state corresponding to the method).
-    qualified_method_name = 'com.endlessm.Updater.' + function_name
+    qualified_method_name = f"{INTERFACE}.{function_name}"
     proxy.call_sync(qualified_method_name, parameters, 0, -1, None)
 
     cancelled = False
@@ -200,9 +204,10 @@ def command_dbus(command, block, quiet=False, parameters=None):
     """Run the given command and wait for it to complete."""
     bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     proxy = Gio.DBusProxy.new_sync(bus, 0, None,
-                                   'com.endlessm.Updater',
-                                   '/com/endlessm/Updater',
-                                   'com.endlessm.Updater', None)
+                                   BUS_NAME,
+                                   OBJECT_PATH,
+                                   INTERFACE,
+                                   None)
 
     return command_with_proxy(proxy, command, block, quiet=quiet, parameters=parameters)
 
@@ -250,7 +255,7 @@ def command_monitor(quiet=False):
     bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
     loop = GLib.MainLoop()
     name_watch_id = Gio.bus_watch_name_on_connection(
-        bus, 'com.endlessm.Updater', Gio.BusNameWatcherFlags.NONE,
+        bus, BUS_NAME, Gio.BusNameWatcherFlags.NONE,
         name_appeared_cb, name_vanished_cb)
 
     try:
