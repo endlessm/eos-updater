@@ -68,6 +68,7 @@ def signal_emitted(proxy, sender, signal, parameters):
         return
     state = UPDATER_STATES[parameters[0]]
     print("======= State changed to: " + state + " =======")
+    proxy.set_cached_property("State", parameters.get_child_value(0))
 
 
 def dump_daemon_properties(proxy):
@@ -153,6 +154,7 @@ def command_dbus(command, block, quiet=False, parameters=None):
         new_state = UPDATER_STATES[parameters[0]]
         if not quiet:
             print('Changed state to ' + new_state)
+            proxy.set_cached_property("State", parameters.get_child_value(0))
 
         if new_state == in_progress_state:
             seen_in_progress_state = True
