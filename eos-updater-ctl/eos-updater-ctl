@@ -234,16 +234,39 @@ def command_cancel(block, quiet=False):
 
 def command_update(quiet=False, force=False, timeout=0):
     """Run the entire update process."""
-    poll_result = command_poll(block=True, quiet=quiet)
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+    proxy = Gio.DBusProxy.new_sync(bus, 0, None,
+                                   BUS_NAME,
+                                   OBJECT_PATH,
+                                   INTERFACE,
+                                   None)
+
+    state = proxy.get_cached_property("State").get_uint32()
+    if UPDATER_STATES[state] == "UpdateApplied":
+        if not quiet:
+            dump_daemon_properties(proxy)
+        return 0
+
+    poll_result = command_with_proxy(proxy, 'poll', block=True, quiet=quiet)
     if poll_result != 0:
         return poll_result
 
-    fetch_result = command_fetch(block=True, quiet=quiet,
-                                 force=force, timeout=timeout)
+    state = proxy.get_cached_property("State").get_uint32()
+    if UPDATER_STATES[state] == "Ready":
+        print("No update available")
+        return 0
+
+    fetch_parameters = GLib.Variant('(a{sv})', ({
+        'force': GLib.Variant('b', force),
+        'scheduling-timeout-seconds': GLib.Variant('u', timeout),
+    },))
+    fetch_result = command_with_proxy(
+        proxy, 'fetch', block=True, quiet=quiet, parameters=fetch_parameters,
+    )
     if fetch_result != 0:
         return fetch_result
 
-    apply_result = command_apply(block=True, quiet=quiet)
+    apply_result = command_with_proxy(proxy, 'apply', block=True, quiet=quiet)
     if apply_result != 0:
         return apply_result
 
