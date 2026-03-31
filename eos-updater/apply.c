@@ -272,6 +272,55 @@ check_boot_free_space (GError **error)
 }
 
 static gboolean
+remove_one_unused_deployment (OstreeSysroot  *sysroot,
+                              GCancellable   *cancellable,
+                              GError        **error)
+{
+  g_autoptr(OstreeDeployment) pending = NULL;
+  g_autoptr(OstreeDeployment) rollback = NULL;
+  g_autoptr(GPtrArray) deployments = NULL;
+  g_autoptr(GPtrArray) new_deployments = NULL;
+  OstreeDeployment *to_remove = NULL;
+
+  ostree_sysroot_query_deployments_for (sysroot, NULL, &pending, &rollback);
+
+  /* Prefer removing the rollback (older) over the pending deployment */
+  if (rollback != NULL)
+    to_remove = rollback;
+  else if (pending != NULL)
+    to_remove = pending;
+  else
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NO_SPACE,
+                   "Not enough free space on /boot and no unused deployment to remove");
+      return FALSE;
+    }
+
+  g_message ("Removing %s deployment to free space on /boot: "
+             "OS name: %s, checksum: %s",
+             to_remove == rollback ? "rollback" : "pending",
+             ostree_deployment_get_osname (to_remove),
+             ostree_deployment_get_csum (to_remove));
+
+  deployments = ostree_sysroot_get_deployments (sysroot);
+  new_deployments = g_ptr_array_new_with_free_func (g_object_unref);
+  for (guint i = 0; i < deployments->len; i++)
+    {
+      OstreeDeployment *d = deployments->pdata[i];
+      if (d != to_remove)
+        g_ptr_array_add (new_deployments, g_object_ref (d));
+    }
+
+  if (!ostree_sysroot_write_deployments (sysroot, new_deployments, cancellable, error))
+    return FALSE;
+
+  if (!ostree_sysroot_cleanup (sysroot, cancellable, error))
+    return FALSE;
+
+  return TRUE;
+}
+
+static gboolean
 apply_internal (ApplyData     *apply_data,
                 GCancellable  *cancellable,
                 GError       **error)
@@ -298,9 +347,19 @@ apply_internal (ApplyData     *apply_data,
   if (!ostree_sysroot_load (sysroot, cancellable, error))
     return FALSE;
 
-  /* Check that /boot has enough free space before deploying. */
+  /* Check that /boot has enough free space before deploying. A new
+   * kernel/initramfs image may need to be written there. If not enough
+   * space is available, try to free some by removing an unused deployment.
+   */
   if (!check_boot_free_space (error))
-    return FALSE;
+    {
+      if (!g_error_matches (*error, G_IO_ERROR, G_IO_ERROR_NO_SPACE))
+        return FALSE;
+      g_clear_error (error);
+
+      if (!remove_one_unused_deployment (sysroot, cancellable, error))
+        return FALSE;
+    }
 
   booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
                                                                              error);
