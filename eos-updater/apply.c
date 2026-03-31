@@ -22,6 +22,7 @@
  *  - Vivek Dasmohapatra <vivek@etla.org>
  */
 
+#include <sys/statvfs.h>
 #include <eos-updater/apply.h>
 #include <eos-updater/data.h>
 #include <eos-updater/object.h>
@@ -230,6 +231,47 @@ update_remote_branches (OstreeRepo   *repo,
 }
 
 static gboolean
+check_boot_free_space (GError **error)
+{
+  g_autofree gchar *cmdline = NULL;
+  struct statvfs boot_stat;
+  guint64 boot_free_bytes;
+  /* Require at least 100 MiB free on /boot */
+  const guint64 boot_min_free_bytes = 100 * 1024 * 1024;
+
+  /* Only check free space on provisioned PAYG systems, identified by the
+   * presence of "eospayg" in the kernel command line.
+   */
+  if (!g_file_get_contents ("/proc/cmdline", &cmdline, NULL, error))
+    return FALSE;
+
+  if (strstr (cmdline, "eospayg") == NULL)
+    return TRUE;
+
+  if (statvfs ("/boot", &boot_stat) != 0)
+    {
+      g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
+                   "Failed to check free space on /boot: %s",
+                   g_strerror (errno));
+      return FALSE;
+    }
+
+  boot_free_bytes = (guint64) boot_stat.f_bavail * (guint64) boot_stat.f_frsize;
+  g_message ("Free space on /boot: %" G_GUINT64_FORMAT " bytes", boot_free_bytes);
+
+  if (boot_free_bytes < boot_min_free_bytes)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NO_SPACE,
+                   "Not enough free space on /boot: have %" G_GUINT64_FORMAT " bytes, "
+                   "need at least %" G_GUINT64_FORMAT " bytes",
+                   boot_free_bytes, boot_min_free_bytes);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+static gboolean
 apply_internal (ApplyData     *apply_data,
                 GCancellable  *cancellable,
                 GError       **error)
@@ -254,6 +296,10 @@ apply_internal (ApplyData     *apply_data,
   if (!ostree_sysroot_lock (sysroot, error))
     return FALSE;
   if (!ostree_sysroot_load (sysroot, cancellable, error))
+    return FALSE;
+
+  /* Check that /boot has enough free space before deploying. */
+  if (!check_boot_free_space (error))
     return FALSE;
 
   booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
