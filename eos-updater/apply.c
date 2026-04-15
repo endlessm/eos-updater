@@ -22,6 +22,9 @@
  *  - Vivek Dasmohapatra <vivek@etla.org>
  */
 
+#include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <sys/utsname.h>
 #include <eos-updater/apply.h>
 #include <eos-updater/data.h>
 #include <eos-updater/object.h>
@@ -230,6 +233,111 @@ update_remote_branches (OstreeRepo   *repo,
 }
 
 static gboolean
+check_boot_free_space (gboolean *enough_space, GError **error)
+{
+  g_autofree gchar *cmdline = NULL;
+  struct statvfs boot_stat;
+  guint64 boot_free_bytes;
+  /* Default requirement: at least 100 MiB free on /boot */
+  guint64 boot_min_free_bytes = 100 * 1024 * 1024;
+  struct utsname uts;
+  struct stat image_stat;
+
+  *enough_space = TRUE;
+
+  /* Only check free space on provisioned PAYG systems, identified by the
+   * presence of "eospayg" in the kernel command line.
+   */
+  if (!g_file_get_contents ("/proc/cmdline", &cmdline, NULL, error))
+    return FALSE;
+
+  if (strstr (cmdline, "eospayg") == NULL)
+    return TRUE;
+
+  if (uname (&uts) == 0)
+    {
+      g_autofree gchar *image_path = g_strdup_printf ("/lib/modules/%s/payg-image.efi",
+                                                      uts.release);
+      if (stat (image_path, &image_stat) == 0)
+        {
+          /* Requirement is 1.1 times the current UKI image size */
+          boot_min_free_bytes = (guint64) (image_stat.st_size * 1.1);
+          g_debug ("PAYG image %s size is %" G_GUINT64_FORMAT " bytes, "
+                   "setting requirement to %" G_GUINT64_FORMAT " bytes",
+                   image_path, (guint64) image_stat.st_size, boot_min_free_bytes);
+        }
+      else
+        {
+          g_warning ("Could not stat %s: %s. Using default 100 MiB.",
+                     image_path, g_strerror (errno));
+        }
+    }
+
+  if (statvfs ("/boot", &boot_stat) != 0)
+    {
+      g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
+                   "Failed to check free space on /boot: %s",
+                   g_strerror (errno));
+      return FALSE;
+    }
+
+  boot_free_bytes = (guint64) boot_stat.f_bavail * (guint64) boot_stat.f_frsize;
+  g_message ("Free space on /boot: %" G_GUINT64_FORMAT " bytes", boot_free_bytes);
+
+  if (boot_free_bytes < boot_min_free_bytes)
+    {
+      *enough_space = FALSE;
+      g_warning ("Not enough free space on /boot: have %" G_GUINT64_FORMAT " bytes, "
+                 "need at least %" G_GUINT64_FORMAT " bytes",
+                 boot_free_bytes, boot_min_free_bytes);
+    }
+
+  return TRUE;
+}
+
+static gboolean
+remove_one_unused_deployment (OstreeSysroot  *sysroot,
+                              GCancellable   *cancellable,
+                              GError        **error)
+{
+  g_autoptr(OstreeDeployment) pending = NULL;
+  g_autoptr(OstreeDeployment) rollback = NULL;
+  g_autoptr(GPtrArray) deployments = NULL;
+  OstreeDeployment *to_remove = NULL;
+
+  ostree_sysroot_query_deployments_for (sysroot, NULL, &pending, &rollback);
+
+  /* Prefer removing the rollback (older) over the pending deployment */
+  if (rollback != NULL)
+    to_remove = rollback;
+  else if (pending != NULL)
+    to_remove = pending;
+  else
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NO_SPACE,
+                   "Not enough free space on /boot and no unused deployment to remove");
+      return FALSE;
+    }
+
+  g_message ("Removing %s deployment to free space on /boot: "
+             "OS name: %s, checksum: %s",
+             to_remove == rollback ? "rollback" : "pending",
+             ostree_deployment_get_osname (to_remove),
+             ostree_deployment_get_csum (to_remove));
+
+  deployments = ostree_sysroot_get_deployments (sysroot);
+  g_ptr_array_remove (deployments, to_remove);
+
+  if (!ostree_sysroot_write_deployments (sysroot, deployments, cancellable, error))
+    return FALSE;
+
+  if (!ostree_sysroot_cleanup (sysroot, cancellable, error))
+    return FALSE;
+
+  return TRUE;
+}
+
+static gboolean
 apply_internal (ApplyData     *apply_data,
                 GCancellable  *cancellable,
                 GError       **error)
@@ -243,6 +351,7 @@ apply_internal (ApplyData     *apply_data,
   g_autoptr(GKeyFile) origin = NULL;
   g_autoptr(OstreeSysroot) sysroot = NULL;
   const gchar *osname = get_test_osname ();
+  gboolean enough_boot_space = TRUE;
   gboolean staged_deploy;
   g_autoptr(GError) local_error = NULL;
 
@@ -255,6 +364,27 @@ apply_internal (ApplyData     *apply_data,
     return FALSE;
   if (!ostree_sysroot_load (sysroot, cancellable, error))
     return FALSE;
+
+  /* Check that /boot has enough free space before deploying. A new
+   * kernel/initramfs image may need to be written there. If not enough
+   * space is available, try to free some by removing an unused deployment.
+   */
+  if (!check_boot_free_space (&enough_boot_space, &local_error))
+    {
+      g_warning ("Failed to check free space on /boot: %s", local_error->message);
+      g_clear_error (&local_error);
+    }
+
+  if (!enough_boot_space)
+    {
+      if (!remove_one_unused_deployment (sysroot, cancellable, &local_error))
+      {
+        g_warning ("Failed to undeploy unused OSTree deployment: %s. "
+                   "But, still try to apply the new update as usual.",
+		   local_error->message);
+        g_clear_error (&local_error);
+      }
+    }
 
   booted_deployment = eos_updater_get_booted_deployment_from_loaded_sysroot (sysroot,
                                                                              error);
